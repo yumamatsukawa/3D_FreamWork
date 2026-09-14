@@ -1,61 +1,72 @@
-﻿#pragma once
-#include <DirectXMath.h>
+#pragma once
 #include <string>
+#include <vector>
 #include <memory>
 #include "Transform.h"
-#include "Collider.h"
+#include "Component.h"
 
+// GameObjectはそれ自体では何もしない「入れ物」。
+// 実際の見た目や動きは、AddComponentで追加したComponent(部品)が担う。
 class GameObject {
-protected:
-    std::unique_ptr<Collider2D> collider;
-    Transform   transform;
+private:
+    std::string name;
     std::string tag;
-    bool        isActive = true;
+    bool isActive = true;
+
+    std::vector<std::unique_ptr<Component>> components;
 
 public:
+    // すべてのGameObjectが必ず持つ、特別な存在としてのTransform
+    Transform transform;
+
     GameObject() = default;
-    GameObject(std::string Tag) : tag{ Tag } {}
-    virtual ~GameObject() {
-        if (collider) UnregisterCollider(collider.get());
+    explicit GameObject(std::string name, std::string tag = "")
+        : name(std::move(name)), tag(std::move(tag)) {
+    }
+    virtual ~GameObject() = default;
+
+    // ─── ライフサイクル ─────────────────────────
+    // 持っている全Componentを更新する(GameObject自身は何も処理しない)
+    void Update(float dt) {
+        if (!isActive) return;
+        for (auto& c : components)
+            if (c->IsEnabled()) c->Update(dt);
     }
 
-    virtual void Init() {}
-    virtual void Update(float dt) {}
-    virtual void Draw() {}
-    virtual void Uninit() {
-        if (collider) UnregisterCollider(collider.get());
+    void Draw() {
+        if (!isActive) return;
+        for (auto& c : components)
+            if (c->IsEnabled()) c->Draw();
     }
 
-    // すり抜ける当たり判定
-    virtual void OnTriggerEnter2D(Collider2D* other) {}
-    virtual void OnTriggerStay2D(Collider2D* other) {}
-    virtual void OnTriggerExit2D(Collider2D* other) {}
+    void Uninit() {
+        for (auto& c : components) c->Uninit();
+    }
 
-    // すり抜けない当たり判定
-    virtual void OnCollisionEnter2D(CollisionInfo info) {}
-    virtual void OnCollisionStay2D(CollisionInfo info) {}
-    virtual void OnCollisionExit2D(CollisionInfo info) {}
-
-    const std::string& GetTag() const { return tag; }
-    Transform& GetTransform()  { return transform; }
-    const bool& GetIsActive() const { return isActive; }
-
-
-    /* =======================================================
-    * コライダーの追加:
-    * <>に何のコライダーにするのかを入れる
-    * ()に入れるもの：
-    * ->BoxCollider2D...ならisTriggerと大きさと座標
-    * ->CircleCollider2DならisTriggerと半径と座標
-    ======================================================== */
-    template<typename T = Collider2D, typename... Args>
-    T* AddCollider(Args&&... args) {
-        auto col = std::make_unique<T>(std::forward<Args>(args)...);
-        col->owner = this;
-        col->enabled = true;
-        T* ptr = col.get();
-        RegisterCollider(ptr);
-        collider = std::move(col);
+    // ─── コンポーネント操作 ─────────────────────
+    // 新しいComponentを追加する。例: obj->AddComponent<SpriteRenderer>();
+    template<typename T, typename... Args>
+    T* AddComponent(Args&&... args) {
+        auto comp = std::make_unique<T>(std::forward<Args>(args)...);
+        comp->SetOwner(this);
+        T* ptr = comp.get();
+        components.push_back(std::move(comp));
+        ptr->Init();
         return ptr;
     }
+
+    // 型を指定して、付いているComponentを探す。無ければnullptr。
+    template<typename T>
+    T* GetComponent() {
+        for (auto& c : components) {
+            if (T* casted = dynamic_cast<T*>(c.get())) return casted;
+        }
+        return nullptr;
+    }
+
+    // ─── アクセサ ───────────────────────────────
+    const std::string& GetName() const { return name; }
+    const std::string& GetTag()  const { return tag; }
+    bool GetIsActive() const { return isActive; }
+    void SetActive(bool v) { isActive = v; }
 };
