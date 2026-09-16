@@ -18,7 +18,7 @@ GameObject* CreatePlayer(Scene& scene) {
     player->AddComponent<PlayerController>();
 
     // 当たり判定(すり抜ける円形)
-    player->AddComponent<CircleColliderComponent>(true, 50.0f);
+    player->AddComponent<CircleColliderComponent>(false, 50.0f);
 
     return player;
 }
