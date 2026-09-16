@@ -3,7 +3,6 @@
 #include <d3dcompiler.h>
 #include <DirectXMath.h>
 #include <string>
-#include <vector>
 #include "Transform.h"
 #pragma comment(lib, "d3dcompiler.lib")
 
@@ -44,19 +43,11 @@ private:
     bool CreateBuffers();
     bool CreateSampler();
     bool CreateBlendState();
-    XMMATRIX BuildWorldMatrix(const Transform& transform, float crushY) const;
+    XMMATRIX BuildWorldMatrix(const Transform& transform) const;
 
 public:
     bool Init();
     void Draw(Transform transform, XMFLOAT4 color, const SpriteSheet& sheet = SpriteSheet());
-    void DrawUV(Transform transform, XMFLOAT4 color,
-        XMFLOAT2 uvMin, XMFLOAT2 uvMax, const SpriteSheet& sheet = SpriteSheet()
-    );
-    void DrawPolygon(Transform transform,  XMFLOAT4 color,
-        const std::vector<XMFLOAT2>& localPos,   // ローカル座標
-        const std::vector<XMFLOAT2>& uvs,        // UV座標
-        const SpriteSheet& sheet = SpriteSheet()
-    );
     void Uninit();
 
     int GetTextureWidth()  const { return texWidth; }

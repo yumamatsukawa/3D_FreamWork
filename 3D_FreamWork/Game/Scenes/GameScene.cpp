@@ -4,8 +4,8 @@
 
 void GameScene::Init()
 {
-    AddObject<Player>("Player");
-    AddObject<Enemy>("Enemy");
+    CreatePlayer(*this);
+    CreateEnemy(*this);
 }
 
 void GameScene::Uninit()

@@ -1,9 +1,5 @@
 ﻿#include "Scene.h"
-
-void Scene::Init()
-{
-
-}
+#include <algorithm>
 
 void Scene::Update(float dt) {
     for (auto& obj : objects)

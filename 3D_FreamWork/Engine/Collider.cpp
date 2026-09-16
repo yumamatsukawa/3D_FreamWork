@@ -40,13 +40,15 @@ const std::string& Collider2D::GetTag() const {
 
 // BoxCollider2D の GetCorners
 void BoxCollider2D::GetCorners(XMFLOAT2 outCorners[4]) const {
-    const Transform& t = owner->GetTransform();
+    const Transform& t = owner->transform;
 
     // ★ size が 0 なら transform.scale を使う
     float w = (size.x > 0.f) ? size.x : t.scale.x;
     float h = (size.y > 0.f) ? size.y : t.scale.y;
 
-    float rad = t.rotate.z * (XM_PI / 180.f);
+    // ★ 見た目(Sprite)の回転方向に合わせるため、他のBox系関数(CheckCircleBox等)と
+    //   同じく符号を反転させる(反転させないと見た目と逆向きに回転してしまう)
+    float rad = -t.rotate.z * (XM_PI / 180.f);
     float cosA = cosf(rad);
     float sinA = sinf(rad);
 
@@ -72,10 +74,10 @@ void BoxCollider2D::GetCorners(XMFLOAT2 outCorners[4]) const {
 
 // CircleCollider2D の GetCenter / GetRadius
 XMFLOAT2 CircleCollider2D::GetCenter() const {
-    const Transform& t = owner->GetTransform();
+    const Transform& t = owner->transform;
 
-    // ★ offset を回転させてから中心座標に加算
-    float rad = t.rotate.z * (XM_PI / 180.f);
+    // ★ offset を回転させてから中心座標に加算(見た目の回転方向に合わせて符号反転)
+    float rad = -t.rotate.z * (XM_PI / 180.f);
     float cosA = cosf(rad);
     float sinA = sinf(rad);
     float ox = offset.x * cosA - offset.y * sinA;
@@ -85,7 +87,7 @@ XMFLOAT2 CircleCollider2D::GetCenter() const {
 }
 
 float CircleCollider2D::GetRadius() const {
-    return (radius > 0.f) ? radius : owner->GetTransform().scale.x / 2.f;
+    return (radius > 0.f) ? radius : owner->transform.scale.x / 2.f;
 }
 
 // ─── 判定関数 ─────────────────────────────────
@@ -141,7 +143,7 @@ static bool CheckCircleCircle(CircleCollider2D* a, CircleCollider2D* b) {
 // 円 vs Box
 static bool CheckCircleBox(CircleCollider2D* circle, BoxCollider2D* box) {
     // 円の中心をBoxのローカル座標に変換
-    const Transform& t = box->owner->GetTransform();
+    const Transform& t = box->owner->transform;
     float rad = -t.rotate.z * (XM_PI / 180.f);  // 逆回転
     float cosA = cosf(rad);
     float sinA = sinf(rad);
@@ -223,14 +225,14 @@ static bool CheckBoxBoxWithInfo(BoxCollider2D* a, BoxCollider2D* b,
         minAxis.y = -minAxis.y;
     }
 
-    // A の情報（Bに向かって押し戻す）
+    // A の情報（Bから離れる方向、= Bに向かう軸の逆向き）
     infoA.other = b;
-    infoA.normal = minAxis;
+    infoA.normal = { -minAxis.x, -minAxis.y };
     infoA.depth = minOverlap;
 
-    // B の情報（Aに向かって押し戻す）
+    // B の情報（Aから離れる方向）
     infoB.other = a;
-    infoB.normal = { -minAxis.x, -minAxis.y };
+    infoB.normal = minAxis;
     infoB.depth = minOverlap;
 
     return true;
@@ -247,20 +249,20 @@ static bool CheckCircleCircleWithInfo(CircleCollider2D* a, CircleCollider2D* b,
 
     if (dist >= r) return false;
 
-    // ★ 押し戻し方向（A→B の正規化ベクトル）
+    // A→B の正規化ベクトル。押し戻しはお互いこの逆向き(離れる方向)にする
     float nx = (dist > 0.f) ? dx / dist : 1.f;
     float ny = (dist > 0.f) ? dy / dist : 0.f;
     float depth = r - dist;
 
-    infoA = { b, {  nx,  ny }, depth };
-    infoB = { a, { -nx, -ny }, depth };
+    infoA = { b, { -nx, -ny }, depth };  // Aから見て、Bから離れる方向
+    infoB = { a, {  nx,  ny }, depth };  // Bから見て、Aから離れる方向
 
     return true;
 }
 
 static bool CheckCircleBoxWithInfo(CircleCollider2D* circle, BoxCollider2D* box,
     CollisionInfo& infoCircle, CollisionInfo& infoBox) {
-    const Transform& t = box->owner->GetTransform();
+    const Transform& t = box->owner->transform;
     float rad = -t.rotate.z * (XM_PI / 180.f);
     float cosA = cosf(rad);
     float sinA = sinf(rad);
@@ -409,6 +411,30 @@ void UpdateCollider() {
                         static_cast<BoxCollider2D*>(a),
                         infoB, infoA);  // ★ infoB, infoA の順番
                 }
+
+                if (hit) {
+                    // ★ めり込み分の押し戻し。isStaticなら自分は動かず、相手側で全部吸収する
+                    //   両方staticなら誰も動かない
+                    float ratioA = a->isStatic ? 0.f : (b->isStatic ? 1.f : 0.5f);
+                    float ratioB = b->isStatic ? 0.f : (a->isStatic ? 1.f : 0.5f);
+
+                    a->owner->transform.position.x += infoA.normal.x * infoA.depth * ratioA;
+                    a->owner->transform.position.y += infoA.normal.y * infoA.depth * ratioA;
+                    b->owner->transform.position.x += infoB.normal.x * infoB.depth * ratioB;
+                    b->owner->transform.position.y += infoB.normal.y * infoB.depth * ratioB;
+
+                    uint64_t pairId = MakePairId(i, j);
+                    g_CurrPairs.insert(pairId);
+
+                    if (g_PrevPairs.count(pairId)) {
+                        a->owner->OnCollisionStay2D(infoA);
+                        b->owner->OnCollisionStay2D(infoB);
+                    }
+                    else {
+                        a->owner->OnCollisionEnter2D(infoA);
+                        b->owner->OnCollisionEnter2D(infoB);
+                    }
+                }
             }
         }
     }
@@ -449,7 +475,7 @@ void DrawColliders() {
         {
             debugTexID = g_DebugCircleTexID;
         }
-        Image::Draw(col->owner->GetTransform(), debugTexID);
+        Image::Draw(col->owner->transform, debugTexID);
     }
 }
 

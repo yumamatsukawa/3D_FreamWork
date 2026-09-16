@@ -1,6 +1,7 @@
 ﻿#include "Sprite.h"
 #include "WICTextureLoader11.h"
 #include "Graphics.h"
+#include <cassert>
 
 bool Sprite::Init() {
     context = Graphics::context;
@@ -37,18 +38,34 @@ bool Sprite::CreateShaders() {
         return false;
     }
 
-    Graphics::device->CreateVertexShader(vsBlob->GetBufferPointer(),
+    hr = Graphics::device->CreateVertexShader(vsBlob->GetBufferPointer(),
         vsBlob->GetBufferSize(), nullptr, &vertexShader);
-    Graphics::device->CreatePixelShader(psBlob->GetBufferPointer(),
+    if (FAILED(hr)) {
+        OutputDebugStringA("★ CreateVertexShader 失敗\n");
+        vsBlob->Release(); psBlob->Release();
+        return false;
+    }
+
+    hr = Graphics::device->CreatePixelShader(psBlob->GetBufferPointer(),
         psBlob->GetBufferSize(), nullptr, &pixelShader);
+    if (FAILED(hr)) {
+        OutputDebugStringA("★ CreatePixelShader 失敗\n");
+        vsBlob->Release(); psBlob->Release();
+        return false;
+    }
 
     D3D11_INPUT_ELEMENT_DESC layout[] = {
         { "POSITION", 0, DXGI_FORMAT_R32G32_FLOAT,      0,  0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
         { "COLOR",    0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0,  8, D3D11_INPUT_PER_VERTEX_DATA, 0 },
         { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT,       0, 24, D3D11_INPUT_PER_VERTEX_DATA, 0 },
     };
-    Graphics::device->CreateInputLayout(layout, 3,
+    hr = Graphics::device->CreateInputLayout(layout, 3,
         vsBlob->GetBufferPointer(), vsBlob->GetBufferSize(), &inputLayout);
+    if (FAILED(hr)) {
+        OutputDebugStringA("★ CreateInputLayout 失敗\n");
+        vsBlob->Release(); psBlob->Release();
+        return false;
+    }
 
     vsBlob->Release();
     psBlob->Release();
@@ -59,16 +76,17 @@ bool Sprite::CreateBuffers() {
     // ---- 頂点バッファ ----
     D3D11_BUFFER_DESC bd = {};
     bd.Usage = D3D11_USAGE_DYNAMIC;
-    bd.ByteWidth = sizeof(Vertex) * 64;
+    bd.ByteWidth = sizeof(Vertex) * 4;   // スプライト1枚は常に4頂点
     bd.BindFlags = D3D11_BIND_VERTEX_BUFFER;
     bd.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
     HRESULT hr = Graphics::device->CreateBuffer(&bd, nullptr, &vertexBuffer);
     if (FAILED(hr)) return false;
 
     // ---- 定数バッファ（ワールド行列）----
+    // cbuffer は 16 バイト境界が必要。XMMATRIX は 64 バイトなのでそのまま OK
     D3D11_BUFFER_DESC cbd = {};
     cbd.Usage = D3D11_USAGE_DYNAMIC;
-    cbd.ByteWidth = sizeof(ConstantBuffer);
+    cbd.ByteWidth = sizeof(ConstantBuffer);   // = sizeof(XMMATRIX) = 64
     cbd.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
     cbd.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
     hr = Graphics::device->CreateBuffer(&cbd, nullptr, &constantBuffer);
@@ -104,20 +122,32 @@ bool Sprite::CreateBlendState() {
 //   Transform → ワールド行列（平行移動・回転・スケール）を組み立てる
 //   最終的に NDC 変換まで含めた行列を返す
 // ---------------------------------------------------------------------------
-XMMATRIX Sprite::BuildWorldMatrix(const Transform& transform, float crushY) const {
+XMMATRIX Sprite::BuildWorldMatrix(const Transform& transform) const {
     float w = (transform.scale.x > 0.f) ? transform.scale.x : (float)texWidth;
     float h = (transform.scale.y > 0.f) ? transform.scale.y : (float)texHeight;
+
+    // --- 各変換行列を生成 ---
+    // ① スケール行列: ローカル座標 [-0.5, 0.5] → ピクセルサイズに拡大
+    XMMATRIX S = XMMatrixScaling(w, h, 1.f);
+
+    // ② 回転行列（Z 軸、度 → ラジアン）
     float rad = transform.rotate.z * (XM_PI / 180.f);
+    XMMATRIX R = XMMatrixRotationZ(rad);
+
+    // ③ 平行移動行列: ピクセル座標 → NDC
+    //    NDC_x = pixel_x / (resW / 2)   NDC_y = -pixel_y / (resH / 2)
     float ndcX = transform.position.x / (resW * 0.5f);
     float ndcY = -transform.position.y / (resH * 0.5f);
-
-    XMMATRIX S = XMMatrixScaling(w, h, 1.f);
-    XMMATRIX NDC = XMMatrixScaling(2.f / resW, 2.f / resH, 1.f);
-    XMMATRIX R = XMMatrixRotationZ(rad);
-    XMMATRIX C = XMMatrixScaling(1.f, std::abs(cos(crushY * (XM_PI / 180.f))), 1.f);
     XMMATRIX T = XMMatrixTranslation(ndcX, ndcY, 0.f);
 
-    return XMMatrixTranspose(S * R * NDC * C * T);
+    // ④ NDC スケール行列: ローカル [-0.5, 0.5] を NDC スケールに変換する追加係数
+    //    （スケール行列でピクセルに拡大した後、さらに NDC へ縮小）
+    XMMATRIX NDC = XMMatrixScaling(2.f / resW, 2.f / resH, 1.f);
+
+    // 合成順: Scale → Rotate → NDC_Scale → Translate
+    //   ※ HLSL で row_major を使う場合は転置が必要。column_major なら不要。
+    //     ここでは XMMatrixTranspose して転送し、シェーダー側は column_major 想定。
+    return XMMatrixTranspose(S * R * NDC * T);
 }
 
 // ---------------------------------------------------------------------------
@@ -142,12 +172,12 @@ void Sprite::Draw(Transform transform, XMFLOAT4 color, const SpriteSheet& sheet)
     float u0 = col * uvW, u1 = u0 + uvW;
     float v0 = row * uvH, v1 = v0 + uvH;
 
-    // ローカル頂点
+    // ローカル頂点（単位クワッド）
     const Vertex vertices[4] = {
-        { { -0.5f,  0.5f }, color, { u0, v0 } },
-        { {  0.5f,  0.5f }, color, { u1, v0 } },
-        { { -0.5f, -0.5f }, color, { u0, v1 } },
         { {  0.5f, -0.5f }, color, { u1, v1 } },
+        { { -0.5f, -0.5f }, color, { u0, v1 } },
+        { {  0.5f,  0.5f }, color, { u1, v0 } },
+        { { -0.5f,  0.5f }, color, { u0, v0 } },
     };
 
     D3D11_MAPPED_SUBRESOURCE msr;
@@ -159,7 +189,7 @@ void Sprite::Draw(Transform transform, XMFLOAT4 color, const SpriteSheet& sheet)
     // 2. 定数バッファ（ワールド行列）更新
     // ------------------------------------------------------------------
     ConstantBuffer cb;
-    cb.world = BuildWorldMatrix(transform, transform.rotate.y);
+    cb.world = BuildWorldMatrix(transform);
 
     context->Map(constantBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &msr);
     memcpy(msr.pData, &cb, sizeof(cb));
@@ -184,129 +214,6 @@ void Sprite::Draw(Transform transform, XMFLOAT4 color, const SpriteSheet& sheet)
     context->PSSetSamplers(0, 1, &sampler);
 
     context->Draw(4, 0);
-}
-
-void Sprite::DrawUV(Transform transform, XMFLOAT4 color,
-    XMFLOAT2 uvMin, XMFLOAT2 uvMax, const SpriteSheet& sheet)
-{
-    // UV 計算
-    float uvW = 1.f / sheet.cols;
-    float uvH = 1.f / sheet.rows;
-    int   col = sheet.index % sheet.cols;
-    int   row = sheet.index / sheet.cols;
-
-    // シート内のこのコマの UV 開始位置
-    float sheetU0 = col * uvW;
-    float sheetV0 = row * uvH;
-
-    // uvMin/uvMax をシート内のコマの範囲にマッピング
-    float u0 = sheetU0 + uvMin.x * uvW;
-    float u1 = sheetU0 + uvMax.x * uvW;
-    float v0 = sheetV0 + uvMin.y * uvH;
-    float v1 = sheetV0 + uvMax.y * uvH;
-
-    const Vertex vertices[4] = {
-        { { -0.5f,  0.5f }, color, { u0, v0 } },
-        { {  0.5f,  0.5f }, color, { u1, v0 } },
-        { { -0.5f, -0.5f }, color, { u0, v1 } },
-        { {  0.5f, -0.5f }, color, { u1, v1 } },
-    };
-
-    D3D11_MAPPED_SUBRESOURCE msr;
-    context->Map(vertexBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &msr);
-    memcpy(msr.pData, vertices, sizeof(vertices));
-    context->Unmap(vertexBuffer, 0);
-
-    ConstantBuffer cb;
-    cb.world = BuildWorldMatrix(transform, transform.rotate.y);
-    context->Map(constantBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &msr);
-    memcpy(msr.pData, &cb, sizeof(cb));
-    context->Unmap(constantBuffer, 0);
-
-    float blendFactor[4] = {};
-    context->OMSetBlendState(blendState, blendFactor, 0xFFFFFFFF);
-    UINT stride = sizeof(Vertex), offset = 0;
-    context->IASetInputLayout(inputLayout);
-    context->IASetVertexBuffers(0, 1, &vertexBuffer, &stride, &offset);
-    context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
-    context->VSSetShader(vertexShader, nullptr, 0);
-    context->VSSetConstantBuffers(0, 1, &constantBuffer);
-    context->PSSetShader(pixelShader, nullptr, 0);
-    context->PSSetShaderResources(0, 1, &srv);
-    context->PSSetSamplers(0, 1, &sampler);
-    context->Draw(4, 0);
-}
-
-// Sprite.cpp
-void Sprite::DrawPolygon(Transform transform, XMFLOAT4 color,
-    const std::vector<XMFLOAT2>& localPos,
-    const std::vector<XMFLOAT2>& uvs,
-    const SpriteSheet& sheet)
-{
-    if (localPos.size() < 3) return;
-    if (localPos.size() != uvs.size()) {
-        OutputDebugStringA("★ DrawPolygon: localPos と uvs のサイズが違う\n");
-        return;
-    }
-
-    float uvW = 1.f / sheet.cols;
-    float uvH = 1.f / sheet.rows;
-    int   col = sheet.index % sheet.cols;
-    int   row = sheet.index / sheet.cols;
-    float sheetU0 = col * uvW;
-    float sheetV0 = row * uvH;
-
-    std::vector<Vertex> vertices;
-
-    auto MakeVertex = [&](int idx)
-        {
-            float u = sheetU0 + uvs[idx].x * uvW;
-            float v = sheetV0 + uvs[idx].y * uvH;
-
-            return Vertex{
-                localPos[idx],
-                color,
-                {u,v}
-            };
-        };
-
-    // 扇形分割
-    for (int i = 1; i < (int)localPos.size() - 1; i++)
-    {
-        vertices.push_back(MakeVertex(0));
-        vertices.push_back(MakeVertex(i));
-        vertices.push_back(MakeVertex(i + 1));
-    }
-
-    if (vertices.empty() || vertices.size() > 64) return;
-
-    D3D11_MAPPED_SUBRESOURCE msr;
-    context->Map(vertexBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &msr);
-    memcpy(msr.pData, vertices.data(), sizeof(Vertex) * vertices.size());
-    context->Unmap(vertexBuffer, 0);
-
-    ConstantBuffer cb;
-    cb.world = BuildWorldMatrix(transform, transform.rotate.y);
-    context->Map(constantBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &msr);
-    memcpy(msr.pData, &cb, sizeof(cb));
-    context->Unmap(constantBuffer, 0);
-
-    float blendFactor[4] = {};
-    context->OMSetBlendState(blendState, blendFactor, 0xFFFFFFFF);
-    UINT stride = sizeof(Vertex), offset = 0;
-    context->IASetInputLayout(inputLayout);
-    context->IASetVertexBuffers(0, 1, &vertexBuffer, &stride, &offset);
-
-    // ★ TriangleFan で描画
-    context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-
-    context->VSSetShader(vertexShader, nullptr, 0);
-    context->VSSetConstantBuffers(0, 1, &constantBuffer);
-    context->PSSetShader(pixelShader, nullptr, 0);
-    context->PSSetShaderResources(0, 1, &srv);
-    context->PSSetSamplers(0, 1, &sampler);
-
-    context->Draw((UINT)vertices.size(), 0);
 }
 
 // ---------------------------------------------------------------------------

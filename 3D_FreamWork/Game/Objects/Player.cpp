@@ -1,69 +1,24 @@
 ﻿#include "Player.h"
+#include "../../Engine/Scene.h"
+#include "../../Engine/GameObject.h"
+#include "../../Engine/SpriteRenderer.h"
+#include "../../Engine/ColliderComponent.h"
+#include "../Components/PlayerController.h"
 
-#include "../../Engine/Input.h"
+GameObject* CreatePlayer(Scene& scene) {
+    GameObject* player = scene.CreateObject("Player", "Player");
+    player->transform.position = {   0.0f,   0.0f, 0.0f };
+    player->transform.scale    = { 100.0f, 100.0f, 1.0f };
 
-Player::Player()
-{
-}
+    // 見た目
+    auto* sprite = player->AddComponent<SpriteRenderer>(L"Assets/player.png", 8, 2);
+    sprite->SetSpriteIndex(5);
 
-Player::Player(std::string tag) : GameObject(tag)
-{
-}
+    // 動き・入力操作
+    player->AddComponent<PlayerController>();
 
-void Player::Init()
-{
-    transform.position = {   0.0f,   0.0f , 0.0f };
-    transform.scale    = { 100.0f, 100.0f , 1.0f };
-    transform.rotate   = {   0.0f,   0.0f , 0.0f };
-    speed = 200.0f;
-    
-    // テクスチャの設定
-    texID = Image::LoadTexture(L"Assets/player.png", 8, 2);
+    // 当たり判定(すり抜ける円形)
+    player->AddComponent<CircleColliderComponent>(true, 50.0f);
 
-    // スプライトシートの位置指定
-    Image::SetSpriteIndex(texID, 5);
-
-    // コライダーのtag設定
-    AddCollider<CircleCollider2D>(true, 50.0f);
-}
-
-void Player::Update(float dt)
-{
-    Image::SetColor(texID, 1.0f, 1.0f, 1.0f, 1.0f);
-    DirectX::XMFLOAT2 mousePos = Input::GetMousePosition();
-
-    if (Input::GetKeyPress(MOUSE_LEFT))
-    {
-        if (IsPointInBox( mousePos, transform))
-        {
-            Image::SetColor(texID, 1.0f, 0.0f, 0.0f, 0.5f );
-        }
-    }
-
-    // 移動処理
-    if (Input::GetKeyPress(KEY_W)) transform.position.y -= speed * dt;
-    if (Input::GetKeyPress(KEY_S)) transform.position.y += speed * dt;
-    if (Input::GetKeyPress(KEY_A)) transform.position.x -= speed * dt;
-    if (Input::GetKeyPress(KEY_D)) transform.position.x += speed * dt;
-    if (Input::GetKeyPress(KEY_Q)) transform.rotate.z -= speed * dt;
-    if (Input::GetKeyPress(KEY_E)) transform.rotate.z += speed * dt;
-}
-
-void Player::Draw()
-{
-    // 描画
-    Image::Draw(transform, texID);
-}
-
-void Player::Uninit()
-{
-    Image::ReleaseTexture(texID);
-}
-
-void Player::OnTriggerStay2D(Collider2D* other)
-{
-    if (other->GetTag() == "Enemy")
-    {
-        Image::SetColor(texID, 1.0f, 0.0f, 0.0f, 1.0f);
-    }
+    return player;
 }

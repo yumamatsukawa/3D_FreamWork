@@ -3,7 +3,7 @@
 
 void TitleScene::Init()
 {
-    AddObject<Title>();
+    CreateTitle(*this);
 }
 
 void TitleScene::Uninit()

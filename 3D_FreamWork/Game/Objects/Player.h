@@ -1,20 +1,7 @@
 ﻿#pragma once
-#include "../../Engine/GameObject.h"
-#include "../../Engine/Image.h"
 
-class Player : public GameObject
-{
-private:
-    unsigned int texID = UINT_MAX;
-    float speed;
+class Scene;
+class GameObject;
 
-    void OnTriggerStay2D(Collider2D* other) override;
-public:
-    Player();
-    Player(std::string tag);
-
-    void Init() override;
-    void Update(float dt) override;
-    void Draw() override;
-    void Uninit() override;
-};
+// Playerを構成するGameObjectを組み立てて、sceneに追加する
+GameObject* CreatePlayer(Scene& scene);

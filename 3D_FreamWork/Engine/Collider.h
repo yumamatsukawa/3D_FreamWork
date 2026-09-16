@@ -15,6 +15,7 @@ public:
     GameObject* owner = nullptr;
     bool enabled      = true;
     bool isTrigger    = false;  // ★ true=Trigger, false=Collision
+    bool isStatic     = false;  // ★ true=床や壁など動かないオブジェクト(押し戻されない)
     DirectX::XMFLOAT2 offset = { 0.f, 0.f };  // transformからのオフセット
 
     const std::string& GetTag() const;

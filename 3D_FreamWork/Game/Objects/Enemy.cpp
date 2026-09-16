@@ -1,48 +1,21 @@
 ﻿#include "Enemy.h"
+#include "../../Engine/Scene.h"
+#include "../../Engine/GameObject.h"
+#include "../../Engine/SpriteRenderer.h"
+#include "../../Engine/ColliderComponent.h"
 
-#include "../../Engine/Input.h"
+GameObject* CreateEnemy(Scene& scene) {
+    GameObject* enemy = scene.CreateObject("Enemy", "Enemy");
+    enemy->transform.position = { 150.0f,   0.0f, 0.0f };
+    enemy->transform.scale    = { 100.0f, 100.0f, 0.0f };
 
-Enemy::Enemy()
-{
-}
+    // 見た目(Enemyは毎フレームの処理が無いので、SpriteRendererの設定だけで表現する)
+    auto* sprite = enemy->AddComponent<SpriteRenderer>(L"Assets/player.png", 8, 2);
+    sprite->SetSpriteIndex(5);
+    sprite->SetColor(1.0f, 0.0f, 1.0f, 1.0f);
 
-Enemy::Enemy(std::string tag) : GameObject(tag)
-{
-}
+    // 当たり判定(すり抜ける四角形)
+    enemy->AddComponent<BoxColliderComponent>(false, enemy->transform.scale, XMFLOAT3{}, true);
 
-void Enemy::Init()
-{
-    transform.position = { 100.0f,   0.0f , 0.0f };
-    transform.scale    = { 100.0f, 100.0f , 0.0f };
-    transform.rotate   = {   0.0f,   0.0f , 0.0f };
-    speed = 200.0f;
-    
-    // テクスチャの設定
-    texID = Image::LoadTexture(L"Assets/player.png", 8, 2);
-
-    // スプライトシートの位置指定
-    Image::SetSpriteIndex(texID, 5);
-
-    AddCollider<BoxCollider2D>(true, transform.scale);
-}
-
-void Enemy::Update(float dt)
-{
-    Image::SetColor(texID, 1.0f, 0.0f, 1.0f, 1.0f);
-}
-
-void Enemy::Draw()
-{
-    // 描画
-    Image::Draw(transform, texID);
-}
-
-void Enemy::Uninit()
-{
-    Image::ReleaseTexture(texID);
-}
-
-void Enemy::OnTriggerEnter2D(Collider2D* other)
-{
-
+    return enemy;
 }

@@ -7,8 +7,11 @@
     <Filter Include="Game">
       <UniqueIdentifier>{f556610a-ee69-4723-8f15-efd8042aa723}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Game\Objects">
+    <Filter Include="Game\Components">
       <UniqueIdentifier>{571f907c-06f7-494e-8513-62e9ace31906}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Game\Objects">
+      <UniqueIdentifier>{9d3f8c1e-4b2a-4e7d-8f6b-2a1c3d4e5f60}</UniqueIdentifier>
     </Filter>
     <Filter Include="Game\Scenes">
       <UniqueIdentifier>{3b796013-b1c9-41e0-ae23-89682bff0a6f}</UniqueIdentifier>
@@ -42,6 +45,9 @@
     <ClCompile Include="Engine\Sprite.cpp">
       <Filter>Engine</Filter>
     </ClCompile>
+    <ClCompile Include="Engine\SpriteRenderer.cpp">
+      <Filter>Engine</Filter>
+    </ClCompile>
     <ClCompile Include="Engine\Text.cpp">
       <Filter>Engine</Filter>
     </ClCompile>
@@ -57,10 +63,16 @@
     <ClCompile Include="Game\Scenes\TitleScene.cpp">
       <Filter>Game\Scenes</Filter>
     </ClCompile>
-    <ClCompile Include="Game\Objects\Enemy.cpp">
-      <Filter>Game\Objects</Filter>
+    <ClCompile Include="Game\Components\PlayerController.cpp">
+      <Filter>Game\Components</Filter>
+    </ClCompile>
+    <ClCompile Include="Game\Components\TitleController.cpp">
+      <Filter>Game\Components</Filter>
     </ClCompile>
     <ClCompile Include="Game\Objects\Player.cpp">
+      <Filter>Game\Objects</Filter>
+    </ClCompile>
+    <ClCompile Include="Game\Objects\Enemy.cpp">
       <Filter>Game\Objects</Filter>
     </ClCompile>
     <ClCompile Include="Game\Objects\Title.cpp">
@@ -72,7 +84,16 @@
     <ClInclude Include="Engine\Audio.h">
       <Filter>Engine</Filter>
     </ClInclude>
+    <ClInclude Include="Engine\Camera.h">
+      <Filter>Engine</Filter>
+    </ClInclude>
     <ClInclude Include="Engine\Collider.h">
+      <Filter>Engine</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\ColliderComponent.h">
+      <Filter>Engine</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\Component.h">
       <Filter>Engine</Filter>
     </ClInclude>
     <ClInclude Include="Engine\GameEngine.h">
@@ -99,6 +120,9 @@
     <ClInclude Include="Engine\Sprite.h">
       <Filter>Engine</Filter>
     </ClInclude>
+    <ClInclude Include="Engine\SpriteRenderer.h">
+      <Filter>Engine</Filter>
+    </ClInclude>
     <ClInclude Include="Engine\Text.h">
       <Filter>Engine</Filter>
     </ClInclude>
@@ -117,13 +141,19 @@
     <ClInclude Include="Game\Scenes\TitleScene.h">
       <Filter>Game\Scenes</Filter>
     </ClInclude>
-    <ClInclude Include="Game\Objects\Title.h">
-      <Filter>Game\Objects</Filter>
+    <ClInclude Include="Game\Components\PlayerController.h">
+      <Filter>Game\Components</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\Components\TitleController.h">
+      <Filter>Game\Components</Filter>
     </ClInclude>
     <ClInclude Include="Game\Objects\Player.h">
       <Filter>Game\Objects</Filter>
     </ClInclude>
     <ClInclude Include="Game\Objects\Enemy.h">
+      <Filter>Game\Objects</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\Objects\Title.h">
       <Filter>Game\Objects</Filter>
     </ClInclude>
   </ItemGroup>
