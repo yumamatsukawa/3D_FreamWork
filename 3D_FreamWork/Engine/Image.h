@@ -3,6 +3,7 @@
 #include "Sprite.h"
 #include "Texture.h"
 #include "GameObject.h"
+#include "Camera.h"
 #include <vector>
 #include <string>
 
@@ -12,6 +13,10 @@ namespace Image
     void BeginFrame();
     void EndFrame();
     void Uninit();
+
+    // 現在の描画に使われているカメラ。position(x,y)を動かすと画面がスクロールする
+    // 例: Image::GetCamera().position = player->transform.position;
+    Camera& GetCamera();
 
     unsigned int LoadTexture(const std::wstring& filepath, int cols = 1, int rows = 1);
     void         ReleaseTexture(unsigned int id);

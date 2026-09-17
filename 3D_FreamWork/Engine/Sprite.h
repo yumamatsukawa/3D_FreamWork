@@ -4,6 +4,7 @@
 #include <DirectXMath.h>
 #include <string>
 #include "Transform.h"
+#include "Camera.h"
 #pragma comment(lib, "d3dcompiler.lib")
 
 struct SpriteSheet {
@@ -39,6 +40,8 @@ private:
     float resW = 0, resH = 0;
     int   texWidth = 0, texHeight = 0;
 
+    const Camera* camera = nullptr;  // 設定されていれば、描画時にこのカメラの位置ぶんだけ画面をずらす
+
     bool CreateShaders();
     bool CreateBuffers();
     bool CreateSampler();
@@ -55,4 +58,7 @@ public:
 
     void SetTexture(ID3D11ShaderResourceView* srv) { this->srv = srv; }
     void SetTextureSize(int w, int h) { texWidth = w; texHeight = h; }
+
+    // このカメラの position(x, y)ぶんだけ、以降の描画位置をずらすようになる
+    void SetCamera(const Camera* cam) { camera = cam; }
 };

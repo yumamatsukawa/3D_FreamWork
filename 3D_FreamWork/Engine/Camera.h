@@ -16,6 +16,12 @@ public:
     float nearZ = 0.1f;      // これより手前は描画しない
     float farZ = 10000.f;    // これより奥は描画しない
 
+    // 2D描画で「奥行きによる遠近感」を出すための基準距離。
+    // オブジェクトがこの距離にいる時、等倍(100%)の大きさで表示される。
+    // 既定値はposition.zの初期値(-500)に合わせてあるので、
+    // Z=0のオブジェクトは今まで通りの見た目のまま
+    float focalLength = 500.f;
+
     // ワールド空間 → カメラ空間 への変換行列
     XMMATRIX GetViewMatrix() const {
         XMVECTOR eye = XMLoadFloat3(&position);

@@ -40,7 +40,7 @@ const std::string& Collider2D::GetTag() const {
 
 // BoxCollider2D の GetCorners
 void BoxCollider2D::GetCorners(XMFLOAT2 outCorners[4]) const {
-    const Transform& t = owner->transform;
+    const Transform t = owner->transform.GetWorldTransform();  // 親を辿ったワールド座標で判定する
 
     // ★ size が 0 なら transform.scale を使う
     float w = (size.x > 0.f) ? size.x : t.scale.x;
@@ -74,7 +74,7 @@ void BoxCollider2D::GetCorners(XMFLOAT2 outCorners[4]) const {
 
 // CircleCollider2D の GetCenter / GetRadius
 XMFLOAT2 CircleCollider2D::GetCenter() const {
-    const Transform& t = owner->transform;
+    const Transform t = owner->transform.GetWorldTransform();  // 親を辿ったワールド座標で判定する
 
     // ★ offset を回転させてから中心座標に加算(見た目の回転方向に合わせて符号反転)
     float rad = -t.rotate.z * (XM_PI / 180.f);
@@ -87,7 +87,7 @@ XMFLOAT2 CircleCollider2D::GetCenter() const {
 }
 
 float CircleCollider2D::GetRadius() const {
-    return (radius > 0.f) ? radius : owner->transform.scale.x / 2.f;
+    return (radius > 0.f) ? radius : owner->transform.GetWorldTransform().scale.x / 2.f;
 }
 
 // ─── 判定関数 ─────────────────────────────────
@@ -143,7 +143,7 @@ static bool CheckCircleCircle(CircleCollider2D* a, CircleCollider2D* b) {
 // 円 vs Box
 static bool CheckCircleBox(CircleCollider2D* circle, BoxCollider2D* box) {
     // 円の中心をBoxのローカル座標に変換
-    const Transform& t = box->owner->transform;
+    const Transform t = box->owner->transform.GetWorldTransform();  // 親を辿ったワールド座標で判定する
     float rad = -t.rotate.z * (XM_PI / 180.f);  // 逆回転
     float cosA = cosf(rad);
     float sinA = sinf(rad);
@@ -262,7 +262,7 @@ static bool CheckCircleCircleWithInfo(CircleCollider2D* a, CircleCollider2D* b,
 
 static bool CheckCircleBoxWithInfo(CircleCollider2D* circle, BoxCollider2D* box,
     CollisionInfo& infoCircle, CollisionInfo& infoBox) {
-    const Transform& t = box->owner->transform;
+    const Transform t = box->owner->transform.GetWorldTransform();  // 親を辿ったワールド座標で判定する
     float rad = -t.rotate.z * (XM_PI / 180.f);
     float cosA = cosf(rad);
     float sinA = sinf(rad);
@@ -418,10 +418,17 @@ void UpdateCollider() {
                     float ratioA = a->isStatic ? 0.f : (b->isStatic ? 1.f : 0.5f);
                     float ratioB = b->isStatic ? 0.f : (a->isStatic ? 1.f : 0.5f);
 
-                    a->owner->transform.position.x += infoA.normal.x * infoA.depth * ratioA;
-                    a->owner->transform.position.y += infoA.normal.y * infoA.depth * ratioA;
-                    b->owner->transform.position.x += infoB.normal.x * infoB.depth * ratioB;
-                    b->owner->transform.position.y += infoB.normal.y * infoB.depth * ratioB;
+                    // ワールド空間で計算した押し戻し量を、それぞれの親の回転・拡縮を
+                    // 考慮した上でローカルのpositionに反映する
+                    XMFLOAT2 worldPushA = { infoA.normal.x * infoA.depth * ratioA, infoA.normal.y * infoA.depth * ratioA };
+                    XMFLOAT2 worldPushB = { infoB.normal.x * infoB.depth * ratioB, infoB.normal.y * infoB.depth * ratioB };
+                    XMFLOAT2 localPushA = a->owner->transform.WorldDeltaToLocal(worldPushA);
+                    XMFLOAT2 localPushB = b->owner->transform.WorldDeltaToLocal(worldPushB);
+
+                    a->owner->transform.position.x += localPushA.x;
+                    a->owner->transform.position.y += localPushA.y;
+                    b->owner->transform.position.x += localPushB.x;
+                    b->owner->transform.position.y += localPushB.y;
 
                     uint64_t pairId = MakePairId(i, j);
                     g_CurrPairs.insert(pairId);
@@ -475,7 +482,7 @@ void DrawColliders() {
         {
             debugTexID = g_DebugCircleTexID;
         }
-        Image::Draw(col->owner->transform, debugTexID);
+        Image::Draw(col->owner->transform.GetWorldTransform(), debugTexID);
     }
 }
 

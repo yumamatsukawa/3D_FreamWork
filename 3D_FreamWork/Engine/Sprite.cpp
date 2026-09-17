@@ -126,6 +126,16 @@ XMMATRIX Sprite::BuildWorldMatrix(const Transform& transform) const {
     float w = (transform.scale.x > 0.f) ? transform.scale.x : (float)texWidth;
     float h = (transform.scale.y > 0.f) ? transform.scale.y : (float)texHeight;
 
+    // ★ カメラとのZ距離による遠近スケール。遠いほど小さく、カメラ中心寄りに見える。
+    //   focalLengthの距離にいる時が等倍(depthScale=1)。カメラが無ければ効果なし。
+    float depthScale = 1.f;
+    if (camera) {
+        float depth = transform.position.z - camera->position.z;
+        if (depth > 0.f) depthScale = camera->focalLength / depth;
+    }
+    w *= depthScale;
+    h *= depthScale;
+
     // --- 各変換行列を生成 ---
     // ① スケール行列: ローカル座標 [-0.5, 0.5] → ピクセルサイズに拡大
     XMMATRIX S = XMMatrixScaling(w, h, 1.f);
@@ -134,10 +144,18 @@ XMMATRIX Sprite::BuildWorldMatrix(const Transform& transform) const {
     float rad = transform.rotate.z * (XM_PI / 180.f);
     XMMATRIX R = XMMatrixRotationZ(rad);
 
-    // ③ 平行移動行列: ピクセル座標 → NDC
+    // ③ 平行移動行列: ワールド座標 → カメラからの相対座標 → NDC
+    //    カメラのposition(x,y)ぶんだけ引くことで、カメラを動かすと
+    //    画面全体がスクロールしているように見える。
+    //    さらにdepthScaleを掛けることで、奥にあるものほど中心に寄って見える(視差)
+    float camX = camera ? camera->position.x : 0.f;
+    float camY = camera ? camera->position.y : 0.f;
+    float worldX = (transform.position.x - camX) * depthScale;
+    float worldY = (transform.position.y - camY) * depthScale;
+
     //    NDC_x = pixel_x / (resW / 2)   NDC_y = -pixel_y / (resH / 2)
-    float ndcX = transform.position.x / (resW * 0.5f);
-    float ndcY = -transform.position.y / (resH * 0.5f);
+    float ndcX = worldX / (resW * 0.5f);
+    float ndcY = -worldY / (resH * 0.5f);
     XMMATRIX T = XMMatrixTranslation(ndcX, ndcY, 0.f);
 
     // ④ NDC スケール行列: ローカル [-0.5, 0.5] を NDC スケールに変換する追加係数

@@ -4,6 +4,9 @@ using namespace DirectX;
 namespace Image
 {
     Sprite sprite;
+    Camera mainCamera;
+
+    Camera& GetCamera() { return mainCamera; }
 
     struct TextureData {
         ID3D11ShaderResourceView* srv = nullptr;
@@ -16,6 +19,7 @@ namespace Image
     bool Init(HWND hwnd, int width, int height) {
         if (!Graphics::Init(hwnd, width, height)) return false;
         if (!sprite.Init()) return false;
+        sprite.SetCamera(&mainCamera);
         return true;
     }
 
