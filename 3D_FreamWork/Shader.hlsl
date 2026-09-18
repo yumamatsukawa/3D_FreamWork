@@ -33,10 +33,11 @@ float4 PS(PSInput input) : SV_TARGET
 {
     float4 finalColor = tex.Sample(smp, input.uv) * input.color;
 
-    // ほぼ透明なピクセルは描画しない(色も深度も書き込まない)。
-    // Worldモード(深度あり)のスプライトで、透明な部分から後ろのオブジェクトが
-    // 見えるようにするため(Shader3D.hlslと同じ理由)
-    clip(finalColor.a - 0.01f);
+    // 半透明(アンチエイリアスされた縁など)は描画しない(色も深度も書き込まない)。
+    // しきい値を0.01のような小さい値にすると、縁の半透明ピクセルが背景と
+    // ブレンドされてしまい、縁が背景色に染まって見える(特にWorldモードで3D背景と
+    // 合成される時に目立つ)。0.5でハードカットアウトにすることでこれを防ぐ
+    clip(finalColor.a - 0.5f);
 
     return finalColor;
 }

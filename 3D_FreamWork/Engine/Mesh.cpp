@@ -13,6 +13,7 @@ ID3D11InputLayout* Mesh::inputLayout = nullptr;
 ID3D11SamplerState* Mesh::sampler = nullptr;
 ID3D11BlendState* Mesh::blendState = nullptr;
 ID3D11DepthStencilState* Mesh::depthStencilState = nullptr;
+ID3D11DepthStencilState* Mesh::depthStencilStateNoWrite = nullptr;
 ID3D11RasterizerState* Mesh::rasterizerState = nullptr;
 float Mesh::aspectRatio = 1.f;
 int Mesh::refCount = 0;
@@ -46,6 +47,7 @@ void Mesh::ReleaseSharedResources() {
     if (constantBuffer) { constantBuffer->Release(); constantBuffer = nullptr; }
     if (blendState) { blendState->Release(); blendState = nullptr; }
     if (depthStencilState) { depthStencilState->Release(); depthStencilState = nullptr; }
+    if (depthStencilStateNoWrite) { depthStencilStateNoWrite->Release(); depthStencilStateNoWrite = nullptr; }
     if (rasterizerState) { rasterizerState->Release(); rasterizerState = nullptr; }
     if (sampler) { sampler->Release(); sampler = nullptr; }
     if (inputLayout) { inputLayout->Release(); inputLayout = nullptr; }
@@ -162,6 +164,17 @@ bool Mesh::CreateDepthStencilState() {
     dsd.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ALL;
     dsd.DepthFunc = D3D11_COMPARISON_LESS;
     HRESULT hr = Graphics::device->CreateDepthStencilState(&dsd, &depthStencilState);
+    if (FAILED(hr)) return false;
+
+    // スカイボックス用: テストはするが書き込みはしない。
+    // drawPriorityで必ず最初に描画される(クリア直後、深度バッファは全ピクセル遠方値)前提で、
+    // 「書き込まない」ことで自分より後ろに何も無くても他の描画を一切邪魔しない、
+    // Z-fightingが原理的に起こらない背景になる
+    D3D11_DEPTH_STENCIL_DESC dsdNoWrite = {};
+    dsdNoWrite.DepthEnable = TRUE;
+    dsdNoWrite.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ZERO;
+    dsdNoWrite.DepthFunc = D3D11_COMPARISON_LESS;
+    hr = Graphics::device->CreateDepthStencilState(&dsdNoWrite, &depthStencilStateNoWrite);
     return SUCCEEDED(hr);
 }
 
@@ -178,7 +191,7 @@ bool Mesh::CreateRasterizerState() {
     return SUCCEEDED(hr);
 }
 
-void Mesh::Draw(const Transform& transform, const Camera& camera, XMFLOAT4 color, const Light& light) {
+void Mesh::Draw(const Transform& transform, const Camera& camera, XMFLOAT4 color, const Light& light, bool writeDepth) {
     assert(context && "context が nullptr");
     assert(vertexBuffer && "vertexBuffer が nullptr");
 
@@ -207,7 +220,7 @@ void Mesh::Draw(const Transform& transform, const Camera& camera, XMFLOAT4 color
 
     float blendFactor[4] = {};
     context->OMSetBlendState(blendState, blendFactor, 0xFFFFFFFF);
-    context->OMSetDepthStencilState(depthStencilState, 0);
+    context->OMSetDepthStencilState(writeDepth ? depthStencilState : depthStencilStateNoWrite, 0);
     context->RSSetState(rasterizerState);
 
     UINT stride = sizeof(MeshVertex), offset = 0;

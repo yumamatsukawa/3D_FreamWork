@@ -13,6 +13,7 @@ GameObject* CreateEnemy(Scene& scene) {
     auto* sprite = enemy->AddComponent<SpriteRenderer>(L"Assets/player.png", 8, 2);
     sprite->SetSpriteIndex(5);
     sprite->SetWorldSpace(true);
+    // X/Zの傾きは固定し、水平方向(Y軸)だけカメラに向く「立て看板」ビルボードにする
     sprite->SetColor(1.0f, 0.0f, 1.0f, 1.0f);
 
     // 当たり判定(すり抜ける四角形)

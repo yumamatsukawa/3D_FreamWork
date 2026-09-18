@@ -27,6 +27,11 @@ namespace Image
     // 3Dメッシュのライティングに使う、シーン共通の平行光源
     Light& GetLight();
 
+    // 既定ではImage::BeginFrame()が毎フレーム3Dカメラを2Dカメラに自動で追従させている。
+    // CameraController(一人称/三人称カメラ)のように3Dカメラを自分で操作したい場合は、
+    // false にしてこの自動追従を止める(使い終わったら忘れずtrueに戻すこと)
+    void SetCamera3DAutoSync(bool enabled);
+
     unsigned int LoadTexture(const std::wstring& filepath, int cols = 1, int rows = 1);
     void         ReleaseTexture(unsigned int id);
     void         ReleaseAllTextures();
@@ -34,7 +39,9 @@ namespace Image
 
     // worldSpace = false(既定): UIのように常に手前に描画される
     // worldSpace = true        : 3Dオブジェクトのように、奥行きで前後関係が決まる
-    void Draw(Transform transform, unsigned int texID, bool worldSpace = false);
+    // lockX/lockY/lockZ: worldSpace時のビルボード回転を軸ごとに止める(SpriteRenderer::SetBillboardLock参照)
+    void Draw(Transform transform, unsigned int texID, bool worldSpace = false,
+        bool lockX = false, bool lockY = false, bool lockZ = false);
 
     // Mesh(3D)など、Sprite以外の描画にテクスチャを使い回したい時に、生のSRVを取り出す
     ID3D11ShaderResourceView* GetTextureView(unsigned int texID);

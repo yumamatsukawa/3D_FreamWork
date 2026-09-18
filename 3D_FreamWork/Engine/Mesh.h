@@ -48,6 +48,7 @@ private:
     static ID3D11SamplerState* sampler;
     static ID3D11BlendState* blendState;
     static ID3D11DepthStencilState* depthStencilState;
+    static ID3D11DepthStencilState* depthStencilStateNoWrite; // スカイボックス用: テストはするが書き込みしない
     static ID3D11RasterizerState* rasterizerState;
     static float aspectRatio;
     static int refCount;
@@ -65,7 +66,12 @@ private:
 
 public:
     bool Init(const std::vector<MeshVertex>& verts);
-    void Draw(const Transform& transform, const Camera& camera, XMFLOAT4 color, const Light& light);
+
+    // writeDepth = false にすると、深度バッファに書き込まない(自分より後ろのものを隠さない)。
+    // スカイボックス用: drawPriorityで必ず最初に描画させた上でこれをfalseにすることで、
+    // 「深度テストで他の3Dオブジェクトと競合する遠景」ではなく「常に一番奥にある背景」として
+    // 描画できる(深度バッファの精度に依存しない、Z-fightingが起こり得ない実装)
+    void Draw(const Transform& transform, const Camera& camera, XMFLOAT4 color, const Light& light, bool writeDepth = true);
     void Uninit();
 
     void SetTexture(ID3D11ShaderResourceView* s) { srv = s; }

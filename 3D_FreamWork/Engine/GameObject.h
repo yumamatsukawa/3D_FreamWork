@@ -17,6 +17,8 @@ private:
     bool isActive = true;
     bool isDestroyed = false;  // trueになったら、Sceneが次のUpdateで実際に破棄する
     Scene* scene = nullptr;    // 自分がどのSceneに属しているか(Scene::CreateObjectが設定する)
+    int drawPriority = 0;      // Scene::Draw()の描画順。小さいほど先に描画される(既定0)。
+                                // スカイボックスのように「必ず一番最初に描画したい」時に使う
 
     std::vector<std::unique_ptr<Component>> components;
 
@@ -97,4 +99,9 @@ public:
     // 例: GetOwner()->GetScene()->CreateObject(...)
     Scene* GetScene() const { return scene; }
     void SetScene(Scene* s) { scene = s; }
+
+    // Scene::Draw()での描画順。小さいほど先に描画される。
+    // 例: スカイボックスは深度を書き込まずに必ず最初に描画したいので、非常に小さい値にする
+    int GetDrawPriority() const { return drawPriority; }
+    void SetDrawPriority(int priority) { drawPriority = priority; }
 };

@@ -483,7 +483,10 @@ void DrawColliders() {
         {
             debugTexID = g_DebugCircleTexID;
         }
-        Image::Draw(col->owner->transform.GetWorldTransform(), debugTexID);
+        // Worldモード(ビルボード)で描画する。UIモード(疑似2D)のままだと、
+        // 当たり判定の実体(Worldモードのビルボードとして3Dカメラに追従する)と
+        // デバッグ表示がズレてしまうため
+        Image::Draw(col->owner->transform.GetWorldTransform(), debugTexID, true);
     }
 }
 

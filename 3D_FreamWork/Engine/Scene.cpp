@@ -26,7 +26,8 @@ void Scene::Update(float dt) {
 }
 
 void Scene::Draw() {
-    // z座標が小さい(マイナス側 = カメラに近い)ものから順に描画する。
+    // まずdrawPriorityが小さいもの(スカイボックスなど)から順に、
+    // 同じdrawPriority内ではz座標が小さい(マイナス側 = カメラに近い)ものから順に描画する。
     // objects自体の並び順(Update順や生成順)は変えたくないので、
     // 描画用の一時リストだけ作ってソートする
     std::vector<GameObject*> drawOrder;
@@ -36,6 +37,8 @@ void Scene::Draw() {
 
     std::sort(drawOrder.begin(), drawOrder.end(),
         [](GameObject* a, GameObject* b) {
+            if (a->GetDrawPriority() != b->GetDrawPriority())
+                return a->GetDrawPriority() < b->GetDrawPriority();
             return a->transform.position.z < b->transform.position.z;
         });
 

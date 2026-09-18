@@ -38,6 +38,7 @@ private:
     ID3D11BlendState* blendState = nullptr;
     ID3D11DepthStencilState* depthStencilStateUI = nullptr;    // UIモード: 深度無視、常に手前に描画される
     ID3D11DepthStencilState* depthStencilStateWorld = nullptr; // Worldモード: 深度テストあり、3Dメッシュと正しく前後する
+    ID3D11RasterizerState* rasterizerStateWorld = nullptr;     // Worldモード: カリング無効(裏面も描画する)
 
     float resW = 0, resH = 0;
     int   texWidth = 0, texHeight = 0;
@@ -50,13 +51,21 @@ private:
     bool CreateSampler();
     bool CreateBlendState();
     bool CreateDepthStencilState();
-    XMMATRIX BuildWorldMatrix(const Transform& transform, bool worldSpace) const;
+    bool CreateRasterizerState();
+    XMMATRIX BuildWorldMatrix(const Transform& transform, bool worldSpace,
+        bool lockX, bool lockY, bool lockZ) const;
+
+    // Worldモード用: 3Dメッシュと同じ(camera3Dの本物のView/Projection行列を使う)、
+    // 常にカメラの方を向く板(ビルボード)としての行列を組み立てる。
+    // lockX/lockY/lockZ: trueにした軸はカメラに合わせて回転させず固定する
+    XMMATRIX BuildBillboardMatrix(const Transform& transform, bool lockX, bool lockY, bool lockZ) const;
 
 public:
     bool Init();
     // worldSpace = false(既定): UIのように常に手前に描画される(今までの挙動)
     // worldSpace = true        : 3Dオブジェクトのように、奥行きで前後関係が決まる
-    void Draw(Transform transform, XMFLOAT4 color, const SpriteSheet& sheet = SpriteSheet(), bool worldSpace = false);
+    void Draw(Transform transform, XMFLOAT4 color, const SpriteSheet& sheet = SpriteSheet(), bool worldSpace = false,
+        bool lockX = false, bool lockY = false, bool lockZ = false);
     void Uninit();
 
     int GetTextureWidth()  const { return texWidth; }

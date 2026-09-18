@@ -4,6 +4,7 @@
 #include "../Objects/Cube.h"
 #include "../Objects/Sphere.h"
 #include "../Objects/Skybox.h"
+#include "../Objects/Ground.h"
 #include "../../Engine/EventBus.h"
 #include "../../Engine/GameObject.h"
 #include "../../Engine/MeshRenderer.h"
@@ -14,6 +15,7 @@ void GameScene::Init()
     // ★ box.pngは仮のテクスチャ。専用のスカイボックス用画像が用意でき次第差し替える
     CreateSkybox(*this);
 
+    CreateGround(*this);
     CreatePlayer(*this);
     CreateEnemy(*this);
     CreateCube(*this);

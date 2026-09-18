@@ -13,6 +13,7 @@ bool Sprite::Init() {
     if (!CreateSampler()) { OutputDebugStringA("★ CreateSampler 失敗\n");    return false; }
     if (!CreateBlendState()) { OutputDebugStringA("★ CreateBlendState 失敗\n"); return false; }
     if (!CreateDepthStencilState()) { OutputDebugStringA("★ CreateDepthStencilState 失敗\n"); return false; }
+    if (!CreateRasterizerState()) { OutputDebugStringA("★ CreateRasterizerState 失敗\n"); return false; }
     return true;
 }
 
@@ -131,8 +132,23 @@ bool Sprite::CreateDepthStencilState() {
     D3D11_DEPTH_STENCIL_DESC dsdWorld = {};
     dsdWorld.DepthEnable = TRUE;
     dsdWorld.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ALL;
-    dsdWorld.DepthFunc = D3D11_COMPARISON_LESS;
+    // LESS_EQUALにしておく: 当たり判定のデバッグ表示(DrawColliders)は、
+    // 持ち主のオブジェクトと全く同じ位置・深度でWorldモード描画されるため、
+    // 単純なLESSだと「後から描く側」が同値深度で負けて見えなくなってしまう
+    dsdWorld.DepthFunc = D3D11_COMPARISON_LESS_EQUAL;
     hr = Graphics::device->CreateDepthStencilState(&dsdWorld, &depthStencilStateWorld);
+    return SUCCEEDED(hr);
+}
+
+bool Sprite::CreateRasterizerState() {
+    // Worldモードのスプライトは、固定の向きのままカメラが裏に回り込んだり、
+    // ビルボードが真横に近い角度から見られたりすることがあるので、
+    // カリングしない(裏面も描画する。Mesh::CreateRasterizerStateと同じ理由)
+    D3D11_RASTERIZER_DESC rd = {};
+    rd.FillMode = D3D11_FILL_SOLID;
+    rd.CullMode = D3D11_CULL_NONE;
+    rd.DepthClipEnable = TRUE;
+    HRESULT hr = Graphics::device->CreateRasterizerState(&rd, &rasterizerStateWorld);
     return SUCCEEDED(hr);
 }
 
@@ -141,7 +157,15 @@ bool Sprite::CreateDepthStencilState() {
 //   Transform → ワールド行列（平行移動・回転・スケール）を組み立てる
 //   最終的に NDC 変換まで含めた行列を返す
 // ---------------------------------------------------------------------------
-XMMATRIX Sprite::BuildWorldMatrix(const Transform& transform, bool worldSpace) const {
+XMMATRIX Sprite::BuildWorldMatrix(const Transform& transform, bool worldSpace,
+    bool lockX, bool lockY, bool lockZ) const {
+    // Worldモードは、3Dメッシュ(Mesh)と全く同じcamera3DのView/Projection行列を使う
+    // 「常にカメラの方を向く板(ビルボード)」として描画する(CameraControllerでカメラを
+    // 動かしても、2Dオブジェクトが3Dオブジェクトと同じように正しく追従して見える)
+    if (worldSpace && camera3D) {
+        return BuildBillboardMatrix(transform, lockX, lockY, lockZ);
+    }
+
     float w = (transform.scale.x > 0.f) ? transform.scale.x : (float)texWidth;
     float h = (transform.scale.y > 0.f) ? transform.scale.y : (float)texHeight;
 
@@ -201,9 +225,56 @@ XMMATRIX Sprite::BuildWorldMatrix(const Transform& transform, bool worldSpace) c
 }
 
 // ---------------------------------------------------------------------------
+// BuildBillboardMatrix
+//   Worldモード用。ローカルの板(quad)を、camera3Dの方を向くように向きを合わせ、
+//   実際のView/Projection行列で変換する(Mesh::Drawと同じ考え方)。
+//   lockX/lockY/lockZ: trueにした軸はカメラに合わせて回転させず固定する
+// ---------------------------------------------------------------------------
+XMMATRIX Sprite::BuildBillboardMatrix(const Transform& transform, bool lockX, bool lockY, bool lockZ) const {
+    float w = (transform.scale.x > 0.f) ? transform.scale.x : (float)texWidth;
+    float h = (transform.scale.y > 0.f) ? transform.scale.y : (float)texHeight;
+
+    // ① スケール行列: ローカル座標[-0.5, 0.5] → ワールド単位の大きさへ(Meshと同じ単位系)
+    XMMATRIX S = XMMatrixScaling(w, h, 1.f);
+
+    // ② 板の中での見た目の回転(プレイヤーの向きなど)。ビルボード化の前にかけておくことで、
+    //    画面上での回転として機能する
+    float rad = transform.rotate.z * (XM_PI / 180.f);
+    XMMATRIX R = XMMatrixRotationZ(rad);
+
+    // ③ ビルボード回転: カメラの視線方向をyaw(Y軸)・pitch(X軸)に分解し、
+    //    ロックした軸は0(回転しない)にしてから組み直す。
+    //    このエンジンのカメラはロール(Z軸回転)を持たないため、lockZは今のところ効果が無い
+    //    (将来カメラがロールを持つようになった時のために引数だけ用意してある)
+    XMVECTOR eye = XMLoadFloat3(&camera3D->position);
+    XMVECTOR at = XMLoadFloat3(&camera3D->target);
+    XMVECTOR forwardVec = XMVector3Normalize(at - eye);
+    XMFLOAT3 forward;
+    XMStoreFloat3(&forward, forwardVec);
+
+    float yaw = lockY ? 0.f : atan2f(forward.x, forward.z);
+    float pitch = lockX ? 0.f : atan2f(-forward.y, sqrtf(forward.x * forward.x + forward.z * forward.z));
+    float roll = 0.f;
+    (void)lockZ; // ロール自体が無いので、ロックしてもしなくても結果は変わらない
+
+    XMMATRIX billboard = XMMatrixRotationRollPitchYaw(pitch, yaw, roll);
+
+    // ④ ワールド位置への移動。2D慣習(position.y+は画面下方向)を3D慣習(Y+は上方向)に変換する
+    //   (Image::BeginFrame()の2D/3Dカメラ同期と同じ考え方)
+    XMMATRIX T = XMMatrixTranslation(transform.position.x, -transform.position.y, transform.position.z);
+
+    XMMATRIX view = camera3D->GetViewMatrix();
+    float aspectRatio = (resH > 0.f) ? (resW / resH) : 1.f;
+    XMMATRIX proj = camera3D->GetProjectionMatrix(aspectRatio);
+
+    return XMMatrixTranspose(S * R * billboard * T * view * proj);
+}
+
+// ---------------------------------------------------------------------------
 // Draw
 // ---------------------------------------------------------------------------
-void Sprite::Draw(Transform transform, XMFLOAT4 color, const SpriteSheet& sheet, bool worldSpace) {
+void Sprite::Draw(Transform transform, XMFLOAT4 color, const SpriteSheet& sheet, bool worldSpace,
+    bool lockX, bool lockY, bool lockZ) {
     assert(context && "context が nullptr");
     assert(vertexBuffer && "vertexBuffer が nullptr");
     assert(constantBuffer && "constantBuffer が nullptr");
@@ -222,6 +293,16 @@ void Sprite::Draw(Transform transform, XMFLOAT4 color, const SpriteSheet& sheet,
     float u0 = col * uvW, u1 = u0 + uvW;
     float v0 = row * uvH, v1 = v0 + uvH;
 
+    // ★ コマの境界を半テクセルだけ内側に絞る。バイリニアフィルタリングは
+    //   サンプリング位置がコマの境界ギリギリだと隣のコマ(や余白の背景色)を
+    //   巻き込んでにじんでしまうため(特に斜めから見て縮小される時に目立つ)
+    if (texWidth > 0 && texHeight > 0) {
+        float insetU = 0.5f / (float)texWidth;
+        float insetV = 0.5f / (float)texHeight;
+        u0 += insetU; u1 -= insetU;
+        v0 += insetV; v1 -= insetV;
+    }
+
     // ローカル頂点（単位クワッド）
     const Vertex vertices[4] = {
         { {  0.5f, -0.5f }, color, { u1, v1 } },
@@ -239,7 +320,7 @@ void Sprite::Draw(Transform transform, XMFLOAT4 color, const SpriteSheet& sheet,
     // 2. 定数バッファ（ワールド行列）更新
     // ------------------------------------------------------------------
     ConstantBuffer cb;
-    cb.world = BuildWorldMatrix(transform, worldSpace);
+    cb.world = BuildWorldMatrix(transform, worldSpace, lockX, lockY, lockZ);
 
     context->Map(constantBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &msr);
     memcpy(msr.pData, &cb, sizeof(cb));
@@ -251,6 +332,8 @@ void Sprite::Draw(Transform transform, XMFLOAT4 color, const SpriteSheet& sheet,
     float blendFactor[4] = {};
     context->OMSetBlendState(blendState, blendFactor, 0xFFFFFFFF);
     context->OMSetDepthStencilState(worldSpace ? depthStencilStateWorld : depthStencilStateUI, 0);
+    // Worldモードはカリング無効(裏面も描画)、UIモードは既定(裏面カリングあり)のまま
+    context->RSSetState(worldSpace ? rasterizerStateWorld : nullptr);
 
     UINT stride = sizeof(Vertex), offset = 0;
     context->IASetInputLayout(inputLayout);
@@ -275,6 +358,7 @@ void Sprite::Uninit() {
     if (blendState) { blendState->Release();     blendState = nullptr; }
     if (depthStencilStateUI) { depthStencilStateUI->Release(); depthStencilStateUI = nullptr; }
     if (depthStencilStateWorld) { depthStencilStateWorld->Release(); depthStencilStateWorld = nullptr; }
+    if (rasterizerStateWorld) { rasterizerStateWorld->Release(); rasterizerStateWorld = nullptr; }
     if (sampler) { sampler->Release();         sampler = nullptr; }
     if (inputLayout) { inputLayout->Release();     inputLayout = nullptr; }
     if (pixelShader) { pixelShader->Release();     pixelShader = nullptr; }

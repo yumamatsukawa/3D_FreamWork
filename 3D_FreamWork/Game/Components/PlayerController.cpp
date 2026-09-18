@@ -21,8 +21,8 @@ void PlayerController::Update(float dt) {
     }
 
     // 移動処理
-    if (Input::GetKeyPress(KEY_W)) t.position.y -= speed * dt;
-    if (Input::GetKeyPress(KEY_S)) t.position.y += speed * dt;
+    if (Input::GetKeyPress(KEY_W)) t.position.z += speed * dt;
+    if (Input::GetKeyPress(KEY_S)) t.position.z -= speed * dt;
     if (Input::GetKeyPress(KEY_A)) t.position.x -= speed * dt;
     if (Input::GetKeyPress(KEY_D)) t.position.x += speed * dt;
     if (Input::GetKeyPress(KEY_Q)) t.rotate.z += speed * dt;
