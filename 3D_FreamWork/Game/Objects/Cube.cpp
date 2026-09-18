@@ -7,7 +7,7 @@
 
 GameObject* CreateCube(Scene& scene) {
     GameObject* cube = scene.CreateObject("Cube");
-    cube->transform.position = {   0.0f,   0.0f,   0.0f };
+    cube->transform.position = {   0.0f,   0.0f, 100.0f };
     cube->transform.scale    = { 100.0f, 100.0f, 100.0f };
 
     // 見た目(3Dメッシュ)

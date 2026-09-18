@@ -6,9 +6,11 @@ namespace Image
     Sprite sprite;
     Camera mainCamera;    // 2Dスプライト用
     Camera mainCamera3D;  // 3Dメッシュ用(2D用とはあえて別インスタンス)
+    Light mainLight;      // 3Dメッシュのライティング用
 
     Camera& GetCamera() { return mainCamera; }
     Camera& GetCamera3D() { return mainCamera3D; }
+    Light& GetLight() { return mainLight; }
 
     struct TextureData {
         ID3D11ShaderResourceView* srv = nullptr;

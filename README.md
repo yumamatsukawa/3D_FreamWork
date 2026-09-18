@@ -121,13 +121,31 @@ meshRenderer->SetColor(1.0f, 1.0f, 1.0f, 1.0f);
 auto* meshRenderer = obj->AddComponent<MeshRenderer>(Mesh::LoadOBJ(L"Assets/model.obj"));
 ```
 
-`LoadOBJ`は`v`(頂点座標)/`vt`(UV座標)/`f`(面)に対応しています。四角形以上の面は自動で三角形に分割されます。**法線(`vn`)はまだ読み込みません**(ライティング対応時に追加予定なので、今はどのモデルも陰影の無い見た目になります)。
+`LoadOBJ`は`v`(頂点座標)/`vt`(UV座標)/`vn`(法線)/`f`(面)に対応しています。四角形以上の面は自動で三角形に分割されます。`vn`が無いファイルは、三角形ごとに2辺の外積から面法線を自動計算するので、法線無しのモデルでもとりあえず陰影は付きます。
 
 これら以外の形状を追加したい場合は、同じ形式(`std::vector<MeshVertex>`を返す静的関数)で頂点データを作る関数を`Engine/Mesh.h/.cpp`に足してください(`Game/Objects/Cube.cpp`や`Sphere.cpp`が実例)。
 
 **スカイボックス**: `Game/Objects/Skybox.cpp`が実例です。カメラを中心に追従する(回転はしない)巨大なメッシュを使った、遠景の作り方のパターンとして参考にしてください。
 
 一つのGameObjectには、基本的に`SpriteRenderer`か`MeshRenderer`の**どちらか片方**を付けます。
+
+### ライティング(3Dメッシュの陰影)
+
+`MeshRenderer`は、`Image::GetLight()`(シーン共通の平行光源)を使って自動的に陰影を計算します。特に何もしなくても、法線が正しく設定されたメッシュ(`CreateCube`/`CreateSphere`/`LoadOBJ`)は陰影が付いた見た目になります。
+
+```cpp
+// 光の向き・色・環境光を変えたい場合
+Light& light = Image::GetLight();
+light.direction = { 0.5f, -1.0f, 0.5f }; // 光が進んでいく方向
+light.color     = { 1.0f, 1.0f, 1.0f };  // 光の色・強さ
+light.ambient   = { 0.25f, 0.25f, 0.25f }; // 陰になっている面の最低限の明るさ
+```
+
+スカイボックスなど「カメラの内側から見る巨大な球」のように、光源の影響を受けると不自然になるオブジェクトは、`SetUnlit(true)`で常に一定の明るさにできます(`Skybox.cpp`が実例)。
+
+```cpp
+meshRenderer->SetUnlit(true);
+```
 
 ---
 

@@ -6,10 +6,12 @@
 #include <string>
 #include "Transform.h"
 #include "Camera.h"
+#include "Light.h"
 #pragma comment(lib, "d3dcompiler.lib")
 
 struct MeshVertex {
     XMFLOAT3 Position;
+    XMFLOAT3 Normal;
     XMFLOAT4 Color;
     XMFLOAT2 TexCoord;
 };
@@ -18,6 +20,9 @@ struct MeshConstantBuffer {
     XMMATRIX world;
     XMMATRIX view;
     XMMATRIX proj;
+    XMFLOAT4 lightDir;
+    XMFLOAT4 lightColor;
+    XMFLOAT4 ambient;
 };
 
 // 3Dの頂点データ(立体)を持ち、World/View/Projection行列を使って描画するクラス。
@@ -49,7 +54,7 @@ private:
 
 public:
     bool Init(const std::vector<MeshVertex>& verts);
-    void Draw(const Transform& transform, const Camera& camera, XMFLOAT4 color);
+    void Draw(const Transform& transform, const Camera& camera, XMFLOAT4 color, const Light& light);
     void Uninit();
 
     void SetTexture(ID3D11ShaderResourceView* s) { srv = s; }

@@ -60,10 +60,11 @@ bool Mesh::CreateShaders() {
 
     D3D11_INPUT_ELEMENT_DESC layout[] = {
         { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT,    0,  0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-        { "COLOR",    0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-        { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT,       0, 28, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+        { "NORMAL",   0, DXGI_FORMAT_R32G32B32_FLOAT,    0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+        { "COLOR",    0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 24, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+        { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT,       0, 40, D3D11_INPUT_PER_VERTEX_DATA, 0 },
     };
-    hr = Graphics::device->CreateInputLayout(layout, 3,
+    hr = Graphics::device->CreateInputLayout(layout, 4,
         vsBlob->GetBufferPointer(), vsBlob->GetBufferSize(), &inputLayout);
     if (FAILED(hr)) {
         OutputDebugStringA("★ Mesh CreateInputLayout 失敗\n");
@@ -141,7 +142,7 @@ bool Mesh::CreateRasterizerState() {
     return SUCCEEDED(hr);
 }
 
-void Mesh::Draw(const Transform& transform, const Camera& camera, XMFLOAT4 color) {
+void Mesh::Draw(const Transform& transform, const Camera& camera, XMFLOAT4 color, const Light& light) {
     assert(context && "context が nullptr");
     assert(vertexBuffer && "vertexBuffer が nullptr");
 
@@ -160,6 +161,9 @@ void Mesh::Draw(const Transform& transform, const Camera& camera, XMFLOAT4 color
     cb.world = XMMatrixTranspose(transform.GetWorldMatrix());
     cb.view = XMMatrixTranspose(camera.GetViewMatrix());
     cb.proj = XMMatrixTranspose(camera.GetProjectionMatrix(aspectRatio));
+    cb.lightDir = { light.direction.x, light.direction.y, light.direction.z, 0.f };
+    cb.lightColor = { light.color.x, light.color.y, light.color.z, 0.f };
+    cb.ambient = { light.ambient.x, light.ambient.y, light.ambient.z, 0.f };
 
     context->Map(constantBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &msr);
     memcpy(msr.pData, &cb, sizeof(cb));
@@ -179,6 +183,7 @@ void Mesh::Draw(const Transform& transform, const Camera& camera, XMFLOAT4 color
     context->VSSetConstantBuffers(0, 1, &constantBuffer);
 
     context->PSSetShader(pixelShader, nullptr, 0);
+    context->PSSetConstantBuffers(0, 1, &constantBuffer);
     if (srv) context->PSSetShaderResources(0, 1, &srv);
     context->PSSetSamplers(0, 1, &sampler);
 
@@ -202,25 +207,28 @@ void Mesh::Uninit() {
 
 std::vector<MeshVertex> Mesh::CreateCube() {
     XMFLOAT4 c = { 1.f, 1.f, 1.f, 1.f };
+    XMFLOAT3 nFront{ 0.f, 0.f,-1.f }, nBack{ 0.f, 0.f, 1.f };
+    XMFLOAT3 nLeft{ -1.f, 0.f, 0.f }, nRight{ 1.f, 0.f, 0.f };
+    XMFLOAT3 nTop{ 0.f, 1.f, 0.f }, nBottom{ 0.f,-1.f, 0.f };
     return {
         // front (z = -0.5)
-        {{-0.5f,-0.5f,-0.5f}, c, {0.f,1.f}}, {{ 0.5f,-0.5f,-0.5f}, c, {1.f,1.f}}, {{ 0.5f, 0.5f,-0.5f}, c, {1.f,0.f}},
-        {{-0.5f,-0.5f,-0.5f}, c, {0.f,1.f}}, {{ 0.5f, 0.5f,-0.5f}, c, {1.f,0.f}}, {{-0.5f, 0.5f,-0.5f}, c, {0.f,0.f}},
+        {{-0.5f,-0.5f,-0.5f}, nFront, c, {0.f,1.f}}, {{ 0.5f,-0.5f,-0.5f}, nFront, c, {1.f,1.f}}, {{ 0.5f, 0.5f,-0.5f}, nFront, c, {1.f,0.f}},
+        {{-0.5f,-0.5f,-0.5f}, nFront, c, {0.f,1.f}}, {{ 0.5f, 0.5f,-0.5f}, nFront, c, {1.f,0.f}}, {{-0.5f, 0.5f,-0.5f}, nFront, c, {0.f,0.f}},
         // back (z = 0.5)
-        {{ 0.5f,-0.5f, 0.5f}, c, {0.f,1.f}}, {{-0.5f,-0.5f, 0.5f}, c, {1.f,1.f}}, {{-0.5f, 0.5f, 0.5f}, c, {1.f,0.f}},
-        {{ 0.5f,-0.5f, 0.5f}, c, {0.f,1.f}}, {{-0.5f, 0.5f, 0.5f}, c, {1.f,0.f}}, {{ 0.5f, 0.5f, 0.5f}, c, {0.f,0.f}},
+        {{ 0.5f,-0.5f, 0.5f}, nBack, c, {0.f,1.f}}, {{-0.5f,-0.5f, 0.5f}, nBack, c, {1.f,1.f}}, {{-0.5f, 0.5f, 0.5f}, nBack, c, {1.f,0.f}},
+        {{ 0.5f,-0.5f, 0.5f}, nBack, c, {0.f,1.f}}, {{-0.5f, 0.5f, 0.5f}, nBack, c, {1.f,0.f}}, {{ 0.5f, 0.5f, 0.5f}, nBack, c, {0.f,0.f}},
         // left (x = -0.5)
-        {{-0.5f,-0.5f, 0.5f}, c, {0.f,1.f}}, {{-0.5f,-0.5f,-0.5f}, c, {1.f,1.f}}, {{-0.5f, 0.5f,-0.5f}, c, {1.f,0.f}},
-        {{-0.5f,-0.5f, 0.5f}, c, {0.f,1.f}}, {{-0.5f, 0.5f,-0.5f}, c, {1.f,0.f}}, {{-0.5f, 0.5f, 0.5f}, c, {0.f,0.f}},
+        {{-0.5f,-0.5f, 0.5f}, nLeft, c, {0.f,1.f}}, {{-0.5f,-0.5f,-0.5f}, nLeft, c, {1.f,1.f}}, {{-0.5f, 0.5f,-0.5f}, nLeft, c, {1.f,0.f}},
+        {{-0.5f,-0.5f, 0.5f}, nLeft, c, {0.f,1.f}}, {{-0.5f, 0.5f,-0.5f}, nLeft, c, {1.f,0.f}}, {{-0.5f, 0.5f, 0.5f}, nLeft, c, {0.f,0.f}},
         // right (x = 0.5)
-        {{ 0.5f,-0.5f,-0.5f}, c, {0.f,1.f}}, {{ 0.5f,-0.5f, 0.5f}, c, {1.f,1.f}}, {{ 0.5f, 0.5f, 0.5f}, c, {1.f,0.f}},
-        {{ 0.5f,-0.5f,-0.5f}, c, {0.f,1.f}}, {{ 0.5f, 0.5f, 0.5f}, c, {1.f,0.f}}, {{ 0.5f, 0.5f,-0.5f}, c, {0.f,0.f}},
+        {{ 0.5f,-0.5f,-0.5f}, nRight, c, {0.f,1.f}}, {{ 0.5f,-0.5f, 0.5f}, nRight, c, {1.f,1.f}}, {{ 0.5f, 0.5f, 0.5f}, nRight, c, {1.f,0.f}},
+        {{ 0.5f,-0.5f,-0.5f}, nRight, c, {0.f,1.f}}, {{ 0.5f, 0.5f, 0.5f}, nRight, c, {1.f,0.f}}, {{ 0.5f, 0.5f,-0.5f}, nRight, c, {0.f,0.f}},
         // top (y = 0.5)
-        {{-0.5f, 0.5f,-0.5f}, c, {0.f,1.f}}, {{ 0.5f, 0.5f,-0.5f}, c, {1.f,1.f}}, {{ 0.5f, 0.5f, 0.5f}, c, {1.f,0.f}},
-        {{-0.5f, 0.5f,-0.5f}, c, {0.f,1.f}}, {{ 0.5f, 0.5f, 0.5f}, c, {1.f,0.f}}, {{-0.5f, 0.5f, 0.5f}, c, {0.f,0.f}},
+        {{-0.5f, 0.5f,-0.5f}, nTop, c, {0.f,1.f}}, {{ 0.5f, 0.5f,-0.5f}, nTop, c, {1.f,1.f}}, {{ 0.5f, 0.5f, 0.5f}, nTop, c, {1.f,0.f}},
+        {{-0.5f, 0.5f,-0.5f}, nTop, c, {0.f,1.f}}, {{ 0.5f, 0.5f, 0.5f}, nTop, c, {1.f,0.f}}, {{-0.5f, 0.5f, 0.5f}, nTop, c, {0.f,0.f}},
         // bottom (y = -0.5)
-        {{-0.5f,-0.5f, 0.5f}, c, {0.f,1.f}}, {{ 0.5f,-0.5f, 0.5f}, c, {1.f,1.f}}, {{ 0.5f,-0.5f,-0.5f}, c, {1.f,0.f}},
-        {{-0.5f,-0.5f, 0.5f}, c, {0.f,1.f}}, {{ 0.5f,-0.5f,-0.5f}, c, {1.f,0.f}}, {{-0.5f,-0.5f,-0.5f}, c, {0.f,0.f}},
+        {{-0.5f,-0.5f, 0.5f}, nBottom, c, {0.f,1.f}}, {{ 0.5f,-0.5f, 0.5f}, nBottom, c, {1.f,1.f}}, {{ 0.5f,-0.5f,-0.5f}, nBottom, c, {1.f,0.f}},
+        {{-0.5f,-0.5f, 0.5f}, nBottom, c, {0.f,1.f}}, {{ 0.5f,-0.5f,-0.5f}, nBottom, c, {1.f,0.f}}, {{-0.5f,-0.5f,-0.5f}, nBottom, c, {0.f,0.f}},
     };
 }
 
@@ -237,7 +245,7 @@ std::vector<MeshVertex> Mesh::CreateSphere(int rings, int segments) {
         float z = sinf(theta) * sinf(phi);
         float u = phi / (2.0f * XM_PI);
         float v = theta / XM_PI;
-        return MeshVertex{ { x * radius, y * radius, z * radius }, c, { u, v } };
+        return MeshVertex{ { x * radius, y * radius, z * radius }, { x, y, z }, c, { u, v } };
     };
 
     for (int lat = 0; lat < rings; lat++) {
@@ -261,11 +269,12 @@ std::vector<MeshVertex> Mesh::CreateSphere(int rings, int segments) {
     return verts;
 }
 
-// "1", "1/2", "1/2/3", "1//3" のいずれの形式からも、頂点インデックスとUVインデックスを取り出す。
+// "1", "1/2", "1/2/3", "1//3" のいずれの形式からも、頂点・UV・法線インデックスを取り出す。
 // 見つからない場合は0を返す(0はOBJでは使われない値なので「無い」の意味で使う)
-static void ParseFaceVertex(const std::string& token, int& posIndex, int& uvIndex) {
+static void ParseFaceVertex(const std::string& token, int& posIndex, int& uvIndex, int& normalIndex) {
     posIndex = 0;
     uvIndex = 0;
+    normalIndex = 0;
 
     size_t slash1 = token.find('/');
     if (slash1 == std::string::npos) {
@@ -276,10 +285,17 @@ static void ParseFaceVertex(const std::string& token, int& posIndex, int& uvInde
     posIndex = std::stoi(token.substr(0, slash1));
 
     size_t slash2 = token.find('/', slash1 + 1);
-    std::string uvPart = (slash2 == std::string::npos)
-        ? token.substr(slash1 + 1)
-        : token.substr(slash1 + 1, slash2 - slash1 - 1);
+    if (slash2 == std::string::npos) {
+        std::string uvPart = token.substr(slash1 + 1);
+        if (!uvPart.empty()) uvIndex = std::stoi(uvPart);
+        return;
+    }
+
+    std::string uvPart = token.substr(slash1 + 1, slash2 - slash1 - 1);
     if (!uvPart.empty()) uvIndex = std::stoi(uvPart);
+
+    std::string nPart = token.substr(slash2 + 1);
+    if (!nPart.empty()) normalIndex = std::stoi(nPart);
 }
 
 std::vector<MeshVertex> Mesh::LoadOBJ(const std::wstring& filepath) {
@@ -291,6 +307,7 @@ std::vector<MeshVertex> Mesh::LoadOBJ(const std::wstring& filepath) {
 
     std::vector<XMFLOAT3> positions;
     std::vector<XMFLOAT2> texcoords;
+    std::vector<XMFLOAT3> normals;
     std::vector<MeshVertex> result;
 
     std::string line;
@@ -310,24 +327,33 @@ std::vector<MeshVertex> Mesh::LoadOBJ(const std::wstring& filepath) {
             uv.y = 1.0f - uv.y;  // OBJのvtは下から上、このエンジンは上から下が基準なので反転する
             texcoords.push_back(uv);
         }
+        else if (tag == "vn") {
+            XMFLOAT3 n;
+            iss >> n.x >> n.y >> n.z;
+            normals.push_back(n);
+        }
         else if (tag == "f") {
-            std::vector<int> posIdx, uvIdx;
+            std::vector<int> posIdx, uvIdx, normalIdx;
             std::string token;
             while (iss >> token) {
-                int p = 0, t = 0;
-                ParseFaceVertex(token, p, t);
+                int p = 0, t = 0, n = 0;
+                ParseFaceVertex(token, p, t, n);
 
                 // 負の値は「末尾からの相対インデックス」を意味する(OBJの仕様)
                 if (p < 0) p = (int)positions.size() + p + 1;
                 if (t < 0) t = (int)texcoords.size() + t + 1;
+                if (n < 0) n = (int)normals.size() + n + 1;
 
                 posIdx.push_back(p);
                 uvIdx.push_back(t);
+                normalIdx.push_back(n);
             }
 
             // 3頂点なら三角形そのまま、4頂点以上(四角形など)は扇状に三角形分割する
             for (int i = 1; i + 1 < (int)posIdx.size(); i++) {
                 int triangle[3] = { 0, i, i + 1 };
+                MeshVertex tri[3]{};
+
                 for (int k = 0; k < 3; k++) {
                     int idx = triangle[k];
                     MeshVertex v{};
@@ -339,11 +365,29 @@ std::vector<MeshVertex> Mesh::LoadOBJ(const std::wstring& filepath) {
                     int tI = uvIdx[idx];
                     if (tI >= 1 && tI <= (int)texcoords.size()) v.TexCoord = texcoords[tI - 1];
 
-                    result.push_back(v);
+                    int nI = normalIdx[idx];
+                    if (nI >= 1 && nI <= (int)normals.size()) v.Normal = normals[nI - 1];
+
+                    tri[k] = v;
                 }
+
+                // ファイルにvnが無かった場合は、2辺の外積からこの三角形の面法線を求めて代用する
+                bool hasNormals = !normals.empty();
+                if (!hasNormals) {
+                    XMVECTOR p0 = XMLoadFloat3(&tri[0].Position);
+                    XMVECTOR p1 = XMLoadFloat3(&tri[1].Position);
+                    XMVECTOR p2 = XMLoadFloat3(&tri[2].Position);
+                    XMVECTOR faceNormal = XMVector3Normalize(XMVector3Cross(p1 - p0, p2 - p0));
+                    XMFLOAT3 n;
+                    XMStoreFloat3(&n, faceNormal);
+                    tri[0].Normal = tri[1].Normal = tri[2].Normal = n;
+                }
+
+                result.push_back(tri[0]);
+                result.push_back(tri[1]);
+                result.push_back(tri[2]);
             }
         }
-        // vn(法線)は今はまだ使わないので読み飛ばす
     }
 
     if (result.empty()) {

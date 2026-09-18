@@ -4,6 +4,7 @@
 #include "Texture.h"
 #include "GameObject.h"
 #include "Camera.h"
+#include "Light.h"
 #include <vector>
 #include <string>
 
@@ -22,6 +23,9 @@ namespace Image
     // 2Dカメラはプレイヤー追従などで毎フレーム動くことが多く、同じカメラを3D側でも
     // 使うと「3Dオブジェクトがカメラに合わせて動いて見える」おかしな挙動になるため
     Camera& GetCamera3D();
+
+    // 3Dメッシュのライティングに使う、シーン共通の平行光源
+    Light& GetLight();
 
     unsigned int LoadTexture(const std::wstring& filepath, int cols = 1, int rows = 1);
     void         ReleaseTexture(unsigned int id);

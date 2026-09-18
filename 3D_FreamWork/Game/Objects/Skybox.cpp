@@ -13,6 +13,7 @@ GameObject* CreateSkybox(Scene& scene) {
 
     auto* meshRenderer = skybox->AddComponent<MeshRenderer>(Mesh::CreateSphere());
     meshRenderer->SetTexture(L"Assets/skybox.png");
+    meshRenderer->SetUnlit(true);
 
     // カメラに位置だけ追従させる(回転はしない)
     skybox->AddComponent<SkyboxFollowComponent>();

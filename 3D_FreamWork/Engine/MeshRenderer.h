@@ -11,6 +11,7 @@ private:
     std::shared_ptr<Mesh> mesh;
     unsigned int texID = UINT_MAX;
     DirectX::XMFLOAT4 color{ 1.f, 1.f, 1.f, 1.f };
+    bool unlit = false;
 
 public:
     // 例: obj->AddComponent<MeshRenderer>(Mesh::CreateCube());
@@ -26,11 +27,20 @@ public:
 
     void SetColor(float r, float g, float b, float a) { color = { r, g, b, a }; }
 
+    // スカイボックスなど、光源の影響を受けたくない(常に一定の明るさで表示したい)場合に使う
+    void SetUnlit(bool value) { unlit = value; }
+
     void Draw() override {
         // Transform::GetWorldMatrix()が親子階層を内部で処理してくれるので、
         // ここではローカルのtransformをそのまま渡せばよい。
         // カメラは2D(GetCamera)とは別の3D専用カメラ(GetCamera3D)を使う
-        mesh->Draw(GetOwner()->transform, Image::GetCamera3D(), color);
+        if (unlit) {
+            static const Light fullBright{ {0.f,-1.f,0.f}, {0.f,0.f,0.f}, {1.f,1.f,1.f} };
+            mesh->Draw(GetOwner()->transform, Image::GetCamera3D(), color, fullBright);
+        }
+        else {
+            mesh->Draw(GetOwner()->transform, Image::GetCamera3D(), color, Image::GetLight());
+        }
     }
 
     void Uninit() override {

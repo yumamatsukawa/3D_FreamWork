@@ -154,6 +154,7 @@
   <ItemGroup>
     <ClInclude Include="Engine\Audio.h" />
     <ClInclude Include="Engine\Camera.h" />
+    <ClInclude Include="Engine\Light.h" />
     <ClInclude Include="Engine\Collider.h" />
     <ClInclude Include="Engine\ColliderComponent.h" />
     <ClInclude Include="Engine\Component.h" />
