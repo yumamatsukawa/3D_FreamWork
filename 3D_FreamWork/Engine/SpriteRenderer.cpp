@@ -23,7 +23,7 @@ DirectX::XMFLOAT4 SpriteRenderer::GetColor() const {
 
 void SpriteRenderer::Draw() {
     // 親をたどったワールド空間のTransformで描画する(親と一緒に動く/回る/拡縮する)
-    Image::Draw(GetOwner()->transform.GetWorldTransform(), texID);
+    Image::Draw(GetOwner()->transform.GetWorldTransform(), texID, worldSpace);
 }
 
 void SpriteRenderer::Uninit() {

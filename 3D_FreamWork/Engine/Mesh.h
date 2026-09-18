@@ -1,0 +1,58 @@
+﻿#pragma once
+#include <d3d11.h>
+#include <d3dcompiler.h>
+#include <DirectXMath.h>
+#include <vector>
+#include "Transform.h"
+#include "Camera.h"
+#pragma comment(lib, "d3dcompiler.lib")
+
+struct MeshVertex {
+    XMFLOAT3 Position;
+    XMFLOAT4 Color;
+    XMFLOAT2 TexCoord;
+};
+
+struct MeshConstantBuffer {
+    XMMATRIX world;
+    XMMATRIX view;
+    XMMATRIX proj;
+};
+
+// 3Dの頂点データ(立体)を持ち、World/View/Projection行列を使って描画するクラス。
+// SpriteがZ軸回転のみ・奥行き無しの2D専用だったのに対し、こちらはXYZ全軸の回転や
+// 奥行きのある立体を、深度バッファ有り(前後関係が正しい)で描画できる。
+class Mesh {
+private:
+    ID3D11Buffer* constantBuffer = nullptr;
+    ID3D11DeviceContext* context = nullptr;
+    ID3D11Buffer* vertexBuffer = nullptr;
+    ID3D11VertexShader* vertexShader = nullptr;
+    ID3D11PixelShader* pixelShader = nullptr;
+    ID3D11InputLayout* inputLayout = nullptr;
+    ID3D11ShaderResourceView* srv = nullptr;
+    ID3D11SamplerState* sampler = nullptr;
+    ID3D11BlendState* blendState = nullptr;
+    ID3D11DepthStencilState* depthStencilState = nullptr;
+    ID3D11RasterizerState* rasterizerState = nullptr;
+
+    std::vector<MeshVertex> vertices;
+    float aspectRatio = 1.f;
+
+    bool CreateShaders();
+    bool CreateBuffers();
+    bool CreateSampler();
+    bool CreateBlendState();
+    bool CreateDepthStencilState();
+    bool CreateRasterizerState();
+
+public:
+    bool Init(const std::vector<MeshVertex>& verts);
+    void Draw(const Transform& transform, const Camera& camera, XMFLOAT4 color);
+    void Uninit();
+
+    void SetTexture(ID3D11ShaderResourceView* s) { srv = s; }
+
+    // 単位立方体(-0.5〜0.5)の頂点データを作る。obj->transform.scaleで大きさを変えられる
+    static std::vector<MeshVertex> CreateCube();
+};

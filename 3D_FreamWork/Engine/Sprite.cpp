@@ -12,6 +12,7 @@ bool Sprite::Init() {
     if (!CreateBuffers()) { OutputDebugStringA("★ CreateBuffers 失敗\n");    return false; }
     if (!CreateSampler()) { OutputDebugStringA("★ CreateSampler 失敗\n");    return false; }
     if (!CreateBlendState()) { OutputDebugStringA("★ CreateBlendState 失敗\n"); return false; }
+    if (!CreateDepthStencilState()) { OutputDebugStringA("★ CreateDepthStencilState 失敗\n"); return false; }
     return true;
 }
 
@@ -117,12 +118,30 @@ bool Sprite::CreateBlendState() {
     return SUCCEEDED(hr);
 }
 
+bool Sprite::CreateDepthStencilState() {
+    // UIモード: 深度テスト・深度書き込みを両方オフにする(今まで通り描画順で重なる、常に手前)
+    D3D11_DEPTH_STENCIL_DESC dsdUI = {};
+    dsdUI.DepthEnable = FALSE;
+    dsdUI.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ZERO;
+    dsdUI.DepthFunc = D3D11_COMPARISON_ALWAYS;
+    HRESULT hr = Graphics::device->CreateDepthStencilState(&dsdUI, &depthStencilStateUI);
+    if (FAILED(hr)) return false;
+
+    // Worldモード: 3Dメッシュ(Mesh)と同じ深度テストを行い、奥行きで正しく前後する
+    D3D11_DEPTH_STENCIL_DESC dsdWorld = {};
+    dsdWorld.DepthEnable = TRUE;
+    dsdWorld.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ALL;
+    dsdWorld.DepthFunc = D3D11_COMPARISON_LESS;
+    hr = Graphics::device->CreateDepthStencilState(&dsdWorld, &depthStencilStateWorld);
+    return SUCCEEDED(hr);
+}
+
 // ---------------------------------------------------------------------------
 // BuildWorldMatrix
 //   Transform → ワールド行列（平行移動・回転・スケール）を組み立てる
 //   最終的に NDC 変換まで含めた行列を返す
 // ---------------------------------------------------------------------------
-XMMATRIX Sprite::BuildWorldMatrix(const Transform& transform) const {
+XMMATRIX Sprite::BuildWorldMatrix(const Transform& transform, bool worldSpace) const {
     float w = (transform.scale.x > 0.f) ? transform.scale.x : (float)texWidth;
     float h = (transform.scale.y > 0.f) ? transform.scale.y : (float)texHeight;
 
@@ -156,7 +175,20 @@ XMMATRIX Sprite::BuildWorldMatrix(const Transform& transform) const {
     //    NDC_x = pixel_x / (resW / 2)   NDC_y = -pixel_y / (resH / 2)
     float ndcX = worldX / (resW * 0.5f);
     float ndcY = -worldY / (resH * 0.5f);
-    XMMATRIX T = XMMatrixTranslation(ndcX, ndcY, 0.f);
+
+    // ★ Worldモードの時だけ、深度バッファに書き込むためのZ値(0〜1)を計算する。
+    //   3D用カメラ(camera3D)からの距離を、Meshと同じ透視投影の式でNDC深度に変換する。
+    //   UIモードの時は深度テスト自体をしないので、0のままでよい
+    float ndcZ = 0.f;
+    if (worldSpace && camera3D) {
+        float viewZ = transform.position.z - camera3D->position.z;
+        if (viewZ > 0.f) {
+            float nearZ = camera3D->nearZ;
+            float farZ = camera3D->farZ;
+            ndcZ = (farZ / (farZ - nearZ)) * (1.0f - nearZ / viewZ);
+        }
+    }
+    XMMATRIX T = XMMatrixTranslation(ndcX, ndcY, ndcZ);
 
     // ④ NDC スケール行列: ローカル [-0.5, 0.5] を NDC スケールに変換する追加係数
     //    （スケール行列でピクセルに拡大した後、さらに NDC へ縮小）
@@ -171,7 +203,7 @@ XMMATRIX Sprite::BuildWorldMatrix(const Transform& transform) const {
 // ---------------------------------------------------------------------------
 // Draw
 // ---------------------------------------------------------------------------
-void Sprite::Draw(Transform transform, XMFLOAT4 color, const SpriteSheet& sheet) {
+void Sprite::Draw(Transform transform, XMFLOAT4 color, const SpriteSheet& sheet, bool worldSpace) {
     assert(context && "context が nullptr");
     assert(vertexBuffer && "vertexBuffer が nullptr");
     assert(constantBuffer && "constantBuffer が nullptr");
@@ -207,7 +239,7 @@ void Sprite::Draw(Transform transform, XMFLOAT4 color, const SpriteSheet& sheet)
     // 2. 定数バッファ（ワールド行列）更新
     // ------------------------------------------------------------------
     ConstantBuffer cb;
-    cb.world = BuildWorldMatrix(transform);
+    cb.world = BuildWorldMatrix(transform, worldSpace);
 
     context->Map(constantBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &msr);
     memcpy(msr.pData, &cb, sizeof(cb));
@@ -218,6 +250,7 @@ void Sprite::Draw(Transform transform, XMFLOAT4 color, const SpriteSheet& sheet)
     // ------------------------------------------------------------------
     float blendFactor[4] = {};
     context->OMSetBlendState(blendState, blendFactor, 0xFFFFFFFF);
+    context->OMSetDepthStencilState(worldSpace ? depthStencilStateWorld : depthStencilStateUI, 0);
 
     UINT stride = sizeof(Vertex), offset = 0;
     context->IASetInputLayout(inputLayout);
@@ -240,6 +273,8 @@ void Sprite::Draw(Transform transform, XMFLOAT4 color, const SpriteSheet& sheet)
 void Sprite::Uninit() {
     if (constantBuffer) { constantBuffer->Release(); constantBuffer = nullptr; }
     if (blendState) { blendState->Release();     blendState = nullptr; }
+    if (depthStencilStateUI) { depthStencilStateUI->Release(); depthStencilStateUI = nullptr; }
+    if (depthStencilStateWorld) { depthStencilStateWorld->Release(); depthStencilStateWorld = nullptr; }
     if (sampler) { sampler->Release();         sampler = nullptr; }
     if (inputLayout) { inputLayout->Release();     inputLayout = nullptr; }
     if (pixelShader) { pixelShader->Release();     pixelShader = nullptr; }

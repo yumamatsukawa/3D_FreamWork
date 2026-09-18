@@ -26,8 +26,21 @@ void Scene::Update(float dt) {
 }
 
 void Scene::Draw() {
+    // z座標が小さい(マイナス側 = カメラに近い)ものから順に描画する。
+    // objects自体の並び順(Update順や生成順)は変えたくないので、
+    // 描画用の一時リストだけ作ってソートする
+    std::vector<GameObject*> drawOrder;
+    drawOrder.reserve(objects.size());
     for (auto& obj : objects)
-        if (obj->GetIsActive()) obj->Draw();
+        if (obj->GetIsActive()) drawOrder.push_back(obj.get());
+
+    std::sort(drawOrder.begin(), drawOrder.end(),
+        [](GameObject* a, GameObject* b) {
+            return a->transform.position.z < b->transform.position.z;
+        });
+
+    for (auto* obj : drawOrder)
+        obj->Draw();
 }
 
 void Scene::Uninit() {

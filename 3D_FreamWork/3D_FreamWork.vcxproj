@@ -129,6 +129,7 @@
     <ClCompile Include="Engine\Graphics.cpp" />
     <ClCompile Include="Engine\Image.cpp" />
     <ClCompile Include="Engine\Input.cpp" />
+    <ClCompile Include="Engine\Mesh.cpp" />
     <ClCompile Include="Engine\Scene.cpp" />
     <ClCompile Include="Engine\SceneManager.cpp" />
     <ClCompile Include="Engine\Sprite.cpp" />
@@ -140,6 +141,7 @@
     <ClCompile Include="Game\Components\PlayerController.cpp" />
     <ClCompile Include="Game\Components\TitleController.cpp" />
     <ClCompile Include="Game\Objects\BulletManager.cpp" />
+    <ClCompile Include="Game\Objects\Cube.cpp" />
     <ClCompile Include="Game\Objects\Enemy.cpp" />
     <ClCompile Include="Game\Objects\Player.cpp" />
     <ClCompile Include="Game\Objects\Title.cpp" />
@@ -159,6 +161,8 @@
     <ClInclude Include="Engine\Graphics.h" />
     <ClInclude Include="Engine\Image.h" />
     <ClInclude Include="Engine\Input.h" />
+    <ClInclude Include="Engine\Mesh.h" />
+    <ClInclude Include="Engine\MeshRenderer.h" />
     <ClInclude Include="Engine\ObjectPool.h" />
     <ClInclude Include="Engine\Scene.h" />
     <ClInclude Include="Engine\SceneManager.h" />
@@ -170,8 +174,10 @@
     <ClInclude Include="Engine\WICTextureLoader11.h" />
     <ClInclude Include="Game\Components\BulletController.h" />
     <ClInclude Include="Game\Components\PlayerController.h" />
+    <ClInclude Include="Game\Components\SpinComponent.h" />
     <ClInclude Include="Game\Components\TitleController.h" />
     <ClInclude Include="Game\Objects\BulletManager.h" />
+    <ClInclude Include="Game\Objects\Cube.h" />
     <ClInclude Include="Game\Objects\Enemy.h" />
     <ClInclude Include="Game\Objects\Player.h" />
     <ClInclude Include="Game\Objects\Title.h" />

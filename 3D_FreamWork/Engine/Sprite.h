@@ -36,21 +36,27 @@ private:
     ID3D11ShaderResourceView* srv = nullptr;
     ID3D11SamplerState* sampler = nullptr;
     ID3D11BlendState* blendState = nullptr;
+    ID3D11DepthStencilState* depthStencilStateUI = nullptr;    // UIモード: 深度無視、常に手前に描画される
+    ID3D11DepthStencilState* depthStencilStateWorld = nullptr; // Worldモード: 深度テストあり、3Dメッシュと正しく前後する
 
     float resW = 0, resH = 0;
     int   texWidth = 0, texHeight = 0;
 
-    const Camera* camera = nullptr;  // 設定されていれば、描画時にこのカメラの位置ぶんだけ画面をずらす
+    const Camera* camera = nullptr;    // 2D用: 設定されていれば、描画時にこのカメラのx,yぶんだけ画面をずらす
+    const Camera* camera3D = nullptr;  // Worldモード用: 深度バッファに書き込むZ値の計算に使う
 
     bool CreateShaders();
     bool CreateBuffers();
     bool CreateSampler();
     bool CreateBlendState();
-    XMMATRIX BuildWorldMatrix(const Transform& transform) const;
+    bool CreateDepthStencilState();
+    XMMATRIX BuildWorldMatrix(const Transform& transform, bool worldSpace) const;
 
 public:
     bool Init();
-    void Draw(Transform transform, XMFLOAT4 color, const SpriteSheet& sheet = SpriteSheet());
+    // worldSpace = false(既定): UIのように常に手前に描画される(今までの挙動)
+    // worldSpace = true        : 3Dオブジェクトのように、奥行きで前後関係が決まる
+    void Draw(Transform transform, XMFLOAT4 color, const SpriteSheet& sheet = SpriteSheet(), bool worldSpace = false);
     void Uninit();
 
     int GetTextureWidth()  const { return texWidth; }
@@ -61,4 +67,6 @@ public:
 
     // このカメラの position(x, y)ぶんだけ、以降の描画位置をずらすようになる
     void SetCamera(const Camera* cam) { camera = cam; }
+    // Worldモードで使う、3D用カメラ(奥行きZの計算に使う)
+    void SetCamera3D(const Camera* cam) { camera3D = cam; }
 };

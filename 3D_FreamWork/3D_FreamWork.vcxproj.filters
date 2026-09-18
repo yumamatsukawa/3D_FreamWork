@@ -36,6 +36,9 @@
     <ClCompile Include="Engine\Input.cpp">
       <Filter>Engine</Filter>
     </ClCompile>
+    <ClCompile Include="Engine\Mesh.cpp">
+      <Filter>Engine</Filter>
+    </ClCompile>
     <ClCompile Include="Engine\Scene.cpp">
       <Filter>Engine</Filter>
     </ClCompile>
@@ -73,6 +76,9 @@
       <Filter>Game\Components</Filter>
     </ClCompile>
     <ClCompile Include="Game\Objects\BulletManager.cpp">
+      <Filter>Game\Objects</Filter>
+    </ClCompile>
+    <ClCompile Include="Game\Objects\Cube.cpp">
       <Filter>Game\Objects</Filter>
     </ClCompile>
     <ClCompile Include="Game\Objects\Player.cpp">
@@ -120,6 +126,12 @@
     <ClInclude Include="Engine\Input.h">
       <Filter>Engine</Filter>
     </ClInclude>
+    <ClInclude Include="Engine\Mesh.h">
+      <Filter>Engine</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\MeshRenderer.h">
+      <Filter>Engine</Filter>
+    </ClInclude>
     <ClInclude Include="Engine\ObjectPool.h">
       <Filter>Engine</Filter>
     </ClInclude>
@@ -159,10 +171,16 @@
     <ClInclude Include="Game\Components\PlayerController.h">
       <Filter>Game\Components</Filter>
     </ClInclude>
+    <ClInclude Include="Game\Components\SpinComponent.h">
+      <Filter>Game\Components</Filter>
+    </ClInclude>
     <ClInclude Include="Game\Components\TitleController.h">
       <Filter>Game\Components</Filter>
     </ClInclude>
     <ClInclude Include="Game\Objects\BulletManager.h">
+      <Filter>Game\Objects</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\Objects\Cube.h">
       <Filter>Game\Objects</Filter>
     </ClInclude>
     <ClInclude Include="Game\Objects\Player.h">

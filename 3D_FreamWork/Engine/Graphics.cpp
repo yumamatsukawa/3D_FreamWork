@@ -5,6 +5,7 @@ namespace Graphics {
     ID3D11DeviceContext* context = nullptr;
     IDXGISwapChain* swapChain = nullptr;
     ID3D11RenderTargetView* renderTarget = nullptr;
+    ID3D11DepthStencilView* depthStencilView = nullptr;
     float                   width = 0.f;
     float                   height = 0.f;
 
@@ -46,7 +47,25 @@ namespace Graphics {
         device->CreateRenderTargetView(backBuffer, nullptr, &renderTarget);
         backBuffer->Release();
 
-        context->OMSetRenderTargets(1, &renderTarget, nullptr);
+        // ★ 深度バッファ(Z-buffer)を作成する。3Dメッシュの前後関係を正しく描画するために使う
+        D3D11_TEXTURE2D_DESC depthDesc = {};
+        depthDesc.Width = w;
+        depthDesc.Height = h;
+        depthDesc.MipLevels = 1;
+        depthDesc.ArraySize = 1;
+        depthDesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
+        depthDesc.SampleDesc.Count = 1;
+        depthDesc.Usage = D3D11_USAGE_DEFAULT;
+        depthDesc.BindFlags = D3D11_BIND_DEPTH_STENCIL;
+
+        ID3D11Texture2D* depthTexture = nullptr;
+        hr = device->CreateTexture2D(&depthDesc, nullptr, &depthTexture);
+        if (FAILED(hr)) return false;
+        hr = device->CreateDepthStencilView(depthTexture, nullptr, &depthStencilView);
+        depthTexture->Release();
+        if (FAILED(hr)) return false;
+
+        context->OMSetRenderTargets(1, &renderTarget, depthStencilView);
 
         D3D11_VIEWPORT vp = {};
         vp.Width = (float)w;
@@ -59,6 +78,7 @@ namespace Graphics {
 
     void Uninit() {
         if (renderTarget) { renderTarget->Release(); renderTarget = nullptr; }
+        if (depthStencilView) { depthStencilView->Release(); depthStencilView = nullptr; }
         if (swapChain) { swapChain->Release();    swapChain = nullptr; }
         if (context) { context->Release();      context = nullptr; }
         if (device) { device->Release();       device = nullptr; }

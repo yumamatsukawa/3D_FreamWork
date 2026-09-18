@@ -10,15 +10,16 @@ GameObject* CreatePlayer(Scene& scene) {
     player->transform.position = {   0.0f,   0.0f, 0.0f };
     player->transform.scale    = { 100.0f, 100.0f, 1.0f };
 
-    // 見た目
+    // 見た目(3Dオブジェクト(cube)と正しく前後関係が出るよう、World空間モードにする)
     auto* sprite = player->AddComponent<SpriteRenderer>(L"Assets/player.png", 8, 2);
     sprite->SetSpriteIndex(5);
+    sprite->SetWorldSpace(true);
 
     // 動き・入力操作
     player->AddComponent<PlayerController>();
 
     // 当たり判定(すり抜ける円形)
-    player->AddComponent<CircleColliderComponent>(true, 50.0f);
+    player->AddComponent<CircleColliderComponent>(false, 50.0f);
 
     return player;
 }

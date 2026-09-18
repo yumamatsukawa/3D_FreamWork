@@ -1,6 +1,7 @@
 ﻿#include "GameScene.h"
 #include "../Objects/Player.h"
 #include "../Objects/Enemy.h"
+#include "../Objects/Cube.h"
 #include "../../Engine/EventBus.h"
 #include "../../Engine/GameObject.h"
 #include <DirectXMath.h>
@@ -9,6 +10,7 @@ void GameScene::Init()
 {
     CreatePlayer(*this);
     CreateEnemy(*this);
+    CreateCube(*this);
 
     // 「FireBullet」イベントを購読する。誰か(PlayerControllerなど)が
     // PublishObject("FireBullet", shooter) を呼ぶと、ここが弾を実際に生成する。
