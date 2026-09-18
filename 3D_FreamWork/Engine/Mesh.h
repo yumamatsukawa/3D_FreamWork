@@ -30,27 +30,38 @@ struct MeshConstantBuffer {
 // 奥行きのある立体を、深度バッファ有り(前後関係が正しい)で描画できる。
 class Mesh {
 private:
-    ID3D11Buffer* constantBuffer = nullptr;
-    ID3D11DeviceContext* context = nullptr;
+    // インスタンスごとに違うもの(形状データ・テクスチャ)
     ID3D11Buffer* vertexBuffer = nullptr;
-    ID3D11VertexShader* vertexShader = nullptr;
-    ID3D11PixelShader* pixelShader = nullptr;
-    ID3D11InputLayout* inputLayout = nullptr;
     ID3D11ShaderResourceView* srv = nullptr;
-    ID3D11SamplerState* sampler = nullptr;
-    ID3D11BlendState* blendState = nullptr;
-    ID3D11DepthStencilState* depthStencilState = nullptr;
-    ID3D11RasterizerState* rasterizerState = nullptr;
-
     std::vector<MeshVertex> vertices;
-    float aspectRatio = 1.f;
 
-    bool CreateShaders();
-    bool CreateBuffers();
-    bool CreateSampler();
-    bool CreateBlendState();
-    bool CreateDepthStencilState();
-    bool CreateRasterizerState();
+    // シェーダー・各種ステート・定数バッファは、Cube/Sphere/OBJなど全てのMeshで
+    // 内容が同じ(Shader3D.hlslを共有している)ため、インスタンスごとに作らず
+    // クラス全体で1つだけ作って使い回す(コンパイル・生成コストの削減)。
+    // refCountで「今何体のMeshが使っているか」を数え、最後の1体がUninitされた時に
+    // まとめて解放する
+    static ID3D11DeviceContext* context;
+    static ID3D11Buffer* constantBuffer;
+    static ID3D11VertexShader* vertexShader;
+    static ID3D11PixelShader* pixelShader;
+    static ID3D11InputLayout* inputLayout;
+    static ID3D11SamplerState* sampler;
+    static ID3D11BlendState* blendState;
+    static ID3D11DepthStencilState* depthStencilState;
+    static ID3D11RasterizerState* rasterizerState;
+    static float aspectRatio;
+    static int refCount;
+
+    bool CreateSharedResources();
+    static void ReleaseSharedResources();
+    static bool CreateShaders();
+    static bool CreateConstantBuffer();
+    static bool CreateSampler();
+    static bool CreateBlendState();
+    static bool CreateDepthStencilState();
+    static bool CreateRasterizerState();
+
+    bool CreateVertexBuffer();
 
 public:
     bool Init(const std::vector<MeshVertex>& verts);
@@ -67,7 +78,8 @@ public:
     static std::vector<MeshVertex> CreateSphere(int rings = 16, int segments = 24);
 
     // Wavefront OBJ(.obj)ファイルを読み込んで頂点データを作る。
-    // v(頂点座標)/vt(UV座標)/f(面)に対応。四角形以上の面は三角形に自動分割する。
+    // v(頂点座標)/vt(UV座標)/vn(法線)/f(面)に対応。四角形以上の面は三角形に自動分割する。
+    // vnが無いファイルは、三角形ごとに面法線を自動計算する。
     // 読み込みに失敗した場合は空のvectorを返す
     static std::vector<MeshVertex> LoadOBJ(const std::wstring& filepath);
 };

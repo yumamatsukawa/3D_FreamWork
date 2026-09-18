@@ -5,18 +5,52 @@
 #include <sstream>
 #include <string>
 
+ID3D11DeviceContext* Mesh::context = nullptr;
+ID3D11Buffer* Mesh::constantBuffer = nullptr;
+ID3D11VertexShader* Mesh::vertexShader = nullptr;
+ID3D11PixelShader* Mesh::pixelShader = nullptr;
+ID3D11InputLayout* Mesh::inputLayout = nullptr;
+ID3D11SamplerState* Mesh::sampler = nullptr;
+ID3D11BlendState* Mesh::blendState = nullptr;
+ID3D11DepthStencilState* Mesh::depthStencilState = nullptr;
+ID3D11RasterizerState* Mesh::rasterizerState = nullptr;
+float Mesh::aspectRatio = 1.f;
+int Mesh::refCount = 0;
+
 bool Mesh::Init(const std::vector<MeshVertex>& verts) {
     context = Graphics::context;
     vertices = verts;
     aspectRatio = (Graphics::height > 0.f) ? (Graphics::width / Graphics::height) : 1.f;
 
+    if (!CreateSharedResources()) { OutputDebugStringA("★ Mesh CreateSharedResources 失敗\n"); return false; }
+    if (!CreateVertexBuffer()) { OutputDebugStringA("★ Mesh CreateVertexBuffer 失敗\n"); return false; }
+
+    refCount++;
+    return true;
+}
+
+bool Mesh::CreateSharedResources() {
+    // 既に他のMeshが作成済みなら、それをそのまま使い回す
+    if (vertexShader) return true;
+
     if (!CreateShaders()) { OutputDebugStringA("★ Mesh CreateShaders 失敗\n"); return false; }
-    if (!CreateBuffers()) { OutputDebugStringA("★ Mesh CreateBuffers 失敗\n"); return false; }
+    if (!CreateConstantBuffer()) { OutputDebugStringA("★ Mesh CreateConstantBuffer 失敗\n"); return false; }
     if (!CreateSampler()) { OutputDebugStringA("★ Mesh CreateSampler 失敗\n"); return false; }
     if (!CreateBlendState()) { OutputDebugStringA("★ Mesh CreateBlendState 失敗\n"); return false; }
     if (!CreateDepthStencilState()) { OutputDebugStringA("★ Mesh CreateDepthStencilState 失敗\n"); return false; }
     if (!CreateRasterizerState()) { OutputDebugStringA("★ Mesh CreateRasterizerState 失敗\n"); return false; }
     return true;
+}
+
+void Mesh::ReleaseSharedResources() {
+    if (constantBuffer) { constantBuffer->Release(); constantBuffer = nullptr; }
+    if (blendState) { blendState->Release(); blendState = nullptr; }
+    if (depthStencilState) { depthStencilState->Release(); depthStencilState = nullptr; }
+    if (rasterizerState) { rasterizerState->Release(); rasterizerState = nullptr; }
+    if (sampler) { sampler->Release(); sampler = nullptr; }
+    if (inputLayout) { inputLayout->Release(); inputLayout = nullptr; }
+    if (pixelShader) { pixelShader->Release(); pixelShader = nullptr; }
+    if (vertexShader) { vertexShader->Release(); vertexShader = nullptr; }
 }
 
 bool Mesh::CreateShaders() {
@@ -77,21 +111,23 @@ bool Mesh::CreateShaders() {
     return true;
 }
 
-bool Mesh::CreateBuffers() {
+bool Mesh::CreateVertexBuffer() {
     D3D11_BUFFER_DESC bd = {};
     bd.Usage = D3D11_USAGE_DYNAMIC;
     bd.ByteWidth = sizeof(MeshVertex) * (UINT)vertices.size();
     bd.BindFlags = D3D11_BIND_VERTEX_BUFFER;
     bd.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
     HRESULT hr = Graphics::device->CreateBuffer(&bd, nullptr, &vertexBuffer);
-    if (FAILED(hr)) return false;
+    return SUCCEEDED(hr);
+}
 
+bool Mesh::CreateConstantBuffer() {
     D3D11_BUFFER_DESC cbd = {};
     cbd.Usage = D3D11_USAGE_DYNAMIC;
     cbd.ByteWidth = sizeof(MeshConstantBuffer);
     cbd.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
     cbd.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
-    hr = Graphics::device->CreateBuffer(&cbd, nullptr, &constantBuffer);
+    HRESULT hr = Graphics::device->CreateBuffer(&cbd, nullptr, &constantBuffer);
     return SUCCEEDED(hr);
 }
 
@@ -194,15 +230,14 @@ void Mesh::Draw(const Transform& transform, const Camera& camera, XMFLOAT4 color
 }
 
 void Mesh::Uninit() {
-    if (constantBuffer) { constantBuffer->Release(); constantBuffer = nullptr; }
-    if (blendState) { blendState->Release(); blendState = nullptr; }
-    if (depthStencilState) { depthStencilState->Release(); depthStencilState = nullptr; }
-    if (rasterizerState) { rasterizerState->Release(); rasterizerState = nullptr; }
-    if (sampler) { sampler->Release(); sampler = nullptr; }
-    if (inputLayout) { inputLayout->Release(); inputLayout = nullptr; }
-    if (pixelShader) { pixelShader->Release(); pixelShader = nullptr; }
-    if (vertexShader) { vertexShader->Release(); vertexShader = nullptr; }
     if (vertexBuffer) { vertexBuffer->Release(); vertexBuffer = nullptr; }
+
+    // 共有リソースは、最後の1体が使い終わった時にだけ解放する
+    refCount--;
+    if (refCount <= 0) {
+        ReleaseSharedResources();
+        refCount = 0;
+    }
 }
 
 std::vector<MeshVertex> Mesh::CreateCube() {
