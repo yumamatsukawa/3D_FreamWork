@@ -3,6 +3,7 @@
 #include <d3dcompiler.h>
 #include <DirectXMath.h>
 #include <vector>
+#include <string>
 #include "Transform.h"
 #include "Camera.h"
 #pragma comment(lib, "d3dcompiler.lib")
@@ -59,4 +60,9 @@ public:
     // 半径0.5の単位球の頂点データを作る。obj->transform.scaleで大きさを変えられる。
     // rings: 緯度方向の分割数、segments: 経度方向の分割数(大きいほど滑らかで頂点数が増える)
     static std::vector<MeshVertex> CreateSphere(int rings = 16, int segments = 24);
+
+    // Wavefront OBJ(.obj)ファイルを読み込んで頂点データを作る。
+    // v(頂点座標)/vt(UV座標)/f(面)に対応。四角形以上の面は三角形に自動分割する。
+    // 読み込みに失敗した場合は空のvectorを返す
+    static std::vector<MeshVertex> LoadOBJ(const std::wstring& filepath);
 };

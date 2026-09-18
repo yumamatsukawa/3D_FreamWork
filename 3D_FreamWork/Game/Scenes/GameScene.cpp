@@ -6,6 +6,7 @@
 #include "../Objects/Skybox.h"
 #include "../../Engine/EventBus.h"
 #include "../../Engine/GameObject.h"
+#include "../../Engine/MeshRenderer.h"
 #include <DirectXMath.h>
 
 void GameScene::Init()

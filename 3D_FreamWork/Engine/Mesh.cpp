@@ -1,6 +1,9 @@
 ﻿#include "Mesh.h"
 #include "Graphics.h"
 #include <cassert>
+#include <fstream>
+#include <sstream>
+#include <string>
 
 bool Mesh::Init(const std::vector<MeshVertex>& verts) {
     context = Graphics::context;
@@ -256,4 +259,96 @@ std::vector<MeshVertex> Mesh::CreateSphere(int rings, int segments) {
     }
 
     return verts;
+}
+
+// "1", "1/2", "1/2/3", "1//3" のいずれの形式からも、頂点インデックスとUVインデックスを取り出す。
+// 見つからない場合は0を返す(0はOBJでは使われない値なので「無い」の意味で使う)
+static void ParseFaceVertex(const std::string& token, int& posIndex, int& uvIndex) {
+    posIndex = 0;
+    uvIndex = 0;
+
+    size_t slash1 = token.find('/');
+    if (slash1 == std::string::npos) {
+        posIndex = std::stoi(token);
+        return;
+    }
+
+    posIndex = std::stoi(token.substr(0, slash1));
+
+    size_t slash2 = token.find('/', slash1 + 1);
+    std::string uvPart = (slash2 == std::string::npos)
+        ? token.substr(slash1 + 1)
+        : token.substr(slash1 + 1, slash2 - slash1 - 1);
+    if (!uvPart.empty()) uvIndex = std::stoi(uvPart);
+}
+
+std::vector<MeshVertex> Mesh::LoadOBJ(const std::wstring& filepath) {
+    std::ifstream file(filepath);
+    if (!file.is_open()) {
+        OutputDebugStringA("★ Mesh::LoadOBJ: ファイルが開けません\n");
+        return {};
+    }
+
+    std::vector<XMFLOAT3> positions;
+    std::vector<XMFLOAT2> texcoords;
+    std::vector<MeshVertex> result;
+
+    std::string line;
+    while (std::getline(file, line)) {
+        std::istringstream iss(line);
+        std::string tag;
+        iss >> tag;
+
+        if (tag == "v") {
+            XMFLOAT3 p;
+            iss >> p.x >> p.y >> p.z;
+            positions.push_back(p);
+        }
+        else if (tag == "vt") {
+            XMFLOAT2 uv;
+            iss >> uv.x >> uv.y;
+            uv.y = 1.0f - uv.y;  // OBJのvtは下から上、このエンジンは上から下が基準なので反転する
+            texcoords.push_back(uv);
+        }
+        else if (tag == "f") {
+            std::vector<int> posIdx, uvIdx;
+            std::string token;
+            while (iss >> token) {
+                int p = 0, t = 0;
+                ParseFaceVertex(token, p, t);
+
+                // 負の値は「末尾からの相対インデックス」を意味する(OBJの仕様)
+                if (p < 0) p = (int)positions.size() + p + 1;
+                if (t < 0) t = (int)texcoords.size() + t + 1;
+
+                posIdx.push_back(p);
+                uvIdx.push_back(t);
+            }
+
+            // 3頂点なら三角形そのまま、4頂点以上(四角形など)は扇状に三角形分割する
+            for (int i = 1; i + 1 < (int)posIdx.size(); i++) {
+                int triangle[3] = { 0, i, i + 1 };
+                for (int k = 0; k < 3; k++) {
+                    int idx = triangle[k];
+                    MeshVertex v{};
+                    v.Color = { 1.f, 1.f, 1.f, 1.f };
+
+                    int pI = posIdx[idx];
+                    if (pI >= 1 && pI <= (int)positions.size()) v.Position = positions[pI - 1];
+
+                    int tI = uvIdx[idx];
+                    if (tI >= 1 && tI <= (int)texcoords.size()) v.TexCoord = texcoords[tI - 1];
+
+                    result.push_back(v);
+                }
+            }
+        }
+        // vn(法線)は今はまだ使わないので読み飛ばす
+    }
+
+    if (result.empty()) {
+        OutputDebugStringA("★ Mesh::LoadOBJ: 頂点を読み込めませんでした(面が無いか、形式が非対応の可能性)\n");
+    }
+
+    return result;
 }

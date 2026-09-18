@@ -115,6 +115,13 @@ meshRenderer->SetColor(1.0f, 1.0f, 1.0f, 1.0f);
 用意されている形状:
 - `Mesh::CreateCube()` — 単位立方体(-0.5〜0.5)
 - `Mesh::CreateSphere(rings, segments)` — 半径0.5のUV球(緯度・経度の分割数を指定可能)
+- `Mesh::LoadOBJ(filepath)` — `.obj`ファイル(Wavefront OBJ)を読み込む
+
+```cpp
+auto* meshRenderer = obj->AddComponent<MeshRenderer>(Mesh::LoadOBJ(L"Assets/model.obj"));
+```
+
+`LoadOBJ`は`v`(頂点座標)/`vt`(UV座標)/`f`(面)に対応しています。四角形以上の面は自動で三角形に分割されます。**法線(`vn`)はまだ読み込みません**(ライティング対応時に追加予定なので、今はどのモデルも陰影の無い見た目になります)。
 
 これら以外の形状を追加したい場合は、同じ形式(`std::vector<MeshVertex>`を返す静的関数)で頂点データを作る関数を`Engine/Mesh.h/.cpp`に足してください(`Game/Objects/Cube.cpp`や`Sphere.cpp`が実例)。
 
