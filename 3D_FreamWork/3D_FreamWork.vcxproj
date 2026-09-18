@@ -136,8 +136,10 @@
     <ClCompile Include="Engine\Text.cpp" />
     <ClCompile Include="Engine\Texture.cpp" />
     <ClCompile Include="Engine\WICTextureLoader11.cpp" />
+    <ClCompile Include="Game\Components\BulletController.cpp" />
     <ClCompile Include="Game\Components\PlayerController.cpp" />
     <ClCompile Include="Game\Components\TitleController.cpp" />
+    <ClCompile Include="Game\Objects\BulletManager.cpp" />
     <ClCompile Include="Game\Objects\Enemy.cpp" />
     <ClCompile Include="Game\Objects\Player.cpp" />
     <ClCompile Include="Game\Objects\Title.cpp" />
@@ -151,11 +153,13 @@
     <ClInclude Include="Engine\Collider.h" />
     <ClInclude Include="Engine\ColliderComponent.h" />
     <ClInclude Include="Engine\Component.h" />
+    <ClInclude Include="Engine\EventBus.h" />
     <ClInclude Include="Engine\GameEngine.h" />
     <ClInclude Include="Engine\GameObject.h" />
     <ClInclude Include="Engine\Graphics.h" />
     <ClInclude Include="Engine\Image.h" />
     <ClInclude Include="Engine\Input.h" />
+    <ClInclude Include="Engine\ObjectPool.h" />
     <ClInclude Include="Engine\Scene.h" />
     <ClInclude Include="Engine\SceneManager.h" />
     <ClInclude Include="Engine\Sprite.h" />
@@ -164,8 +168,10 @@
     <ClInclude Include="Engine\Texture.h" />
     <ClInclude Include="Engine\Transform.h" />
     <ClInclude Include="Engine\WICTextureLoader11.h" />
+    <ClInclude Include="Game\Components\BulletController.h" />
     <ClInclude Include="Game\Components\PlayerController.h" />
     <ClInclude Include="Game\Components\TitleController.h" />
+    <ClInclude Include="Game\Objects\BulletManager.h" />
     <ClInclude Include="Game\Objects\Enemy.h" />
     <ClInclude Include="Game\Objects\Player.h" />
     <ClInclude Include="Game\Objects\Title.h" />

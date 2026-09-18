@@ -63,11 +63,17 @@
     <ClCompile Include="Game\Scenes\TitleScene.cpp">
       <Filter>Game\Scenes</Filter>
     </ClCompile>
+    <ClCompile Include="Game\Components\BulletController.cpp">
+      <Filter>Game\Components</Filter>
+    </ClCompile>
     <ClCompile Include="Game\Components\PlayerController.cpp">
       <Filter>Game\Components</Filter>
     </ClCompile>
     <ClCompile Include="Game\Components\TitleController.cpp">
       <Filter>Game\Components</Filter>
+    </ClCompile>
+    <ClCompile Include="Game\Objects\BulletManager.cpp">
+      <Filter>Game\Objects</Filter>
     </ClCompile>
     <ClCompile Include="Game\Objects\Player.cpp">
       <Filter>Game\Objects</Filter>
@@ -96,6 +102,9 @@
     <ClInclude Include="Engine\Component.h">
       <Filter>Engine</Filter>
     </ClInclude>
+    <ClInclude Include="Engine\EventBus.h">
+      <Filter>Engine</Filter>
+    </ClInclude>
     <ClInclude Include="Engine\GameEngine.h">
       <Filter>Engine</Filter>
     </ClInclude>
@@ -109,6 +118,9 @@
       <Filter>Engine</Filter>
     </ClInclude>
     <ClInclude Include="Engine\Input.h">
+      <Filter>Engine</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\ObjectPool.h">
       <Filter>Engine</Filter>
     </ClInclude>
     <ClInclude Include="Engine\Scene.h">
@@ -141,11 +153,17 @@
     <ClInclude Include="Game\Scenes\TitleScene.h">
       <Filter>Game\Scenes</Filter>
     </ClInclude>
+    <ClInclude Include="Game\Components\BulletController.h">
+      <Filter>Game\Components</Filter>
+    </ClInclude>
     <ClInclude Include="Game\Components\PlayerController.h">
       <Filter>Game\Components</Filter>
     </ClInclude>
     <ClInclude Include="Game\Components\TitleController.h">
       <Filter>Game\Components</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\Objects\BulletManager.h">
+      <Filter>Game\Objects</Filter>
     </ClInclude>
     <ClInclude Include="Game\Objects\Player.h">
       <Filter>Game\Objects</Filter>

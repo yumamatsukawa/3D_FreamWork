@@ -11,6 +11,12 @@ class Scene
 protected:
     std::vector<std::unique_ptr<GameObject>> objects;
 
+    // Update中にCreateObjectされたものを、ここに一旦貯めておく。
+    // Update中のobjectsへ直接push_backすると、今回っているループのイテレータが
+    // 壊れて即クラッシュするため、ループの外側(Update末尾)でまとめてobjectsへ移す。
+    std::vector<std::unique_ptr<GameObject>> pendingObjects;
+    bool isUpdating = false;  // 今Update()の実行中かどうか
+
 public:
     virtual ~Scene() = default;
 
@@ -27,10 +33,15 @@ public:
     // 中身(見た目や動き)は、戻り値に対してAddComponentで組み立てる。
     // 例: auto* player = scene.CreateObject("Player", "Player");
     //     player->AddComponent<SpriteRenderer>();
+    // Update中に呼ばれた場合はpendingObjectsに、それ以外(Init中など)はobjectsに
+    // 直接追加する。戻り値のポインタは、どちらに居てもGameObject自体の実体は
+    // 動かないので(unique_ptrの中身なので)、以後ずっと有効なまま使ってよい。
     GameObject* CreateObject(std::string name = "", std::string tag = "") {
         auto obj = std::make_unique<GameObject>(std::move(name), std::move(tag));
         GameObject* ptr = obj.get();
-        objects.push_back(std::move(obj));
+        ptr->SetScene(this);
+        if (isUpdating) pendingObjects.push_back(std::move(obj));
+        else objects.push_back(std::move(obj));
         return ptr;
     }
 };

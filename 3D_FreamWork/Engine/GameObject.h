@@ -6,6 +6,8 @@
 #include "Component.h"
 #include "Collider.h"
 
+class Scene;
+
 // GameObjectはそれ自体では何もしない「入れ物」。
 // 実際の見た目や動きは、AddComponentで追加したComponent(部品)が担う。
 class GameObject {
@@ -13,6 +15,8 @@ private:
     std::string name;
     std::string tag;
     bool isActive = true;
+    bool isDestroyed = false;  // trueになったら、Sceneが次のUpdateで実際に破棄する
+    Scene* scene = nullptr;    // 自分がどのSceneに属しているか(Scene::CreateObjectが設定する)
 
     std::vector<std::unique_ptr<Component>> components;
 
@@ -79,6 +83,18 @@ public:
     // ─── アクセサ ───────────────────────────────
     const std::string& GetName() const { return name; }
     const std::string& GetTag()  const { return tag; }
+
+    // SetActive(false)は「非表示・Update/Draw停止」なだけで、破棄はされない
+    // (プーリングなどで、後で再利用するために取っておける)
     bool GetIsActive() const { return isActive; }
     void SetActive(bool v) { isActive = v; }
+
+    // Destroy()は「本当に破棄する」印を付ける。次のScene::Updateで実際に取り除かれる
+    void Destroy() { isDestroyed = true; }
+    bool GetIsDestroyed() const { return isDestroyed; }
+
+    // 自分が属しているScene。Componentから「新しいオブジェクトを生成したい」時などに使う
+    // 例: GetOwner()->GetScene()->CreateObject(...)
+    Scene* GetScene() const { return scene; }
+    void SetScene(Scene* s) { scene = s; }
 };

@@ -477,6 +477,7 @@ void UpdateCollider() {
 void DrawColliders() {
     for (auto col : g_Colliders) {
         if (!col->enabled) continue;
+        if (!col->owner->GetIsActive()) continue;
         unsigned int debugTexID = g_DebugBoxTexID;
         if (col->GetShape() == Collider2D::Shape::Circle)
         {

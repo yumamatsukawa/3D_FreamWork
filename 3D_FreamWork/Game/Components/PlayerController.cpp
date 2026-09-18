@@ -4,6 +4,7 @@
 #include "../../Engine/Input.h"
 #include "../../Engine/Collider.h"
 #include "../../Engine/Image.h"
+#include "../../Engine/EventBus.h"
 
 void PlayerController::Update(float dt) {
     GameObject* owner = GetOwner();
@@ -26,6 +27,12 @@ void PlayerController::Update(float dt) {
     if (Input::GetKeyPress(KEY_D)) t.position.x += speed * dt;
     if (Input::GetKeyPress(KEY_Q)) t.rotate.z += speed * dt;
     if (Input::GetKeyPress(KEY_E)) t.rotate.z -= speed * dt;
+
+    // SPACEキーで「撃った」イベントを発行するだけ。
+    // 実際に弾を生成する処理は知らない(GameScene側がFireBulletを購読して行う)
+    if (Input::GetKeyDown(KEY_SPACE)) {
+        EventBus::Get().PublishObject("FireBullet", owner);
+    }
 
     // カメラをプレイヤーに追従させる
     Image::GetCamera().position.x = t.position.x;
