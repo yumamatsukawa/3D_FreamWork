@@ -2,15 +2,21 @@
 #include "../Objects/Player.h"
 #include "../Objects/Enemy.h"
 #include "../Objects/Cube.h"
+#include "../Objects/Sphere.h"
+#include "../Objects/Skybox.h"
 #include "../../Engine/EventBus.h"
 #include "../../Engine/GameObject.h"
 #include <DirectXMath.h>
 
 void GameScene::Init()
 {
+    // ★ box.pngは仮のテクスチャ。専用のスカイボックス用画像が用意でき次第差し替える
+    CreateSkybox(*this);
+
     CreatePlayer(*this);
     CreateEnemy(*this);
     CreateCube(*this);
+    CreateSphere(*this);
 
     // 「FireBullet」イベントを購読する。誰か(PlayerControllerなど)が
     // PublishObject("FireBullet", shooter) を呼ぶと、ここが弾を実際に生成する。
@@ -24,7 +30,7 @@ void GameScene::Init()
         float rad = -shooter->transform.rotate.z * (DirectX::XM_PI / 180.f);
         DirectX::XMFLOAT2 dir = { sinf(rad), -cosf(rad) };
 
-        bulletManager.Fire(*this, shooter, shooter->transform.position, dir);
+        bulletManager.Fire(*this, shooter->transform.position, dir);
     });
 }
 

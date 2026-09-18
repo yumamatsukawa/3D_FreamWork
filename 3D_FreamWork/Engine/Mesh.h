@@ -55,4 +55,8 @@ public:
 
     // 単位立方体(-0.5〜0.5)の頂点データを作る。obj->transform.scaleで大きさを変えられる
     static std::vector<MeshVertex> CreateCube();
+
+    // 半径0.5の単位球の頂点データを作る。obj->transform.scaleで大きさを変えられる。
+    // rings: 緯度方向の分割数、segments: 経度方向の分割数(大きいほど滑らかで頂点数が増える)
+    static std::vector<MeshVertex> CreateSphere(int rings = 16, int segments = 24);
 };

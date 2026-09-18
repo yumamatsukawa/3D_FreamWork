@@ -15,14 +15,13 @@ namespace {
     }
 }
 
-GameObject* BulletManager::Fire(Scene& scene, GameObject* shooter,
-    DirectX::XMFLOAT3 position, DirectX::XMFLOAT2 direction) {
+GameObject* BulletManager::Fire(Scene& scene, XMFLOAT3 position, XMFLOAT2 direction) {
     GameObject* bullet = pool.Rent(scene, SetupBullet);
     bullet->transform.position = position;
     bullet->transform.rotate = { 0.f, 0.f, 0.f };
 
     BulletController* controller = bullet->GetComponent<BulletController>();
-    if (controller) controller->Fire(direction, &pool, shooter);
+    if (controller) controller->Fire(direction, &pool);
 
     return bullet;
 }

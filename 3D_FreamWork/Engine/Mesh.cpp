@@ -220,3 +220,40 @@ std::vector<MeshVertex> Mesh::CreateCube() {
         {{-0.5f,-0.5f, 0.5f}, c, {0.f,1.f}}, {{ 0.5f,-0.5f,-0.5f}, c, {1.f,0.f}}, {{-0.5f,-0.5f,-0.5f}, c, {0.f,0.f}},
     };
 }
+
+std::vector<MeshVertex> Mesh::CreateSphere(int rings, int segments) {
+    XMFLOAT4 c = { 1.f, 1.f, 1.f, 1.f };
+    const float radius = 0.5f;
+    std::vector<MeshVertex> verts;
+
+    // 経度(theta: 0〜PI、上から下)と緯度(phi: 0〜2PI、ぐるっと1周)で
+    // 四角形の区画に分割し、それぞれを三角形2枚で埋めていく
+    auto MakeVertex = [&](float theta, float phi) {
+        float x = sinf(theta) * cosf(phi);
+        float y = cosf(theta);
+        float z = sinf(theta) * sinf(phi);
+        float u = phi / (2.0f * XM_PI);
+        float v = theta / XM_PI;
+        return MeshVertex{ { x * radius, y * radius, z * radius }, c, { u, v } };
+    };
+
+    for (int lat = 0; lat < rings; lat++) {
+        float theta0 = XM_PI * (float)lat / rings;
+        float theta1 = XM_PI * (float)(lat + 1) / rings;
+
+        for (int lon = 0; lon < segments; lon++) {
+            float phi0 = 2.0f * XM_PI * (float)lon / segments;
+            float phi1 = 2.0f * XM_PI * (float)(lon + 1) / segments;
+
+            MeshVertex v00 = MakeVertex(theta0, phi0);
+            MeshVertex v01 = MakeVertex(theta0, phi1);
+            MeshVertex v10 = MakeVertex(theta1, phi0);
+            MeshVertex v11 = MakeVertex(theta1, phi1);
+
+            verts.push_back(v00); verts.push_back(v11); verts.push_back(v01);
+            verts.push_back(v00); verts.push_back(v10); verts.push_back(v11);
+        }
+    }
+
+    return verts;
+}

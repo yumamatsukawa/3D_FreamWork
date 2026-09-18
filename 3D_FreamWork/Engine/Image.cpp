@@ -85,6 +85,15 @@ namespace Image
         mainCamera3D.target.x = mainCamera.position.x;
         mainCamera3D.target.y = -mainCamera.position.y;
 
+        // ★ 2D(疑似的な正射影、距離に関係なく一定速度でスクロール)と
+        //   3D(本物の透視投影、遠近感でスクロール速度が変わる)の間で、
+        //   focalLengthの距離にあるオブジェクトだけは同じ速度で動いて見えるように、
+        //   fovYを逆算する。もっと遠い/近いものはズレるが、それは正しい遠近感として扱う
+        if (Graphics::height > 0.f) {
+            float halfH = Graphics::height * 0.5f;
+            mainCamera3D.fovY = 2.0f * atanf(halfH / mainCamera3D.focalLength);
+        }
+
         float clearColor[4] = { 0.f, 0.f, 0.5f, 1.f };
         Graphics::context->ClearRenderTargetView(Graphics::renderTarget, clearColor);
         Graphics::context->ClearDepthStencilView(Graphics::depthStencilView, D3D11_CLEAR_DEPTH, 1.0f, 0);

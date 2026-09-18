@@ -15,7 +15,7 @@ GameObject* CreateCube(Scene& scene) {
     meshRenderer->SetTexture(L"Assets/debug_box.png");
 
     // 動作確認用に回転させ続ける
-    cube->AddComponent<SpinComponent>();
+    //cube->AddComponent<SpinComponent>();
 
     return cube;
 }

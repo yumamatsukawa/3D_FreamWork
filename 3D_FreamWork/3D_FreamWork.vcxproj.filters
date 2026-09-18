@@ -90,6 +90,12 @@
     <ClCompile Include="Game\Objects\Title.cpp">
       <Filter>Game\Objects</Filter>
     </ClCompile>
+    <ClCompile Include="Game\Objects\Skybox.cpp">
+      <Filter>Game\Objects</Filter>
+    </ClCompile>
+    <ClCompile Include="Game\Objects\Sphere.cpp">
+      <Filter>Game\Objects</Filter>
+    </ClCompile>
     <ClCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -171,6 +177,9 @@
     <ClInclude Include="Game\Components\PlayerController.h">
       <Filter>Game\Components</Filter>
     </ClInclude>
+    <ClInclude Include="Game\Components\SkyboxFollowComponent.h">
+      <Filter>Game\Components</Filter>
+    </ClInclude>
     <ClInclude Include="Game\Components\SpinComponent.h">
       <Filter>Game\Components</Filter>
     </ClInclude>
@@ -190,6 +199,12 @@
       <Filter>Game\Objects</Filter>
     </ClInclude>
     <ClInclude Include="Game\Objects\Title.h">
+      <Filter>Game\Objects</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\Objects\Skybox.h">
+      <Filter>Game\Objects</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\Objects\Sphere.h">
       <Filter>Game\Objects</Filter>
     </ClInclude>
   </ItemGroup>

@@ -15,18 +15,14 @@ private:
     float lifeTime = 2.0f;   // 秒。これを過ぎたら自動でプールに返す
     float elapsed = 0.f;
     ObjectPool* pool = nullptr;
-    GameObject* shooter = nullptr;  // 誰が撃ったか(将来、自爆防止やスコア加算等に使う)
 
 public:
     // 発射される度に呼ばれ、状態をリセットする
-    void Fire(DirectX::XMFLOAT2 dir, ObjectPool* ownerPool, GameObject* shooterObj = nullptr) {
+    void Fire(DirectX::XMFLOAT2 dir, ObjectPool* ownerPool) {
         direction = dir;
         pool = ownerPool;
-        shooter = shooterObj;
         elapsed = 0.f;
     }
-
-    GameObject* GetShooter() const { return shooter; }
 
     void Update(float dt) override;
     void OnTriggerEnter2D(Collider2D* other) override;

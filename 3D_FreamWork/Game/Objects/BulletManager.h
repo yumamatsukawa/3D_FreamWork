@@ -18,8 +18,7 @@ class GameObject;
 class BulletManager {
 public:
     // shooter(撃った本人)から、指定位置・方向に弾を1発発射する
-    GameObject* Fire(Scene& scene, GameObject* shooter,
-        DirectX::XMFLOAT3 position, DirectX::XMFLOAT2 direction);
+    GameObject* Fire(Scene& scene, XMFLOAT3 position, XMFLOAT2 direction);
 
 private:
     ObjectPool pool;

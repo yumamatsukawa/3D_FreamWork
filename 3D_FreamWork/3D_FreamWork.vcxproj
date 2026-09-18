@@ -144,6 +144,8 @@
     <ClCompile Include="Game\Objects\Cube.cpp" />
     <ClCompile Include="Game\Objects\Enemy.cpp" />
     <ClCompile Include="Game\Objects\Player.cpp" />
+    <ClCompile Include="Game\Objects\Skybox.cpp" />
+    <ClCompile Include="Game\Objects\Sphere.cpp" />
     <ClCompile Include="Game\Objects\Title.cpp" />
     <ClCompile Include="Game\Scenes\GameScene.cpp" />
     <ClCompile Include="Game\Scenes\TitleScene.cpp" />
@@ -174,12 +176,15 @@
     <ClInclude Include="Engine\WICTextureLoader11.h" />
     <ClInclude Include="Game\Components\BulletController.h" />
     <ClInclude Include="Game\Components\PlayerController.h" />
+    <ClInclude Include="Game\Components\SkyboxFollowComponent.h" />
     <ClInclude Include="Game\Components\SpinComponent.h" />
     <ClInclude Include="Game\Components\TitleController.h" />
     <ClInclude Include="Game\Objects\BulletManager.h" />
     <ClInclude Include="Game\Objects\Cube.h" />
     <ClInclude Include="Game\Objects\Enemy.h" />
     <ClInclude Include="Game\Objects\Player.h" />
+    <ClInclude Include="Game\Objects\Skybox.h" />
+    <ClInclude Include="Game\Objects\Sphere.h" />
     <ClInclude Include="Game\Objects\Title.h" />
     <ClInclude Include="Game\Scenes\GameScene.h" />
     <ClInclude Include="Game\Scenes\TitleScene.h" />
