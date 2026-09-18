@@ -112,7 +112,13 @@ meshRenderer->SetTexture(L"Assets/box.png");
 meshRenderer->SetColor(1.0f, 1.0f, 1.0f, 1.0f);
 ```
 
-立方体以外の形状を追加したい場合は、`Mesh::CreateCube()`と同じ形式(`std::vector<MeshVertex>`を返す静的関数)で頂点データを作る関数を`Engine/Mesh.h/.cpp`に足してください。
+用意されている形状:
+- `Mesh::CreateCube()` — 単位立方体(-0.5〜0.5)
+- `Mesh::CreateSphere(rings, segments)` — 半径0.5のUV球(緯度・経度の分割数を指定可能)
+
+これら以外の形状を追加したい場合は、同じ形式(`std::vector<MeshVertex>`を返す静的関数)で頂点データを作る関数を`Engine/Mesh.h/.cpp`に足してください(`Game/Objects/Cube.cpp`や`Sphere.cpp`が実例)。
+
+**スカイボックス**: `Game/Objects/Skybox.cpp`が実例です。カメラを中心に追従する(回転はしない)巨大なメッシュを使った、遠景の作り方のパターンとして参考にしてください。
 
 一つのGameObjectには、基本的に`SpriteRenderer`か`MeshRenderer`の**どちらか片方**を付けます。
 
@@ -128,6 +134,8 @@ Image::GetCamera().position.y = player->transform.position.y;
 ```
 
 2Dの`position.y`は**下方向が+**(スプライト・マウス座標・当たり判定すべて共通)。3D(Mesh)の`position.y`は標準的な数学と同じ**上方向が+**です。エンジン内部で変換しているので、通常は意識しなくて大丈夫です。
+
+**2D/3Dのスクロール速度について**: 2Dは疑似的な正射影(距離に関係なく一定速度でスクロール)、3D(Mesh)は本物の透視投影(近いものほど速く、遠いものほどゆっくり動く)なので、根本的に仕組みが違います。`Camera.focalLength`(既定500)の距離にある3Dオブジェクトだけは、2Dと同じ速度で動くように`fovY`を自動調整していますが、それ以外の距離にあるオブジェクトは2Dとズレます(これは正しい遠近感なので、バグではありません)。
 
 ---
 
