@@ -14,8 +14,11 @@ void PlayerController::Update(float dt) {
     if (renderer) renderer->SetColor(1.0f, 1.0f, 1.0f, 1.0f);
 
     DirectX::XMFLOAT2 mousePos = Input::GetMousePosition();
+    // ★ マウス座標はOS標準のY+=下方向のまま(Input::GetMousePositionは画面中心基準にするだけ)。
+    //   ワールド座標はY+=上方向なので、比較する前に符号を反転させる
+    DirectX::XMFLOAT2 mouseWorldPos = { mousePos.x, -mousePos.y };
     if (Input::GetKeyPress(MOUSE_LEFT)) {
-        if (IsPointInBox(mousePos, t.GetWorldTransform())) {
+        if (IsPointInBox(mouseWorldPos, t.GetWorldTransform())) {
             if (renderer) renderer->SetColor(1.0f, 0.0f, 0.0f, 0.5f);
         }
     }

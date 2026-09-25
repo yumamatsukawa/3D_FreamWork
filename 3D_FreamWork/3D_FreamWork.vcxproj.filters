@@ -33,6 +33,12 @@
     <ClCompile Include="Engine\Image.cpp">
       <Filter>Engine</Filter>
     </ClCompile>
+    <ClCompile Include="Engine\Physics.cpp">
+      <Filter>Engine</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\RigidbodyComponent.cpp">
+      <Filter>Engine</Filter>
+    </ClCompile>
     <ClCompile Include="Engine\Input.cpp">
       <Filter>Engine</Filter>
     </ClCompile>
@@ -69,9 +75,6 @@
     <ClCompile Include="Game\Components\BulletController.cpp">
       <Filter>Game\Components</Filter>
     </ClCompile>
-    <ClCompile Include="Game\Components\PlayerController.cpp">
-      <Filter>Game\Components</Filter>
-    </ClCompile>
     <ClCompile Include="Game\Components\CameraController.cpp">
       <Filter>Game\Components</Filter>
     </ClCompile>
@@ -100,6 +103,12 @@
       <Filter>Game\Objects</Filter>
     </ClCompile>
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="Game\Objects\Ground.cpp">
+      <Filter>Game\Objects</Filter>
+    </ClCompile>
+    <ClCompile Include="Game\Components\PlayerController.cpp">
+      <Filter>Game\Components</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Engine\Audio.h">
@@ -108,13 +117,16 @@
     <ClInclude Include="Engine\Camera.h">
       <Filter>Engine</Filter>
     </ClInclude>
+    <ClInclude Include="Engine\Physics.h">
+      <Filter>Engine</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\RigidbodyComponent.h">
+      <Filter>Engine</Filter>
+    </ClInclude>
     <ClInclude Include="Engine\Light.h">
       <Filter>Engine</Filter>
     </ClInclude>
     <ClInclude Include="Engine\Collider.h">
-      <Filter>Engine</Filter>
-    </ClInclude>
-    <ClInclude Include="Engine\ColliderComponent.h">
       <Filter>Engine</Filter>
     </ClInclude>
     <ClInclude Include="Engine\Component.h">
@@ -183,9 +195,6 @@
     <ClInclude Include="Game\Components\CameraController.h">
       <Filter>Game\Components</Filter>
     </ClInclude>
-    <ClInclude Include="Game\Components\PlayerController.h">
-      <Filter>Game\Components</Filter>
-    </ClInclude>
     <ClInclude Include="Game\Components\SkyboxFollowComponent.h">
       <Filter>Game\Components</Filter>
     </ClInclude>
@@ -215,6 +224,12 @@
     </ClInclude>
     <ClInclude Include="Game\Objects\Sphere.h">
       <Filter>Game\Objects</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\Objects\Ground.h">
+      <Filter>Game\Objects</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\Components\PlayerController.h">
+      <Filter>Game\Components</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

@@ -132,9 +132,8 @@ bool Sprite::CreateDepthStencilState() {
     D3D11_DEPTH_STENCIL_DESC dsdWorld = {};
     dsdWorld.DepthEnable = TRUE;
     dsdWorld.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ALL;
-    // LESS_EQUALにしておく: 当たり判定のデバッグ表示(DrawColliders)は、
-    // 持ち主のオブジェクトと全く同じ位置・深度でWorldモード描画されるため、
-    // 単純なLESSだと「後から描く側」が同値深度で負けて見えなくなってしまう
+    // LESS_EQUALにしておく: 同じ深度に重なる2つのWorldモード描画があった時、
+    // 単純なLESSだと「後から描く側」が同値深度で負けて見えなくなってしまうため
     dsdWorld.DepthFunc = D3D11_COMPARISON_LESS_EQUAL;
     hr = Graphics::device->CreateDepthStencilState(&dsdWorld, &depthStencilStateWorld);
     return SUCCEEDED(hr);
@@ -196,9 +195,11 @@ XMMATRIX Sprite::BuildWorldMatrix(const Transform& transform, bool worldSpace,
     float worldX = (transform.position.x - camX) * depthScale;
     float worldY = (transform.position.y - camY) * depthScale;
 
-    //    NDC_x = pixel_x / (resW / 2)   NDC_y = -pixel_y / (resH / 2)
+    //    NDC_x = pixel_x / (resW / 2)   NDC_y = pixel_y / (resH / 2)
+    //    ★ position.yはY+が上方向(標準的な数学と同じ、3D側と統一した慣習)なので、
+    //      NDC(こちらもY+が上方向)への変換に符号反転は不要
     float ndcX = worldX / (resW * 0.5f);
-    float ndcY = -worldY / (resH * 0.5f);
+    float ndcY = worldY / (resH * 0.5f);
 
     // ★ Worldモードの時だけ、深度バッファに書き込むためのZ値(0〜1)を計算する。
     //   3D用カメラ(camera3D)からの距離を、Meshと同じ透視投影の式でNDC深度に変換する。
@@ -259,9 +260,8 @@ XMMATRIX Sprite::BuildBillboardMatrix(const Transform& transform, bool lockX, bo
 
     XMMATRIX billboard = XMMatrixRotationRollPitchYaw(pitch, yaw, roll);
 
-    // ④ ワールド位置への移動。2D慣習(position.y+は画面下方向)を3D慣習(Y+は上方向)に変換する
-    //   (Image::BeginFrame()の2D/3Dカメラ同期と同じ考え方)
-    XMMATRIX T = XMMatrixTranslation(transform.position.x, -transform.position.y, transform.position.z);
+    // ④ ワールド位置への移動。2Dも3DもY+が上方向で統一されているので、符号反転は不要
+    XMMATRIX T = XMMatrixTranslation(transform.position.x, transform.position.y, transform.position.z);
 
     XMMATRIX view = camera3D->GetViewMatrix();
     float aspectRatio = (resH > 0.f) ? (resW / resH) : 1.f;

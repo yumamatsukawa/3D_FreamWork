@@ -43,12 +43,11 @@ void CameraController::Update(float dt) {
 
     XMFLOAT3 forward = ComputeForward();
 
-    // Ownerのワールド座標(2D慣習: position.y+は画面下方向)を、3D慣習(Y+は上方向)に変換する
-    // (Image::BeginFrame()の自動追従と同じ考え方)
+    // Ownerのワールド座標を注視点にする(2D・3DともY+が上方向で統一されているので変換不要)
     Transform worldTransform = GetOwner()->transform.GetWorldTransform();
     XMFLOAT3 focusPoint = {
         worldTransform.position.x,
-        -worldTransform.position.y + eyeHeight,
+        worldTransform.position.y + eyeHeight,
         worldTransform.position.z
     };
 

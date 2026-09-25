@@ -3,16 +3,16 @@
 #include "Input.h"
 #include "Image.h"
 #include "SceneManager.h"
-#include "Collider.h"
 #include "Audio.h"
 #include "Text.h"
+#include "Physics.h"
 
 bool GameEngine::Init(HWND hwnd, int w, int h)
 {
     if (!Image::Init(hwnd, w, h)) return false;
     if (!Audio::Init())           return false;
     if (!Text::Init())            return false;
-    InitCollider();
+    if (!Physics::Init())         return false;
     QueryPerformanceFrequency(&frequency);
     QueryPerformanceCounter(&lastTime);
     isRunning = true;
@@ -33,15 +33,17 @@ void GameEngine::Run()
         float dt = CalcDeltaTime();
 
         Input::Update();
+        // ★ PhysicsをSceneManagerより先に更新する。こうすることで、RigidbodyComponentの
+        //   Update()が「このフレームで今シミュレーションされたばかりの姿勢」を
+        //   Transformへ同期できる(順番が逆だと1フレーム古い姿勢を読むことになる)
+        Physics::Update(dt);
         SceneManager::Get().Update(dt);
-        UpdateCollider();
 
         Image::BeginFrame();
         Text::BeginDraw();
         SceneManager::Get().Draw();
         Text::EndDraw();
 
-        DrawColliders();
         Image::EndFrame();
     }
 }
@@ -49,7 +51,7 @@ void GameEngine::Run()
 void GameEngine::Uninit()
 {
     SceneManager::Get().Uninit();
-    UninitCollider();
+    Physics::Uninit();
     Text::Uninit();
     Audio::Uninit();
     Image::Uninit();

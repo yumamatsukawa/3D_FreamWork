@@ -2,6 +2,7 @@
 #include "../../Engine/Scene.h"
 #include "../../Engine/GameObject.h"
 #include "../../Engine/MeshRenderer.h"
+#include "../../Engine/RigidbodyComponent.h"
 #include "../Components/SpinComponent.h"
 #include "../Components/PlayerController.h"
 
@@ -13,6 +14,9 @@ GameObject* CreateGround(Scene& scene) {
     // 見た目(3Dメッシュ)
     auto* meshRenderer = cube->AddComponent<MeshRenderer>(Mesh::CreateCube());
     meshRenderer->SetTexture(L"Assets/Ground.png");
+
+    // 物理演算(PhysX): 動かない床
+    cube->AddComponent<BoxRigidbodyComponent>(BodyType::Static);
 
     return cube;
 }

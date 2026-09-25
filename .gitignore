@@ -22,6 +22,8 @@
 *.dylib
 *.dll
 *.so.*
+# ただし、ThirdParty配下のビルド済みSDK(PhysXなど)は例外としてコミットする
+!ThirdParty/**/*.dll
 
 
 # Fortran module files
@@ -451,6 +453,8 @@ FodyWeavers.xsd
 *.la
 *.a
 *.lib
+# ただし、ThirdParty配下のビルド済みSDK(PhysXなど)は例外としてコミットする
+!ThirdParty/**/*.lib
 
 # Executables
 *.exe

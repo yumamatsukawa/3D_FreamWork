@@ -89,7 +89,11 @@ public:
     // SetActive(false)は「非表示・Update/Draw停止」なだけで、破棄はされない
     // (プーリングなどで、後で再利用するために取っておける)
     bool GetIsActive() const { return isActive; }
-    void SetActive(bool v) { isActive = v; }
+    void SetActive(bool v) {
+        if (isActive == v) return;
+        isActive = v;
+        for (auto& c : components) c->OnActiveChanged(v);
+    }
 
     // Destroy()は「本当に破棄する」印を付ける。次のScene::Updateで実際に取り除かれる
     void Destroy() { isDestroyed = true; }

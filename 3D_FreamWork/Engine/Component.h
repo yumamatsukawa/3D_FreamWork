@@ -21,6 +21,8 @@ public:
     virtual void Draw() {}
     // GameObjectが破棄される時に呼ばれる
     virtual void Uninit() {}
+    // GameObject::SetActive()が呼ばれた時に通知される(ObjectPoolでの使い回し検知などに使う)
+    virtual void OnActiveChanged(bool active) {}
 
     // ─── 当たり判定のコールバック ───────────────
     // 付いているGameObjectが誰かと当たった時、その全Componentに通知される。

@@ -86,13 +86,12 @@ namespace Image
             // スライドするだけになる。これにより3Dオブジェクトも2D側と同じように
             // ワールド座標に固定されたまま、プレイヤーが動くと画面上を正しく
             // スクロールして離れていくようになる(2Dのdepth.z/target.zは触らない)。
-            // ★ Yだけ符号を反転させる: 2D(Sprite)はposition.y+=画面下方向だが、
-            //   3D(LookAtLH, up=(0,1,0))はY+=上方向なので、そのままコピーすると
-            //   2Dと3Dでオブジェクトが逆方向にスクロールしてしまう
+            // 2D(Sprite)・3D(LookAtLH, up=(0,1,0))ともY+=上方向で統一されているので、
+            // そのままコピーするだけでよい
             mainCamera3D.position.x = mainCamera.position.x;
-            mainCamera3D.position.y = -mainCamera.position.y;
+            mainCamera3D.position.y = mainCamera.position.y;
             mainCamera3D.target.x = mainCamera.position.x;
-            mainCamera3D.target.y = -mainCamera.position.y;
+            mainCamera3D.target.y = mainCamera.position.y;
 
             // ★ 2D(疑似的な正射影、距離に関係なく一定速度でスクロール)と
             //   3D(本物の透視投影、遠近感でスクロール速度が変わる)の間で、

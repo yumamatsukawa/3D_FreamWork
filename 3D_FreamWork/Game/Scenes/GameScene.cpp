@@ -28,10 +28,10 @@ void GameScene::Init()
     EventBus::Get().SubscribeObject("FireBullet", [this](GameObject* shooter) {
         if (!shooter) return;
 
-        // rotate.z = 0 の時の正面を(0, -1)(画面の上方向)として、
-        // 見た目の回転と同じ向きに回転させる(Sprite/Colliderと同じ符号)
+        // rotate.z = 0 の時の正面を(0, 1)(Y+=上方向)として、
+        // 見た目の回転と同じ向きに回転させる(Spriteの回転と同じ符号)
         float rad = -shooter->transform.rotate.z * (DirectX::XM_PI / 180.f);
-        DirectX::XMFLOAT2 dir = { sinf(rad), -cosf(rad) };
+        DirectX::XMFLOAT2 dir = { sinf(rad), cosf(rad) };
 
         bulletManager.Fire(*this, shooter->transform.position, dir);
     });

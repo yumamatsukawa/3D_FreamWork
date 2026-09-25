@@ -2,7 +2,7 @@
 #include "../../Engine/Scene.h"
 #include "../../Engine/GameObject.h"
 #include "../../Engine/SpriteRenderer.h"
-#include "../../Engine/ColliderComponent.h"
+#include "../../Engine/RigidbodyComponent.h"
 
 GameObject* CreateEnemy(Scene& scene) {
     GameObject* enemy = scene.CreateObject("Enemy", "Enemy");
@@ -16,8 +16,13 @@ GameObject* CreateEnemy(Scene& scene) {
     // X/Zの傾きは固定し、水平方向(Y軸)だけカメラに向く「立て看板」ビルボードにする
     sprite->SetColor(1.0f, 0.0f, 1.0f, 1.0f);
 
-    // 当たり判定(すり抜ける四角形)
-    enemy->AddComponent<BoxColliderComponent>(false, enemy->transform.scale, XMFLOAT3{}, true);
+    // 当たり判定+物理演算(PhysX): キネマティック、すり抜けない四角形。
+    // isStaticForPush=trueなので、Playerとぶつかった時にEnemy自身は押し戻されない
+    // (Playerだけが押し戻される。旧・2D当たり判定でのisStatic=trueと同じ意味)。
+    // scale.zが0だと3Dの箱として使えないので、厚みだけ明示的に指定する
+    enemy->AddComponent<BoxRigidbodyComponent>(BodyType::Kinematic,
+        XMFLOAT3{ enemy->transform.scale.x, enemy->transform.scale.y, 100.0f }, 1.0f,
+        /*isTrigger*/ false, /*isStaticForPush*/ true);
 
     return enemy;
 }

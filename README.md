@@ -16,7 +16,7 @@ enemy->transform.position = { 100.0f, 0.0f, 0.0f };
 enemy->transform.scale    = { 100.0f, 100.0f, 1.0f };
 
 enemy->AddComponent<SpriteRenderer>(L"Assets/enemy.png");
-enemy->AddComponent<BoxColliderComponent>(true, enemy->transform.scale);
+enemy->AddComponent<BoxRigidbodyComponent>(BodyType::Kinematic, enemy->transform.scale, 1.0f, false, true);
 ```
 
 - `GetComponent<T>()`: 同じGameObjectに付いている別のComponentを取得する
@@ -52,7 +52,7 @@ GameObject* CreateEnemy(Scene& scene) {
     enemy->transform.scale    = { 100.0f, 100.0f, 0.0f };
 
     auto* sprite = enemy->AddComponent<SpriteRenderer>(L"Assets/enemy.png");
-    enemy->AddComponent<BoxColliderComponent>(true, enemy->transform.scale);
+    enemy->AddComponent<BoxRigidbodyComponent>(BodyType::Kinematic, enemy->transform.scale, 1.0f, false, true);
 
     return enemy;
 }
@@ -183,7 +183,7 @@ Image::GetCamera().position.x = player->transform.position.x;
 Image::GetCamera().position.y = player->transform.position.y;
 ```
 
-2Dの`position.y`は**下方向が+**(スプライト・マウス座標・当たり判定すべて共通)。3D(Mesh)の`position.y`は標準的な数学と同じ**上方向が+**です。エンジン内部で変換しているので、通常は意識しなくて大丈夫です。
+`position.y`は2D・3D共通で**上方向が+**です(標準的な数学と同じ、Mesh/Sprite/当たり判定すべて統一)。マウス座標(`Input::GetMousePosition()`)だけはOS標準のY+=下方向のままなので、ワールド座標と比較する時は符号を反転させてください(`PlayerController.cpp`のクリック判定が実例です)。
 
 **2D/3Dのスクロール速度について**: 2Dは疑似的な正射影(距離に関係なく一定速度でスクロール)、3D(Mesh)は本物の透視投影(近いものほど速く、遠いものほどゆっくり動く)なので、根本的に仕組みが違います。`Camera.focalLength`(既定500)の距離にある3Dオブジェクトだけは、2Dと同じ速度で動くように`fovY`を自動調整していますが、それ以外の距離にあるオブジェクトは2Dとズレます(これは正しい遠近感なので、バグではありません)。
 
@@ -204,24 +204,25 @@ player->AddComponent<CameraController>();
 
 ## 6. Collider(当たり判定)
 
-`BoxColliderComponent` / `CircleColliderComponent`を使います。
+**当たり判定は、2D/3D問わず全てPhysX(`RigidbodyComponent`)で計算しています。**以前は自作の2D数式(AABB/円のSAT判定)を使っていましたが、Player/Enemy/Bulletを含めて`BoxRigidbodyComponent`/`SphereRigidbodyComponent`(§11参照)に統一しました。Player/Enemyのような「3D空間にいる2Dオブジェクト」は、Z軸方向に厚みを持たせた3D形状(薄い箱/球)として扱っています。
 
 ```cpp
-obj->AddComponent<BoxColliderComponent>(
-    isTrigger,   // true: すり抜ける(当たったことだけ分かる) / false: 押し返される
-    size,        // 大きさ(XMFLOAT3。省略するとtransform.scaleを使う)
-    offset,      // 中心からのローカルオフセット(省略可)
-    isStatic     // true: 床や壁など動かないオブジェクト(省略可、既定false)
-);
+// Playerの例(実際にすり抜けない円形。Enemyに押し戻される)
+player->AddComponent<SphereRigidbodyComponent>(BodyType::Kinematic, 50.0f, 1.0f,
+    /*isTrigger*/ false, /*isStaticForPush*/ false);
+
+// Bulletの例(すり抜ける円形。Enemyに当たったことだけ分かればよい)
+bullet->AddComponent<SphereRigidbodyComponent>(BodyType::Kinematic, 8.0f, 1.0f,
+    /*isTrigger*/ true);
 ```
 
-反応する側は、Componentに以下をoverrideします:
+反応する側は、Componentに以下をoverrideします(この部分はPhysX移行前と同じAPIのままです):
 
 ```cpp
 // isTrigger = true の時
 void OnTriggerEnter2D(Collider2D* other) override;
-void OnTriggerStay2D(Collider2D* other) override;
 void OnTriggerExit2D(Collider2D* other) override;
+// ※ OnTriggerStay2Dは今のところ呼ばれません(PhysXのトリガーにはStay相当の通知が無いため)
 
 // isTrigger = false の時(押し返しも自動で行われる)
 void OnCollisionEnter2D(CollisionInfo info) override;  // info.otherで相手のColliderが取れる
@@ -229,7 +230,9 @@ void OnCollisionStay2D(CollisionInfo info) override;
 void OnCollisionExit2D(CollisionInfo info) override;
 ```
 
-相手のタグは `other->GetTag()` (Trigger) / `info.other->GetTag()` (Collision) で判定します。
+相手のタグは `other->GetTag()` (Trigger) / `info.other->GetTag()` (Collision) で判定します(`Collider2D`は当たり判定の計算自体は持たない、コールバック用の軽いハンドルになりました)。
+
+**内部実装メモ**: `Engine/Physics.cpp`のシミュレーションコールバック(`onContact`/`onTrigger`)が、PhysXの結果をこれらのコールバックに変換しています。Kinematicなオブジェクト同士がぶつかった時の「押し戻し」は、PhysXの自動計算に任せられない(キネマティックは力の影響を受けないため)ので、接触の法線・めり込み量から手動で`Transform.position`をずらしています(`isStaticForPush=true`側は動かさない)。Dynamicなオブジェクト(Sphereなど)が絡む場合は、PhysX自身が正しく押し返すので、この手動処理はスキップされます。
 
 ---
 
@@ -300,3 +303,79 @@ Game/Scenes/      シーン(TitleScene, GameScene)
 ```
 
 新しいオブジェクトを追加する時は、`Game/Objects/`と`Game/Components/`にPlayer/Enemyと同じ形式でファイルを足していくのが基本の流れです。
+
+---
+
+## 11. PhysX(3D物理演算)
+
+3D用の物理エンジンとして[NVIDIA PhysX 4.1](https://github.com/NVIDIA-Omniverse/PhysX)を導入しています。ビルド済みのライブラリ一式(ヘッダー・dll・lib)を`ThirdParty/PhysX/`にコミット済みなので、**チームメンバーは自分でビルドし直す必要はありません**(`git clone`してそのままビルドできます)。
+
+### 現状
+
+`Engine/Physics.h/.cpp`が、PhysXの初期化・毎フレームのシミュレーション更新・終了処理を行う最小限の窓口です(Image/Audio/Textと同じ、名前空間+staticなグローバル状態という流儀)。`GameEngine::Init/Run/Uninit`から自動的に呼ばれるので、現時点では特に何もしなくてもPhysXは起動・更新され続けています。
+
+```cpp
+namespace Physics {
+    bool Init();      // PxFoundation/PxPhysics/PxSceneを作る(GameEngine::Initから呼ばれる)
+    void Update(float dt); // シーンをシミュレーションする(GameEngine::Runから毎フレーム呼ばれる)
+    void Uninit();    // 後片付け(GameEngine::Uninitから呼ばれる)
+}
+```
+
+### RigidbodyComponent(3Dの物理演算でオブジェクトを動かす)
+
+`Engine/RigidbodyComponent.h/.cpp`に、`BoxRigidbodyComponent`と`SphereRigidbodyComponent`があります。見た目(`MeshRenderer`/`SpriteRenderer`)とは別に、動き方だけを担当するComponentです。
+
+```cpp
+enum class BodyType {
+    Dynamic,    // 重力や衝突で物理的に動く(PhysXの計算結果がTransformに反映される)
+    Kinematic,  // 自分のコード(PlayerControllerなど)がTransformを動かす。
+                // 他のDynamicな物体を押せるが、自分は重力や力の影響を受けない
+    Static      // 完全に動かない(床・壁など)
+};
+```
+
+```cpp
+// 重力や衝突で物理的に動くSphere
+sphere->AddComponent<SphereRigidbodyComponent>(BodyType::Dynamic);
+
+// 動かない床
+ground->AddComponent<BoxRigidbodyComponent>(BodyType::Static);
+
+// キネマティック(PlayerControllerが動かす)
+player->AddComponent<SphereRigidbodyComponent>(BodyType::Kinematic, 50.0f);
+```
+
+完全なコンストラクタは次の形です(`SphereRigidbodyComponent`も同じ並び):
+
+```cpp
+BoxRigidbodyComponent(BodyType bodyType, XMFLOAT3 size, float density,
+    bool isTrigger, bool isStaticForPush);
+```
+
+- `bodyType`: 上記3種類
+- サイズ・半径を省略すると、Ownerの`transform.scale`から自動で決まる
+- `isTrigger`: `true`ですり抜ける当たり判定(`OnTriggerEnter2D`)になる。既定`false`(押し返される、`OnCollisionEnter2D`)
+- `isStaticForPush`: `true`だと、Kinematic同士がぶつかった時に自分は押し戻されない側になる(Enemyのように、自分は動かず相手だけ押し返したい時に使う。`BodyType::Static`とは別の概念で、Kinematic同士の手動押し戻しにだけ関係する)
+- 実例: `Game/Objects/Sphere.cpp`(Dynamic)、`Game/Objects/Ground.cpp`(Static)、`Game/Objects/Player.cpp`/`Enemy.cpp`/`BulletManager.cpp`(Kinematic)
+
+**内部実装メモ**:
+- Dynamic: 毎フレーム、PhysXのシミュレーション結果(`PxRigidActor`の姿勢)を`Transform`に書き戻す
+- Kinematic: 毎フレーム、`Transform`の現在値(PlayerControllerなどが書き換えた位置)を`setKinematicTarget()`でPhysXへ渡す。次の`Physics::Update()`でそこまで動き、他のDynamicな物体を正しく押せるようになる
+- DirectX(左手系)とPhysX(右手系)は回転の向きが逆になるため、変換をかけている(位置はそのままでよい)。この変換は理屈の上では正しいはずですが、**回転がPhysXと逆向きに見えないか、実際に転がるオブジェクト(直方体など)で目視確認してください**。おかしければ`ToPxQuat`/`SyncTransformFromActor`のX/Y反転の箇所を疑ってください
+- `ObjectPool`で使い回されるオブジェクト(Bulletなど)は、`SetActive()`が呼ばれると`OnActiveChanged()`経由でPhysXのシーンから着脱される。再度有効化された直後は、前回位置からの掃引(スイープ)で誤ったヒット判定が出ないよう、次の`Update()`で`setKinematicTarget()`ではなく直接`setGlobalPose()`でテレポートするようにしている
+
+**重要な注意(ハマりやすいポイント)**: `OnTriggerEnter2D`/`OnCollisionEnter2D`などのコールバックは、PhysXのシミュレーションコールバックの中から呼ばれています。PhysXは「コールバックの中でシーンを書き換えるAPI(`scene->addActor()`/`removeActor()`など)を直接呼んではいけない」という制約を持っているため、これらのコールバック内(や、そこから呼ばれる`ObjectPool::Return()`のような処理)で`SetActive(false)`する場合は要注意です。`RigidbodyComponent`はこれに対応済み(`Physics::QueueSceneChange()`で安全なタイミングまで遅延させている)ですが、**今後もし`OnTriggerEnter2D`などの中から新しくPhysXのシーンを直接触るコードを書く場合は、同じように`Physics::QueueSceneChange()`を使うか、フラグを立てて次のフレームで処理するようにしてください**。直接呼ぶと`Concurrent API write call ... during a callback function are not permitted`というアサーションでクラッシュします。
+
+`GameEngine::Run()`では、`Physics::Update(dt)`を`SceneManager::Get().Update(dt)`より**先に**呼ぶようにしています。逆順にすると、RigidbodyComponentが1フレーム古い物理結果をTransformに反映してしまいます。
+
+### ワールド単位について
+
+このエンジンの3Dワールドは、Cube/Sphereの`scale=100`が実寸1mくらいに相当する感覚で作られてきています。PhysXは実寸メートル基準で調整されたデフォルト値(重力・スリープ閾値など)を持っているため、`Physics::Init()`では重力を`(0, -981, 0)`(標準の9.81 m/s²を100倍したもの)に、`PxTolerancesScale.length`も`100`にしてあります(これを合わせないと、シミュレーションの精度・安定性が悪くなります)。今後PxRigidActorのサイズ等を決める時も、この「100単位=1m」のスケール感を意識してください。
+
+### ビルド環境について(記録用)
+
+このマシンではVisual Studio 2022しか入っておらず、PhysX 4.1の公式プリセットはVS2019(`vc16win64`)までしか無かったため、`vc17win64`プリセットを自作して生成しました(`physx/buildtools/presets/public/vc17win64.xml`と、`cmake_generate_projects.py`への`vc17`対応追加)。これらはPhysXのソース側(このリポジトリの外、`ThirdParty/PhysX/`には含まれていないビルド作業用のフォルダ)の変更なので、もし将来PhysXを更新・再ビルドする必要が出てきたら、同じ手順を踏んでください。
+
+- `ThirdParty/PhysX/lib/x64-debug/`, `x64-release/`: Debug/Release、x64向けのビルド済み成果物(`.pdb`/`.map`や、GPU支援用のDLL(`PhysXGpu`/`PhysXDevice`)は容量削減のため含めていません。今回はCPUベースの物理演算のみを使う想定です)
+- プロジェクト側(`3D_FreamWork.vcxproj`)は`RuntimeLibrary`を`MultiThreaded`/`MultiThreadedDebug`(静的CRT)にしてあります。PhysXのビルドが`NV_USE_STATIC_WINCRT=True`だったため、CRTを合わせないとリンクエラーになります

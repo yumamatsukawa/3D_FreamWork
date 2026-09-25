@@ -5,7 +5,7 @@
 void BulletController::Update(float dt) {
     Transform& t = GetOwner()->transform;
     t.position.x += direction.x * speed * dt;
-    t.position.y += direction.y * speed * dt;
+    t.position.z += direction.y * speed * dt;
 
     elapsed += dt;
     if (elapsed >= lifeTime && pool) {
