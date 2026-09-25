@@ -207,9 +207,8 @@ player->AddComponent<CameraController>();
 **当たり判定は、2D/3D問わず全てPhysX(`RigidbodyComponent`)で計算しています。**以前は自作の2D数式(AABB/円のSAT判定)を使っていましたが、Player/Enemy/Bulletを含めて`BoxRigidbodyComponent`/`SphereRigidbodyComponent`(§11参照)に統一しました。Player/Enemyのような「3D空間にいる2Dオブジェクト」は、Z軸方向に厚みを持たせた3D形状(薄い箱/球)として扱っています。
 
 ```cpp
-// Playerの例(実際にすり抜けない円形。Enemyに押し戻される)
-player->AddComponent<SphereRigidbodyComponent>(BodyType::Kinematic, 50.0f, 1.0f,
-    /*isTrigger*/ false, /*isStaticForPush*/ false);
+// Playerの例(実際にすり抜けない円形。Dynamic+速度指定で動かし、衝突応答はPhysXに任せる。§11参照)
+player->AddComponent<SphereRigidbodyComponent>(BodyType::Dynamic, 50.0f, 1.0f);
 
 // Bulletの例(すり抜ける円形。Enemyに当たったことだけ分かればよい)
 bullet->AddComponent<SphereRigidbodyComponent>(BodyType::Kinematic, 8.0f, 1.0f,
@@ -324,7 +323,7 @@ namespace Physics {
 
 ### RigidbodyComponent(3Dの物理演算でオブジェクトを動かす)
 
-`Engine/RigidbodyComponent.h/.cpp`に、`BoxRigidbodyComponent`と`SphereRigidbodyComponent`があります。見た目(`MeshRenderer`/`SpriteRenderer`)とは別に、動き方だけを担当するComponentです。
+`Engine/RigidbodyComponent.h/.cpp`に、`BoxRigidbodyComponent`と`SphereRigidbodyComponent`があります。見た目(`MeshRenderer`/`SpriteRenderer`)とは別に、動き方だけを担当するComponentです。どちらも共通の基底クラス`RigidbodyComponent`を継承しているので、他のComponentから形状を意識せず`GetComponent<RigidbodyComponent>()`で探せます(`PlayerController`が実例。これにより、Playerの形状をBoxにしてもSphereにしても、`Player.cpp`の1行を変えるだけで済みます)。
 
 ```cpp
 enum class BodyType {
@@ -342,8 +341,11 @@ sphere->AddComponent<SphereRigidbodyComponent>(BodyType::Dynamic);
 // 動かない床
 ground->AddComponent<BoxRigidbodyComponent>(BodyType::Static);
 
-// キネマティック(PlayerControllerが動かす)
-player->AddComponent<SphereRigidbodyComponent>(BodyType::Kinematic, 50.0f);
+// 自分のコードで速度を渡して動かすキャラクター(下記Player参照)
+player->AddComponent<SphereRigidbodyComponent>(BodyType::Dynamic, 50.0f, 1.0f);
+
+// キネマティック(Enemyのように、自分は動かないが他の物体を押せる/押し返せる壁として振る舞う)
+enemy->AddComponent<BoxRigidbodyComponent>(BodyType::Kinematic, size);
 ```
 
 完全なコンストラクタは次の形です(`SphereRigidbodyComponent`も同じ並び):
@@ -357,12 +359,46 @@ BoxRigidbodyComponent(BodyType bodyType, XMFLOAT3 size, float density,
 - サイズ・半径を省略すると、Ownerの`transform.scale`から自動で決まる
 - `isTrigger`: `true`ですり抜ける当たり判定(`OnTriggerEnter2D`)になる。既定`false`(押し返される、`OnCollisionEnter2D`)
 - `isStaticForPush`: `true`だと、Kinematic同士がぶつかった時に自分は押し戻されない側になる(Enemyのように、自分は動かず相手だけ押し返したい時に使う。`BodyType::Static`とは別の概念で、Kinematic同士の手動押し戻しにだけ関係する)
-- 実例: `Game/Objects/Sphere.cpp`(Dynamic)、`Game/Objects/Ground.cpp`(Static)、`Game/Objects/Player.cpp`/`Enemy.cpp`/`BulletManager.cpp`(Kinematic)
+- 実例: `Game/Objects/Sphere.cpp`(Dynamic)、`Game/Objects/Ground.cpp`(Static)、`Game/Objects/Enemy.cpp`/`BulletManager.cpp`(Kinematic)、`Game/Objects/Player.cpp`(Dynamic)
 
 **内部実装メモ**:
-- Dynamic: 毎フレーム、PhysXのシミュレーション結果(`PxRigidActor`の姿勢)を`Transform`に書き戻す
+- Dynamic: 毎フレーム、PhysXのシミュレーション結果(`PxRigidActor`の姿勢)を`Transform`に書き戻す。ただし`SetFreezeRotation(true)`で回転をロックしている間は、位置だけを反映する(回転は自分のコードに任せる。詳細は次項)
 - Kinematic: 毎フレーム、`Transform`の現在値(PlayerControllerなどが書き換えた位置)を`setKinematicTarget()`でPhysXへ渡す。次の`Physics::Update()`でそこまで動き、他のDynamicな物体を正しく押せるようになる
 - DirectX(左手系)とPhysX(右手系)は回転の向きが逆になるため、変換をかけている(位置はそのままでよい)。この変換は理屈の上では正しいはずですが、**回転がPhysXと逆向きに見えないか、実際に転がるオブジェクト(直方体など)で目視確認してください**。おかしければ`ToPxQuat`/`SyncTransformFromActor`のX/Y反転の箇所を疑ってください
+
+### Player(キャラクター)の移動をPhysXに任せる
+
+最初はPlayerを`Kinematic`(`PlayerController`が直接`Transform.position`を書き換える方式)にしていましたが、その場合は「ぶつかった時にどちらへ・どれだけ押し戻すか」を`Physics.cpp`側で自前計算する必要があり、軸を1つ計算し忘れる(実際にZ軸の押し戻しを書き忘れて、Playerが正面衝突時に止まらないバグが起きました)といったミスが起きやすい、という問題がありました。
+
+そこで、PlayerもPhysXの標準的なキャラクター制御の作法(**`Dynamic`＋速度指定**)に変更しました。PhysXの生のAPI(`PxRigidDynamic`など)は`RigidbodyComponent`の中に隠してあるので、`Game/`側では触らずに済みます:
+
+```cpp
+// Player.cpp(生成時に1回だけ)
+auto* rigidbody = player->AddComponent<SphereRigidbodyComponent>(BodyType::Dynamic, 50.0f, 1.0f);
+rigidbody->SetUseGravity(false);       // 重力を受けない(落下しない)
+rigidbody->SetFreezeRotation(true);    // ぶつかってもゴロゴロ回転しない
+rigidbody->SetFreezePositionY(true);   // 上下(Y)に押し出されない
+```
+
+必要な設定だけ個別に呼べます。例えば「重力は受けるが回転はしたくない」オブジェクトなら`SetFreezeRotation(true)`だけ呼べばOKです。
+
+```cpp
+// PlayerController::Update()(毎フレーム)
+DirectX::XMFLOAT3 velocity = { 0.f, 0.f, 0.f };
+if (Input::GetKeyPress(KEY_W)) velocity.z += speed;
+// ...
+
+// 基底クラス(RigidbodyComponent)経由で探すので、Box/Sphereどちらでも動く
+RigidbodyComponent* rigidbody = owner->GetComponent<RigidbodyComponent>();
+if (rigidbody) rigidbody->SetVelocity(velocity);
+```
+
+- `Transform.position`を直接書き換えるのではなく、`SetVelocity()`で「速度」だけを渡す。実際に動く処理・何かにぶつかって止まる処理は、全てPhysX自身の計算に任せる
+- `SetUseGravity(false)`/`SetFreezeRotation(true)`/`SetFreezePositionY(true)`はそれぞれ独立していて、必要なものだけ呼べる。Playerは3つ全部、Sphereはどれも呼ばない(重力あり・自由に回転)、といった使い分けができる
+- **`SetVelocity()`は毎回3軸全部を上書きする**ので注意してください。`PlayerController`はX/Zだけ操作したいのですが、`{velocity.x, 0, velocity.z}`のように**Y成分に0を渡すと、重力で付いたY速度が毎フレーム消されてしまい、自由落下がほとんど効かなくなります**(`SetFreezePositionY(true)`の時はY速度自体が無意味なので問題になりませんが、重力を使う設定に変えると表面化します)。触らない軸は`GetVelocity()`で今の値を読んでから渡してください
+- `SetFreezeRotation(true)`にしてあるので、PhysXの回転はTransform.rotateへ反映されない。そのため見た目の向き(`rotate.z`、Q/Eキーで操作・弾の発射方向にも使う)は、物理側に上書きされることなく`PlayerController`が直接書き換えたまま維持される(`SetFreezeRotation`は「ぶつかっても回転しない」かどうかと、「物理の回転をTransformへ反映するか」を同時に切り替える。詳しくは`RigidbodyComponent.h`のコメント参照)
+- **コンポーネントの追加順に注意**: `SphereRigidbodyComponent`は`PlayerController`より先に`AddComponent`すること。Componentは追加順に`Update()`されるため、逆にすると`PlayerController`のカメラ追従処理が1フレーム古い位置を読んでしまう
+- `SetVelocity()`/`SetUseGravity()`/`SetFreezeRotation()`/`SetFreezePositionY()`は全て`Kinematic`/`Static`では何もしません(`Dynamic`専用)。PhysXの生のAPIをもっと細かく触りたい時だけ`GetActor()`を使ってください
 - `ObjectPool`で使い回されるオブジェクト(Bulletなど)は、`SetActive()`が呼ばれると`OnActiveChanged()`経由でPhysXのシーンから着脱される。再度有効化された直後は、前回位置からの掃引(スイープ)で誤ったヒット判定が出ないよう、次の`Update()`で`setKinematicTarget()`ではなく直接`setGlobalPose()`でテレポートするようにしている
 
 **重要な注意(ハマりやすいポイント)**: `OnTriggerEnter2D`/`OnCollisionEnter2D`などのコールバックは、PhysXのシミュレーションコールバックの中から呼ばれています。PhysXは「コールバックの中でシーンを書き換えるAPI(`scene->addActor()`/`removeActor()`など)を直接呼んではいけない」という制約を持っているため、これらのコールバック内(や、そこから呼ばれる`ObjectPool::Return()`のような処理)で`SetActive(false)`する場合は要注意です。`RigidbodyComponent`はこれに対応済み(`Physics::QueueSceneChange()`で安全なタイミングまで遅延させている)ですが、**今後もし`OnTriggerEnter2D`などの中から新しくPhysXのシーンを直接触るコードを書く場合は、同じように`Physics::QueueSceneChange()`を使うか、フラグを立てて次のフレームで処理するようにしてください**。直接呼ぶと`Concurrent API write call ... during a callback function are not permitted`というアサーションでクラッシュします。

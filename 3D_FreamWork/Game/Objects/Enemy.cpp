@@ -7,7 +7,7 @@
 GameObject* CreateEnemy(Scene& scene) {
     GameObject* enemy = scene.CreateObject("Enemy", "Enemy");
     enemy->transform.position = { 150.0f,   0.0f, 0.0f };
-    enemy->transform.scale    = { 100.0f, 100.0f, 0.0f };
+    enemy->transform.scale    = { 100.0f, 100.0f, 1.0f };
 
     // 見た目(Enemyは毎フレームの処理が無いので、SpriteRendererの設定だけで表現する)
     auto* sprite = enemy->AddComponent<SpriteRenderer>(L"Assets/player.png", 8, 2);
@@ -19,9 +19,7 @@ GameObject* CreateEnemy(Scene& scene) {
     // 当たり判定+物理演算(PhysX): キネマティック、すり抜けない四角形。
     // isStaticForPush=trueなので、Playerとぶつかった時にEnemy自身は押し戻されない
     // (Playerだけが押し戻される。旧・2D当たり判定でのisStatic=trueと同じ意味)。
-    // scale.zが0だと3Dの箱として使えないので、厚みだけ明示的に指定する
-    enemy->AddComponent<BoxRigidbodyComponent>(BodyType::Kinematic,
-        XMFLOAT3{ enemy->transform.scale.x, enemy->transform.scale.y, 100.0f }, 1.0f,
+    enemy->AddComponent<BoxRigidbodyComponent>(BodyType::Kinematic, enemy->transform.scale, 1.0f,
         /*isTrigger*/ false, /*isStaticForPush*/ true);
 
     return enemy;

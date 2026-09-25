@@ -6,7 +6,7 @@
 
 GameObject* CreateSphere(Scene& scene) {
     GameObject* sphere = scene.CreateObject("Sphere");
-    sphere->transform.position = { -150.0f, 100.0f,   0.0f };
+    sphere->transform.position = { 0.0f, 100.0f,   0.0f };
     sphere->transform.scale    = { 100.0f, 100.0f, 100.0f };
 
     // 見た目(3Dメッシュ)
@@ -14,7 +14,8 @@ GameObject* CreateSphere(Scene& scene) {
     meshRenderer->SetTexture(L"Assets/grid.png");
 
     // 物理演算(PhysX): 重力で落ちて、Groundの上に着地する
-    sphere->AddComponent<SphereRigidbodyComponent>(BodyType::Dynamic);
+    auto* rigidbody = sphere->AddComponent<SphereRigidbodyComponent>(BodyType::Dynamic);
+    rigidbody->SetFreezeRotation(true);
 
     return sphere;
 }

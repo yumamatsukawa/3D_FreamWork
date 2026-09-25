@@ -77,15 +77,18 @@ namespace {
                 CollisionInfo infoB{ colA, {  normal.x,  normal.y }, depth };  // Bから見て、Aから離れる方向
 
                 // ★ 押し戻し: キネマティックな側だけを手動でずらす(相手がDynamicでない時に限る)。
-                //   相手がDynamicなら、PhysX自身が正しく押し返してくれるのでここでは何もしない
+                //   相手がDynamicなら、PhysX自身が正しく押し返してくれるのでここでは何もしない。
+                //   PlayerControllerはW/Sでposition.zを動かす仕様なので、x/yだけでなくzも補正する
                 if (depth > 0.f) {
                     if (kinA && !colA->isStatic && !dynB) {
                         colA->owner->transform.position.x -= normal.x * depth;
                         colA->owner->transform.position.y -= normal.y * depth;
+                        colA->owner->transform.position.z -= normal.z * depth;
                     }
                     if (kinB && !colB->isStatic && !dynA) {
                         colB->owner->transform.position.x += normal.x * depth;
                         colB->owner->transform.position.y += normal.y * depth;
+                        colB->owner->transform.position.z += normal.z * depth;
                     }
                 }
 

@@ -4,6 +4,7 @@
 #include "../../Engine/MeshRenderer.h"
 #include "../Components/SpinComponent.h"
 #include "../Components/PlayerController.h"
+#include "../../Engine/RigidbodyComponent.h"
 
 GameObject* CreateCube(Scene& scene) {
     GameObject* cube = scene.CreateObject("Cube");
@@ -13,6 +14,8 @@ GameObject* CreateCube(Scene& scene) {
     // 見た目(3Dメッシュ)
     auto* meshRenderer = cube->AddComponent<MeshRenderer>(Mesh::LoadOBJ(L"Assets/test_cube.obj"));
     meshRenderer->SetTexture(L"Assets/debug_box.png");
+
+    cube->AddComponent<BoxRigidbodyComponent>(BodyType::Static);
 
     // 動作確認用に回転させ続ける
     //cube->AddComponent<SpinComponent>();
