@@ -1,8 +1,14 @@
 ﻿#include "TitleController.h"
 #include "../../Engine/Input.h"
+#include "../../Engine/Audio.h"
 #include "../../Engine/Text.h"
 #include "../../Engine/SceneManager.h"
 #include "../Scenes/GameScene.h"
+
+void TitleController::Init(){
+    audioID = Audio::Load(L"Assets/TitleBGM.wav", true);
+    Audio::Play(audioID);
+}
 
 void TitleController::Update(float dt) {
     if (Input::GetKeyPress(KEY_SPACE)) {
@@ -12,4 +18,8 @@ void TitleController::Update(float dt) {
 
 void TitleController::Draw() {
     Text::Draw(L"タイトル", 0, 0, 100);
+}
+
+void TitleController::Uninit() {
+    Audio::Release(audioID);
 }

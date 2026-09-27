@@ -18,22 +18,11 @@ namespace Audio {
     std::vector<SoundData>  sounds;
 
     // WAV読み込みヘルパー
-    struct WAVHeader {
-        char    riff[4];
-        UINT32  fileSize;
-        char    wave[4];
-        char    fmt[4];
-        UINT32  fmtSize;
-        UINT16  audioFormat;
-        UINT16  channels;
-        UINT32  sampleRate;
-        UINT32  byteRate;
-        UINT16  blockAlign;
-        UINT16  bitsPerSample;
-        char    data[4];
-        UINT32  dataSize;
-    };
-
+    //
+    // ★ "fmt "チャンクの直後に必ず"data"チャンクが来る44バイト固定ヘッダー、という
+    //   決め打ちでは読めないファイルがある(例: ffmpeg/Lavfで書き出したWAVは、"fmt "と
+    //   "data"の間に"LIST"(メタデータ)チャンクが挟まっていることが多い)。
+    //   そのため、チャンクを先頭から1つずつ読み進めて、"fmt "と"data"を名前で探す
     static bool LoadWAV(const std::wstring& filepath,
         WAVEFORMATEX& fmt, BYTE*& data, UINT32& size) {
         FILE* file = nullptr;
@@ -43,21 +32,68 @@ namespace Audio {
             return false;
         }
 
-        WAVHeader header;
-        fread(&header, sizeof(header), 1, file);
+        char riff[4], wave[4];
+        UINT32 riffSize;
+        fread(riff, 1, 4, file);
+        fread(&riffSize, sizeof(UINT32), 1, file);
+        fread(wave, 1, 4, file);
+        if (memcmp(riff, "RIFF", 4) != 0 || memcmp(wave, "WAVE", 4) != 0) {
+            OutputDebugStringA("★ Audio: WAVファイルではありません\n");
+            fclose(file);
+            return false;
+        }
 
-        fmt.wFormatTag = header.audioFormat;
-        fmt.nChannels = header.channels;
-        fmt.nSamplesPerSec = header.sampleRate;
-        fmt.nAvgBytesPerSec = header.byteRate;
-        fmt.nBlockAlign = header.blockAlign;
-        fmt.wBitsPerSample = header.bitsPerSample;
-        fmt.cbSize = 0;
+        bool foundFmt = false, foundData = false;
+        data = nullptr;
+        size = 0;
 
-        size = header.dataSize;
-        data = new BYTE[size];
-        fread(data, size, 1, file);
+        char chunkId[4];
+        UINT32 chunkSize;
+        while (fread(chunkId, 1, 4, file) == 4 && fread(&chunkSize, sizeof(UINT32), 1, file) == 1) {
+            if (memcmp(chunkId, "fmt ", 4) == 0) {
+                UINT16 audioFormat = 0, channels = 0, blockAlign = 0, bitsPerSample = 0;
+                UINT32 sampleRate = 0, byteRate = 0;
+                fread(&audioFormat, sizeof(UINT16), 1, file);
+                fread(&channels, sizeof(UINT16), 1, file);
+                fread(&sampleRate, sizeof(UINT32), 1, file);
+                fread(&byteRate, sizeof(UINT32), 1, file);
+                fread(&blockAlign, sizeof(UINT16), 1, file);
+                fread(&bitsPerSample, sizeof(UINT16), 1, file);
+                // fmtチャンクが16バイトより大きい(WAVE_FORMAT_EXTENSIBLEなど)場合は、残りを読み飛ばす
+                long read = 16;
+                if ((long)chunkSize > read) fseek(file, chunkSize - read, SEEK_CUR);
+
+                fmt.wFormatTag = audioFormat;
+                fmt.nChannels = channels;
+                fmt.nSamplesPerSec = sampleRate;
+                fmt.nAvgBytesPerSec = byteRate;
+                fmt.nBlockAlign = blockAlign;
+                fmt.wBitsPerSample = bitsPerSample;
+                fmt.cbSize = 0;
+                foundFmt = true;
+            }
+            else if (memcmp(chunkId, "data", 4) == 0) {
+                size = chunkSize;
+                data = new BYTE[size];
+                fread(data, size, 1, file);
+                foundData = true;
+                break;  // 音声データは見つかったので、以降のチャンク(メタデータ等)は読まない
+            }
+            else {
+                // 知らないチャンク(LIST/fact/JUNKなど)は読み飛ばす。
+                // RIFFのチャンクは2バイト単位に揃えられるため、奇数サイズの時は1バイト分の
+                // パディングも一緒に読み飛ばす
+                fseek(file, chunkSize + (chunkSize & 1), SEEK_CUR);
+            }
+        }
+
         fclose(file);
+        if (!foundFmt || !foundData) {
+            OutputDebugStringA("★ Audio: fmt/dataチャンクが見つかりません\n");
+            delete[] data;
+            data = nullptr;
+            return false;
+        }
         return true;
     }
 
