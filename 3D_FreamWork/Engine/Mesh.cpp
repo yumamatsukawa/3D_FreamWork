@@ -15,6 +15,7 @@ ID3D11BlendState* Mesh::blendState = nullptr;
 ID3D11DepthStencilState* Mesh::depthStencilState = nullptr;
 ID3D11DepthStencilState* Mesh::depthStencilStateNoWrite = nullptr;
 ID3D11RasterizerState* Mesh::rasterizerState = nullptr;
+ID3D11RasterizerState* Mesh::wireframeRasterizerState = nullptr;
 float Mesh::aspectRatio = 1.f;
 int Mesh::refCount = 0;
 
@@ -49,6 +50,7 @@ void Mesh::ReleaseSharedResources() {
     if (depthStencilState) { depthStencilState->Release(); depthStencilState = nullptr; }
     if (depthStencilStateNoWrite) { depthStencilStateNoWrite->Release(); depthStencilStateNoWrite = nullptr; }
     if (rasterizerState) { rasterizerState->Release(); rasterizerState = nullptr; }
+    if (wireframeRasterizerState) { wireframeRasterizerState->Release(); wireframeRasterizerState = nullptr; }
     if (sampler) { sampler->Release(); sampler = nullptr; }
     if (inputLayout) { inputLayout->Release(); inputLayout = nullptr; }
     if (pixelShader) { pixelShader->Release(); pixelShader = nullptr; }
@@ -188,10 +190,16 @@ bool Mesh::CreateRasterizerState() {
     rd.CullMode = D3D11_CULL_NONE;
     rd.DepthClipEnable = TRUE;
     HRESULT hr = Graphics::device->CreateRasterizerState(&rd, &rasterizerState);
+    if (FAILED(hr)) return false;
+
+    // Collider可視化(デバッグ表示)用: 塗りつぶさず、線だけで描画する
+    D3D11_RASTERIZER_DESC wireRd = rd;
+    wireRd.FillMode = D3D11_FILL_WIREFRAME;
+    hr = Graphics::device->CreateRasterizerState(&wireRd, &wireframeRasterizerState);
     return SUCCEEDED(hr);
 }
 
-void Mesh::Draw(const Transform& transform, const Camera& camera, XMFLOAT4 color, const Light& light, bool writeDepth) {
+void Mesh::Draw(const Transform& transform, const Camera& camera, XMFLOAT4 color, const Light& light, bool writeDepth, bool wireframe) {
     assert(context && "context が nullptr");
     assert(vertexBuffer && "vertexBuffer が nullptr");
 
@@ -221,7 +229,7 @@ void Mesh::Draw(const Transform& transform, const Camera& camera, XMFLOAT4 color
     float blendFactor[4] = {};
     context->OMSetBlendState(blendState, blendFactor, 0xFFFFFFFF);
     context->OMSetDepthStencilState(writeDepth ? depthStencilState : depthStencilStateNoWrite, 0);
-    context->RSSetState(rasterizerState);
+    context->RSSetState(wireframe ? wireframeRasterizerState : rasterizerState);
 
     UINT stride = sizeof(MeshVertex), offset = 0;
     context->IASetInputLayout(inputLayout);

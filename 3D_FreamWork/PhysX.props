@@ -1,0 +1,36 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!--
+  PhysXのinclude/lib設定をまとめた共有プロパティシート。
+  Engine.vcxproj / Sample2D.vcxproj / Sample3D.vcxproj の全てからこのファイルを
+  Importする。PhysXのバージョンを上げる・リンクするlibを増減する時は、
+  このファイル1箇所を直せば全プロジェクトに反映される。
+
+  ★ パスは$(ProjectDir)や$(SolutionDir)ではなく$(MSBuildThisFileDirectory)基準にしてある。
+     $(MSBuildThisFileDirectory)は「このファイル(PhysX.props)自身がある場所」を指す
+     プロパティで、$(SolutionDir)と違い、ソリューションを経由しない単独ビルド(このvcxproj
+     だけをmsbuildに渡す場合など)でも常に正しく解決される。このファイルはソリューション
+     フォルダ直下に置いてあるので、常にThirdParty\PhysXを正しく指せる。
+-->
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <AdditionalIncludeDirectories>$(MSBuildThisFileDirectory)..\ThirdParty\PhysX\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <!-- PhysXはNV_USE_STATIC_WINCRT=Trueでビルドされている(静的CRT)ため、こちらも合わせる -->
+      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
+    </ClCompile>
+    <Link>
+      <AdditionalLibraryDirectories>$(MSBuildThisFileDirectory)..\ThirdParty\PhysX\lib\x64-debug;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>PhysX_64.lib;PhysXCommon_64.lib;PhysXFoundation_64.lib;PhysXExtensions_static_64.lib;PhysXCooking_64.lib;PhysXCharacterKinematic_static_64.lib;PhysXTask_static_64.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <AdditionalIncludeDirectories>$(MSBuildThisFileDirectory)..\ThirdParty\PhysX\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+    </ClCompile>
+    <Link>
+      <AdditionalLibraryDirectories>$(MSBuildThisFileDirectory)..\ThirdParty\PhysX\lib\x64-release;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>PhysX_64.lib;PhysXCommon_64.lib;PhysXFoundation_64.lib;PhysXExtensions_static_64.lib;PhysXCooking_64.lib;PhysXCharacterKinematic_static_64.lib;PhysXTask_static_64.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
+</Project>

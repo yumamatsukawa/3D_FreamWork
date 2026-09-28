@@ -43,8 +43,15 @@ protected:
 
 public:
     void Update(float dt) override;
+    void Draw() override;
     void Uninit() override;
     void OnActiveChanged(bool active) override;
+
+    // trueにすると、全てのRigidbodyComponentの当たり判定の形・大きさを、
+    // ワイヤーフレーム(緑=通常の当たり判定、黄=すり抜けるトリガー)で描画する。
+    // 実際にPhysXが使っている形状(size/radius)をそのまま表示するので、
+    // 見た目(SpriteRenderer/MeshRenderer)とズレていないか確認する時に使う
+    static void SetDebugDrawEnabled(bool enabled) { debugDrawEnabled = enabled; }
 
     // 剛体に速度を設定する
     // ""Dynamicの時だけ意味がある""
@@ -61,12 +68,17 @@ public:
     // ""Dynamicの時だけ意味がある""
     void SetFreezeRotation(bool freeze);
 
-    // trueにすると、上下方向に押し出されなくなる
+    // trueにすると、指定方向に押し出されなくなる
     // ""Dynamicの時だけ意味がある""
+    void SetFreezePositionX(bool freeze);
     void SetFreezePositionY(bool freeze);
+    void SetFreezePositionZ(bool freeze);
 
     // PhysXのAPIを直接触りたい時だけ使う(通常は上のメソッドで十分)
     physx::PxRigidActor* GetActor() const { return actor; }
+
+private:
+    static bool debugDrawEnabled;
 };
 
 // Box形状の3D剛体。詳しい説明はRigidbodyComponentのコメントを参照
@@ -100,6 +112,44 @@ private:
 public:
     explicit SphereRigidbodyComponent(BodyType bodyType = BodyType::Dynamic,
         float radius = 0.f, float density = 1.0f,
+        bool isTrigger = false, bool isStaticForPush = false);
+
+    void Init() override;
+};
+
+// 2D用の円形コライダー。中身はSphereRigidbodyComponentと同じ(PhysXに2D専用の形状は無いため)
+// だが、トップダウン2Dゲームで使うと分かりやすいよう名前を分けてある。
+// --------------------------- 引数 ----------------------------------
+// radius          : 半径。既定ならOwnerのtransform.scale.xの半分を使う
+// density         : 密度(質量 = 密度×体積として自動計算される)。1.0fが規定。Dynamic以外では無視される
+// isTrigger       : trueだと、すり抜ける当たり判定(OnTriggerEnter2D等)になる
+// isStaticForPush : trueだと、Kinematic同士がぶつかった時に「押し戻されない」側になる
+class CircleRigidbodyComponent : public RigidbodyComponent {
+private:
+    float radius;
+
+public:
+    explicit CircleRigidbodyComponent(BodyType bodyType = BodyType::Dynamic,
+        float radius = 0.f, float density = 1.0f,
+        bool isTrigger = false, bool isStaticForPush = false);
+
+    void Init() override;
+};
+
+// 2D用の四角形コライダー。中身はBoxRigidbodyComponentと同じ(薄い箱)だが、
+// 一辺の長さ(size)だけ指定すればよい分、2Dゲームでは扱いやすい。
+// --------------------------- 引数 ----------------------------------
+// size            : 一辺の長さ。既定(0)ならOwnerのtransform.scale.xを使う。奥行き(Z)は自動で薄く決まる
+// density         : 密度(質量 = 密度×体積として自動計算される)。1.0fが規定。Dynamic以外では無視される
+// isTrigger       : trueだと、すり抜ける当たり判定(OnTriggerEnter2D等)になる
+// isStaticForPush : trueだと、Kinematic同士がぶつかった時に「押し戻されない」側になる
+class SquareRigidbodyComponent : public RigidbodyComponent {
+private:
+    float size;
+
+public:
+    explicit SquareRigidbodyComponent(BodyType bodyType = BodyType::Dynamic,
+        float size = 0.f, float density = 1.0f,
         bool isTrigger = false, bool isStaticForPush = false);
 
     void Init() override;

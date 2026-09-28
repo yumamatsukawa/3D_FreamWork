@@ -6,6 +6,30 @@ DirectX11製の、Unity風のコンポーネント指向ゲームフレームワ
 
 ---
 
+## 0. プロジェクト構成
+
+このソリューション(`3D_FreamWork.sln`)には3つのプロジェクトがあります。
+
+```
+3D_FreamWork\
+├── 3D_FreamWork.sln
+├── PhysX.props        共有MSBuildプロパティシート(PhysXのinclude/lib設定を1箇所にまとめたもの)
+├── Assets\             全プロジェクト共有の画像・音声・モデル
+├── Shader.hlsl / Shader3D.hlsl   全プロジェクト共有のシェーダー
+├── Engine\             フレームワーク本体(静的ライブラリ、Engine.vcxproj)
+├── Sample2D\           2Dのサンプルゲーム(実行ファイル、Sample2D.vcxproj)
+└── Sample3D\           3Dのサンプルゲーム(実行ファイル、Sample3D.vcxproj)
+```
+
+- **Engine**: `GameObject`/`Component`/`RigidbodyComponent`/描画/音声などフレームワーク本体。それ単体では実行できない静的ライブラリ(`Engine.lib`)で、基本的にみんなで触る場所ではありません。
+- **Sample2D** / **Sample3D**: それぞれ独立した実行ファイル。どちらも同じ`Engine.lib`をリンクしているので、**Engineを直した内容は、両方のサンプルを再ビルドするだけで反映されます**。中身の`Game\Objects\`/`Game\Components\`/`Game\Scenes\`は、後述の「2. オブジェクトの作り方」と同じパターンです。
+- ビルド後、`Engine.lib`/`Sample2D.exe`/`Sample3D.exe`は全て同じ`x64\Debug\`(`Release\`)フォルダに出力されます。`Assets\`とシェーダーは、Engineのビルド後処理(PostBuildEvent)でそこに自動コピーされるので、`.exe`をダブルクリックするだけでも動きます。
+- ソリューションを開いてF5で実行する時は、実行したい方(Sample2DかSample3D)をソリューションエクスプローラーで右クリック→「スタートアッププロジェクトに設定」してから実行してください(複数のスタートアッププロジェクトを同時に起動する設定も可能です)。
+
+新しい3つ目のサンプルを作りたい時は、`Sample2D`か`Sample3D`のフォルダ構成をコピーして名前を変え、`.sln`に登録し、`Engine.vcxproj`への`ProjectReference`と`PhysX.props`のImportを忘れずに設定してください。
+
+---
+
 ## 1. 基本構成: GameObject と Component
 
 `GameObject`はそれ自体では何もしない「入れ物」です。見た目や動きは、`AddComponent<T>()`で後から部品(`Component`)を付けて作ります。継承ではなく組み合わせで機能を作る、という考え方です。
@@ -39,7 +63,7 @@ public:
 
 ## 2. オブジェクトの作り方: 工場関数パターン
 
-`Player`や`Enemy`のようなクラスは作りません。代わりに、`Game/Objects/`に「GameObjectを組み立てて返す関数」を1つ作ります(`Game/Objects/Player.cpp`などを参照)。
+`Player`や`Enemy`のようなクラスは作りません。代わりに、各サンプル(`Sample2D/`または`Sample3D/`)の`Game/Objects/`に「GameObjectを組み立てて返す関数」を1つ作ります(`Sample2D/Game/Objects/Player.cpp`などを参照)。
 
 ```cpp
 // Game/Objects/Enemy.h
@@ -58,7 +82,7 @@ GameObject* CreateEnemy(Scene& scene) {
 }
 ```
 
-呼び出す側(`GameScene::Init()`など)は `CreateEnemy(*this);` と呼ぶだけです。新しい種類のオブジェクトを追加する時は、この形式(`Game/Objects/○○.h/.cpp` + `Game/Components/○○Controller.h/.cpp`)に合わせてください。
+呼び出す側(`GameScene::Init()`など)は `CreateEnemy(*this);` と呼ぶだけです。新しい種類のオブジェクトを追加する時は、この形式(`Game/Objects/○○.h/.cpp` + `Game/Components/○○Controller.h/.cpp`)に合わせてください。**Sample2Dだけで使うオブジェクトはSample2D側に、Sample3Dだけで使うオブジェクトはSample3D側に**追加してください(両方に同じようなオブジェクトが必要になった場合、今のところは両方に同じファイルをコピーする形になっています。共通化は将来の課題です)。
 
 ---
 
@@ -233,6 +257,20 @@ void OnCollisionExit2D(CollisionInfo info) override;
 
 **内部実装メモ**: `Engine/Physics.cpp`のシミュレーションコールバック(`onContact`/`onTrigger`)が、PhysXの結果をこれらのコールバックに変換しています。Kinematicなオブジェクト同士がぶつかった時の「押し戻し」は、PhysXの自動計算に任せられない(キネマティックは力の影響を受けないため)ので、接触の法線・めり込み量から手動で`Transform.position`をずらしています(`isStaticForPush=true`側は動かさない)。Dynamicなオブジェクト(Sphereなど)が絡む場合は、PhysX自身が正しく押し返すので、この手動処理はスキップされます。
 
+**CCD(連続衝突判定)について**: `SquareRigidbodyComponent`のような奥行きの薄い箱同士が角(コーナー)でかすめるように当たると、通常の当たり判定(1フレームごとの位置だけを見る離散判定)では押し返しが弱く、貫通してしまうことがあります。これを防ぐため、Dynamicなアクター全てでCCD(移動の軌跡をスイープして判定するモード)を有効にしています(`Physics::Init()`でシーン全体のCCDを有効化、`RigidbodyComponent.cpp`の`CreateActor()`でDynamicアクターごとに`PxRigidBodyFlag::eENABLE_CCD`を設定)。
+
+### Colliderの見た目(デバッグ表示)
+
+実際にPhysXが使っている当たり判定の形・大きさを、ワイヤーフレームで可視化できます(見た目のスプライト/メッシュのサイズとズレていないか確認する時に便利です)。
+
+```cpp
+RigidbodyComponent::SetDebugDrawEnabled(true);
+```
+
+`Scene::Init()`などで1回呼ぶだけで、以後その回のプレイ中は全ての`RigidbodyComponent`(Box/Sphereどちらも)が緑(通常の当たり判定)または黄(`isTrigger=true`のすり抜ける判定)のワイヤーフレームを、実際のPhysX形状のサイズで描画します。不要になったら`false`を渡すか、呼び出し自体を消してください。
+
+**内部実装メモ**: `RigidbodyComponent::Draw()`が、`PxShape`から実際のジオメトリ(`PxBoxGeometry`/`PxSphereGeometry`)を取得し、Ownerの`Transform`の`scale`だけを一時的に差し替えて`Mesh::Draw(..., wireframe=true)`で描画しています(位置・回転は普段どおりOwnerのTransformをそのまま使う)。ワイヤーフレーム用の単位立方体/単位球メッシュは、全`RigidbodyComponent`で1つずつ共有しています。
+
 ---
 
 ## 7. EventBus(疎結合な通知)
@@ -284,7 +322,7 @@ pool.Return(obj);
 
 ### 新しいファイルを追加したら
 
-`.vcxproj`と`.vcxproj.filters`の両方に、新規ファイルを追加してください(Visual Studioでソリューションエクスプローラーから「追加」すれば自動でやってくれます)。
+追加したファイルが属するプロジェクト(Engineに追加するなら`Engine.vcxproj`、Sample2D用のGameコードなら`Sample2D.vcxproj`、Sample3D用なら`Sample3D.vcxproj`)の、`.vcxproj`と`.vcxproj.filters`の両方に新規ファイルを追加してください(Visual Studioでソリューションエクスプローラーから該当プロジェクトを右クリック→「追加」すれば自動でやってくれます)。
 
 ### Update中にオブジェクトを生成してよい
 
@@ -298,14 +336,23 @@ pool.Return(obj);
 
 ## 10. サンプル構成(現状)
 
+プロジェクト構成自体は`0. プロジェクト構成`を参照してください。ここでは各サンプルの中身(`Game/`)を説明します。
+
 ```
-Engine/           土台となるフレームワーク本体(基本的にみんなで触る場所ではない)
-Game/Objects/     GameObjectの工場関数(Player.cpp, Enemy.cpp, Cube.cpp, BulletManager.cppなど)
-Game/Components/  振る舞い(PlayerController.cpp, BulletController.cppなど)
-Game/Scenes/      シーン(TitleScene, GameScene)
+Sample2D/Game/Objects/     Title, Player, Enemy, BulletManager
+Sample2D/Game/Components/  TitleController, PlayerController, BulletController
+Sample2D/Game/Scenes/      TitleScene, GameScene
+
+Sample3D/Game/Objects/     Title, Player, Cube, Sphere, Ground, Skybox
+Sample3D/Game/Components/  TitleController, PlayerController, CameraController,
+                            SpinComponent(未アタッチ), SkyboxFollowComponent
+Sample3D/Game/Scenes/      TitleScene, GameScene
 ```
 
-新しいオブジェクトを追加する時は、`Game/Objects/`と`Game/Components/`にPlayer/Enemyと同じ形式でファイルを足していくのが基本の流れです。
+- **Sample2D**: トップダウン視点のシンプルなアリーナ。WASDで移動、SPACEで弾を発射、Enemyに触れると赤くなる。重力・3Dカメラは使わない(`SetUseGravity(false)`、`CameraController`なし)。
+- **Sample3D**: 3人称/1人称カメラで動き回れる3D空間のショーケース。WASDで移動、TABでカメラ切り替え、右クリックドラッグで視点回転。Ground/Cube/Skyboxを配置し、Sphereが重力で落下してGroundの上に着地する。
+
+どちらも現時点では「動く土台」で、ゲームとしての作り込み(敵の挙動、演出、レベルデザインなど)はこれから追加していく想定です。新しいオブジェクトを追加する時は、それぞれのサンプルの`Game/Objects/`と`Game/Components/`に、既存のPlayer/Enemyと同じ形式でファイルを足していくのが基本の流れです。
 
 ---
 
@@ -327,7 +374,10 @@ namespace Physics {
 
 ### RigidbodyComponent(3Dの物理演算でオブジェクトを動かす)
 
-`Engine/RigidbodyComponent.h/.cpp`に、`BoxRigidbodyComponent`と`SphereRigidbodyComponent`があります。見た目(`MeshRenderer`/`SpriteRenderer`)とは別に、動き方だけを担当するComponentです。どちらも共通の基底クラス`RigidbodyComponent`を継承しているので、他のComponentから形状を意識せず`GetComponent<RigidbodyComponent>()`で探せます(`PlayerController`が実例。これにより、Playerの形状をBoxにしてもSphereにしても、`Player.cpp`の1行を変えるだけで済みます)。
+`Engine/RigidbodyComponent.h/.cpp`に、`BoxRigidbodyComponent`/`SphereRigidbodyComponent`(3D向け)と`SquareRigidbodyComponent`/`CircleRigidbodyComponent`(2D向け)があります。見た目(`MeshRenderer`/`SpriteRenderer`)とは別に、動き方だけを担当するComponentです。4つとも共通の基底クラス`RigidbodyComponent`を継承しているので、他のComponentから形状を意識せず`GetComponent<RigidbodyComponent>()`で探せます(`PlayerController`が実例。これにより、Playerの形状を変えても`Player.cpp`の1行を変えるだけで済みます)。
+
+- `Square`/`CircleRigidbodyComponent`は、中身は`Box`/`SphereRigidbodyComponent`と全く同じ(PhysXに2D専用の形状は無いため、奥行きの薄い箱・普通の球で代用している)。トップダウン2Dゲームで使う時に、`XMFLOAT3`のサイズではなく一辺の長さ/半径を1つ渡すだけで済む、より簡単なAPIになっている
+- `SquareRigidbodyComponent`の奥行き(Z)は1.0固定です。厚みを自分で決めたい場合は`BoxRigidbodyComponent`を使ってください
 
 ```cpp
 enum class BodyType {
@@ -418,4 +468,4 @@ if (rigidbody) rigidbody->SetVelocity(velocity);
 このマシンではVisual Studio 2022しか入っておらず、PhysX 4.1の公式プリセットはVS2019(`vc16win64`)までしか無かったため、`vc17win64`プリセットを自作して生成しました(`physx/buildtools/presets/public/vc17win64.xml`と、`cmake_generate_projects.py`への`vc17`対応追加)。これらはPhysXのソース側(このリポジトリの外、`ThirdParty/PhysX/`には含まれていないビルド作業用のフォルダ)の変更なので、もし将来PhysXを更新・再ビルドする必要が出てきたら、同じ手順を踏んでください。
 
 - `ThirdParty/PhysX/lib/x64-debug/`, `x64-release/`: Debug/Release、x64向けのビルド済み成果物(`.pdb`/`.map`や、GPU支援用のDLL(`PhysXGpu`/`PhysXDevice`)は容量削減のため含めていません。今回はCPUベースの物理演算のみを使う想定です)
-- プロジェクト側(`3D_FreamWork.vcxproj`)は`RuntimeLibrary`を`MultiThreaded`/`MultiThreadedDebug`(静的CRT)にしてあります。PhysXのビルドが`NV_USE_STATIC_WINCRT=True`だったため、CRTを合わせないとリンクエラーになります
+- PhysXのinclude/lib設定は`PhysX.props`(ソリューションフォルダ直下)に1箇所にまとめてあり、`Engine.vcxproj`/`Sample2D.vcxproj`/`Sample3D.vcxproj`の全てがこれをImportしています。PhysXのバージョンを上げる、リンクするlibを増減する時はこのファイルだけ直せば全プロジェクトに反映されます。`RuntimeLibrary`も同じファイルで`MultiThreaded`/`MultiThreadedDebug`(静的CRT)に設定済みです。PhysXのビルドが`NV_USE_STATIC_WINCRT=True`だったため、CRTを合わせないとリンクエラーになります(新しいプロジェクトを追加する時も、必ず同じ`RuntimeLibrary`にしてください)

@@ -26,7 +26,11 @@ namespace {
                 | PxPairFlag::eNOTIFY_TOUCH_PERSISTS
                 | PxPairFlag::eNOTIFY_TOUCH_LOST
                 | PxPairFlag::eNOTIFY_CONTACT_POINTS
-                | PxPairFlag::eDETECT_DISCRETE_CONTACT;
+                | PxPairFlag::eDETECT_DISCRETE_CONTACT
+                // ★ CCD(連続衝突判定)。薄い箱(SquareRigidbodyComponentなど)同士が角で
+                //   ぶつかった時、通常の判定だけでは押し返しが弱く貫通することがあるため、
+                //   スイープ(掃引)ベースの判定も併用して貫通を防ぐ
+                | PxPairFlag::eDETECT_CCD_CONTACT;
         }
         return PxFilterFlag::eDEFAULT;
     }
@@ -163,6 +167,9 @@ namespace Physics {
         sceneDesc.cpuDispatcher = gDispatcher;
         sceneDesc.filterShader = CollisionFilterShader;
         sceneDesc.simulationEventCallback = &gEventCallback;
+        // ★ CCD(連続衝突判定)をシーン全体で使えるようにする(RigidbodyComponent.cppでDynamic
+        //   アクターごとに有効化している)。これが無いと、各アクターのCCDフラグが無視される
+        sceneDesc.flags |= PxSceneFlag::eENABLE_CCD;
 
         gScene = gPhysics->createScene(sceneDesc);
         if (!gScene) { OutputDebugStringA("★ Physics: createScene 失敗\n"); return false; }

@@ -1,10 +1,14 @@
 ﻿#include "RigidbodyComponent.h"
 #include "Physics.h"
+#include "Mesh.h"
+#include "Image.h"
 #include <windows.h>
 #include <PxPhysicsAPI.h>
 
 using namespace physx;
 using namespace DirectX;
+
+bool RigidbodyComponent::debugDrawEnabled = false;
 
 namespace {
     // DirectX(左手系)とPhysX(右手系)とで回転の向きが逆になるため、変換が必要。
@@ -83,9 +87,14 @@ namespace {
             break;
         }
         case BodyType::Dynamic:
-        default:
-            actor = PxCreateDynamic(*Physics::GetPhysics(), pose, geometry, *material, density);
+        default: {
+            PxRigidDynamic* dynamic = PxCreateDynamic(*Physics::GetPhysics(), pose, geometry, *material, density);
+            // ★ CCD(連続衝突判定)を有効にする。薄い箱(SquareRigidbodyComponentなど)や
+            //   角同士の接触で、通常の判定だけだと押し返しが弱く貫通することがあるため
+            if (dynamic) dynamic->setRigidBodyFlag(PxRigidBodyFlag::eENABLE_CCD, true);
+            actor = dynamic;
             break;
+        }
         }
 
         if (actor && isTrigger) {
@@ -98,6 +107,21 @@ namespace {
         }
 
         return actor;
+    }
+
+    // Collider可視化(デバッグ表示)用の共有メッシュ。単位立方体/単位球(どちらも一辺・直径1)を
+    // 1つずつ作り、全RigidbodyComponentのDraw()で使い回す(実際の大きさはTransform.scaleで調整する)
+    Mesh* GetGizmoCubeMesh() {
+        static Mesh mesh;
+        static bool initialized = false;
+        if (!initialized) { mesh.Init(Mesh::CreateCube()); initialized = true; }
+        return &mesh;
+    }
+    Mesh* GetGizmoSphereMesh() {
+        static Mesh mesh;
+        static bool initialized = false;
+        if (!initialized) { mesh.Init(Mesh::CreateSphere()); initialized = true; }
+        return &mesh;
     }
 }
 
@@ -142,6 +166,48 @@ void RigidbodyComponent::Update(float dt) {
             SyncActorFromTransform(actor, GetOwner()->transform);
         }
     }
+}
+
+void RigidbodyComponent::Draw() {
+    if (!debugDrawEnabled || !actor) return;
+
+    PxShape* shape = nullptr;
+    actor->getShapes(&shape, 1);
+    if (!shape) return;
+
+    XMFLOAT3 gizmoSize{};
+    Mesh* gizmoMesh = nullptr;
+
+    switch (shape->getGeometryType()) {
+    case PxGeometryType::eBOX: {
+        PxBoxGeometry box;
+        shape->getBoxGeometry(box);
+        gizmoSize = { box.halfExtents.x * 2.f, box.halfExtents.y * 2.f, box.halfExtents.z * 2.f };
+        gizmoMesh = GetGizmoCubeMesh();
+        break;
+    }
+    case PxGeometryType::eSPHERE: {
+        PxSphereGeometry sphere;
+        shape->getSphereGeometry(sphere);
+        gizmoSize = { sphere.radius * 2.f, sphere.radius * 2.f, sphere.radius * 2.f };
+        gizmoMesh = GetGizmoSphereMesh();
+        break;
+    }
+    default:
+        return;
+    }
+
+    // 光源の影響を受けず、常に一定の色で見えるようにする(トリガーは黄、通常は緑)
+    static const Light fullBright{ {0.f,-1.f,0.f}, {0.f,0.f,0.f}, {1.f,1.f,1.f} };
+    XMFLOAT4 color = collider.isTrigger ? XMFLOAT4{ 1.f, 1.f, 0.f, 1.f } : XMFLOAT4{ 0.f, 1.f, 0.f, 1.f };
+
+    // ★ 見た目(SpriteRenderer/MeshRenderer)のTransform.scaleとは独立して、
+    //   実際にPhysXが使っている大きさで描画したいので、一時的にscaleだけ差し替えて描画する
+    Transform& t = GetOwner()->transform;
+    XMFLOAT3 originalScale = t.scale;
+    t.scale = gizmoSize;
+    gizmoMesh->Draw(t, Image::GetCamera3D(), color, fullBright, /*writeDepth*/ true, /*wireframe*/ true);
+    t.scale = originalScale;
 }
 
 void RigidbodyComponent::Uninit() {
@@ -200,6 +266,16 @@ void RigidbodyComponent::SetFreezeRotation(bool freeze) {
     dynamic->setRigidDynamicLockFlags(freeze ? (flags | angular) : (flags & ~angular));
 }
 
+void RigidbodyComponent::SetFreezePositionX(bool freeze) {
+    if (!actor) return;
+    PxRigidDynamic* dynamic = actor->is<PxRigidDynamic>();
+    if (!dynamic) return;
+    PxRigidDynamicLockFlags flags = dynamic->getRigidDynamicLockFlags();
+    dynamic->setRigidDynamicLockFlags(freeze
+        ? (flags | PxRigidDynamicLockFlag::eLOCK_LINEAR_X)
+        : (flags & ~PxRigidDynamicLockFlag::eLOCK_LINEAR_X));
+}
+
 void RigidbodyComponent::SetFreezePositionY(bool freeze) {
     if (!actor) return;
     PxRigidDynamic* dynamic = actor->is<PxRigidDynamic>();
@@ -208,6 +284,16 @@ void RigidbodyComponent::SetFreezePositionY(bool freeze) {
     dynamic->setRigidDynamicLockFlags(freeze
         ? (flags | PxRigidDynamicLockFlag::eLOCK_LINEAR_Y)
         : (flags & ~PxRigidDynamicLockFlag::eLOCK_LINEAR_Y));
+}
+
+void RigidbodyComponent::SetFreezePositionZ(bool freeze) {
+    if (!actor) return;
+    PxRigidDynamic* dynamic = actor->is<PxRigidDynamic>();
+    if (!dynamic) return;
+    PxRigidDynamicLockFlags flags = dynamic->getRigidDynamicLockFlags();
+    dynamic->setRigidDynamicLockFlags(freeze
+        ? (flags | PxRigidDynamicLockFlag::eLOCK_LINEAR_Z)
+        : (flags & ~PxRigidDynamicLockFlag::eLOCK_LINEAR_Z));
 }
 
 // ─────────────────────────── BoxRigidbodyComponent ───────────────────────────
@@ -232,4 +318,29 @@ SphereRigidbodyComponent::SphereRigidbodyComponent(BodyType bodyType, float radi
 void SphereRigidbodyComponent::Init() {
     float r = (radius > 0.f) ? radius : (GetOwner()->transform.scale.x * 0.5f);
     InitWithGeometry(PxSphereGeometry(r));
+}
+
+// ─────────────────────────── CircleRigidbodyComponent(2D用) ───────────────────────────
+
+CircleRigidbodyComponent::CircleRigidbodyComponent(BodyType bodyType, float radius, float density,
+    bool isTrigger, bool isStaticForPush)
+    : RigidbodyComponent(bodyType, density, isTrigger, isStaticForPush), radius(radius) {
+}
+
+void CircleRigidbodyComponent::Init() {
+    float r = (radius > 0.f) ? radius : (GetOwner()->transform.scale.x * 0.5f);
+    InitWithGeometry(PxSphereGeometry(r));
+}
+
+// ─────────────────────────── SquareRigidbodyComponent(2D用) ───────────────────────────
+
+SquareRigidbodyComponent::SquareRigidbodyComponent(BodyType bodyType, float size, float density,
+    bool isTrigger, bool isStaticForPush)
+    : RigidbodyComponent(bodyType, density, isTrigger, isStaticForPush), size(size) {
+}
+
+void SquareRigidbodyComponent::Init() {
+    float s = (size > 0.f) ? size : GetOwner()->transform.scale.x;
+    // 奥行き(Z)は1.0固定の薄い箱にする(2Dゲームでは厚みを意識しなくてよいように)
+    InitWithGeometry(PxBoxGeometry(s * 0.5f, s * 0.5f, 0.5f));
 }
