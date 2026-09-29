@@ -8,6 +8,7 @@
 namespace {
     // プールに新しい弾を追加する時に1回だけ呼ばれる組み立て処理
     void SetupBullet(GameObject* obj) {
+        obj->SetTag("Bullet");
         obj->transform.scale = { 16.0f, 16.0f, 1.0f };
         auto* meshRenderer = obj->AddComponent<MeshRenderer>(Mesh::CreateSphere());
         meshRenderer->SetTexture(L"Assets/grid.png");

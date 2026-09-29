@@ -1,6 +1,6 @@
 ﻿#include "GameScene.h"
 #include "../Objects/Player.h"
-#include "../Objects/Enemy.h"
+#include "../Components/GameManager.h"
 #include "../../../Engine/EventBus.h"
 #include "../../../Engine/GameObject.h"
 #include "../../../Engine/RigidbodyComponent.h"
@@ -12,8 +12,12 @@ void GameScene::Init()
     // 不要になったらこの行を削除するかfalseにすればよい
     RigidbodyComponent::SetDebugDrawEnabled(true);
 
-    CreatePlayer(*this);
-    CreateEnemy(*this);
+    GameObject* player = CreatePlayer(*this);
+
+    // スコア・HP・敵の出現・ゲームオーバーを管理する係。専用のGameObjectを1つ作って持たせる
+    GameObject* gameManagerObj = CreateObject("GameManager");
+    GameManager* gameManager = gameManagerObj->AddComponent<GameManager>();
+    gameManager->Setup(&enemyManager, player);
 
     // 「FireBullet」イベントを購読する。誰か(PlayerControllerなど)が
     // PublishObject("FireBullet", shooter) を呼ぶと、ここが弾を実際に生成する。

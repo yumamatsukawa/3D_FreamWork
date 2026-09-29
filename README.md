@@ -339,8 +339,9 @@ pool.Return(obj);
 プロジェクト構成自体は`0. プロジェクト構成`を参照してください。ここでは各サンプルの中身(`Game/`)を説明します。
 
 ```
-Sample2D/Game/Objects/     Title, Player, Enemy, BulletManager
-Sample2D/Game/Components/  TitleController, PlayerController, BulletController
+Sample2D/Game/Objects/     Title, Player, EnemyManager, BulletManager
+Sample2D/Game/Components/  TitleController, PlayerController, BulletController,
+                            EnemyController, GameManager
 Sample2D/Game/Scenes/      TitleScene, GameScene
 
 Sample3D/Game/Objects/     Title, Player, Cube, Sphere, Ground, Skybox
@@ -349,8 +350,10 @@ Sample3D/Game/Components/  TitleController, PlayerController, CameraController,
 Sample3D/Game/Scenes/      TitleScene, GameScene
 ```
 
-- **Sample2D**: トップダウン視点のシンプルなアリーナ。WASDで移動、SPACEで弾を発射、Enemyに触れると赤くなる。重力・3Dカメラは使わない(`SetUseGravity(false)`、`CameraController`なし)。
+- **Sample2D**: トップダウン視点のアリーナシューター。WASDで移動、SPACEで弾を発射。敵(`EnemyManager`が一定間隔でPlayerの周囲にランダムスポーンさせる)がゆっくり追いかけてきて、弾を当てると倒せる(`EventBus`で`"EnemyDefeated"`イベントを発行しスコア加算)。敵に触れるとHPが減り(`"PlayerHit"`イベント、1秒間の無敵時間つき)、0になるとゲームオーバー画面が出てSPACEでタイトルに戻る。スコア・HPは`GameManager`(専用のGameObjectにAddComponentしたもの)がHUDとして`Text::Draw`で描画している。重力・3Dカメラは使わない(`SetUseGravity(false)`、`CameraController`なし)。
 - **Sample3D**: 3人称/1人称カメラで動き回れる3D空間のショーケース。WASDで移動、TABでカメラ切り替え、右クリックドラッグで視点回転。Ground/Cube/Skyboxを配置し、Sphereが重力で落下してGroundの上に着地する。
+
+**Sample2Dの実装メモ**: `EnemyManager`/`BulletManager`はどちらも`ObjectPool`を使った使い回し方式(実例は`Engine/ObjectPool.h`)。プールで使い回すオブジェクトは`Scene::CreateObject("Pooled")`で名前だけ付けて作られるため、`GameObject::SetTag()`で組み立て時にタグ("Enemy"/"Bullet")を後付けしている。敵を倒す/Playerがダメージを受ける判定は、それぞれ`EnemyController::OnTriggerEnter2D`(相手のタグが"Bullet")と`PlayerController::OnCollisionStay2D`(相手のタグが"Enemy")が担当し、実際にスコア・HPを変化させるかどうかの判断(無敵時間中かどうかなど)は`EventBus`経由で`GameManager`に一任している(お互いを直接知らなくて済むようにするため)。
 
 どちらも現時点では「動く土台」で、ゲームとしての作り込み(敵の挙動、演出、レベルデザインなど)はこれから追加していく想定です。新しいオブジェクトを追加する時は、それぞれのサンプルの`Game/Objects/`と`Game/Components/`に、既存のPlayer/Enemyと同じ形式でファイルを足していくのが基本の流れです。
 

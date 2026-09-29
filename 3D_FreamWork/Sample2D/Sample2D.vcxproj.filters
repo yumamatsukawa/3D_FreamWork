@@ -19,6 +19,12 @@
     <ClCompile Include="Game\Components\BulletController.cpp">
       <Filter>Game\Components</Filter>
     </ClCompile>
+    <ClCompile Include="Game\Components\EnemyController.cpp">
+      <Filter>Game\Components</Filter>
+    </ClCompile>
+    <ClCompile Include="Game\Components\GameManager.cpp">
+      <Filter>Game\Components</Filter>
+    </ClCompile>
     <ClCompile Include="Game\Components\PlayerController.cpp">
       <Filter>Game\Components</Filter>
     </ClCompile>
@@ -28,7 +34,7 @@
     <ClCompile Include="Game\Objects\BulletManager.cpp">
       <Filter>Game\Objects</Filter>
     </ClCompile>
-    <ClCompile Include="Game\Objects\Enemy.cpp">
+    <ClCompile Include="Game\Objects\EnemyManager.cpp">
       <Filter>Game\Objects</Filter>
     </ClCompile>
     <ClCompile Include="Game\Objects\Player.cpp">
@@ -48,6 +54,12 @@
     <ClInclude Include="Game\Components\BulletController.h">
       <Filter>Game\Components</Filter>
     </ClInclude>
+    <ClInclude Include="Game\Components\EnemyController.h">
+      <Filter>Game\Components</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\Components\GameManager.h">
+      <Filter>Game\Components</Filter>
+    </ClInclude>
     <ClInclude Include="Game\Components\PlayerController.h">
       <Filter>Game\Components</Filter>
     </ClInclude>
@@ -57,7 +69,7 @@
     <ClInclude Include="Game\Objects\BulletManager.h">
       <Filter>Game\Objects</Filter>
     </ClInclude>
-    <ClInclude Include="Game\Objects\Enemy.h">
+    <ClInclude Include="Game\Objects\EnemyManager.h">
       <Filter>Game\Objects</Filter>
     </ClInclude>
     <ClInclude Include="Game\Objects\Player.h">

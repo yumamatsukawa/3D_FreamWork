@@ -4,8 +4,9 @@
 
 void BulletController::Update(float dt) {
     Transform& t = GetOwner()->transform;
+    // ★ Sample2DはX/Y平面で動く(Z/上下移動は使わない)ので、direction.yはposition.yに適用する
     t.position.x += direction.x * speed * dt;
-    t.position.z += direction.y * speed * dt;
+    t.position.y += direction.y * speed * dt;
 
     elapsed += dt;
     if (elapsed >= lifeTime && pool) {

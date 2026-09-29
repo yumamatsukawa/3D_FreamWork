@@ -85,6 +85,10 @@ public:
     // ─── アクセサ ───────────────────────────────
     const std::string& GetName() const { return name; }
     const std::string& GetTag()  const { return tag; }
+    // ObjectPoolで使い回すオブジェクト(弾・敵など)は、生成時に名前しか付けられない
+    // (Scene::CreateObjectが"Pooled"という名前で作るため)。組み立て処理(Setup)の中で
+    // これを呼んでタグを付ければ、GetTag()での種類判定(当たり判定のコールバックなど)に使える
+    void SetTag(std::string t) { tag = std::move(t); }
 
     // SetActive(false)は「非表示・Update/Draw停止」なだけで、破棄はされない
     // (プーリングなどで、後で再利用するために取っておける)

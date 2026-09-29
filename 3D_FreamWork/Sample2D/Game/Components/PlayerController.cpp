@@ -65,5 +65,8 @@ void PlayerController::OnCollisionStay2D(CollisionInfo info) {
         touchingEnemy = true;
         SpriteRenderer* renderer = GetOwner()->GetComponent<SpriteRenderer>();
         if (renderer) renderer->SetColor(1.0f, 0.0f, 0.0f, 1.0f);
+        // 実際にHPを減らすかどうか(無敵時間中かなど)はGameManagerが判断する。
+        // ここでは「今Enemyと接触している」ことを、毎フレーム律儀に知らせるだけでよい
+        EventBus::Get().Publish("PlayerHit");
     }
 }
