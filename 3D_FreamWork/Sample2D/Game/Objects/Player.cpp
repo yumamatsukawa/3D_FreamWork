@@ -10,19 +10,18 @@ GameObject* CreatePlayer(Scene& scene) {
     player->transform.position = {   0.0f,   0.0f,   0.0f };
     player->transform.scale    = { 100.0f, 100.0f, 100.0f };
 
-    // 動き・入力操作(カメラ追従もPlayerController内で行う、トップダウンのシンプルな追従カメラ)
+    // 動き・入力操作
     player->AddComponent<PlayerController>();
 
-    // 見た目(トップダウン視点なので、スプライトはワールド空間モードで真上から見える形にする)
+    // 見た目
     auto* sprite = player->AddComponent<SpriteRenderer>(L"Assets/player.png", 8, 2);
     sprite->SetSpriteIndex(5);
 
-    // 当たり判定+物理演算(PhysX)。トップダウンの2D操作なので、重力は不要(床が無くても落下しない)。
-    // 奥行き(Z)方向には動かないよう固定し、ぶつかっても回転しないようにする
+    // 当たり判定+物理演算(PhysX)。
     auto* rigidbody = player->AddComponent<CircleRigidbodyComponent>(BodyType::Dynamic, 50.0f, 100.f);
-    rigidbody->SetUseGravity(false);
-    rigidbody->SetFreezeRotation(true);
-    rigidbody->SetFreezePositionZ(true);
+    rigidbody->SetUseGravity(false);      // 重力を適用するか
+    rigidbody->SetFreezeRotation(true);   // ぶつかったときに回転するか
+    rigidbody->SetFreezePositionZ(true);  // ぶつかったときに移動するか(x,y,zそれぞれある)
 
     return player;
 }

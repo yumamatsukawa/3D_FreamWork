@@ -3,5 +3,5 @@
 class Scene;
 class GameObject;
 
-// Titleを構成するGameObjectを組み立てて、sceneに追加する
+// タイトル画面(文字とBGM)を作る
 GameObject* CreateTitle(Scene& scene);

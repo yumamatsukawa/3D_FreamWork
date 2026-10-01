@@ -76,14 +76,21 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="Game\Components\BackgroundController.cpp" />
     <ClCompile Include="Game\Components\BulletController.cpp" />
+    <ClCompile Include="Game\Components\ButtonController.cpp" />
     <ClCompile Include="Game\Components\EnemyController.cpp" />
     <ClCompile Include="Game\Components\GameManager.cpp" />
     <ClCompile Include="Game\Components\HUDController.cpp" />
     <ClCompile Include="Game\Components\PlayerController.cpp" />
     <ClCompile Include="Game\Components\TitleController.cpp" />
-    <ClCompile Include="Game\Objects\BulletManager.cpp" />
-    <ClCompile Include="Game\Objects\EnemyManager.cpp" />
+    <ClCompile Include="Game\Objects\Background.cpp" />
+    <ClCompile Include="Game\Components\BulletManager.cpp" />
+    <ClCompile Include="Game\Objects\Button.cpp" />
+    <ClCompile Include="Game\Objects\StartButton.cpp" />
+    <ClCompile Include="Game\Objects\EnemySpawner.cpp" />
+    <ClCompile Include="Game\Objects\BulletSpawner.cpp" />
+    <ClCompile Include="Game\Components\EnemyManager.cpp" />
     <ClCompile Include="Game\Objects\GameSystem.cpp" />
     <ClCompile Include="Game\Objects\HUD.cpp" />
     <ClCompile Include="Game\Objects\Player.cpp" />
@@ -92,14 +99,21 @@
     <ClCompile Include="Game\Scenes\TitleScene.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Game\Components\BackgroundController.h" />
     <ClInclude Include="Game\Components\BulletController.h" />
+    <ClInclude Include="Game\Components\ButtonController.h" />
     <ClInclude Include="Game\Components\EnemyController.h" />
     <ClInclude Include="Game\Components\GameManager.h" />
     <ClInclude Include="Game\Components\HUDController.h" />
     <ClInclude Include="Game\Components\PlayerController.h" />
     <ClInclude Include="Game\Components\TitleController.h" />
-    <ClInclude Include="Game\Objects\BulletManager.h" />
-    <ClInclude Include="Game\Objects\EnemyManager.h" />
+    <ClInclude Include="Game\Objects\Background.h" />
+    <ClInclude Include="Game\Components\BulletManager.h" />
+    <ClInclude Include="Game\Objects\Button.h" />
+    <ClInclude Include="Game\Objects\StartButton.h" />
+    <ClInclude Include="Game\Objects\EnemySpawner.h" />
+    <ClInclude Include="Game\Objects\BulletSpawner.h" />
+    <ClInclude Include="Game\Components\EnemyManager.h" />
     <ClInclude Include="Game\Objects\GameSystem.h" />
     <ClInclude Include="Game\Objects\HUD.h" />
     <ClInclude Include="Game\Objects\Player.h" />

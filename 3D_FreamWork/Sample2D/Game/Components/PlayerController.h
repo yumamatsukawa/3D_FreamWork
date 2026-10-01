@@ -1,27 +1,23 @@
 ﻿#pragma once
 #include "../../../Engine/Component.h"
 
-// プレイヤーの移動・入力操作・HPを担当するComponent。
-// 見た目はSpriteRenderer、動きはこちらと役割を分けている。
-// HPはここが唯一の持ち主で、HUDなどはGetHp()で読むだけにする
+// Playerの操作(移動・向き・発射)とHPを担当する
 class PlayerController : public Component {
 private:
-    float speed = 200.0f;
-    // ★ OnCollisionStay2Dは、Update()より前(Physics::Updateの中)で毎フレーム呼ばれる。
-    //   Update()側で毎フレーム無条件に白へ戻すと、そのフレームの赤色がすぐ上書きされて
-    //   消えてしまうため、このフラグで「今フレームEnemyと接触していたか」を覚えておく
-    bool touchingEnemy = false;
+    float speed = 200.0f;          // 移動速度
+    bool touchingEnemy = false;    // このフレームに敵と接触しているか(色を戻さないため)
 
-    int hp = 3;
-    static constexpr int maxHp = 3;
+    int hp = 3;                         // 現在のHP
+    static constexpr int maxHp = 3;     // 最大HP
 
-    float invincibleTimer = 0.f;
-    static constexpr float invincibleDuration = 1.0f;  // Enemyに当たってから、次に減点されるまでの猶予
+    float invincibleTimer = 0.f;                        // 無敵時間の残り
+    static constexpr float invincibleDuration = 1.0f;   // ダメージを受けた後の無敵時間(秒)
 
 public:
     void Update(float dt) override;
     void OnCollisionStay2D(CollisionInfo info) override;
 
+    // HUDなどが表示に使う
     int GetHp() const { return hp; }
     int GetMaxHp() const { return maxHp; }
 };

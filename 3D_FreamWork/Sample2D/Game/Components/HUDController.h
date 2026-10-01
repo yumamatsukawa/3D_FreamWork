@@ -4,16 +4,14 @@
 class GameManager;
 class PlayerController;
 
-// スコア・HP・ゲームオーバー表示など、画面のUI(HUD)だけを担当するComponent。
-// 値は自分では持たず、持ち主(GameManager/PlayerController)からゲッターで毎フレーム読むだけ。
-// こうしておくと「表示用のコピー」と「本物の値」がズレることが無い
+// スコア・HP・GAME OVERの表示を担当する(値は自分で持たず、持ち主から読むだけ)
 class HUDController : public Component {
 private:
-    GameManager* gameManager = nullptr;
-    PlayerController* player = nullptr;
+    GameManager* gameManager = nullptr;   // スコアの持ち主
+    PlayerController* player = nullptr;   // HPの持ち主
 
 public:
-    // 表示に使う値の持ち主を、GameScene::Init()側から渡してもらう
+    // 表示する値の持ち主を、CreateHUD()から渡してもらう
     void Setup(GameManager* manager, PlayerController* playerController) {
         gameManager = manager;
         player = playerController;

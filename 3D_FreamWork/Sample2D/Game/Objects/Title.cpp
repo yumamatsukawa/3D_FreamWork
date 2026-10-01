@@ -5,6 +5,7 @@
 
 GameObject* CreateTitle(Scene& scene) {
     GameObject* title = scene.CreateObject("Title");
+    // 表示とBGM
     title->AddComponent<TitleController>();
     return title;
 }

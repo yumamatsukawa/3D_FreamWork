@@ -5,14 +5,12 @@
 class ObjectPool;
 class GameObject;
 
-// Playerへゆっくり近づき続け、弾(タグ"Bullet")に当たったら倒される敵。
-// プーリングで使い回すため、状態のリセットはInit()ではなくSpawn()で行う
-// (Init()はAddComponentされた最初の1回しか呼ばれないため)
+// 敵の動き(targetを追いかける)と、弾に当たった時の処理を担当する
 class EnemyController : public Component {
 private:
-    GameObject* target = nullptr;   // 追いかける相手(Player)
-    float speed = 60.0f;
-    ObjectPool* pool = nullptr;
+    GameObject* target = nullptr;   // 追いかける相手
+    float speed = 60.0f;            // 移動速度
+    ObjectPool* pool = nullptr;     // 自分が所属するプール(倒された時に返す)
 
 public:
     // 出現する度に呼ばれ、状態をリセットする

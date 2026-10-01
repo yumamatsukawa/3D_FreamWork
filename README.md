@@ -207,7 +207,14 @@ Image::GetCamera().position.x = player->transform.position.x;
 Image::GetCamera().position.y = player->transform.position.y;
 ```
 
-`position.y`は2D・3D共通で**上方向が+**です(標準的な数学と同じ、Mesh/Sprite/当たり判定すべて統一)。マウス座標(`Input::GetMousePosition()`)だけはOS標準のY+=下方向のままなので、ワールド座標と比較する時は符号を反転させてください(`PlayerController.cpp`のクリック判定が実例です)。
+`position.y`は2D・3D共通で**上方向が+**です(標準的な数学と同じ、Mesh/Sprite/当たり判定すべて統一)。マウス座標は2種類あります:
+
+| 関数 | 中身 | 使いどころ |
+|---|---|---|
+| `Input::GetMouseWorldPosition()` | ワールド座標(2D用カメラの位置を考慮済み、Y+=上方向) | クリック判定・マウスの方を向くなど、2Dオブジェクトと比較する時(Sample2Dの`PlayerController`/`ButtonController`が実例) |
+| `Input::GetMousePosition()` | 画面中央からのピクセル数(カメラ無関係、Y+=下方向のまま) | ドラッグ量など画面上での動きを見る時(Sample3Dの`CameraController`が実例) |
+
+`GetMouseWorldPosition()`は「カメラ位置 + マウス座標(Yは反転)」で計算しているので、Z=0にある2Dオブジェクトとぴったり一致します。カメラを動かす処理がある場合は、カメラを動かした**後**で呼ぶと、そのフレームのカメラ位置で計算されます。
 
 **2D/3Dのスクロール速度について**: 2Dは疑似的な正射影(距離に関係なく一定速度でスクロール)、3D(Mesh)は本物の透視投影(近いものほど速く、遠いものほどゆっくり動く)なので、根本的に仕組みが違います。`Camera.focalLength`(既定500)の距離にある3Dオブジェクトだけは、2Dと同じ速度で動くように`fovY`を自動調整していますが、それ以外の距離にあるオブジェクトは2Dとズレます(これは正しい遠近感なので、バグではありません)。
 
@@ -273,7 +280,7 @@ void OnCollisionExit2D(CollisionInfo info) override;
 RigidbodyComponent::SetDebugDrawEnabled(true);
 ```
 
-`Scene::Init()`などで1回呼ぶだけで、以後その回のプレイ中は全ての`RigidbodyComponent`が、緑(通常の当たり判定)または黄(`isTrigger=true`のすり抜ける判定)の枠を、実際のPhysX形状のサイズで描画します。不要になったら`false`を渡すか、呼び出し自体を消してください。
+どこかで1回呼ぶだけで(Sample2Dでは`GameManager::Init()`で呼んでいる)、以後その回のプレイ中は全ての`RigidbodyComponent`が、緑(通常の当たり判定)または黄(`isTrigger=true`のすり抜ける判定)の枠を、実際のPhysX形状のサイズで描画します。不要になったら`false`を渡すか、呼び出し自体を消してください。
 
 | Component | 表示される枠 |
 |---|---|
@@ -310,7 +317,7 @@ EventBus::Get().PublishObject("FireBullet", owner);
 
 ## 8. ObjectPool(オブジェクトの使い回し)
 
-弾やエフェクトなど、頻繁に生成・消滅するものに使います(`Game/Objects/BulletManager.cpp`が実例)。
+弾やエフェクトなど、頻繁に生成・消滅するものに使います(Sample2Dの`Game/Components/BulletManager.cpp`が実例)。
 
 ```cpp
 ObjectPool pool;
@@ -327,7 +334,7 @@ pool.Return(obj);
 
 **注意**: 使い回されるオブジェクトは、`Init()`が2回目以降は呼ばれません(最初に`AddComponent`された時の1回だけ)。位置や向き、寿命タイマーなどの状態は、`Init()`ではなく「借りた/発射した時に呼ぶ専用の関数」(`BulletController::Fire()`のような)でリセットしてください。
 
-**ObjectPoolは、必ずそれを使うSceneのメンバとして持たせてください**(`GameScene::bulletManager`を参照)。ファイルのstatic変数のように、シーンをまたいで生かし続けると、シーンが破棄された後もプール内に「もう存在しないGameObjectへのポインタ」が残り、クラッシュします。
+**ObjectPoolは、そのシーンのGameObjectにアタッチしたComponentのメンバとして持たせてください**(Sample2Dの`BulletManager`/`EnemyManager`を参照)。こうするとプールの寿命がシーンと同じになり、シーン終了時にプールの中身と一緒に片付けられます。ファイルのstatic変数のように、シーンをまたいで生かし続けると、シーンが破棄された後もプール内に「もう存在しないGameObjectへのポインタ」が残り、クラッシュします。
 
 ---
 
@@ -336,6 +343,14 @@ pool.Return(obj);
 ### 文字コード(重要)
 
 日本語コメントを含む`.h`/`.cpp`ファイルは、**UTF-8 BOM付き**で保存してください。BOM無しだと、日本語ロケールの環境でコンパイラが文字化けを起こし、意味不明な構文エラーが大量に出ます。Visual Studioで保存する分には自動的にBOM付きになりますが、他のエディタを使う場合は明示的に選んでください。
+
+### コメントの書き方
+
+Sample2Dの`PlayerController.cpp`に合わせて、短く書きます。
+
+- `.cpp`: 処理のまとまりごとに、何をしているかを1行で(`// 無敵時間`、`// 移動処理: ...`)。理由が分かりにくい所だけ一言足す(`// マウスがほぼ真上にある時は向きが定まらないので変えない`)
+- `.h`: クラスの役割を1行、メンバ変数には行末コメント(`float speed = 200.0f;  // 移動速度`)
+- 工場関数(`Game/Objects/*.h`): 何を作るかを1行
 
 ### 新しいファイルを追加したら
 
@@ -356,9 +371,11 @@ pool.Return(obj);
 プロジェクト構成自体は`0. プロジェクト構成`を参照してください。ここでは各サンプルの中身(`Game/`)を説明します。
 
 ```
-Sample2D/Game/Objects/     Title, Player, GameSystem, HUD, EnemyManager, BulletManager
-Sample2D/Game/Components/  TitleController, PlayerController, BulletController,
-                            EnemyController, GameManager, HUDController
+Sample2D/Game/Objects/     Title, Button, StartButton, Background, Player, GameSystem, HUD,
+                            EnemySpawner, BulletSpawner
+Sample2D/Game/Components/  TitleController, ButtonController, BackgroundController, PlayerController,
+                            BulletController, EnemyController, GameManager, HUDController,
+                            EnemyManager, BulletManager
 Sample2D/Game/Scenes/      TitleScene, GameScene
 
 Sample3D/Game/Objects/     Title, Player, Cube, Sphere, Ground, Skybox
@@ -367,7 +384,7 @@ Sample3D/Game/Components/  TitleController, PlayerController, CameraController,
 Sample3D/Game/Scenes/      TitleScene, GameScene
 ```
 
-- **Sample2D**: トップダウン視点のアリーナシューター。WASDで移動、SPACEで弾を発射。敵(`EnemyManager`が一定間隔でPlayerの周囲にランダムスポーンさせる)がゆっくり追いかけてきて、弾を当てると倒せる(`EventBus`で`"EnemyDefeated"`イベントを発行しスコア加算)。敵に触れるとHPが減り(1秒間の無敵時間つき)、0になるとゲームオーバー画面が出てSPACEでタイトルに戻る。当たり判定・物理はPhysXを使い(Player=`CircleRigidbodyComponent`、敵=`SquareRigidbodyComponent`、弾=`CircleRigidbodyComponent`)、Player・敵はDynamic(`SetVelocity()`で速度を渡して動かす。重力なし・回転なし・`SetFreezePositionZ(true)`で奥行き方向に固定)、弾はKinematicのトリガー。3Dカメラは使わない(`CameraController`なし)。
+- **Sample2D**: トップダウン視点のアリーナシューター。タイトル画面のSTARTボタンをクリックするとゲーム開始(ボタンは`CreateButton(scene, 文字, 位置, クリックされた時の処理)`で作れる汎用部品なので、他の画面のボタンにも使い回せる)。WASDで移動、Playerは常にマウスの方を向き、左クリックでその方向へ弾を発射。背景はタイル状に敷き詰めた床(`BackgroundController`)で、移動するとスクロールする。敵(`EnemyManager`が一定間隔でPlayerの周囲にランダムスポーンさせる)がゆっくり追いかけてきて、弾を当てると倒せる(`EventBus`で`"EnemyDefeated"`イベントを発行しスコア加算)。敵に触れるとHPが減り(1秒間の無敵時間つき)、0になるとゲームオーバー画面が出てSPACEでタイトルに戻る。当たり判定・物理はPhysXを使い(Player=`CircleRigidbodyComponent`、敵=`SquareRigidbodyComponent`、弾=`CircleRigidbodyComponent`)、Player・敵はDynamic(`SetVelocity()`で速度を渡して動かす。重力なし・回転なし・`SetFreezePositionZ(true)`で奥行き方向に固定)、弾はKinematicのトリガー。3Dカメラは使わない(`CameraController`なし)。
 - **Sample3D**: 3人称/1人称カメラで動き回れる3D空間のショーケース。WASDで移動、TABでカメラ切り替え、右クリックドラッグで視点回転。Ground/Cube/Skyboxを配置し、Sphereが重力で落下してGroundの上に着地する。
 
 **Sample2Dの実装メモ**: `EnemyManager`/`BulletManager`はどちらも`ObjectPool`を使った使い回し方式(実例は`Engine/ObjectPool.h`)。プールで使い回すオブジェクトは`Scene::CreateObject("Pooled")`で名前だけ付けて作られるため、`GameObject::SetTag()`で組み立て時にタグ("Enemy"/"Bullet")を後付けしている。敵を倒す/Playerがダメージを受ける判定は、それぞれ`EnemyController::OnTriggerEnter2D`(相手のタグが"Bullet")と`PlayerController::OnCollisionStay2D`(相手のタグが"Enemy")が担当する。
@@ -376,13 +393,29 @@ Sample3D/Game/Scenes/      TitleScene, GameScene
 
 | Component | 持っている値・担当 |
 |---|---|
-| `PlayerController` | HP・無敵時間(HPが0になったら`EventBus`で`"PlayerDied"`を発行) |
-| `GameManager` | スコア(`"EnemyDefeated"`で加算)・敵のスポーン・ゲームオーバー判定(`"PlayerDied"`を受けて)・タイトルへの遷移。表示は一切しない |
+| `PlayerController` | HP・無敵時間(HPが0になったら`EventBus`で`"PlayerDied"`を発行し、以後は移動・向き・発射を受け付けない) |
+| `GameManager` | スコア(`"EnemyDefeated"`で加算)・ゲームオーバー判定(`"PlayerDied"`を受けて)・タイトルへの遷移。表示は一切しない |
+| `EnemyManager` | 敵のプールと出現タイマー。一定間隔でPlayerの周囲に敵を出し、`"PlayerDied"`を受けたら出現を止める |
+| `BulletManager` | 弾のプール。`"FireBullet"`を受けて、撃った本人の向きへ弾を出す |
 | `HUDController` | 画面表示(Score/HP/GAME OVER)だけ。値は自分で持たず、`GameManager::GetScore()`/`PlayerController::GetHp()`などで毎フレーム読む |
 
 表示用に値のコピーを別に持つと、本物の値とズレる原因になるため、HUDは読むだけにしている。新しいUI要素を足す時は`HUDController::Draw()`に追加し、表示したい値は持ち主側にゲッターを生やす形にすること。
 
-GameManager/HUDのような「見た目の無い管理役」も、Player/Enemyと同じく`Game/Objects/`の工場関数(`CreateGameSystem()`/`CreateHUD()`)で組み立てている。依存する相手(GameManagerやPlayerControllerのポインタ)は工場関数の引数で受け取るので、`GameScene::Init()`を見れば「誰が誰に依存しているか」が一目で分かる。なお、Componentの`Components/GameManager.h`と名前がぶつからないよう、工場関数側は`Objects/GameSystem.h`という別名にしてある(TitleController ↔ `Objects/Title.cpp`と同じ関係)。
+GameManager/HUD/EnemyManager/BulletManagerのような「見た目の無い管理役」も、Player/Enemyと同じく`Game/Objects/`の工場関数(`CreateGameSystem()`/`CreateHUD()`/`CreateEnemySpawner()`/`CreateBulletSpawner()`)で、それぞれ専用のGameObjectにアタッチして組み立てている(Unityで空のGameObjectにスクリプトを付けるのと同じ)。依存する相手(GameManagerやPlayerControllerのポインタ)は工場関数の引数で受け取るので、`GameScene::Init()`を見れば「誰が誰に依存しているか」が一目で分かる。なお、Component名とファイル名がぶつからないよう、工場関数側は別名にしてある(`GameManager` ↔ `Objects/GameSystem`、`EnemyManager` ↔ `Objects/EnemySpawner`、`BulletManager` ↔ `Objects/BulletSpawner`。TitleController ↔ `Objects/Title.cpp`と同じ関係)。
+
+管理役同士はお互いのポインタを持たず、`EventBus`だけでつながっている。たとえば「Playerが倒れた」は`PlayerController`が`"PlayerDied"`を1回発行するだけで、`GameManager`(ゲームオーバーにする)と`EnemyManager`(出現を止める)がそれぞれ勝手に反応する。新しい管理役を足す時も、既存の管理役を書き換えずに済む。
+
+**Sceneには「何を置くか」だけを書く**(Unityのシーンと同じ考え方)。`TitleScene::Init()`/`GameScene::Init()`は`CreateTitle()`/`CreateStartButton()`/`CreatePlayer()`のような工場関数を並べるだけにして、動き・ルールは各オブジェクトのComponentに書く:
+
+| 処理 | 置き場所 |
+|---|---|
+| タイトルに戻った時にカメラを原点へ戻す | `TitleController::Init()` |
+| STARTを押したらGameSceneへ | `Objects/StartButton.cpp`(汎用の`CreateButton()`に「押された時の処理」を渡す) |
+| `"FireBullet"`を受けて弾を出す | `BulletManager::Init()` |
+| 一定間隔で敵を出す | `EnemyManager::Update()` |
+| コライダー枠の表示ON | `GameManager::Init()` |
+
+Sceneに残してよいのは、オブジェクトの配置と、シーン全体の後片付け(`GameScene::Uninit()`の`EventBus::Get().Clear()`)くらい。新しい処理を足したくなったら、まず「どのオブジェクトの仕事か」を考えて、そのComponentに書くこと。
 
 どちらも現時点では「動く土台」で、ゲームとしての作り込み(敵の挙動、演出、レベルデザインなど)はこれから追加していく想定です。新しいオブジェクトを追加する時は、それぞれのサンプルの`Game/Objects/`と`Game/Components/`に、既存のPlayer/Enemyと同じ形式でファイルを足していくのが基本の流れです。
 
@@ -445,7 +478,7 @@ BoxRigidbodyComponent(BodyType bodyType, XMFLOAT3 size, float density,
 - サイズ・半径を省略すると、Ownerの`transform.scale`から自動で決まる
 - `isTrigger`: `true`ですり抜ける当たり判定(`OnTriggerEnter2D`)になる。既定`false`(押し返される、`OnCollisionEnter2D`)
 - `isStaticForPush`: `true`だと、Kinematic同士がぶつかった時に自分は押し戻されない側になる(Enemyのように、自分は動かず相手だけ押し返したい時に使う。`BodyType::Static`とは別の概念で、Kinematic同士の手動押し戻しにだけ関係する)
-- 実例: `Game/Objects/Sphere.cpp`(Dynamic)、`Game/Objects/Ground.cpp`(Static)、`Game/Objects/Enemy.cpp`/`BulletManager.cpp`(Kinematic)、`Game/Objects/Player.cpp`(Dynamic)
+- 実例: Sample3Dの`Game/Objects/Sphere.cpp`(Dynamic)・`Game/Objects/Ground.cpp`(Static)、Sample2Dの`Game/Components/BulletManager.cpp`(弾=Kinematic)・`Game/Components/EnemyManager.cpp`(敵=Dynamic)・`Game/Objects/Player.cpp`(Dynamic)
 
 **内部実装メモ**:
 - Dynamic: 毎フレーム、PhysXのシミュレーション結果(`PxRigidActor`の姿勢)を`Transform`に書き戻す。ただし`SetFreezeRotation(true)`で回転をロックしている間は、位置だけを反映する(回転は自分のコードに任せる。詳細は次項)
@@ -482,7 +515,7 @@ if (rigidbody) rigidbody->SetVelocity(velocity);
 - `Transform.position`を直接書き換えるのではなく、`SetVelocity()`で「速度」だけを渡す。実際に動く処理・何かにぶつかって止まる処理は、全てPhysX自身の計算に任せる
 - `SetUseGravity(false)`/`SetFreezeRotation(true)`/`SetFreezePositionY(true)`はそれぞれ独立していて、必要なものだけ呼べる。Playerは3つ全部、Sphereはどれも呼ばない(重力あり・自由に回転)、といった使い分けができる
 - **`SetVelocity()`は毎回3軸全部を上書きする**ので注意してください。`PlayerController`はX/Zだけ操作したいのですが、`{velocity.x, 0, velocity.z}`のように**Y成分に0を渡すと、重力で付いたY速度が毎フレーム消されてしまい、自由落下がほとんど効かなくなります**(`SetFreezePositionY(true)`の時はY速度自体が無意味なので問題になりませんが、重力を使う設定に変えると表面化します)。触らない軸は`GetVelocity()`で今の値を読んでから渡してください
-- `SetFreezeRotation(true)`にしてあるので、PhysXの回転はTransform.rotateへ反映されない。そのため見た目の向き(`rotate.z`、Q/Eキーで操作・弾の発射方向にも使う)は、物理側に上書きされることなく`PlayerController`が直接書き換えたまま維持される(`SetFreezeRotation`は「ぶつかっても回転しない」かどうかと、「物理の回転をTransformへ反映するか」を同時に切り替える。詳しくは`RigidbodyComponent.h`のコメント参照)
+- `SetFreezeRotation(true)`にしてあるので、PhysXの回転はTransform.rotateへ反映されない。そのため見た目の向き(`rotate.z`。Sample2Dではマウスの方向、Sample3DではQ/Eキーで操作し、Sample2Dでは弾の発射方向にも使う)は、物理側に上書きされることなく`PlayerController`が直接書き換えたまま維持される(`SetFreezeRotation`は「ぶつかっても回転しない」かどうかと、「物理の回転をTransformへ反映するか」を同時に切り替える。詳しくは`RigidbodyComponent.h`のコメント参照)
 - **コンポーネントの追加順に注意**: `SphereRigidbodyComponent`は`PlayerController`より先に`AddComponent`すること。Componentは追加順に`Update()`されるため、逆にすると`PlayerController`のカメラ追従処理が1フレーム古い位置を読んでしまう
 - `SetVelocity()`/`SetUseGravity()`/`SetFreezeRotation()`/`SetFreezePositionY()`は全て`Kinematic`/`Static`では何もしません(`Dynamic`専用)。PhysXの生のAPIをもっと細かく触りたい時だけ`GetActor()`を使ってください
 - `ObjectPool`で使い回されるオブジェクト(Bulletなど)は、`SetActive()`が呼ばれると`OnActiveChanged()`経由でPhysXのシーンから着脱される。再度有効化された直後は、前回位置からの掃引(スイープ)で誤ったヒット判定が出ないよう、次の`Update()`で`setKinematicTarget()`ではなく直接`setGlobalPose()`でテレポートするようにしている

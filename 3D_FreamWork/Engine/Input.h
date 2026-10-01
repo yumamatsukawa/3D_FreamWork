@@ -105,8 +105,13 @@ namespace Input {
     bool GetKeyPress(WORD button, int padIndex = 0);
     bool GetKeyUp(WORD button, int padIndex = 0);
 
-    // マウス座標
+    // マウス座標(画面中央が(0,0)、Y+は下方向のピクセル数)。
+    // カメラの位置は考慮しない。ドラッグ量の計算など「画面上での動き」を見たい時に使う
     DirectX::XMFLOAT2 GetMousePosition();
+
+    // マウスのワールド座標(2D用カメラ Image::GetCamera() の位置を考慮し、Y+は上方向)。
+    // 2Dのオブジェクト(Z=0)とそのまま比較できるので、クリック判定や「マウスの方を向く」に使う
+    DirectX::XMFLOAT2 GetMouseWorldPosition();
 
     // スティック・トリガー
     DirectX::XMFLOAT2 GetPadLeftStick(int padIndex = 0);

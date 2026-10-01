@@ -9,6 +9,7 @@
 #define WINDOW_W (1280)
 #define WINDOW_H (720)
 
+// ウィンドウへのメッセージ処理(閉じられたらアプリを終了する)
 LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     if (msg == WM_DESTROY) { PostQuitMessage(0); return 0; }
     return DefWindowProc(hwnd, msg, wp, lp);
@@ -49,14 +50,17 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE, LPSTR, int) {
 
     ShowWindow(hwnd, SW_SHOW);
 
+    // マウス座標をこのウィンドウ基準で取るため
     Input::SetHwnd(hwnd);
 
+    // エンジンの初期化
     auto& engine = GameEngine::Get();
     engine.Init(hwnd, WINDOW_W, WINDOW_H);
 
     // 最初のシーンの設定
     SceneManager::Get().ChangeScene<TitleScene>();
 
+    // ゲームループ(ウィンドウが閉じられるまで)と終了処理
     engine.Run();
     engine.Uninit();
 

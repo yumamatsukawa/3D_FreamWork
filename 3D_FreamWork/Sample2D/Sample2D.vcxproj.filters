@@ -16,7 +16,13 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="Game\Components\BackgroundController.cpp">
+      <Filter>Game\Components</Filter>
+    </ClCompile>
     <ClCompile Include="Game\Components\BulletController.cpp">
+      <Filter>Game\Components</Filter>
+    </ClCompile>
+    <ClCompile Include="Game\Components\ButtonController.cpp">
       <Filter>Game\Components</Filter>
     </ClCompile>
     <ClCompile Include="Game\Components\EnemyController.cpp">
@@ -34,11 +40,26 @@
     <ClCompile Include="Game\Components\TitleController.cpp">
       <Filter>Game\Components</Filter>
     </ClCompile>
-    <ClCompile Include="Game\Objects\BulletManager.cpp">
+    <ClCompile Include="Game\Objects\Background.cpp">
       <Filter>Game\Objects</Filter>
     </ClCompile>
-    <ClCompile Include="Game\Objects\EnemyManager.cpp">
+    <ClCompile Include="Game\Components\BulletManager.cpp">
+      <Filter>Game\Components</Filter>
+    </ClCompile>
+    <ClCompile Include="Game\Objects\Button.cpp">
       <Filter>Game\Objects</Filter>
+    </ClCompile>
+    <ClCompile Include="Game\Objects\StartButton.cpp">
+      <Filter>Game\Objects</Filter>
+    </ClCompile>
+    <ClCompile Include="Game\Objects\EnemySpawner.cpp">
+      <Filter>Game\Objects</Filter>
+    </ClCompile>
+    <ClCompile Include="Game\Objects\BulletSpawner.cpp">
+      <Filter>Game\Objects</Filter>
+    </ClCompile>
+    <ClCompile Include="Game\Components\EnemyManager.cpp">
+      <Filter>Game\Components</Filter>
     </ClCompile>
     <ClCompile Include="Game\Objects\GameSystem.cpp">
       <Filter>Game\Objects</Filter>
@@ -60,7 +81,13 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Game\Components\BackgroundController.h">
+      <Filter>Game\Components</Filter>
+    </ClInclude>
     <ClInclude Include="Game\Components\BulletController.h">
+      <Filter>Game\Components</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\Components\ButtonController.h">
       <Filter>Game\Components</Filter>
     </ClInclude>
     <ClInclude Include="Game\Components\EnemyController.h">
@@ -78,11 +105,26 @@
     <ClInclude Include="Game\Components\TitleController.h">
       <Filter>Game\Components</Filter>
     </ClInclude>
-    <ClInclude Include="Game\Objects\BulletManager.h">
+    <ClInclude Include="Game\Objects\Background.h">
       <Filter>Game\Objects</Filter>
     </ClInclude>
-    <ClInclude Include="Game\Objects\EnemyManager.h">
+    <ClInclude Include="Game\Components\BulletManager.h">
+      <Filter>Game\Components</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\Objects\Button.h">
       <Filter>Game\Objects</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\Objects\StartButton.h">
+      <Filter>Game\Objects</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\Objects\EnemySpawner.h">
+      <Filter>Game\Objects</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\Objects\BulletSpawner.h">
+      <Filter>Game\Objects</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\Components\EnemyManager.h">
+      <Filter>Game\Components</Filter>
     </ClInclude>
     <ClInclude Include="Game\Objects\GameSystem.h">
       <Filter>Game\Objects</Filter>

@@ -1,5 +1,6 @@
 ﻿#include "Input.h"
 #include "Graphics.h"
+#include "Image.h"
 
 namespace Input {
     BYTE         currentKey[256] = {};
@@ -69,6 +70,15 @@ namespace Input {
             (float)mousePos.x - Graphics::width / 2.f,
             (float)mousePos.y - Graphics::height / 2.f
         };
+    }
+
+    // ★ 2Dスプライト(UIモード)は「ワールド座標 - カメラ位置」がそのまま画面中央からの
+    //   ピクセル数になる(Z=0のオブジェクトの場合)ので、逆にたどると
+    //   ワールド座標 = カメラ位置 + マウス座標(Yは符号を反転して上方向に合わせる)
+    DirectX::XMFLOAT2 GetMouseWorldPosition() {
+        const Camera& camera = Image::GetCamera();
+        DirectX::XMFLOAT2 screen = GetMousePosition();
+        return { camera.position.x + screen.x, camera.position.y - screen.y };
     }
 
     // ─── スティック ───────────────────────────

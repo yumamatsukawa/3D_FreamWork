@@ -6,31 +6,34 @@
 #include "../../../Engine/Image.h"
 #include "../../../Engine/EventBus.h"
 #include "../../../Engine/RigidbodyComponent.h"
+#include <cmath>
 
 void PlayerController::Update(float dt) {
-    Transform& t = GetOwner()->transform;
-    SpriteRenderer* renderer = GetOwner()->GetComponent<SpriteRenderer>();
-    RigidbodyComponent* rigidbody = GetOwner()->GetComponent<RigidbodyComponent>();
 
+    // 必要なComponentを取得(無ければ何もしない)
+    Transform& t = GetOwner()->transform;
+    SpriteRenderer* renderer = GetOwner()->GetComponent<SpriteRenderer>(); if (!renderer) return;
+    RigidbodyComponent* rigidbody = GetOwner()->GetComponent<RigidbodyComponent>(); if (!rigidbody) return;
+
+    // 無敵時間
     if (invincibleTimer > 0.f) invincibleTimer -= dt;
 
-    // ★ このフレームの物理更新(Physics::Update)で既にOnCollisionStay2Dが呼ばれていれば
-    //   touchingEnemyはtrueになっている。trueの時は白へ戻さず、赤のままにする
-    if (renderer && !touchingEnemy) renderer->SetColor(1.0f, 1.0f, 1.0f, 1.0f);
+    // 色の初期化
+    if (!touchingEnemy) renderer->SetColor(1.0f, 1.0f, 1.0f, 1.0f);
     touchingEnemy = false;
 
-    DirectX::XMFLOAT2 mousePos = Input::GetMousePosition();
-    // ★ マウス座標はOS標準のY+=下方向のまま(Input::GetMousePositionは画面中心基準にするだけ)。
-    //   ワールド座標はY+=上方向なので、比較する前に符号を反転させる
-    DirectX::XMFLOAT2 mouseWorldPos = { mousePos.x, -mousePos.y };
-    if (Input::GetKeyPress(MOUSE_LEFT)) {
-        if (IsPointInBox(mouseWorldPos, t.GetWorldTransform())) {
-            if (renderer) renderer->SetColor(1.0f, 0.0f, 0.0f, 0.5f);
-        }
+    // カメラをプレイヤーに追従させる
+    Camera& camera = Image::GetCamera();
+    camera.position.x = t.position.x;
+    camera.position.y = t.position.y;
+
+    // HPが0なら操作を受け付けない(滑り続けないよう速度も0にする)
+    if (hp <= 0) {
+        if (rigidbody) rigidbody->SetVelocity({ 0.f, 0.f, 0.f });
+        return;
     }
 
-    // 移動処理: 位置を直接書き換えるのではなく、PhysXの剛体に速度を渡す。
-    //   実際に動く・何かにぶつかって止まる、はPhysX自身の計算に任せる
+    // 移動処理: 位置を直接書き換えるのではなく、PhysXの剛体に速度を渡す
     DirectX::XMFLOAT3 velocity = { 0.f, 0.f, 0.f };
     if (Input::GetKeyPress(KEY_W)) velocity.y += speed;
     if (Input::GetKeyPress(KEY_S)) velocity.y -= speed;
@@ -38,32 +41,34 @@ void PlayerController::Update(float dt) {
     if (Input::GetKeyPress(KEY_D)) velocity.x += speed;
     if (rigidbody) rigidbody->SetVelocity(velocity);
 
-    // 見た目の向き(Q/E)は物理の回転とは無関係に、Transformを直接操作する
-    // (弾の発射方向にもそのまま使われる。GameScene.cppのFireBullet参照)
-    if (Input::GetKeyPress(KEY_Q)) t.rotate.z += speed * dt;
-    if (Input::GetKeyPress(KEY_E)) t.rotate.z -= speed * dt;
-
-    // SPACEキーで「撃った」イベントを発行するだけ。
-    // 実際に弾を生成する処理は知らない(GameScene側がFireBulletを購読して行う)
-    if (Input::GetKeyDown(KEY_SPACE)) {
-        EventBus::Get().PublishObject("FireBullet", GetOwner());
+    // マウスの方を向く
+    // カメラは上で先に動かしてあるので、このフレームのカメラ位置で計算される
+    DirectX::XMFLOAT2 mouseWorldPos = Input::GetMouseWorldPosition();
+    float dx = mouseWorldPos.x - t.position.x;
+    float dy = mouseWorldPos.y - t.position.y;
+    if (dx * dx + dy * dy > 1.0f) {  // マウスがほぼ真上にある時は向きが定まらないので変えない
+        t.rotate.z = DirectX::XMConvertToDegrees(atan2f(-dx, dy));
     }
 
-    // カメラをプレイヤーに追従させる(トップダウンのシンプルな追従カメラ)
-    Image::GetCamera().position.x = t.position.x;
-    Image::GetCamera().position.y = t.position.y;
+    // 弾を生成
+    if (Input::GetKeyDown(MOUSE_LEFT)) {
+        EventBus::Get().PublishObject("FireBullet", GetOwner());
+    }
 }
 
 void PlayerController::OnCollisionStay2D(CollisionInfo info) {
     if (info.other->GetTag() == "Enemy") {
         touchingEnemy = true;
+
         SpriteRenderer* renderer = GetOwner()->GetComponent<SpriteRenderer>();
-        if (renderer) renderer->SetColor(1.0f, 0.0f, 0.0f, 1.0f);
+        if (renderer) renderer->SetColor(1.0f, 1.0f, 0.0f, 1.0f);
+
         // OnCollisionStay2Dは接触中ずっと毎フレーム呼ばれるので、無敵時間で連続ダメージを防ぐ
         if (hp <= 0 || invincibleTimer > 0.f) return;
         hp--;
         invincibleTimer = invincibleDuration;
-        // ゲームオーバーにするかどうかはGameManagerの仕事なので、ここでは知らせるだけ
+
+        // ゲームオーバー
         if (hp <= 0) EventBus::Get().Publish("PlayerDied");
     }
 }
