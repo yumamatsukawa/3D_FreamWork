@@ -33,6 +33,7 @@ protected:
     bool rotationFrozen = false; // SetFreezeRotation(true)の状態。trueの間はPhysXの回転をTransformへ反映しない
     bool inScene = false;
     bool justActivated = false;  // ObjectPoolで再利用された直後、次のUpdate()でスイープを避けて直接テレポートする
+    bool flat2D = false;         // 2D向け(Square/Circle)かどうか。デバッグ表示で断面だけを描くのに使う
 
     RigidbodyComponent(BodyType bodyType, float density,
         bool isTrigger, bool isStaticForPush);
@@ -48,7 +49,8 @@ public:
     void OnActiveChanged(bool active) override;
 
     // trueにすると、全てのRigidbodyComponentの当たり判定の形・大きさを、
-    // ワイヤーフレーム(緑=通常の当たり判定、黄=すり抜けるトリガー)で描画する。
+    // 枠線(緑=通常の当たり判定、黄=すり抜けるトリガー)で描画する。
+    // Box=立方体の12辺、Sphere=3方向の円、Square/Circle=Z軸方向で切った断面(四角/丸)。
     // 実際にPhysXが使っている形状(size/radius)をそのまま表示するので、
     // 見た目(SpriteRenderer/MeshRenderer)とズレていないか確認する時に使う
     static void SetDebugDrawEnabled(bool enabled) { debugDrawEnabled = enabled; }
@@ -136,10 +138,12 @@ public:
     void Init() override;
 };
 
-// 2D用の四角形コライダー。中身はBoxRigidbodyComponentと同じ(薄い箱)だが、
+// 2D用の四角形コライダー。中身はBoxRigidbodyComponentと同じ(立方体)だが、
 // 一辺の長さ(size)だけ指定すればよい分、2Dゲームでは扱いやすい。
+// 2Dゲームで使う時は SetFreezePositionZ(true) で奥行き方向に動かないようにしておくこと
+// (奥行きにも一辺と同じ厚みがあるが、Zを固定していれば見た目や動きには影響しない)。
 // --------------------------- 引数 ----------------------------------
-// size            : 一辺の長さ。既定(0)ならOwnerのtransform.scale.xを使う。奥行き(Z)は自動で薄く決まる
+// size            : 一辺の長さ。既定(0)ならOwnerのtransform.scale.xを使う(奥行きも同じ長さになる)
 // density         : 密度(質量 = 密度×体積として自動計算される)。1.0fが規定。Dynamic以外では無視される
 // isTrigger       : trueだと、すり抜ける当たり判定(OnTriggerEnter2D等)になる
 // isStaticForPush : trueだと、Kinematic同士がぶつかった時に「押し戻されない」側になる

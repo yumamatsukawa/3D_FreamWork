@@ -109,19 +109,26 @@ namespace {
         return actor;
     }
 
-    // Collider可視化(デバッグ表示)用の共有メッシュ。単位立方体/単位球(どちらも一辺・直径1)を
-    // 1つずつ作り、全RigidbodyComponentのDraw()で使い回す(実際の大きさはTransform.scaleで調整する)
-    Mesh* GetGizmoCubeMesh() {
-        static Mesh mesh;
+    // Collider可視化(デバッグ表示)用の、輪郭だけの共有メッシュ(線)。形ごとに1つずつ作り、
+    // 全RigidbodyComponentのDraw()で使い回す(実際の大きさはTransform.scaleで調整する)
+    enum class Outline { Cube, Square, Sphere, Circle };
+
+    Mesh* GetOutlineMesh(Outline type) {
+        static Mesh cube, square, sphere, circle;
         static bool initialized = false;
-        if (!initialized) { mesh.Init(Mesh::CreateCube()); initialized = true; }
-        return &mesh;
-    }
-    Mesh* GetGizmoSphereMesh() {
-        static Mesh mesh;
-        static bool initialized = false;
-        if (!initialized) { mesh.Init(Mesh::CreateSphere()); initialized = true; }
-        return &mesh;
+        if (!initialized) {
+            cube.Init(Mesh::CreateCubeOutline(), D3D11_PRIMITIVE_TOPOLOGY_LINELIST);
+            square.Init(Mesh::CreateSquareOutline(), D3D11_PRIMITIVE_TOPOLOGY_LINELIST);
+            sphere.Init(Mesh::CreateSphereOutline(), D3D11_PRIMITIVE_TOPOLOGY_LINELIST);
+            circle.Init(Mesh::CreateCircleOutline(), D3D11_PRIMITIVE_TOPOLOGY_LINELIST);
+            initialized = true;
+        }
+        switch (type) {
+        case Outline::Cube:   return &cube;
+        case Outline::Square: return &square;
+        case Outline::Sphere: return &sphere;
+        default:              return &circle;
+        }
     }
 }
 
@@ -144,6 +151,12 @@ void RigidbodyComponent::InitWithGeometry(const PxGeometry& geometry) {
         actor->userData = &collider;
         Physics::GetScene()->addActor(*actor);
         inScene = true;
+        // ★ AddComponentした後でtransform.positionを設定し直すことはよくある
+        //   (ObjectPoolで新しく作った弾・敵に、Rentの後で出現位置を入れる場合など)。
+        //   最初のUpdate()で今のTransformへ直接テレポートさせて、それに追従させる
+        //   (しないと、Dynamicは作成時の位置に引き戻され、Kinematicは作成時の位置から
+        //    スイープ扱いで移動して、途中にいる物に誤って当たってしまう)
+        justActivated = true;
     }
     else {
         OutputDebugStringA("★ RigidbodyComponent: アクター作成失敗\n");
@@ -153,6 +166,18 @@ void RigidbodyComponent::InitWithGeometry(const PxGeometry& geometry) {
 void RigidbodyComponent::Update(float dt) {
     if (!actor) return;
     if (bodyType == BodyType::Dynamic) {
+        if (justActivated) {
+            // 作成直後・ObjectPoolで再利用された直後: Transform側(出現位置)が正しいので、
+            // PhysX側をそこへテレポートさせ、前回使った時の速度も消しておく
+            // (しないと、前回やられた場所に引き戻され、その時の速度で動き出してしまう)
+            TeleportActor(actor, GetOwner()->transform);
+            if (PxRigidDynamic* dynamic = actor->is<PxRigidDynamic>()) {
+                dynamic->setLinearVelocity(PxVec3(0.f), false);
+                dynamic->setAngularVelocity(PxVec3(0.f), false);
+            }
+            justActivated = false;
+            return;
+        }
         // 回転がロックされている間は、位置だけPhysXから反映する(回転は自分のコードに任せる)
         if (rotationFrozen) SyncPositionFromActor(actor, GetOwner()->transform);
         else SyncTransformFromActor(actor, GetOwner()->transform);
@@ -178,19 +203,22 @@ void RigidbodyComponent::Draw() {
     XMFLOAT3 gizmoSize{};
     Mesh* gizmoMesh = nullptr;
 
+    // Box/Sphereは立体の輪郭(立方体の12辺/3方向の円)、2D向けのSquare/Circleは
+    // Z軸方向で切った断面(四角/丸)だけを描く。断面は奥行きが無いのでscale.zは1でよい
     switch (shape->getGeometryType()) {
     case PxGeometryType::eBOX: {
         PxBoxGeometry box;
         shape->getBoxGeometry(box);
-        gizmoSize = { box.halfExtents.x * 2.f, box.halfExtents.y * 2.f, box.halfExtents.z * 2.f };
-        gizmoMesh = GetGizmoCubeMesh();
+        gizmoSize = { box.halfExtents.x * 2.f, box.halfExtents.y * 2.f, flat2D ? 1.f : box.halfExtents.z * 2.f };
+        gizmoMesh = GetOutlineMesh(flat2D ? Outline::Square : Outline::Cube);
         break;
     }
     case PxGeometryType::eSPHERE: {
         PxSphereGeometry sphere;
         shape->getSphereGeometry(sphere);
-        gizmoSize = { sphere.radius * 2.f, sphere.radius * 2.f, sphere.radius * 2.f };
-        gizmoMesh = GetGizmoSphereMesh();
+        float d = sphere.radius * 2.f;
+        gizmoSize = { d, d, flat2D ? 1.f : d };
+        gizmoMesh = GetOutlineMesh(flat2D ? Outline::Circle : Outline::Sphere);
         break;
     }
     default:
@@ -206,12 +234,20 @@ void RigidbodyComponent::Draw() {
     Transform& t = GetOwner()->transform;
     XMFLOAT3 originalScale = t.scale;
     t.scale = gizmoSize;
-    gizmoMesh->Draw(t, Image::GetCamera3D(), color, fullBright, /*writeDepth*/ true, /*wireframe*/ true);
+    gizmoMesh->Draw(t, Image::GetCamera3D(), color, fullBright);
     t.scale = originalScale;
 }
 
 void RigidbodyComponent::Uninit() {
-    if (actor) { actor->release(); actor = nullptr; }
+    if (actor) {
+        // ★ SetActive(false)でプールに戻った直後にシーンが切り替わる、といった場合、
+        //   「シーンから削除して」という予約(QueueSceneChange)がまだ消化されずに
+        //   残っていることがある。先にそれを取り消してからでないと、次のPhysics::Update()で
+        //   既に解放済み(もう存在しない)アクターへアクセスしてクラッシュする
+        Physics::CancelQueuedSceneChange(actor);
+        actor->release();
+        actor = nullptr;
+    }
 }
 
 void RigidbodyComponent::OnActiveChanged(bool active) {
@@ -325,6 +361,7 @@ void SphereRigidbodyComponent::Init() {
 CircleRigidbodyComponent::CircleRigidbodyComponent(BodyType bodyType, float radius, float density,
     bool isTrigger, bool isStaticForPush)
     : RigidbodyComponent(bodyType, density, isTrigger, isStaticForPush), radius(radius) {
+    flat2D = true;
 }
 
 void CircleRigidbodyComponent::Init() {
@@ -337,10 +374,14 @@ void CircleRigidbodyComponent::Init() {
 SquareRigidbodyComponent::SquareRigidbodyComponent(BodyType bodyType, float size, float density,
     bool isTrigger, bool isStaticForPush)
     : RigidbodyComponent(bodyType, density, isTrigger, isStaticForPush), size(size) {
+    flat2D = true;
 }
 
 void SquareRigidbodyComponent::Init() {
     float s = (size > 0.f) ? size : GetOwner()->transform.scale.x;
-    // 奥行き(Z)は1.0固定の薄い箱にする(2Dゲームでは厚みを意識しなくてよいように)
-    InitWithGeometry(PxBoxGeometry(s * 0.5f, s * 0.5f, 0.5f));
+    // ★ 奥行き(Z)も一辺と同じ長さにする(実質的には立方体)。以前は1.0の薄い箱にしていたが、
+    //   PhysXは紙のように薄い形状同士の角の接触が苦手で、角同士がかすめるとすり抜けることがあった。
+    //   2Dゲームでは SetFreezePositionZ(true) で奥行き方向に動かないようにしておけば、
+    //   厚みがあっても見た目や動きには影響しない
+    InitWithGeometry(PxBoxGeometry(s * 0.5f, s * 0.5f, s * 0.5f));
 }

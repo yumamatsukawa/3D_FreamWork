@@ -228,18 +228,20 @@ player->AddComponent<CameraController>();
 
 ## 6. Collider(当たり判定)
 
-**当たり判定は、2D/3D問わず全てPhysX(`RigidbodyComponent`)で計算しています。**以前は自作の2D数式(AABB/円のSAT判定)を使っていましたが、Player/Enemy/Bulletを含めて`BoxRigidbodyComponent`/`SphereRigidbodyComponent`(§11参照)に統一しました。Player/Enemyのような「3D空間にいる2Dオブジェクト」は、Z軸方向に厚みを持たせた3D形状(薄い箱/球)として扱っています。
+**当たり判定は、2D/3D問わず全てPhysX(`RigidbodyComponent`、§11参照)で計算しています。**2Dのゲームでは、2D向けに使いやすくした`SquareRigidbodyComponent`/`CircleRigidbodyComponent`を使い、`SetFreezePositionZ(true)`で奥行き方向に動かないようにします(Sample2Dが実例)。
 
 ```cpp
-// Playerの例(実際にすり抜けない円形。Dynamic+速度指定で動かし、衝突応答はPhysXに任せる。§11参照)
-player->AddComponent<SphereRigidbodyComponent>(BodyType::Dynamic, 50.0f, 1.0f);
+// Playerの例(すり抜けない円形・半径50。Dynamic+速度指定で動かし、衝突応答はPhysXに任せる)
+auto* rigidbody = player->AddComponent<CircleRigidbodyComponent>(BodyType::Dynamic, 50.0f, 100.0f);
+rigidbody->SetUseGravity(false);
+rigidbody->SetFreezeRotation(true);
+rigidbody->SetFreezePositionZ(true);
 
 // Bulletの例(すり抜ける円形。Enemyに当たったことだけ分かればよい)
-bullet->AddComponent<SphereRigidbodyComponent>(BodyType::Kinematic, 8.0f, 1.0f,
-    /*isTrigger*/ true);
+bullet->AddComponent<CircleRigidbodyComponent>(BodyType::Kinematic, 8.0f, 1.0f, /*isTrigger*/ true);
 ```
 
-反応する側は、Componentに以下をoverrideします(この部分はPhysX移行前と同じAPIのままです):
+反応する側は、Componentに以下をoverrideします:
 
 ```cpp
 // isTrigger = true の時
@@ -253,23 +255,38 @@ void OnCollisionStay2D(CollisionInfo info) override;
 void OnCollisionExit2D(CollisionInfo info) override;
 ```
 
-相手のタグは `other->GetTag()` (Trigger) / `info.other->GetTag()` (Collision) で判定します(`Collider2D`は当たり判定の計算自体は持たない、コールバック用の軽いハンドルになりました)。
+相手のタグは `other->GetTag()` (Trigger) / `info.other->GetTag()` (Collision) で判定します(`Collider2D`は当たり判定の計算自体は持たない、コールバック用の軽いハンドルです)。
 
 **内部実装メモ**: `Engine/Physics.cpp`のシミュレーションコールバック(`onContact`/`onTrigger`)が、PhysXの結果をこれらのコールバックに変換しています。Kinematicなオブジェクト同士がぶつかった時の「押し戻し」は、PhysXの自動計算に任せられない(キネマティックは力の影響を受けないため)ので、接触の法線・めり込み量から手動で`Transform.position`をずらしています(`isStaticForPush=true`側は動かさない)。Dynamicなオブジェクト(Sphereなど)が絡む場合は、PhysX自身が正しく押し返すので、この手動処理はスキップされます。
 
-**CCD(連続衝突判定)について**: `SquareRigidbodyComponent`のような奥行きの薄い箱同士が角(コーナー)でかすめるように当たると、通常の当たり判定(1フレームごとの位置だけを見る離散判定)では押し返しが弱く、貫通してしまうことがあります。これを防ぐため、Dynamicなアクター全てでCCD(移動の軌跡をスイープして判定するモード)を有効にしています(`Physics::Init()`でシーン全体のCCDを有効化、`RigidbodyComponent.cpp`の`CreateActor()`でDynamicアクターごとに`PxRigidBodyFlag::eENABLE_CCD`を設定)。
+**薄い形状のすり抜けについて**: PhysXは、紙のように薄い形状同士が角(コーナー)でかすめるように当たると、押し返しが弱く貫通してしまうことがあります(以前の`SquareRigidbodyComponent`は奥行き1.0の薄い箱だったため、実際にこれが起きていました)。対策として2つ行っています:
+- `SquareRigidbodyComponent`は奥行きも一辺と同じ長さにした(実質的に立方体)。2Dゲームでは`SetFreezePositionZ(true)`で奥行き方向に動かないようにしておけば、厚みがあっても見た目や動きには影響しない
+- Dynamicなアクター全てでCCD(移動の軌跡をスイープして判定するモード)を有効にした(`Physics::Init()`でシーン全体のCCDを有効化、`RigidbodyComponent.cpp`の`CreateActor()`でDynamicアクターごとに`PxRigidBodyFlag::eENABLE_CCD`を設定)
+
+**作成直後・再利用直後のテレポートについて**: `RigidbodyComponent`は、作成直後(`AddComponent`直後)と、`ObjectPool`で再利用された直後(`SetActive(true)`)の最初の`Update()`で、PhysX側を今のTransformの位置へテレポートさせ、速度も0に戻します。これにより、「`Rent()`の後で出現位置を入れる」という普通の書き方をしても、Dynamicなら作成時の位置や前回やられた位置に引き戻されず、Kinematicなら作成時の位置からスイープ扱いで移動して途中の物に誤って当たる、ということが起きません。
 
 ### Colliderの見た目(デバッグ表示)
 
-実際にPhysXが使っている当たり判定の形・大きさを、ワイヤーフレームで可視化できます(見た目のスプライト/メッシュのサイズとズレていないか確認する時に便利です)。
+実際にPhysXが使っている当たり判定の形・大きさを、枠線で表示できます(見た目のスプライト/メッシュのサイズとズレていないか確認する時に便利です)。
 
 ```cpp
 RigidbodyComponent::SetDebugDrawEnabled(true);
 ```
 
-`Scene::Init()`などで1回呼ぶだけで、以後その回のプレイ中は全ての`RigidbodyComponent`(Box/Sphereどちらも)が緑(通常の当たり判定)または黄(`isTrigger=true`のすり抜ける判定)のワイヤーフレームを、実際のPhysX形状のサイズで描画します。不要になったら`false`を渡すか、呼び出し自体を消してください。
+`Scene::Init()`などで1回呼ぶだけで、以後その回のプレイ中は全ての`RigidbodyComponent`が、緑(通常の当たり判定)または黄(`isTrigger=true`のすり抜ける判定)の枠を、実際のPhysX形状のサイズで描画します。不要になったら`false`を渡すか、呼び出し自体を消してください。
 
-**内部実装メモ**: `RigidbodyComponent::Draw()`が、`PxShape`から実際のジオメトリ(`PxBoxGeometry`/`PxSphereGeometry`)を取得し、Ownerの`Transform`の`scale`だけを一時的に差し替えて`Mesh::Draw(..., wireframe=true)`で描画しています(位置・回転は普段どおりOwnerのTransformをそのまま使う)。ワイヤーフレーム用の単位立方体/単位球メッシュは、全`RigidbodyComponent`で1つずつ共有しています。
+| Component | 表示される枠 |
+|---|---|
+| `BoxRigidbodyComponent` | 立方体の12本の辺 |
+| `SphereRigidbodyComponent` | 3方向(XY/XZ/YZ)の円 |
+| `SquareRigidbodyComponent` | Z軸方向で切った断面の四角 |
+| `CircleRigidbodyComponent` | Z軸方向で切った断面の丸 |
+
+2D向けのSquare/Circleは、PhysX上は奥行きのある立方体/球ですが(§11)、2Dゲームでは奥行き方向に動かないので、平面で見た時の形(断面)だけを表示しています。
+
+**内部実装メモ**: `RigidbodyComponent::Draw()`が、`PxShape`から実際のジオメトリ(`PxBoxGeometry`/`PxSphereGeometry`)を取得し、Ownerの`Transform`の`scale`だけを一時的に差し替えて描画しています(位置・回転は普段どおりOwnerのTransformをそのまま使う)。枠は三角形ではなく線(`D3D11_PRIMITIVE_TOPOLOGY_LINELIST`)で描いていて、形ごとの輪郭データは`Mesh::CreateCubeOutline()`などで作り、全`RigidbodyComponent`で1つずつ共有しています。
+
+**Meshのテクスチャについて**: `Shader3D.hlsl`は必ずテクスチャを読むため、テクスチャを設定していない`Mesh`には、自動で1x1の白いテクスチャを使うようにしています。以前はこれが無く、直前に別のMeshが使ったテクスチャを読んでしまい、色が変わったり透明部分で線が途切れたりしていました。
 
 ---
 
@@ -339,9 +356,9 @@ pool.Return(obj);
 プロジェクト構成自体は`0. プロジェクト構成`を参照してください。ここでは各サンプルの中身(`Game/`)を説明します。
 
 ```
-Sample2D/Game/Objects/     Title, Player, EnemyManager, BulletManager
+Sample2D/Game/Objects/     Title, Player, GameSystem, HUD, EnemyManager, BulletManager
 Sample2D/Game/Components/  TitleController, PlayerController, BulletController,
-                            EnemyController, GameManager
+                            EnemyController, GameManager, HUDController
 Sample2D/Game/Scenes/      TitleScene, GameScene
 
 Sample3D/Game/Objects/     Title, Player, Cube, Sphere, Ground, Skybox
@@ -350,10 +367,22 @@ Sample3D/Game/Components/  TitleController, PlayerController, CameraController,
 Sample3D/Game/Scenes/      TitleScene, GameScene
 ```
 
-- **Sample2D**: トップダウン視点のアリーナシューター。WASDで移動、SPACEで弾を発射。敵(`EnemyManager`が一定間隔でPlayerの周囲にランダムスポーンさせる)がゆっくり追いかけてきて、弾を当てると倒せる(`EventBus`で`"EnemyDefeated"`イベントを発行しスコア加算)。敵に触れるとHPが減り(`"PlayerHit"`イベント、1秒間の無敵時間つき)、0になるとゲームオーバー画面が出てSPACEでタイトルに戻る。スコア・HPは`GameManager`(専用のGameObjectにAddComponentしたもの)がHUDとして`Text::Draw`で描画している。重力・3Dカメラは使わない(`SetUseGravity(false)`、`CameraController`なし)。
+- **Sample2D**: トップダウン視点のアリーナシューター。WASDで移動、SPACEで弾を発射。敵(`EnemyManager`が一定間隔でPlayerの周囲にランダムスポーンさせる)がゆっくり追いかけてきて、弾を当てると倒せる(`EventBus`で`"EnemyDefeated"`イベントを発行しスコア加算)。敵に触れるとHPが減り(1秒間の無敵時間つき)、0になるとゲームオーバー画面が出てSPACEでタイトルに戻る。当たり判定・物理はPhysXを使い(Player=`CircleRigidbodyComponent`、敵=`SquareRigidbodyComponent`、弾=`CircleRigidbodyComponent`)、Player・敵はDynamic(`SetVelocity()`で速度を渡して動かす。重力なし・回転なし・`SetFreezePositionZ(true)`で奥行き方向に固定)、弾はKinematicのトリガー。3Dカメラは使わない(`CameraController`なし)。
 - **Sample3D**: 3人称/1人称カメラで動き回れる3D空間のショーケース。WASDで移動、TABでカメラ切り替え、右クリックドラッグで視点回転。Ground/Cube/Skyboxを配置し、Sphereが重力で落下してGroundの上に着地する。
 
-**Sample2Dの実装メモ**: `EnemyManager`/`BulletManager`はどちらも`ObjectPool`を使った使い回し方式(実例は`Engine/ObjectPool.h`)。プールで使い回すオブジェクトは`Scene::CreateObject("Pooled")`で名前だけ付けて作られるため、`GameObject::SetTag()`で組み立て時にタグ("Enemy"/"Bullet")を後付けしている。敵を倒す/Playerがダメージを受ける判定は、それぞれ`EnemyController::OnTriggerEnter2D`(相手のタグが"Bullet")と`PlayerController::OnCollisionStay2D`(相手のタグが"Enemy")が担当し、実際にスコア・HPを変化させるかどうかの判断(無敵時間中かどうかなど)は`EventBus`経由で`GameManager`に一任している(お互いを直接知らなくて済むようにするため)。
+**Sample2Dの実装メモ**: `EnemyManager`/`BulletManager`はどちらも`ObjectPool`を使った使い回し方式(実例は`Engine/ObjectPool.h`)。プールで使い回すオブジェクトは`Scene::CreateObject("Pooled")`で名前だけ付けて作られるため、`GameObject::SetTag()`で組み立て時にタグ("Enemy"/"Bullet")を後付けしている。敵を倒す/Playerがダメージを受ける判定は、それぞれ`EnemyController::OnTriggerEnter2D`(相手のタグが"Bullet")と`PlayerController::OnCollisionStay2D`(相手のタグが"Enemy")が担当する。
+
+役割分担は「値の持ち主は1か所、他は読むだけ」にしている:
+
+| Component | 持っている値・担当 |
+|---|---|
+| `PlayerController` | HP・無敵時間(HPが0になったら`EventBus`で`"PlayerDied"`を発行) |
+| `GameManager` | スコア(`"EnemyDefeated"`で加算)・敵のスポーン・ゲームオーバー判定(`"PlayerDied"`を受けて)・タイトルへの遷移。表示は一切しない |
+| `HUDController` | 画面表示(Score/HP/GAME OVER)だけ。値は自分で持たず、`GameManager::GetScore()`/`PlayerController::GetHp()`などで毎フレーム読む |
+
+表示用に値のコピーを別に持つと、本物の値とズレる原因になるため、HUDは読むだけにしている。新しいUI要素を足す時は`HUDController::Draw()`に追加し、表示したい値は持ち主側にゲッターを生やす形にすること。
+
+GameManager/HUDのような「見た目の無い管理役」も、Player/Enemyと同じく`Game/Objects/`の工場関数(`CreateGameSystem()`/`CreateHUD()`)で組み立てている。依存する相手(GameManagerやPlayerControllerのポインタ)は工場関数の引数で受け取るので、`GameScene::Init()`を見れば「誰が誰に依存しているか」が一目で分かる。なお、Componentの`Components/GameManager.h`と名前がぶつからないよう、工場関数側は`Objects/GameSystem.h`という別名にしてある(TitleController ↔ `Objects/Title.cpp`と同じ関係)。
 
 どちらも現時点では「動く土台」で、ゲームとしての作り込み(敵の挙動、演出、レベルデザインなど)はこれから追加していく想定です。新しいオブジェクトを追加する時は、それぞれのサンプルの`Game/Objects/`と`Game/Components/`に、既存のPlayer/Enemyと同じ形式でファイルを足していくのが基本の流れです。
 
@@ -380,7 +409,7 @@ namespace Physics {
 `Engine/RigidbodyComponent.h/.cpp`に、`BoxRigidbodyComponent`/`SphereRigidbodyComponent`(3D向け)と`SquareRigidbodyComponent`/`CircleRigidbodyComponent`(2D向け)があります。見た目(`MeshRenderer`/`SpriteRenderer`)とは別に、動き方だけを担当するComponentです。4つとも共通の基底クラス`RigidbodyComponent`を継承しているので、他のComponentから形状を意識せず`GetComponent<RigidbodyComponent>()`で探せます(`PlayerController`が実例。これにより、Playerの形状を変えても`Player.cpp`の1行を変えるだけで済みます)。
 
 - `Square`/`CircleRigidbodyComponent`は、中身は`Box`/`SphereRigidbodyComponent`と全く同じ(PhysXに2D専用の形状は無いため、奥行きの薄い箱・普通の球で代用している)。トップダウン2Dゲームで使う時に、`XMFLOAT3`のサイズではなく一辺の長さ/半径を1つ渡すだけで済む、より簡単なAPIになっている
-- `SquareRigidbodyComponent`の奥行き(Z)は1.0固定です。厚みを自分で決めたい場合は`BoxRigidbodyComponent`を使ってください
+- `SquareRigidbodyComponent`の奥行き(Z)は一辺と同じ長さです(薄すぎるとPhysXですり抜けが起きやすいため)。2Dゲームでは`SetFreezePositionZ(true)`を一緒に呼んで、奥行き方向に動かないようにしてください。厚みを自分で決めたい場合は`BoxRigidbodyComponent`を使ってください
 
 ```cpp
 enum class BodyType {

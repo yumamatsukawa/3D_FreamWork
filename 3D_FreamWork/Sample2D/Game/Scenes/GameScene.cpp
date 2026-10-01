@@ -1,6 +1,8 @@
 ﻿#include "GameScene.h"
 #include "../Objects/Player.h"
-#include "../Components/GameManager.h"
+#include "../Objects/GameSystem.h"
+#include "../Objects/HUD.h"
+#include "../Components/PlayerController.h"
 #include "../../../Engine/EventBus.h"
 #include "../../../Engine/GameObject.h"
 #include "../../../Engine/RigidbodyComponent.h"
@@ -8,16 +10,12 @@
 
 void GameScene::Init()
 {
-    // Colliderの実際の大きさ・位置をワイヤーフレームで表示する(デバッグ用)。
-    // 不要になったらこの行を削除するかfalseにすればよい
+    // Colliderの枠を表示する(デバッグ用。不要ならfalseに)
     RigidbodyComponent::SetDebugDrawEnabled(true);
 
     GameObject* player = CreatePlayer(*this);
-
-    // スコア・HP・敵の出現・ゲームオーバーを管理する係。専用のGameObjectを1つ作って持たせる
-    GameObject* gameManagerObj = CreateObject("GameManager");
-    GameManager* gameManager = gameManagerObj->AddComponent<GameManager>();
-    gameManager->Setup(&enemyManager, player);
+    GameManager* gameManager = CreateGameSystem(*this, &enemyManager, player);
+    CreateHUD(*this, gameManager, player->GetComponent<PlayerController>());
 
     // 「FireBullet」イベントを購読する。誰か(PlayerControllerなど)が
     // PublishObject("FireBullet", shooter) を呼ぶと、ここが弾を実際に生成する。

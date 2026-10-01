@@ -15,11 +15,11 @@ namespace {
         sprite->SetSpriteIndex(5);
         sprite->SetColor(1.0f, 0.0f, 1.0f, 1.0f);
 
-        // 当たり判定+物理演算(PhysX): キネマティック、すり抜けない四角形。
-        // isStaticForPush=trueなので、Playerとぶつかった時にEnemy自身は押し戻されない
-        // (Playerだけが押し戻される。旧・2D当たり判定でのisStatic=trueと同じ意味)。
-        obj->AddComponent<SquareRigidbodyComponent>(BodyType::Kinematic, 100.0f, 1.0f,
-            /*isTrigger*/ false, /*isStaticForPush*/ true);
+        // 当たり判定+物理演算(PhysX)。Playerと同じく、重力なし・回転なし・奥行き方向に動かない
+        auto* rigidbody = obj->AddComponent<SquareRigidbodyComponent>(BodyType::Dynamic, 100.0f, 1.0f);
+        rigidbody->SetUseGravity(false);
+        rigidbody->SetFreezeRotation(true);
+        rigidbody->SetFreezePositionZ(true);
 
         obj->AddComponent<EnemyController>();
     }

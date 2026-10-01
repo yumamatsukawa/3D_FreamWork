@@ -11,7 +11,7 @@ void TitleController::Init(){
 }
 
 void TitleController::Update(float dt) {
-    if (Input::GetKeyPress(KEY_SPACE)) {
+    if (Input::GetKeyDown(KEY_SPACE)) {
         SceneManager::Get().ChangeScene<GameScene>();
     }
 }

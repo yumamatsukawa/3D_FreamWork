@@ -12,8 +12,8 @@ namespace {
         obj->transform.scale = { 16.0f, 16.0f, 1.0f };
         auto* meshRenderer = obj->AddComponent<MeshRenderer>(Mesh::CreateSphere());
         meshRenderer->SetTexture(L"Assets/grid.png");
-        // 当たり判定+物理演算(PhysX): キネマティック、すり抜ける円形(命中判定用)
-        obj->AddComponent<SphereRigidbodyComponent>(BodyType::Kinematic, 8.0f, 1.0f, /*isTrigger*/ true);
+        // 当たり判定(PhysX): キネマティック、すり抜ける円形(命中判定用)
+        obj->AddComponent<CircleRigidbodyComponent>(BodyType::Kinematic, 8.0f, 1.0f, /*isTrigger*/ true);
         obj->AddComponent<BulletController>();
     }
 }

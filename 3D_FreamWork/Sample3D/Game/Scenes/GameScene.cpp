@@ -8,7 +8,7 @@
 
 void GameScene::Init()
 {
-    // Colliderの実際の大きさ・位置をワイヤーフレームで表示する(デバッグ用)。
+    // Colliderの実際の大きさ・位置を枠で表示する(デバッグ用)。
     // 不要になったらこの行を削除するかfalseにすればよい
     RigidbodyComponent::SetDebugDrawEnabled(true);
 

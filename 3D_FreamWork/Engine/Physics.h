@@ -27,4 +27,11 @@ namespace Physics {
     // 代わりにこれを呼んでおくと、次のUpdate()のfetchResults()が終わった直後、
     // 安全なタイミングでまとめて実行される
     void QueueSceneChange(physx::PxRigidActor* actor, bool add);
+
+    // QueueSceneChange()で予約した変更のうち、指定したactorに関するものを取り消す。
+    // RigidbodyComponent::Uninit()がactor->release()する直前に必ず呼ぶこと。
+    // 呼ばずに解放すると、「シーンに追加/削除して」という予約だけが残り、次のUpdate()で
+    // 既に解放済み(もう存在しない)アクターへアクセスしてクラッシュする
+    // (SetActive(false)でプールに戻った直後にシーンが切り替わる、などの場合に起こりうる)
+    void CancelQueuedSceneChange(physx::PxRigidActor* actor);
 }

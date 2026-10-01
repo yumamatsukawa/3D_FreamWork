@@ -79,10 +79,13 @@
     <ClCompile Include="Game\Components\BulletController.cpp" />
     <ClCompile Include="Game\Components\EnemyController.cpp" />
     <ClCompile Include="Game\Components\GameManager.cpp" />
+    <ClCompile Include="Game\Components\HUDController.cpp" />
     <ClCompile Include="Game\Components\PlayerController.cpp" />
     <ClCompile Include="Game\Components\TitleController.cpp" />
     <ClCompile Include="Game\Objects\BulletManager.cpp" />
     <ClCompile Include="Game\Objects\EnemyManager.cpp" />
+    <ClCompile Include="Game\Objects\GameSystem.cpp" />
+    <ClCompile Include="Game\Objects\HUD.cpp" />
     <ClCompile Include="Game\Objects\Player.cpp" />
     <ClCompile Include="Game\Objects\Title.cpp" />
     <ClCompile Include="Game\Scenes\GameScene.cpp" />
@@ -92,10 +95,13 @@
     <ClInclude Include="Game\Components\BulletController.h" />
     <ClInclude Include="Game\Components\EnemyController.h" />
     <ClInclude Include="Game\Components\GameManager.h" />
+    <ClInclude Include="Game\Components\HUDController.h" />
     <ClInclude Include="Game\Components\PlayerController.h" />
     <ClInclude Include="Game\Components\TitleController.h" />
     <ClInclude Include="Game\Objects\BulletManager.h" />
     <ClInclude Include="Game\Objects\EnemyManager.h" />
+    <ClInclude Include="Game\Objects\GameSystem.h" />
+    <ClInclude Include="Game\Objects\HUD.h" />
     <ClInclude Include="Game\Objects\Player.h" />
     <ClInclude Include="Game\Objects\Title.h" />
     <ClInclude Include="Game\Scenes\GameScene.h" />

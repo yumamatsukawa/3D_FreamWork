@@ -34,6 +34,7 @@ private:
     ID3D11Buffer* vertexBuffer = nullptr;
     ID3D11ShaderResourceView* srv = nullptr;
     std::vector<MeshVertex> vertices;
+    D3D11_PRIMITIVE_TOPOLOGY topology = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
 
     // シェーダー・各種ステート・定数バッファは、Cube/Sphere/OBJなど全てのMeshで
     // 内容が同じ(Shader3D.hlslを共有している)ため、インスタンスごとに作らず
@@ -50,7 +51,10 @@ private:
     static ID3D11DepthStencilState* depthStencilState;
     static ID3D11DepthStencilState* depthStencilStateNoWrite; // スカイボックス用: テストはするが書き込みしない
     static ID3D11RasterizerState* rasterizerState;
-    static ID3D11RasterizerState* wireframeRasterizerState; // Collider可視化(デバッグ表示)用
+    // テクスチャを設定していないMesh用の、1x1の白いテクスチャ。
+    // シェーダーは必ずテクスチャを読むので、何も渡さないと「直前に別のMeshが使った
+    // テクスチャ」を読んでしまい、色が変わったり透明部分で消えたりする
+    static ID3D11ShaderResourceView* whiteTexture;
     static float aspectRatio;
     static int refCount;
 
@@ -62,18 +66,21 @@ private:
     static bool CreateBlendState();
     static bool CreateDepthStencilState();
     static bool CreateRasterizerState();
+    static bool CreateWhiteTexture();
 
     bool CreateVertexBuffer();
 
 public:
-    bool Init(const std::vector<MeshVertex>& verts);
+    // topology: 通常は三角形(TRIANGLELIST)。Create○○Outline()の線データを渡す時は
+    // D3D11_PRIMITIVE_TOPOLOGY_LINELIST(2頂点ずつ1本の線)にする
+    bool Init(const std::vector<MeshVertex>& verts,
+        D3D11_PRIMITIVE_TOPOLOGY topology = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
     // writeDepth = false にすると、深度バッファに書き込まない(自分より後ろのものを隠さない)。
     // スカイボックス用: drawPriorityで必ず最初に描画させた上でこれをfalseにすることで、
     // 「深度テストで他の3Dオブジェクトと競合する遠景」ではなく「常に一番奥にある背景」として
     // 描画できる(深度バッファの精度に依存しない、Z-fightingが起こり得ない実装)
-    // wireframe = true にすると、塗りつぶさずに線だけで描画する(Collider可視化などデバッグ用)
-    void Draw(const Transform& transform, const Camera& camera, XMFLOAT4 color, const Light& light, bool writeDepth = true, bool wireframe = false);
+    void Draw(const Transform& transform, const Camera& camera, XMFLOAT4 color, const Light& light, bool writeDepth = true);
     void Uninit();
 
     void SetTexture(ID3D11ShaderResourceView* s) { srv = s; }
@@ -90,4 +97,16 @@ public:
     // vnが無いファイルは、三角形ごとに面法線を自動計算する。
     // 読み込みに失敗した場合は空のvectorを返す
     static std::vector<MeshVertex> LoadOBJ(const std::wstring& filepath);
+
+    // ─── 輪郭(線)だけのデータ。Collider表示などのデバッグ用 ───
+    // どれもInit(verts, D3D11_PRIMITIVE_TOPOLOGY_LINELIST)と組み合わせて使う。大きさは1(-0.5〜0.5)
+
+    // 立方体の12本の辺
+    static std::vector<MeshVertex> CreateCubeOutline();
+    // XY平面上(z=0)の正方形の4辺
+    static std::vector<MeshVertex> CreateSquareOutline();
+    // XY平面上(z=0)の直径1の円。segmentsは円を何本の線で近似するか
+    static std::vector<MeshVertex> CreateCircleOutline(int segments = 32);
+    // 直径1の球を表す3つの円(XY/XZ/YZ平面)
+    static std::vector<MeshVertex> CreateSphereOutline(int segments = 32);
 };

@@ -2,12 +2,10 @@
 #include "../../../Engine/GameObject.h"
 #include "../../../Engine/EventBus.h"
 #include "../../../Engine/Input.h"
-#include "../../../Engine/Text.h"
 #include "../../../Engine/SceneManager.h"
 #include "../Scenes/TitleScene.h"
 #include <DirectXMath.h>
 #include <cstdlib>
-#include <cstdio>
 
 void GameManager::Init() {
     // ★ ラムダの中でthis(GameManager自身)をキャプチャしている。GameSceneのUninit()が
@@ -15,17 +13,12 @@ void GameManager::Init() {
     EventBus::Get().Subscribe("EnemyDefeated", [this]() {
         score += 10;
     });
-    EventBus::Get().Subscribe("PlayerHit", [this]() {
-        if (gameOver || invincibleTimer > 0.f) return;
-        hp--;
-        invincibleTimer = invincibleDuration;
-        if (hp <= 0) gameOver = true;
+    EventBus::Get().Subscribe("PlayerDied", [this]() {
+        gameOver = true;
     });
 }
 
 void GameManager::Update(float dt) {
-    if (invincibleTimer > 0.f) invincibleTimer -= dt;
-
     if (gameOver) {
         if (Input::GetKeyDown(KEY_SPACE)) {
             SceneManager::Get().ChangeScene<TitleScene>();
@@ -47,20 +40,5 @@ void GameManager::Update(float dt) {
             0.0f
         };
         enemyManager->Spawn(*GetOwner()->GetScene(), pos, player);
-    }
-}
-
-void GameManager::Draw() {
-    wchar_t buf[64];
-
-    swprintf_s(buf, L"Score: %d", score);
-    Text::Draw(buf, -560.f, 320.f, 28.f);
-
-    swprintf_s(buf, L"HP: %d / %d", hp, maxHp);
-    Text::Draw(buf, -560.f, 280.f, 28.f, { 1.0f, 0.4f, 0.4f, 1.0f });
-
-    if (gameOver) {
-        Text::Draw(L"GAME OVER", 0.f, 40.f, 64.f, { 1.0f, 0.2f, 0.2f, 1.0f });
-        Text::Draw(L"press SPACE to return to Title", 0.f, -30.f, 24.f);
     }
 }

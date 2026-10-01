@@ -8,15 +8,15 @@
 #include "../../../Engine/RigidbodyComponent.h"
 
 void PlayerController::Update(float dt) {
-    GameObject* owner = GetOwner();
-    Transform& t = owner->transform;
-    SpriteRenderer* renderer = owner->GetComponent<SpriteRenderer>();
+    Transform& t = GetOwner()->transform;
+    SpriteRenderer* renderer = GetOwner()->GetComponent<SpriteRenderer>();
+    RigidbodyComponent* rigidbody = GetOwner()->GetComponent<RigidbodyComponent>();
+
+    if (invincibleTimer > 0.f) invincibleTimer -= dt;
 
     // ★ このフレームの物理更新(Physics::Update)で既にOnCollisionStay2Dが呼ばれていれば
     //   touchingEnemyはtrueになっている。trueの時は白へ戻さず、赤のままにする
     if (renderer && !touchingEnemy) renderer->SetColor(1.0f, 1.0f, 1.0f, 1.0f);
-    // 次の物理更新でOnCollisionStay2Dが呼ばれなければ(=もう接触していなければ)、
-    // 次フレームは自然に白へ戻るようにリセットしておく
     touchingEnemy = false;
 
     DirectX::XMFLOAT2 mousePos = Input::GetMousePosition();
@@ -36,13 +36,7 @@ void PlayerController::Update(float dt) {
     if (Input::GetKeyPress(KEY_S)) velocity.y -= speed;
     if (Input::GetKeyPress(KEY_A)) velocity.x -= speed;
     if (Input::GetKeyPress(KEY_D)) velocity.x += speed;
-
-    // 基底クラス(RigidbodyComponent)で探すことで、PlayerがBox/Sphereどちらの
-    // 形状でも(Box/SphereRigidbodyComponentのどちらが付いていても)動くようにしてある
-    RigidbodyComponent* rigidbody = owner->GetComponent<RigidbodyComponent>();
-    if (rigidbody) {
-        rigidbody->SetVelocity(velocity);
-    }
+    if (rigidbody) rigidbody->SetVelocity(velocity);
 
     // 見た目の向き(Q/E)は物理の回転とは無関係に、Transformを直接操作する
     // (弾の発射方向にもそのまま使われる。GameScene.cppのFireBullet参照)
@@ -52,7 +46,7 @@ void PlayerController::Update(float dt) {
     // SPACEキーで「撃った」イベントを発行するだけ。
     // 実際に弾を生成する処理は知らない(GameScene側がFireBulletを購読して行う)
     if (Input::GetKeyDown(KEY_SPACE)) {
-        EventBus::Get().PublishObject("FireBullet", owner);
+        EventBus::Get().PublishObject("FireBullet", GetOwner());
     }
 
     // カメラをプレイヤーに追従させる(トップダウンのシンプルな追従カメラ)
@@ -65,8 +59,11 @@ void PlayerController::OnCollisionStay2D(CollisionInfo info) {
         touchingEnemy = true;
         SpriteRenderer* renderer = GetOwner()->GetComponent<SpriteRenderer>();
         if (renderer) renderer->SetColor(1.0f, 0.0f, 0.0f, 1.0f);
-        // 実際にHPを減らすかどうか(無敵時間中かなど)はGameManagerが判断する。
-        // ここでは「今Enemyと接触している」ことを、毎フレーム律儀に知らせるだけでよい
-        EventBus::Get().Publish("PlayerHit");
+        // OnCollisionStay2Dは接触中ずっと毎フレーム呼ばれるので、無敵時間で連続ダメージを防ぐ
+        if (hp <= 0 || invincibleTimer > 0.f) return;
+        hp--;
+        invincibleTimer = invincibleDuration;
+        // ゲームオーバーにするかどうかはGameManagerの仕事なので、ここでは知らせるだけ
+        if (hp <= 0) EventBus::Get().Publish("PlayerDied");
     }
 }

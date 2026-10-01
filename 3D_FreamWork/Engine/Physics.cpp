@@ -4,6 +4,7 @@
 #include <windows.h>
 #include <vector>
 #include <utility>
+#include <algorithm>
 #include <PxPhysicsAPI.h>
 
 using namespace physx;
@@ -57,6 +58,14 @@ namespace {
         void onAdvance(const PxRigidBody* const*, const PxTransform*, const PxU32) override {}
 
         void onContact(const PxContactPairHeader& pairHeader, const PxContactPair* pairs, PxU32 nbPairs) override {
+            // ★ onTriggerと同じ理由のガード: シーン終了時などにアクターをまとめて
+            //   release()すると、「接触していた相手が削除された」という通知が後から
+            //   (別のfetchResults()のタイミングで)届くことがある。この時点では
+            //   actors[0]/[1]は既に解放済み(もう存在しない)ので、絶対に触ってはいけない
+            if (pairHeader.flags & (PxContactPairHeaderFlag::eREMOVED_ACTOR_0 | PxContactPairHeaderFlag::eREMOVED_ACTOR_1)) {
+                return;
+            }
+
             PxRigidActor* actorA = pairHeader.actors[0];
             PxRigidActor* actorB = pairHeader.actors[1];
             Collider2D* colA = static_cast<Collider2D*>(actorA->userData);
@@ -70,6 +79,12 @@ namespace {
 
             for (PxU32 i = 0; i < nbPairs; i++) {
                 const PxContactPair& pair = pairs[i];
+
+                // ★ こちらは個々のペア(shape)単位での同じガード。消えたshapeが絡む
+                //   ペアはスキップする(接触点を取り出すextractContacts等が危険なため)
+                if (pair.flags & (PxContactPairFlag::eREMOVED_SHAPE_0 | PxContactPairFlag::eREMOVED_SHAPE_1)) {
+                    continue;
+                }
 
                 PxContactPairPoint points[4];
                 PxU32 n = pair.extractContacts(points, 4);
@@ -213,5 +228,12 @@ namespace Physics {
 
     void QueueSceneChange(PxRigidActor* actor, bool add) {
         gPendingSceneChanges.push_back({ actor, add });
+    }
+
+    void CancelQueuedSceneChange(PxRigidActor* actor) {
+        gPendingSceneChanges.erase(
+            std::remove_if(gPendingSceneChanges.begin(), gPendingSceneChanges.end(),
+                [actor](const std::pair<PxRigidActor*, bool>& change) { return change.first == actor; }),
+            gPendingSceneChanges.end());
     }
 }

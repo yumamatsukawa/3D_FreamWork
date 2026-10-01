@@ -15,13 +15,14 @@ ID3D11BlendState* Mesh::blendState = nullptr;
 ID3D11DepthStencilState* Mesh::depthStencilState = nullptr;
 ID3D11DepthStencilState* Mesh::depthStencilStateNoWrite = nullptr;
 ID3D11RasterizerState* Mesh::rasterizerState = nullptr;
-ID3D11RasterizerState* Mesh::wireframeRasterizerState = nullptr;
+ID3D11ShaderResourceView* Mesh::whiteTexture = nullptr;
 float Mesh::aspectRatio = 1.f;
 int Mesh::refCount = 0;
 
-bool Mesh::Init(const std::vector<MeshVertex>& verts) {
+bool Mesh::Init(const std::vector<MeshVertex>& verts, D3D11_PRIMITIVE_TOPOLOGY topo) {
     context = Graphics::context;
     vertices = verts;
+    topology = topo;
     aspectRatio = (Graphics::height > 0.f) ? (Graphics::width / Graphics::height) : 1.f;
 
     if (!CreateSharedResources()) { OutputDebugStringA("★ Mesh CreateSharedResources 失敗\n"); return false; }
@@ -41,6 +42,7 @@ bool Mesh::CreateSharedResources() {
     if (!CreateBlendState()) { OutputDebugStringA("★ Mesh CreateBlendState 失敗\n"); return false; }
     if (!CreateDepthStencilState()) { OutputDebugStringA("★ Mesh CreateDepthStencilState 失敗\n"); return false; }
     if (!CreateRasterizerState()) { OutputDebugStringA("★ Mesh CreateRasterizerState 失敗\n"); return false; }
+    if (!CreateWhiteTexture()) { OutputDebugStringA("★ Mesh CreateWhiteTexture 失敗\n"); return false; }
     return true;
 }
 
@@ -50,7 +52,7 @@ void Mesh::ReleaseSharedResources() {
     if (depthStencilState) { depthStencilState->Release(); depthStencilState = nullptr; }
     if (depthStencilStateNoWrite) { depthStencilStateNoWrite->Release(); depthStencilStateNoWrite = nullptr; }
     if (rasterizerState) { rasterizerState->Release(); rasterizerState = nullptr; }
-    if (wireframeRasterizerState) { wireframeRasterizerState->Release(); wireframeRasterizerState = nullptr; }
+    if (whiteTexture) { whiteTexture->Release(); whiteTexture = nullptr; }
     if (sampler) { sampler->Release(); sampler = nullptr; }
     if (inputLayout) { inputLayout->Release(); inputLayout = nullptr; }
     if (pixelShader) { pixelShader->Release(); pixelShader = nullptr; }
@@ -190,16 +192,34 @@ bool Mesh::CreateRasterizerState() {
     rd.CullMode = D3D11_CULL_NONE;
     rd.DepthClipEnable = TRUE;
     HRESULT hr = Graphics::device->CreateRasterizerState(&rd, &rasterizerState);
-    if (FAILED(hr)) return false;
-
-    // Collider可視化(デバッグ表示)用: 塗りつぶさず、線だけで描画する
-    D3D11_RASTERIZER_DESC wireRd = rd;
-    wireRd.FillMode = D3D11_FILL_WIREFRAME;
-    hr = Graphics::device->CreateRasterizerState(&wireRd, &wireframeRasterizerState);
     return SUCCEEDED(hr);
 }
 
-void Mesh::Draw(const Transform& transform, const Camera& camera, XMFLOAT4 color, const Light& light, bool writeDepth, bool wireframe) {
+bool Mesh::CreateWhiteTexture() {
+    const UINT32 white = 0xFFFFFFFF;
+    D3D11_TEXTURE2D_DESC td = {};
+    td.Width = 1;
+    td.Height = 1;
+    td.MipLevels = 1;
+    td.ArraySize = 1;
+    td.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+    td.SampleDesc.Count = 1;
+    td.Usage = D3D11_USAGE_IMMUTABLE;
+    td.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+
+    D3D11_SUBRESOURCE_DATA data = {};
+    data.pSysMem = &white;
+    data.SysMemPitch = sizeof(white);
+
+    ID3D11Texture2D* texture = nullptr;
+    HRESULT hr = Graphics::device->CreateTexture2D(&td, &data, &texture);
+    if (FAILED(hr)) return false;
+    hr = Graphics::device->CreateShaderResourceView(texture, nullptr, &whiteTexture);
+    texture->Release();  // SRVが参照を持っているので、こちらの参照は手放してよい
+    return SUCCEEDED(hr);
+}
+
+void Mesh::Draw(const Transform& transform, const Camera& camera, XMFLOAT4 color, const Light& light, bool writeDepth) {
     assert(context && "context が nullptr");
     assert(vertexBuffer && "vertexBuffer が nullptr");
 
@@ -229,19 +249,20 @@ void Mesh::Draw(const Transform& transform, const Camera& camera, XMFLOAT4 color
     float blendFactor[4] = {};
     context->OMSetBlendState(blendState, blendFactor, 0xFFFFFFFF);
     context->OMSetDepthStencilState(writeDepth ? depthStencilState : depthStencilStateNoWrite, 0);
-    context->RSSetState(wireframe ? wireframeRasterizerState : rasterizerState);
+    context->RSSetState(rasterizerState);
 
     UINT stride = sizeof(MeshVertex), offset = 0;
     context->IASetInputLayout(inputLayout);
     context->IASetVertexBuffers(0, 1, &vertexBuffer, &stride, &offset);
-    context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+    context->IASetPrimitiveTopology(topology);
 
     context->VSSetShader(vertexShader, nullptr, 0);
     context->VSSetConstantBuffers(0, 1, &constantBuffer);
 
     context->PSSetShader(pixelShader, nullptr, 0);
     context->PSSetConstantBuffers(0, 1, &constantBuffer);
-    if (srv) context->PSSetShaderResources(0, 1, &srv);
+    ID3D11ShaderResourceView* view = srv ? srv : whiteTexture;
+    context->PSSetShaderResources(0, 1, &view);
     context->PSSetSamplers(0, 1, &sampler);
 
     context->Draw((UINT)coloredVerts.size(), 0);
@@ -322,6 +343,74 @@ std::vector<MeshVertex> Mesh::CreateSphere(int rings, int segments) {
         }
     }
 
+    return verts;
+}
+
+// ─── 輪郭(線)データ ─────────────────────────────
+namespace {
+    // 線で使う頂点。光源の影響を受けない描き方(全方向から光)で使う前提なので法線は何でもよいが、
+    // 0ベクトルだとシェーダーの正規化でNaNになるため、適当な向きを入れておく
+    MeshVertex LineVertex(float x, float y, float z) {
+        return MeshVertex{ { x, y, z }, { 0.f, 0.f, -1.f }, { 1.f, 1.f, 1.f, 1.f }, { 0.f, 0.f } };
+    }
+
+    // 中心(0,0,0)・直径1の円を、segments本の線分で追加する。plane: 0=XY, 1=XZ, 2=YZ
+    void AppendCircle(std::vector<MeshVertex>& out, int segments, int plane) {
+        auto point = [&](int i) {
+            float a = XM_2PI * (float)i / (float)segments;
+            float c = cosf(a) * 0.5f, s = sinf(a) * 0.5f;
+            if (plane == 0) return LineVertex(c, s, 0.f);
+            if (plane == 1) return LineVertex(c, 0.f, s);
+            return LineVertex(0.f, c, s);
+        };
+        for (int i = 0; i < segments; i++) {
+            out.push_back(point(i));
+            out.push_back(point(i + 1));
+        }
+    }
+}
+
+std::vector<MeshVertex> Mesh::CreateCubeOutline() {
+    const float h = 0.5f;
+    XMFLOAT3 c[8] = {
+        { -h, -h, -h }, {  h, -h, -h }, {  h,  h, -h }, { -h,  h, -h },  // 手前(z=-0.5)
+        { -h, -h,  h }, {  h, -h,  h }, {  h,  h,  h }, { -h,  h,  h },  // 奥(z=0.5)
+    };
+    const int edges[12][2] = {
+        { 0, 1 }, { 1, 2 }, { 2, 3 }, { 3, 0 },  // 手前の四角
+        { 4, 5 }, { 5, 6 }, { 6, 7 }, { 7, 4 },  // 奥の四角
+        { 0, 4 }, { 1, 5 }, { 2, 6 }, { 3, 7 },  // 手前と奥をつなぐ辺
+    };
+    std::vector<MeshVertex> verts;
+    for (auto& e : edges) {
+        verts.push_back(LineVertex(c[e[0]].x, c[e[0]].y, c[e[0]].z));
+        verts.push_back(LineVertex(c[e[1]].x, c[e[1]].y, c[e[1]].z));
+    }
+    return verts;
+}
+
+std::vector<MeshVertex> Mesh::CreateSquareOutline() {
+    const float h = 0.5f;
+    XMFLOAT2 c[4] = { { -h, -h }, { h, -h }, { h, h }, { -h, h } };
+    std::vector<MeshVertex> verts;
+    for (int i = 0; i < 4; i++) {
+        verts.push_back(LineVertex(c[i].x, c[i].y, 0.f));
+        verts.push_back(LineVertex(c[(i + 1) % 4].x, c[(i + 1) % 4].y, 0.f));
+    }
+    return verts;
+}
+
+std::vector<MeshVertex> Mesh::CreateCircleOutline(int segments) {
+    std::vector<MeshVertex> verts;
+    AppendCircle(verts, segments, 0);
+    return verts;
+}
+
+std::vector<MeshVertex> Mesh::CreateSphereOutline(int segments) {
+    std::vector<MeshVertex> verts;
+    AppendCircle(verts, segments, 0);
+    AppendCircle(verts, segments, 1);
+    AppendCircle(verts, segments, 2);
     return verts;
 }
 
