@@ -106,8 +106,22 @@ namespace Input {
     bool GetKeyUp(WORD button, int padIndex = 0);
 
     // マウス座標(画面中央が(0,0)、Y+は下方向のピクセル数)。
+    // ウィンドウの大きさが変わっても、ゲーム画面の解像度(Graphics::width/height)の単位で返す
+    // (スプライトやボタンの座標とそのまま比べられる)。
     // カメラの位置は考慮しない。ドラッグ量の計算など「画面上での動き」を見たい時に使う
     DirectX::XMFLOAT2 GetMousePosition();
+
+    // 前のフレームからのマウスの移動量(GetMousePositionと同じ単位・向き。Y+は下方向)。
+    // カーソルを固定していてもいなくても使える。
+    // 固定した直後・ウィンドウがアクティブに戻った直後のフレームは0(視点が急に跳ねないように)
+    DirectX::XMFLOAT2 GetMouseDelta();
+
+    // カーソルの固定(UnityのCursor.lockState = CursorLockMode.Lockedに相当)。
+    // trueにすると、カーソルを隠して、毎フレーム画面(ウィンドウの中)の中心へ戻す。
+    // マウスを動かした量はGetMouseDelta()で取れるので、FPSのような視点操作に使う。
+    // 別のウィンドウを選んだり最小化したりすると、自動で解除される(IsCursorLocked()がfalseになる)
+    void SetCursorLocked(bool locked);
+    bool IsCursorLocked();
 
     // マウスのワールド座標(2D用カメラ Image::GetCamera() の位置を考慮し、Y+は上方向)。
     // 2Dのオブジェクト(Z=0)とそのまま比較できるので、クリック判定や「マウスの方を向く」に使う

@@ -1,6 +1,7 @@
 ﻿#pragma once
 #include "../../../Engine/Scene.h"
 
+// ゲーム本編のシーン
 class GameScene : public Scene
 {
 public:

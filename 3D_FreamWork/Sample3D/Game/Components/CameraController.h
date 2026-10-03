@@ -5,7 +5,7 @@
 using namespace DirectX;
 
 // Ownerを追いかける3D専用のカメラ。TABキーで三人称/一人称を切り替えられる。
-// 右クリックを押している間、マウスの移動量で視点を回転できる。
+// カーソルを画面中心に固定し、マウスを動かした量で視点を回転する(ESCで解放、ゲーム画面の左クリックで再び固定)。
 // Image::GetCamera3D()を直接操作するので、有効な間はImage::BeginFrame()による
 // 2Dカメラへの自動追従を止めておく(Init/Uninitで自動的に切り替える)
 class CameraController : public Component {
@@ -21,14 +21,14 @@ private:
     float distance = 300.0f;          // 三人称: 注視点からカメラまでの距離
     float thirdPersonHeight = 80.0f;  // 三人称: 注視点より上に足すオフセット
     float eyeHeight = 20.0f;          // 一人称: Owner位置からの目線の高さオフセット
-    float mouseSensitivity = 0.005f;
+    float mouseSensitivity = 0.003f;  // マウス1ピクセルあたりの回転量(ラジアン)
     float minPitch = -1.3f; // 約-75度
     float maxPitch = 1.3f;  // 約 75度
 
-    XMFLOAT2 lastMousePos{ 0.f, 0.f };
-    bool hasLastMousePos = false;
+    bool lockedThisFrame = false;   // このフレームの左クリックで固定したか(そのクリックで弾を撃たないため)
 
     XMFLOAT3 ComputeForward() const;
+    void UpdateCursorLock();        // カーソルの固定・解放(Input::SetCursorLocked)と、マウス移動量での視点回転
 
 public:
     void Init() override;
@@ -37,4 +37,11 @@ public:
 
     void SetMode(Mode m) { mode = m; }
     Mode GetMode() const { return mode; }
+
+    // 水平方向の視点角度(ラジアン)。0で+Z方向を向き、増えるほど+X方向(右)へ回る
+    float GetYaw() const { return yaw; }
+
+    // カーソルを固定しているか / このフレームの左クリックで固定したか(PlayerControllerが発射の判定に使う)
+    bool IsCursorLocked() const;
+    bool IsLockedThisFrame() const { return lockedThisFrame; }
 };

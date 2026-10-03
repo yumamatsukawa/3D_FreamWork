@@ -3,5 +3,5 @@
 class Scene;
 class GameObject;
 
-// Playerを構成するGameObjectを組み立てて、sceneに追加する
+// Player(立方体。カメラ基準のWASDで移動・カメラと同じ向きを向く・左クリックで発射)を作る
 GameObject* CreatePlayer(Scene& scene);

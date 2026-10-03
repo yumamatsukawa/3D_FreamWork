@@ -2,15 +2,55 @@
 #include "../../../Engine/GameObject.h"
 #include "../../../Engine/Input.h"
 #include "../../../Engine/Image.h"
+#include "../../../Engine/Graphics.h"
+#include <cmath>
+
+// マウスがゲーム画面(ウィンドウの中)にあるか。GetMousePositionは画面中央が原点で、画面の解像度の単位
+bool IsMouseInScreen() {
+    XMFLOAT2 mousePos = Input::GetMousePosition();
+    return fabsf(mousePos.x) <= Graphics::width / 2.f && fabsf(mousePos.y) <= Graphics::height / 2.f;
+}
 
 void CameraController::Init() {
     // 有効な間は、Image::BeginFrame()による2Dカメラへの自動追従を止める
     Image::SetCamera3DAutoSync(false);
+
+    // 始めはカーソルを固定した状態にする
+    Input::SetCursorLocked(true);
 }
 
 void CameraController::Uninit() {
     // 他のオブジェクトの2D/3Dカメラ同期に影響しないよう、元に戻す
     Image::SetCamera3DAutoSync(true);
+
+    // カーソルの固定を解除する(タイトル画面などでカーソルが消えたままにならないように)
+    Input::SetCursorLocked(false);
+}
+
+bool CameraController::IsCursorLocked() const {
+    return Input::IsCursorLocked();
+}
+
+void CameraController::UpdateCursorLock() {
+    lockedThisFrame = false;
+
+    // ESCで解除、ゲーム画面を左クリックで固定
+    // (別のウィンドウを選ぶと、固定はInput側で自動的に解除される)
+    if (Input::IsCursorLocked()) {
+        if (Input::GetKeyDown(KEY_ESCAPE)) Input::SetCursorLocked(false);
+    }
+    else if (Input::GetKeyDown(MOUSE_LEFT) && IsMouseInScreen()) {
+        Input::SetCursorLocked(true);
+        lockedThisFrame = true;
+    }
+
+    // 視点回転: 固定中だけ、マウスの移動量で回す(固定したフレームは使わない)
+    if (!Input::IsCursorLocked() || lockedThisFrame) return;
+    XMFLOAT2 delta = Input::GetMouseDelta();
+    yaw += delta.x * mouseSensitivity;
+    pitch -= delta.y * mouseSensitivity;
+    if (pitch < minPitch) pitch = minPitch;
+    if (pitch > maxPitch) pitch = maxPitch;
 }
 
 XMFLOAT3 CameraController::ComputeForward() const {
@@ -23,23 +63,8 @@ void CameraController::Update(float dt) {
         mode = (mode == Mode::ThirdPerson) ? Mode::FirstPerson : Mode::ThirdPerson;
     }
 
-    // 右クリックを押している間だけ、マウスの移動量で視点を回す
-    XMFLOAT2 mousePos = Input::GetMousePosition();
-    if (Input::GetKeyPress(MOUSE_RIGHT)) {
-        if (hasLastMousePos) {
-            float dx = mousePos.x - lastMousePos.x;
-            float dy = mousePos.y - lastMousePos.y;
-            yaw += dx * mouseSensitivity;
-            pitch -= dy * mouseSensitivity;
-            if (pitch < minPitch) pitch = minPitch;
-            if (pitch > maxPitch) pitch = maxPitch;
-        }
-        hasLastMousePos = true;
-    }
-    else {
-        hasLastMousePos = false;
-    }
-    lastMousePos = mousePos;
+    // カーソルの固定と、マウスの移動量での視点回転
+    UpdateCursorLock();
 
     XMFLOAT3 forward = ComputeForward();
 

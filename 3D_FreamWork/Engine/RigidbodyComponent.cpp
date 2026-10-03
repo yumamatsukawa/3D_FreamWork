@@ -11,9 +11,11 @@ using namespace DirectX;
 bool RigidbodyComponent::debugDrawEnabled = false;
 
 namespace {
-    // DirectX(左手系)とPhysX(右手系)とで回転の向きが逆になるため、変換が必要。
-    // X/Y成分だけを反転させる変換で、これは自分自身の逆変換にもなっている
-    // (DirectX→PhysXでもPhysX→DirectXでも同じ式で変換できる)。
+    // Transform.rotate(度数のオイラー角)を、PhysXの回転(四元数)に変換する。
+    // 位置(ToPxPos)を同じ数値のまま渡しているので、回転も同じ数値の四元数をそのまま渡せばよい
+    // (DirectXの四元数とPhysXのPxQuatは、同じ(x,y,z,w)なら同じ座標を同じ場所へ回す。
+    //  例: Y軸まわりにθ回すと、どちらも+Zが(sinθ, 0, cosθ)へ行く)。
+    // ※以前はX/Y成分の符号を反転していたが、位置を反転していないので逆向きに回ってしまっていた
     PxQuat ToPxQuat(const XMFLOAT3& eulerDegrees) {
         XMMATRIX m = XMMatrixRotationRollPitchYaw(
             XMConvertToRadians(eulerDegrees.x),
@@ -21,7 +23,7 @@ namespace {
             XMConvertToRadians(eulerDegrees.z));
         XMFLOAT4 qf;
         XMStoreFloat4(&qf, XMQuaternionRotationMatrix(m));
-        return PxQuat(-qf.x, -qf.y, qf.z, qf.w);
+        return PxQuat(qf.x, qf.y, qf.z, qf.w);
     }
 
     PxVec3 ToPxPos(const Transform& t) {
@@ -39,7 +41,8 @@ namespace {
         PxTransform pose = actor->getGlobalPose();
         transform.position = { pose.p.x, pose.p.y, pose.p.z };
 
-        XMVECTOR q = XMVectorSet(-pose.q.x, -pose.q.y, pose.q.z, pose.q.w);
+        // ToPxQuatと同じく、四元数は同じ数値のまま使う
+        XMVECTOR q = XMVectorSet(pose.q.x, pose.q.y, pose.q.z, pose.q.w);
         XMFLOAT4X4 mf;
         XMStoreFloat4x4(&mf, XMMatrixRotationQuaternion(q));
 
@@ -59,8 +62,8 @@ namespace {
     }
 
     // Transformの現在位置を、PhysXのキネマティック目標姿勢として設定する(Kinematic用)。
-    // 回転はここでは動かさず、作成時の向きのまま維持する(Player/Enemyのrotate.zは
-    // 画面上のビルボード回転であって3D空間での向きではないため、そのまま3D回転には使わない)
+    // 回転はここでは動かさず、作成時の向きのまま維持する(例: Sample2Dのrotate.zは
+    // スプライトの見た目の向きに使っているもので、当たり判定の向きにまで反映したくないため)
     void SyncActorFromTransform(PxRigidActor* actor, const Transform& transform) {
         PxRigidDynamic* dynamic = actor->is<PxRigidDynamic>();
         if (!dynamic) return;

@@ -15,6 +15,10 @@ argument-hint: "[Sample2D|Sample3D] [オブジェクト名] [何をするオブ�
 
 見た目の無い「管理役」(スコア係・出現係など)の場合は、Componentを `<役割>Manager`、工場関数のファイルを別名(例: `EnemyManager` ↔ `Objects/EnemySpawner`)にする。Componentと同じ名前のファイルを `Objects/` に作らない。
 
+名前はすべて `CLAUDE.md` の「命名規則」に従う(クラス・関数は PascalCase、変数・定数は camelCase、接頭辞なし、英語)。
+
+**このスキルでは Engine(`3D_FreamWork/Engine/`)を変更しない。** 作りたいものに Engine 側の機能追加がどうしても必要だと分かったら、作業を止めて、何を・なぜ追加したいかを説明してユーザーの了承をもらう。
+
 ## 2. お手本を読む
 
 書き始める前に、同じサンプルの既存ファイルを読んで書き方をそろえる:

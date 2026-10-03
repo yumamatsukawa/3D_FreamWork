@@ -1,0 +1,11 @@
+{
+  "agent": "navigator",
+  "permissions": {
+    "ask": [
+      "Edit(/3D_FreamWork/Engine/**)",
+      "Edit(/3D_FreamWork/Shader.hlsl)",
+      "Edit(/3D_FreamWork/Shader3D.hlsl)",
+      "Edit(/3D_FreamWork/PhysX.props)"
+    ]
+  }
+}

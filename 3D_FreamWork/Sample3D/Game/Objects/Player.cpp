@@ -1,7 +1,7 @@
 ﻿#include "Player.h"
 #include "../../../Engine/Scene.h"
 #include "../../../Engine/GameObject.h"
-#include "../../../Engine/SpriteRenderer.h"
+#include "../../../Engine/MeshRenderer.h"
 #include "../../../Engine/RigidbodyComponent.h"
 #include "../Components/PlayerController.h"
 #include "../Components/CameraController.h"
@@ -9,26 +9,25 @@
 GameObject* CreatePlayer(Scene& scene) {
     GameObject* player = scene.CreateObject("Player", "Player");
     player->transform.position = {   0.0f,   0.0f,   0.0f };
-    player->transform.scale    = { 100.0f, 100.0f,   1.0f };
+    player->transform.scale    = { 100.0f, 100.0f, 100.0f };
 
-    // 見た目(3Dオブジェクト(cube)と正しく前後関係が出るよう、World空間モードにする)
-    auto* sprite = player->AddComponent<SpriteRenderer>(L"Assets/player.png", 8, 2);
-    sprite->SetSpriteIndex(5);
-    sprite->SetWorldSpace(true);
-    // X/Zの傾きは固定し、水平方向(Y軸)だけカメラに向く「立て看板」ビルボードにする
-    sprite->SetBillboardLockY(false);
+    // 見た目(3Dメッシュの立方体)
+    player->AddComponent<MeshRenderer>(Mesh::CreateCube());
 
+    // 当たり判定+物理演算(PhysX)
     auto* rigidbody = player->AddComponent<BoxRigidbodyComponent>(BodyType::Dynamic, player->transform.scale, 100.f);
     rigidbody->SetUseGravity(true);
-    // SetFreezeRotation(true): ぶつかってもゴロゴロ回転しないようにする。
-    // これにより見た目の向き(Q/E、PlayerController側)も物理側に上書きされず、そのまま効く
+    // ぶつかっても回転しない。見た目の向き(rotate.y)もPhysXに上書きされず、PlayerControllerの値がそのまま効く
     rigidbody->SetFreezeRotation(true);
+    // ※このままだと当たり判定の箱は回らないので、PlayerControllerがrotate.yに合わせて箱も回している
 
-    // 動き・入力操作
-    player->AddComponent<PlayerController>();
+    // 3Dカメラ(TABキーで三人称/一人称切り替え、マウス移動で視点回転。ESCでカーソル解放、左クリックで再固定)。
+    // PlayerControllerより先に付けて、このフレームのカメラの向きを使えるようにする
+    auto* camera = player->AddComponent<CameraController>();
 
-    // 3Dカメラ(TABキーで三人称/一人称切り替え、右クリックドラッグで視点回転)
-    player->AddComponent<CameraController>();
+    // 動き・入力操作(カメラの向きを基準にする)
+    auto* controller = player->AddComponent<PlayerController>();
+    controller->Setup(camera);
 
     return player;
 }

@@ -212,7 +212,18 @@ Image::GetCamera().position.y = player->transform.position.y;
 | 関数 | 中身 | 使いどころ |
 |---|---|---|
 | `Input::GetMouseWorldPosition()` | ワールド座標(2D用カメラの位置を考慮済み、Y+=上方向) | クリック判定・マウスの方を向くなど、2Dオブジェクトと比較する時(Sample2Dの`PlayerController`/`ButtonController`が実例) |
-| `Input::GetMousePosition()` | 画面中央からのピクセル数(カメラ無関係、Y+=下方向のまま) | ドラッグ量など画面上での動きを見る時(Sample3Dの`CameraController`が実例) |
+| `Input::GetMousePosition()` | 画面中央からのピクセル数(カメラ無関係、Y+=下方向のまま) | ドラッグ量など画面上での動きを見る時 |
+
+`GetMousePosition()`は、ウィンドウの中(クライアント領域)での位置を、ゲーム画面の解像度(`Graphics::width/height`)の単位に直して返します。ウィンドウ枠のぶん、実際のウィンドウの中はゲーム画面の解像度より少し小さく、画面はそこへ縮めて表示されているためです(以前は枠を含む幅の半分を中心にしていたので、数ピクセル〜十数ピクセルずれていました)。
+
+マウスの移動量とカーソルの固定(FPSのような視点操作用):
+
+| 関数 | 中身 |
+|---|---|
+| `Input::GetMouseDelta()` | 前のフレームからのマウスの移動量(`GetMousePosition()`と同じ単位、Y+=下方向)。固定中でもそうでなくても使える。固定した直後・ウィンドウがアクティブに戻った直後のフレームは0 |
+| `Input::SetCursorLocked(bool)` / `Input::IsCursorLocked()` | カーソルの固定(Unityの`Cursor.lockState = CursorLockMode.Locked`に相当)。固定中はカーソルを隠し、毎フレーム画面の中心へ戻す。別のウィンドウを選んだ・最小化した時は自動で解除される |
+
+「ESCで解除・クリックで再固定」のようなルールはEngineには無いので、使う側(Sample3Dの`CameraController`が実例)で決めます。固定したComponentが破棄される時は、`Uninit()`で`SetCursorLocked(false)`に戻してください。
 
 `GetMouseWorldPosition()`は「カメラ位置 + マウス座標(Yは反転)」で計算しているので、Z=0にある2Dオブジェクトとぴったり一致します。カメラを動かす処理がある場合は、カメラを動かした**後**で呼ぶと、そのフレームのカメラ位置で計算されます。
 
@@ -227,7 +238,11 @@ player->AddComponent<CameraController>();
 ```
 
 - `TAB`キー: 三人称 ⇔ 一人称を切り替え
-- 右クリックを押しながらマウスを動かす: 視点を回転
+- マウスを動かす: 視点を回転(カーソルは隠れて、画面中心に固定される。`Input::SetCursorLocked`/`GetMouseDelta`を使用)
+- `ESC`: カーソルの固定を解除(カーソルが表示され、視点は回らなくなる)。ゲーム画面を左クリックすると再び固定(そのクリックでは弾は出ない)
+- 別のウィンドウを選ぶと固定は解除される(戻ってきたら左クリックで再固定)。タイトルに戻る時(Component破棄時)にカーソルは元に戻る
+- `IsCursorLocked()` / `IsLockedThisFrame()`: カーソルを固定中か / このフレームの左クリックで固定したか。Sample3Dの`PlayerController`が、弾を撃ってよいかの判定に使っている
+- `GetYaw()`: 今の水平方向の視点角度(ラジアン。0で+Z方向、増えると右へ回る)。Sample3Dの`PlayerController`が、向きとWASD移動の基準に使っている(`CreatePlayer()`の中で`PlayerController::Setup()`にポインタを渡している)
 
 `Image::GetCamera3D()`を直接操作するため、有効な間は`Image::BeginFrame()`による2Dカメラへの自動追従(前述)を自動で止めます(`Image::SetCamera3DAutoSync(false)`。Component破棄時に自動でtrueへ戻ります)。MeshRendererだけでなく、Worldモードの`SpriteRenderer`(ビルボード)もこのcamera3Dを使うので、両方とも同じカメラの動きに正しく追従します。**UIモードの`SpriteRenderer`(HUDなど)は画面に固定されたままで、影響を受けません。**
 
@@ -378,14 +393,19 @@ Sample2D/Game/Components/  TitleController, ButtonController, BackgroundControll
                             EnemyManager, BulletManager
 Sample2D/Game/Scenes/      TitleScene, GameScene
 
-Sample3D/Game/Objects/     Title, Player, Cube, Sphere, Ground, Skybox
-Sample3D/Game/Components/  TitleController, PlayerController, CameraController,
-                            SpinComponent(未アタッチ), SkyboxFollowComponent
+Sample3D/Game/Objects/     Title, Button, StartButton, Skybox, Ground, Player, GameSystem, HUD,
+                            EnemySpawner, BulletSpawner, Cube(未使用), Sphere(未使用)
+Sample3D/Game/Components/  TitleController, ButtonController, GroundController, PlayerController,
+                            CameraController, BulletController, EnemyController, GameManager,
+                            HUDController, EnemyManager, BulletManager, SkyboxFollowComponent,
+                            SpinComponent(未使用)
 Sample3D/Game/Scenes/      TitleScene, GameScene
 ```
 
 - **Sample2D**: トップダウン視点のアリーナシューター。タイトル画面のSTARTボタンをクリックするとゲーム開始(ボタンは`CreateButton(scene, 文字, 位置, クリックされた時の処理)`で作れる汎用部品なので、他の画面のボタンにも使い回せる)。WASDで移動、Playerは常にマウスの方を向き、左クリックでその方向へ弾を発射。背景はタイル状に敷き詰めた床(`BackgroundController`)で、移動するとスクロールする。敵(`EnemyManager`が一定間隔でPlayerの周囲にランダムスポーンさせる)がゆっくり追いかけてきて、弾を当てると倒せる(`EventBus`で`"EnemyDefeated"`イベントを発行しスコア加算)。敵に触れるとHPが減り(1秒間の無敵時間つき)、0になるとゲームオーバー画面が出てSPACEでタイトルに戻る。当たり判定・物理はPhysXを使い(Player=`CircleRigidbodyComponent`、敵=`SquareRigidbodyComponent`、弾=`CircleRigidbodyComponent`)、Player・敵はDynamic(`SetVelocity()`で速度を渡して動かす。重力なし・回転なし・`SetFreezePositionZ(true)`で奥行き方向に固定)、弾はKinematicのトリガー。3Dカメラは使わない(`CameraController`なし)。
-- **Sample3D**: 3人称/1人称カメラで動き回れる3D空間のショーケース。WASDで移動、TABでカメラ切り替え、右クリックドラッグで視点回転。Ground/Cube/Skyboxを配置し、Sphereが重力で落下してGroundの上に着地する。
+- **Sample3D**: Sample2Dと同じアリーナシューターを3D空間で遊べるようにしたもの。タイトル画面のSTARTボタンでゲーム開始。Player(立方体)は三人称カメラ(`CameraController`。マウス移動で視点回転。カーソルは画面中心に固定され、ESCで解除・左クリックで再固定。TABで一人称に切り替え)と同じ向きを向き、WASDもカメラ基準(W=カメラの前、D=カメラの右)で移動する。左クリックでPlayerの向いている方向へ、地面と水平に弾(球)を発射。敵は2Dの画像(Worldモードの`SpriteRenderer`。Y軸だけカメラの方を向く立て看板)で、地面の上をPlayerに向かって歩いてくる。スコア・HP・無敵時間・ゲームオーバー(SPACEでタイトルへ)・`EventBus`のイベント名はSample2Dと同じ。Player・敵はDynamicの`BoxRigidbodyComponent`(重力あり・回転なし。Y速度は`GetVelocity().y`を維持したまま`SetVelocity()`で動かす)、弾はKinematicのトリガー(`SphereRigidbodyComponent`)。地面は、1000四方のタイルを3Dカメラの描画距離(farZ)の範囲だけ敷き詰めて描く`GroundController`(見た目)と、見えない大きなStaticの板(当たり判定)の組み合わせ。遠景はスカイボックス。
+
+**Sample3Dの実装メモ**: 向きはすべて`transform.rotate.y`(度)で表し、`rotate.y`の時の正面(ローカルの+Z)は`(sin, 0, cos)`の方向になる(`CameraController::GetYaw()`の式と同じ)。Worldモードの`SpriteRenderer`は`rotate.y`を使わない(ビルボードの向きとZ軸回転だけを使う)ので、敵の画像の向きは`SetBillboardLock(true, false, true)`でカメラの方へ向けている。Playerは`SetFreezeRotation(true)`で、`RigidbodyComponent`は位置しか同期しないため、`PlayerController`が`rotate.y`が変わった時に`GetActor()`の`setGlobalPose`で当たり判定の箱の回転も合わせている(デバッグ表示の枠と実際の判定が同じ向きになる)。一人称の間は、カメラが立方体の内側に入るのでPlayerの`MeshRenderer`を非表示にしている。
 
 **Sample2Dの実装メモ**: `EnemyManager`/`BulletManager`はどちらも`ObjectPool`を使った使い回し方式(実例は`Engine/ObjectPool.h`)。プールで使い回すオブジェクトは`Scene::CreateObject("Pooled")`で名前だけ付けて作られるため、`GameObject::SetTag()`で組み立て時にタグ("Enemy"/"Bullet")を後付けしている。敵を倒す/Playerがダメージを受ける判定は、それぞれ`EnemyController::OnTriggerEnter2D`(相手のタグが"Bullet")と`PlayerController::OnCollisionStay2D`(相手のタグが"Enemy")が担当する。
 
@@ -478,12 +498,12 @@ BoxRigidbodyComponent(BodyType bodyType, XMFLOAT3 size, float density,
 - サイズ・半径を省略すると、Ownerの`transform.scale`から自動で決まる
 - `isTrigger`: `true`ですり抜ける当たり判定(`OnTriggerEnter2D`)になる。既定`false`(押し返される、`OnCollisionEnter2D`)
 - `isStaticForPush`: `true`だと、Kinematic同士がぶつかった時に自分は押し戻されない側になる(Enemyのように、自分は動かず相手だけ押し返したい時に使う。`BodyType::Static`とは別の概念で、Kinematic同士の手動押し戻しにだけ関係する)
-- 実例: Sample3Dの`Game/Objects/Sphere.cpp`(Dynamic)・`Game/Objects/Ground.cpp`(Static)、Sample2Dの`Game/Components/BulletManager.cpp`(弾=Kinematic)・`Game/Components/EnemyManager.cpp`(敵=Dynamic)・`Game/Objects/Player.cpp`(Dynamic)
+- 実例: Sample3Dの`Game/Objects/Player.cpp`(Dynamic)・`Game/Objects/Ground.cpp`(Static)、Sample2Dの`Game/Components/BulletManager.cpp`(弾=Kinematic)・`Game/Components/EnemyManager.cpp`(敵=Dynamic)・`Game/Objects/Player.cpp`(Dynamic)
 
 **内部実装メモ**:
 - Dynamic: 毎フレーム、PhysXのシミュレーション結果(`PxRigidActor`の姿勢)を`Transform`に書き戻す。ただし`SetFreezeRotation(true)`で回転をロックしている間は、位置だけを反映する(回転は自分のコードに任せる。詳細は次項)
 - Kinematic: 毎フレーム、`Transform`の現在値(PlayerControllerなどが書き換えた位置)を`setKinematicTarget()`でPhysXへ渡す。次の`Physics::Update()`でそこまで動き、他のDynamicな物体を正しく押せるようになる
-- DirectX(左手系)とPhysX(右手系)は回転の向きが逆になるため、変換をかけている(位置はそのままでよい)。この変換は理屈の上では正しいはずですが、**回転がPhysXと逆向きに見えないか、実際に転がるオブジェクト(直方体など)で目視確認してください**。おかしければ`ToPxQuat`/`SyncTransformFromActor`のX/Y反転の箇所を疑ってください
+- 位置も回転も、DirectXとPhysXで同じ数値のまま受け渡している(`ToPxQuat`/`SyncTransformFromActor`)。DirectXの四元数とPhysXの`PxQuat`は、同じ(x,y,z,w)なら同じ座標を同じ場所へ回すため(例: Y軸まわりにθ回すと、どちらも+Zが(sinθ, 0, cosθ)へ行く)。以前は「左手系と右手系で向きが逆」として四元数のX/Y成分の符号を反転していたが、位置は反転していなかったので、PhysXの中の形が見た目と逆向きに回っていた(修正済み)
 
 ### Player(キャラクター)の移動をPhysXに任せる
 
@@ -515,7 +535,7 @@ if (rigidbody) rigidbody->SetVelocity(velocity);
 - `Transform.position`を直接書き換えるのではなく、`SetVelocity()`で「速度」だけを渡す。実際に動く処理・何かにぶつかって止まる処理は、全てPhysX自身の計算に任せる
 - `SetUseGravity(false)`/`SetFreezeRotation(true)`/`SetFreezePositionY(true)`はそれぞれ独立していて、必要なものだけ呼べる。Playerは3つ全部、Sphereはどれも呼ばない(重力あり・自由に回転)、といった使い分けができる
 - **`SetVelocity()`は毎回3軸全部を上書きする**ので注意してください。`PlayerController`はX/Zだけ操作したいのですが、`{velocity.x, 0, velocity.z}`のように**Y成分に0を渡すと、重力で付いたY速度が毎フレーム消されてしまい、自由落下がほとんど効かなくなります**(`SetFreezePositionY(true)`の時はY速度自体が無意味なので問題になりませんが、重力を使う設定に変えると表面化します)。触らない軸は`GetVelocity()`で今の値を読んでから渡してください
-- `SetFreezeRotation(true)`にしてあるので、PhysXの回転はTransform.rotateへ反映されない。そのため見た目の向き(`rotate.z`。Sample2Dではマウスの方向、Sample3DではQ/Eキーで操作し、Sample2Dでは弾の発射方向にも使う)は、物理側に上書きされることなく`PlayerController`が直接書き換えたまま維持される(`SetFreezeRotation`は「ぶつかっても回転しない」かどうかと、「物理の回転をTransformへ反映するか」を同時に切り替える。詳しくは`RigidbodyComponent.h`のコメント参照)
+- `SetFreezeRotation(true)`にしてあるので、PhysXの回転はTransform.rotateへ反映されない。そのため見た目の向き(Sample2Dでは`rotate.z`=マウスの方向、Sample3Dでは`rotate.y`=カメラの向き。どちらも弾の発射方向にも使う)は、物理側に上書きされることなく`PlayerController`が直接書き換えたまま維持される(`SetFreezeRotation`は「ぶつかっても回転しない」かどうかと、「物理の回転をTransformへ反映するか」を同時に切り替える。詳しくは`RigidbodyComponent.h`のコメント参照)
 - **コンポーネントの追加順に注意**: `SphereRigidbodyComponent`は`PlayerController`より先に`AddComponent`すること。Componentは追加順に`Update()`されるため、逆にすると`PlayerController`のカメラ追従処理が1フレーム古い位置を読んでしまう
 - `SetVelocity()`/`SetUseGravity()`/`SetFreezeRotation()`/`SetFreezePositionY()`は全て`Kinematic`/`Static`では何もしません(`Dynamic`専用)。PhysXの生のAPIをもっと細かく触りたい時だけ`GetActor()`を使ってください
 - `ObjectPool`で使い回されるオブジェクト(Bulletなど)は、`SetActive()`が呼ばれると`OnActiveChanged()`経由でPhysXのシーンから着脱される。再度有効化された直後は、前回位置からの掃引(スイープ)で誤ったヒット判定が出ないよう、次の`Update()`で`setKinematicTarget()`ではなく直接`setGlobalPose()`でテレポートするようにしている
