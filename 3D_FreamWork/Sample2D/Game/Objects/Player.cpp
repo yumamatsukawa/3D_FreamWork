@@ -20,8 +20,8 @@ GameObject* CreatePlayer(Scene& scene) {
     // 当たり判定+物理演算(PhysX)。
     auto* rigidbody = player->AddComponent<CircleRigidbodyComponent>(BodyType::Dynamic, 50.0f, 100.f);
     rigidbody->SetUseGravity(false);      // 重力を適用するか
-    rigidbody->SetFreezeRotation(true);   // ぶつかったときに回転するか
-    rigidbody->SetFreezePositionZ(true);  // ぶつかったときに移動するか(x,y,zそれぞれある)
+    rigidbody->SetFreezeRotation(true);   // trueでぶつかっても回転しない
+    rigidbody->SetFreezePositionZ(true);  // trueでZ方向に動かない(X/Yにも同じ関数がある)
 
     return player;
 }

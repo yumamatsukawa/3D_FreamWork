@@ -62,7 +62,8 @@ GameObject* EnemyManager::Spawn(XMFLOAT3 position) {
     GameObject* enemy = pool.Rent(*GetOwner()->GetScene(), SetupEnemy);
     enemy->transform.position = position;
     enemy->transform.rotate = { 0.f, 0.f, 0.f };
-    enemy->GetComponent<SpriteRenderer>()->SetColor(1.0f, 0.0f, 1.0f, 1.0f);
+    SpriteRenderer* sprite = enemy->GetComponent<SpriteRenderer>();
+    if (sprite) sprite->SetColor(1.0f, 0.0f, 1.0f, 1.0f);
 
     // 追いかける相手と、倒された時の返却先を渡す
     EnemyController* controller = enemy->GetComponent<EnemyController>();
