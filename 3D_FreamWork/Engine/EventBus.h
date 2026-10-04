@@ -6,12 +6,14 @@
 
 class GameObject;
 
-// 名前(文字列)で識別する、疎結合な通知の仕組み(イベントバス/Pub-Sub)。
+// 名前で識別する、疎結合な通知の仕組み(イベントバス/Pub-Sub)。
 // 「何が起きたか」を知らせる側(Publish)と、「それを聞いて何をするか」を
 // 決める側(Subscribe)がお互いを直接知らなくて済むようにする。
 //
 // 引数なしイベントの使い方:
-//   EventBus::Get().Subscribe("EnemyDefeated", []() { score += 100; });
+//   EventBus::Get().Subscribe("EnemyDefeated", []() {
+//      score += 100;
+//   });
 //   EventBus::Get().Publish("EnemyDefeated");
 //
 // GameObjectを1つ渡すイベントの使い方(「誰が」を伝えたい時):
@@ -63,6 +65,8 @@ public:
         listeners.clear();
         objectListeners.clear();
     }
+
+    // ─── 返したいイベントの引数はここに追加していく ────
 
 private:
     EventBus() = default;

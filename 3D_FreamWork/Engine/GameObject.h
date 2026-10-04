@@ -53,13 +53,13 @@ public:
     // ─── 当たり判定のコールバック転送 ───────────
     // Collider側から呼ばれ、付いている全Componentに通知する。
     // 反応したいComponent側でOnTriggerStay2Dなどをoverrideすれば受け取れる。
-    void OnTriggerEnter2D(Collider2D* other) { for (auto& c : components) c->OnTriggerEnter2D(other); }
-    void OnTriggerStay2D(Collider2D* other) { for (auto& c : components) c->OnTriggerStay2D(other); }
-    void OnTriggerExit2D(Collider2D* other) { for (auto& c : components) c->OnTriggerExit2D(other); }
+    void OnTriggerEnter2D(Collider2D* other) { for (auto& c : components) c->OnTriggerEnter2D(other); }     // あたった瞬間
+    void OnTriggerStay2D(Collider2D* other) { for (auto& c : components) c->OnTriggerStay2D(other); }       // あたっている間
+    void OnTriggerExit2D(Collider2D* other) { for (auto& c : components) c->OnTriggerExit2D(other); }       // 離れた瞬間
 
-    void OnCollisionEnter2D(CollisionInfo info) { for (auto& c : components) c->OnCollisionEnter2D(info); }
-    void OnCollisionStay2D(CollisionInfo info) { for (auto& c : components) c->OnCollisionStay2D(info); }
-    void OnCollisionExit2D(CollisionInfo info) { for (auto& c : components) c->OnCollisionExit2D(info); }
+    void OnCollisionEnter2D(CollisionInfo info) { for (auto& c : components) c->OnCollisionEnter2D(info); } // あたった瞬間
+    void OnCollisionStay2D(CollisionInfo info) { for (auto& c : components) c->OnCollisionStay2D(info); }   // あたっている間
+    void OnCollisionExit2D(CollisionInfo info) { for (auto& c : components) c->OnCollisionExit2D(info); }   // 離れた瞬間
 
     // ─── コンポーネント操作 ─────────────────────
     // 新しいComponentを追加する。例: obj->AddComponent<SpriteRenderer>();
@@ -74,6 +74,7 @@ public:
     }
 
     // 型を指定して、付いているComponentを探す。無ければnullptr。
+    // 取ってきた物は必ず "nullチェック" すること！
     template<typename T>
     T* GetComponent() {
         for (auto& c : components) {

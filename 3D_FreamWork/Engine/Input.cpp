@@ -9,15 +9,15 @@ namespace Input {
     XINPUT_STATE currentPad[4] = {};
     XINPUT_STATE previousPad[4] = {};
     bool         padConnected[4] = {};
-    HWND targetHwnd = nullptr;  // ★ 追加
+    HWND targetHwnd = nullptr;
 
-    RECT              clientRect = {};          // ウィンドウの中(クライアント領域)の大きさ
-    DirectX::XMFLOAT2 mouseDelta = { 0.f, 0.f };  // 前のフレームからのマウスの移動量
-    DirectX::XMFLOAT2 lastMousePos = { 0.f, 0.f };  // 移動量を求める基準の位置(GetMousePositionと同じ単位)
-    bool cursorLocked = false;    // カーソルを固定しているか(SetCursorLockedで設定)
-    bool cursorCentered = false;  // 前のフレームで、実際にカーソルを中心へ戻したか
-    bool cursorHidden = false;    // ShowCursor(FALSE)でカーソルを隠しているか(ShowCursorを必ず対で呼ぶため)
-    bool wasActive = false;       // 前のフレームでウィンドウがアクティブだったか
+    RECT              clientRect = {};             // ウィンドウの中(クライアント領域)の大きさ
+    DirectX::XMFLOAT2 mouseDelta = { 0.f, 0.f };   // 前のフレームからのマウスの移動量
+    DirectX::XMFLOAT2 lastMousePos = { 0.f, 0.f }; // 移動量を求める基準の位置(GetMousePositionと同じ単位)
+    bool cursorLocked = false;                     // カーソルを固定しているか(SetCursorLockedで設定)
+    bool cursorCentered = false;                   // 前のフレームで、実際にカーソルを中心へ戻したか
+    bool cursorHidden = false;                     // ShowCursor(FALSE)でカーソルを隠しているか(ShowCursorを必ず対で呼ぶため)
+    bool wasActive = false;                        // 前のフレームでウィンドウがアクティブだったか
 
     void SetHwnd(HWND hwnd) {
         targetHwnd = hwnd;
@@ -25,9 +25,9 @@ namespace Input {
 
     namespace {
         // クライアント座標 → GetMousePositionの単位(画面中央が原点、ゲーム画面の解像度に合わせた大きさ)。
-        // ★ Graphics::width/heightはウィンドウ枠を含む大きさで、バックバッファはその大きさで作られ、
-        //   ウィンドウの中(クライアント領域)に縮めて表示される。なのでクライアント領域の中での割合を、
-        //   バックバッファの大きさに掛け直す(中心のずれと、縮めた分の大きさのずれを両方直す)
+        // Graphics::width/heightはウィンドウ枠を含む大きさで、バックバッファはその大きさで作られ、
+        // ウィンドウの中(クライアント領域)に縮めて表示される。なのでクライアント領域の中での割合を、
+        // バックバッファの大きさに掛け直す(中心のずれと、縮めた分の大きさのずれを両方直す)
         DirectX::XMFLOAT2 ToGamePosition(POINT client) {
             float clientW = (float)(clientRect.right - clientRect.left);
             float clientH = (float)(clientRect.bottom - clientRect.top);
@@ -86,9 +86,9 @@ namespace Input {
             ClientToScreen(targetHwnd, &screenCenter);
             SetCursorPos(screenCenter.x, screenCenter.y);
 
-            // ★ ウィンドウが画面の外にはみ出していて中心が画面外だと、SetCursorPosは画面の端で止まる。
-            //   中心を基準にすると毎フレーム同じずれが移動量に出て、視点が回り続けてしまうので、
-            //   実際にカーソルが移動した先を読み直して、次のフレームの基準にする
+            // ウィンドウが画面の外にはみ出していて中心が画面外だと、SetCursorPosは画面の端で止まる。
+            // 中心を基準にすると毎フレーム同じずれが移動量に出て、視点が回り続けてしまうので、
+            // 実際にカーソルが移動した先を読み直して、次のフレームの基準にする
             POINT actual;
             GetCursorPos(&actual);
             ScreenToClient(targetHwnd, &actual);
@@ -156,9 +156,9 @@ namespace Input {
         return cursorLocked;
     }
 
-    // ★ 2Dスプライト(UIモード)は「ワールド座標 - カメラ位置」がそのまま画面中央からの
-    //   ピクセル数になる(Z=0のオブジェクトの場合)ので、逆にたどると
-    //   ワールド座標 = カメラ位置 + マウス座標(Yは符号を反転して上方向に合わせる)
+    // 2Dスプライト(UIモード)は「ワールド座標 - カメラ位置」がそのまま画面中央からの
+    // ピクセル数になる(Z=0のオブジェクトの場合)ので、逆にたどると
+    // ワールド座標 = カメラ位置 + マウス座標(Yは符号を反転して上方向に合わせる)
     DirectX::XMFLOAT2 GetMouseWorldPosition() {
         const Camera& camera = Image::GetCamera();
         DirectX::XMFLOAT2 screen = GetMousePosition();

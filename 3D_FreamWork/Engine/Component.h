@@ -3,7 +3,7 @@
 
 class GameObject;
 
-// すべてのComponent(振る舞い)の基底クラス。
+// すべてのComponentの基底クラス。
 // UnityでいうMonoBehaviourに近い役割で、GameObjectに後から付け外しして使う。
 class Component {
 private:
@@ -29,17 +29,17 @@ public:
     // 反応したいComponent(例: PlayerController)だけがoverrideすればよい。
 
     // すり抜ける当たり判定
-    virtual void OnTriggerEnter2D(Collider2D* other) {}
-    virtual void OnTriggerStay2D(Collider2D* other) {}
-    virtual void OnTriggerExit2D(Collider2D* other) {}
+    virtual void OnTriggerEnter2D(Collider2D* other) {}    // あたった瞬間
+    virtual void OnTriggerStay2D(Collider2D* other) {}     // あたっている間
+    virtual void OnTriggerExit2D(Collider2D* other) {}     // 離れた瞬間
 
     // すり抜けない当たり判定
-    virtual void OnCollisionEnter2D(CollisionInfo info) {}
-    virtual void OnCollisionStay2D(CollisionInfo info) {}
-    virtual void OnCollisionExit2D(CollisionInfo info) {}
+    virtual void OnCollisionEnter2D(CollisionInfo info) {} // あたった瞬間
+    virtual void OnCollisionStay2D(CollisionInfo info) {}  // あたっている間
+    virtual void OnCollisionExit2D(CollisionInfo info) {}  // 離れた瞬間
 
-    void SetOwner(GameObject* go) { owner = go; }
-    GameObject* GetOwner() const { return owner; }
+    void SetOwner(GameObject* go) { owner = go; }  // GameObjectを設定
+    GameObject* GetOwner() const { return owner; } // GameObjectを返す
 
     bool IsEnabled() const { return enabled; }
     void SetEnabled(bool v) { enabled = v; }

@@ -32,12 +32,20 @@ namespace Image
     // false にしてこの自動追従を止める(使い終わったら忘れずtrueに戻すこと)
     void SetCamera3DAutoSync(bool enabled);
 
+    // テクスチャのロード
+    // RGBA形式のpng画像を読み込ませるようにしてほしい
     unsigned int LoadTexture(const std::wstring& filepath, int cols = 1, int rows = 1);
-    void         ReleaseTexture(unsigned int id);
-    void         ReleaseAllTextures();
-    void         SetSpriteIndex(unsigned int id, int index);
 
-    // worldSpace = false(既定): UIのように常に手前に描画される
+    // テクスチャの削除
+    void ReleaseTexture(unsigned int id);
+
+    // すべてのテクスチャの削除
+    void ReleaseAllTextures();
+
+    // スプライトのIndexの変更(アニメーションなどに使う)
+    void SetSpriteIndex(unsigned int id, int index);
+
+    // worldSpace = false(既定) : UIのように常に手前に描画される
     // worldSpace = true        : 3Dオブジェクトのように、奥行きで前後関係が決まる
     // lockX/lockY/lockZ: worldSpace時のビルボード回転を軸ごとに止める(SpriteRenderer::SetBillboardLock参照)
     void Draw(Transform transform, unsigned int texID, bool worldSpace = false,

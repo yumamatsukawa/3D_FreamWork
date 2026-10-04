@@ -33,9 +33,7 @@ void GameEngine::Run()
         float dt = CalcDeltaTime();
 
         Input::Update();
-        // ★ PhysicsをSceneManagerより先に更新する。こうすることで、RigidbodyComponentの
-        //   Update()が「このフレームで今シミュレーションされたばかりの姿勢」を
-        //   Transformへ同期できる(順番が逆だと1フレーム古い姿勢を読むことになる)
+        
         Physics::Update(dt);
         SceneManager::Get().Update(dt);
 
