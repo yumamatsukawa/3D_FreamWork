@@ -21,7 +21,7 @@ DirectX11 + PhysX 4.1 で作った、Unity風(GameObject + Component)のC++ゲ�
 - Edit/Writeツールでの変更は `.claude/settings.json` の設定で毎回確認ダイアログが出る。PowerShellなどでファイルを書き換える場合も同じルールに従う(ダイアログが出ないからといって確認を省かない)
 
 ### 命名規則
-名前は英語で付ける(ローマ字にしない)。略語は一般的なもの(HP/UI/HUD/ID)だけ。
+名前は英語で付ける(ローマ字にしない)。略語は使ってよい(HP/UI/HUD/ID/BGM/SE など、ゲーム開発で一般的なもの。`enum class` の値でも略語は大文字のまま=`AudioGroup::BGM`)。
 
 | 対象 | 書き方 | 例 |
 |---|---|---|
@@ -36,6 +36,8 @@ DirectX11 + PhysX 4.1 で作った、Unity風(GameObject + Component)のC++ゲ�
 | ファイル名 | 中のクラス名と同じ PascalCase | `PlayerController.h` / `.cpp` |
 | 工場関数とそのファイル | `Create○○`、`Game/Objects/○○.h/.cpp` | `CreateEnemySpawner` (`Objects/EnemySpawner.h`) |
 | EventBusのイベント名・タグ・オブジェクト名 | PascalCase の文字列 | `"EnemyDefeated"`, `"Bullet"`, `"Player"` |
+
+例外: 数学の関数(Length/Distance/Dot/Cross/Lerp/Clamp/Normalize など)とイージングの関数(Ease::OutQuad など)は動詞から始めなくてよい(DirectXMath/Unityと同じ名前なので調べやすい)。boolを返す関数には Has○○(HasKey/HasArrived など)も使ってよい(Is○○だと英語として不自然になるため)。
 
 Componentの名前は役割で語尾をそろえる:
 - `○○Controller`: 1つのオブジェクトの動き・入力・当たった時の処理(`PlayerController`)

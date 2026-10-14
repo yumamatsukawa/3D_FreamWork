@@ -116,7 +116,7 @@ namespace Input {
     // 固定した直後・ウィンドウがアクティブに戻った直後のフレームは0(視点が急に跳ねないように)
     DirectX::XMFLOAT2 GetMouseDelta();
 
-    // カーソルの固定(UnityのCursor.lockState = CursorLockMode.Lockedに相当)。
+    // カーソルの固定
     // trueにすると、カーソルを隠して、毎フレーム画面(ウィンドウの中)の中心へ戻す。
     // マウスを動かした量はGetMouseDelta()で取れるので、FPSのような視点操作に使う。
     // 別のウィンドウを選んだり最小化したりすると、自動で解除される(IsCursorLocked()がfalseになる)

@@ -12,7 +12,7 @@ public:
 
     template<typename T>
     void ChangeScene() {
-        // ★ std::function に明示的に代入
+        // std::function に明示的に代入
         nextScene = std::function<Scene * ()>([]() -> Scene* { return new T(); });
         isChanging = true;
     }

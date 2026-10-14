@@ -78,6 +78,7 @@ namespace Text {
             L"ja-jp",
             &textFormat
         );
+        if (!textFormat) return;  // 作れなかった時は描かない
 
         // ★ テキストレイアウトを作成してサイズを計測
         IDWriteTextLayout* textLayout = nullptr;
@@ -89,6 +90,10 @@ namespace Text {
             10000.f,  // 最大高さ
             &textLayout
         );
+        if (!textLayout) {  // 作れなかった時は、作れた分だけ解放して描かない
+            textFormat->Release();
+            return;
+        }
 
         // ★ 実際のテキストサイズを取得
         DWRITE_TEXT_METRICS metrics;
@@ -126,6 +131,7 @@ namespace Text {
         );
 
         brush->Release();
+        textLayout->Release();
         textFormat->Release();
     }
 }

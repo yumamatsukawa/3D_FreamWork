@@ -11,6 +11,8 @@ private:
     GameObject* target = nullptr;   // 追いかける相手
     float speed = 60.0f;            // 移動速度
     ObjectPool* pool = nullptr;     // 自分が所属するプール(倒された時に返す)
+    float animationTimer = 0.f;
+    const float frameDuration = 0.3f;
 
 public:
     // 出現する度に呼ばれ、状態をリセットする

@@ -3,13 +3,25 @@
 #include "../../../Engine/ObjectPool.h"
 #include "../../../Engine/EventBus.h"
 #include "../../../Engine/RigidbodyComponent.h"
+#include "../../../Engine/SpriteRenderer.h"
 #include <cmath>
+
+namespace {
+    const int walkFrames[] = { 4, 5 };   // 歩きアニメーションで使うコマの番号(この順に表示)
+    constexpr int walkFrameCount = sizeof(walkFrames) / sizeof(walkFrames[0]);
+}
 
 void EnemyController::Update(float dt) {
     // 必要なComponentを取得(無ければ何もしない)
     if (!target) return;
-    RigidbodyComponent* rigidbody = GetOwner()->GetComponent<RigidbodyComponent>();
-    if (!rigidbody) return;
+    RigidbodyComponent* rigidbody = GetOwner()->GetComponent<RigidbodyComponent>(); if (!rigidbody) return;
+    SpriteRenderer* sprite = GetOwner()->GetComponent<SpriteRenderer>(); if (!sprite) return;
+
+    animationTimer += dt;
+    float loopTime = frameDuration * walkFrameCount;
+    if (animationTimer >= loopTime) animationTimer -= loopTime;   // 余った時間は捨てずに次の周へ
+    int frame = (int)(animationTimer / frameDuration);
+    sprite->SetSpriteIndex(walkFrames[frame]);
 
     // ★ Y速度は0にせず、今の値をそのまま使う(0にすると重力で落ちなくなる)
     float velocityY = rigidbody->GetVelocity().y;

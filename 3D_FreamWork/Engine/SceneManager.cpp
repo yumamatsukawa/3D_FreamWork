@@ -3,7 +3,7 @@
 void SceneManager::Update(float dt) {
     if (isChanging && nextScene) {
         if (currentScene) currentScene->Uninit();
-        currentScene.reset(nextScene());  // ★ factories は不要
+        currentScene.reset(nextScene());
         currentScene->Init();
         nextScene = nullptr;
         isChanging = false;

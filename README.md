@@ -4,6 +4,8 @@ DirectX11製の、Unity風のコンポーネント指向ゲームフレームワ
 
 このドキュメントは、これから機能を追加していくチームメンバー向けの使い方ガイドです。
 
+今後のEngine機能追加の計画(関数の設計案・作る順番)は [`docs/EngineRoadmap.md`](docs/EngineRoadmap.md) を参照してください。
+
 ---
 
 ## 0. プロジェクト構成
@@ -367,6 +369,14 @@ Sample2Dの`PlayerController.cpp`に合わせて、短く書きます。
 - `.h`: クラスの役割を1行、メンバ変数には行末コメント(`float speed = 200.0f;  // 移動速度`)
 - 工場関数(`Game/Objects/*.h`): 何を作るかを1行
 
+### 名前の付け方・チームのルール(CLAUDE.md)
+
+クラス・関数・変数の名前の付け方(PascalCase/camelCase、`Get○○`/`Is○○`、Componentの語尾`Controller`/`Manager`/`Renderer`/`Component`など)と、設計・Engine変更のルールは、リポジトリ直下の`CLAUDE.md`にまとめてあります。新しいコードを書く前に一度読んでください。
+
+**Engine(`Engine/`・`Shader.hlsl`・`Shader3D.hlsl`・`PhysX.props`)を変える時は、必ず先にチームに相談してください。** 両方のサンプルに影響するためです。
+
+Claude Code で作業する場合は、`.claude/`の設定で、メインの会話が相談役(navigator)になり、実装は作業役(implementer)、確認はレビュー役(reviewer)が分担します。オブジェクトの追加(`add-object`)・ビルド確認(`build`)・コミット文の作成(`commit-message`)は手順書(スキル)になっています。Engine・`CLAUDE.md`・`.claude/`を変更しようとすると、毎回確認のダイアログが出ます。詳しくは`CLAUDE.md`の「役割分担」「スキル」を参照してください。
+
 ### 新しいファイルを追加したら
 
 追加したファイルが属するプロジェクト(Engineに追加するなら`Engine.vcxproj`、Sample2D用のGameコードなら`Sample2D.vcxproj`、Sample3D用なら`Sample3D.vcxproj`)の、`.vcxproj`と`.vcxproj.filters`の両方に新規ファイルを追加してください(Visual Studioでソリューションエクスプローラーから該当プロジェクトを右クリック→「追加」すれば自動でやってくれます)。
@@ -403,7 +413,7 @@ Sample3D/Game/Scenes/      TitleScene, GameScene
 ```
 
 - **Sample2D**: トップダウン視点のアリーナシューター。タイトル画面のSTARTボタンをクリックするとゲーム開始(ボタンは`CreateButton(scene, 文字, 位置, クリックされた時の処理)`で作れる汎用部品なので、他の画面のボタンにも使い回せる)。WASDで移動、Playerは常にマウスの方を向き、左クリックでその方向へ弾を発射。背景はタイル状に敷き詰めた床(`BackgroundController`)で、移動するとスクロールする。敵(`EnemyManager`が一定間隔でPlayerの周囲にランダムスポーンさせる)がゆっくり追いかけてきて、弾を当てると倒せる(`EventBus`で`"EnemyDefeated"`イベントを発行しスコア加算)。敵に触れるとHPが減り(1秒間の無敵時間つき)、0になるとゲームオーバー画面が出てSPACEでタイトルに戻る。当たり判定・物理はPhysXを使い(Player=`CircleRigidbodyComponent`、敵=`SquareRigidbodyComponent`、弾=`CircleRigidbodyComponent`)、Player・敵はDynamic(`SetVelocity()`で速度を渡して動かす。重力なし・回転なし・`SetFreezePositionZ(true)`で奥行き方向に固定)、弾はKinematicのトリガー。3Dカメラは使わない(`CameraController`なし)。
-- **Sample3D**: Sample2Dと同じアリーナシューターを3D空間で遊べるようにしたもの。タイトル画面のSTARTボタンでゲーム開始。Player(立方体)は三人称カメラ(`CameraController`。マウス移動で視点回転。カーソルは画面中心に固定され、ESCで解除・左クリックで再固定。TABで一人称に切り替え)と同じ向きを向き、WASDもカメラ基準(W=カメラの前、D=カメラの右)で移動する。左クリックでPlayerの向いている方向へ、地面と水平に弾(球)を発射。敵は2Dの画像(Worldモードの`SpriteRenderer`。Y軸だけカメラの方を向く立て看板)で、地面の上をPlayerに向かって歩いてくる。スコア・HP・無敵時間・ゲームオーバー(SPACEでタイトルへ)・`EventBus`のイベント名はSample2Dと同じ。Player・敵はDynamicの`BoxRigidbodyComponent`(重力あり・回転なし。Y速度は`GetVelocity().y`を維持したまま`SetVelocity()`で動かす)、弾はKinematicのトリガー(`SphereRigidbodyComponent`)。地面は、1000四方のタイルを3Dカメラの描画距離(farZ)の範囲だけ敷き詰めて描く`GroundController`(見た目)と、見えない大きなStaticの板(当たり判定)の組み合わせ。遠景はスカイボックス。
+- **Sample3D**: Sample2Dと同じアリーナシューターを3D空間で遊べるようにしたもの。タイトル画面のボタンをクリックするとゲーム開始(Sample3Dの`CreateButton()`は、位置と大きさをまとめて`Transform`で受け取る形になっている: `CreateButton(scene, 文字, transform, クリックされた時の処理)`)。Player(立方体)は三人称カメラ(`CameraController`。マウス移動で視点回転。カーソルは画面中心に固定され、ESCで解除・左クリックで再固定。TABで一人称に切り替え)と同じ向きを向き、WASDもカメラ基準(W=カメラの前、D=カメラの右)で移動する。左クリックでPlayerの向いている方向へ、地面と水平に弾(球)を発射。敵は2Dの画像(Worldモードの`SpriteRenderer`。Y軸だけカメラの方を向く立て看板)で、地面の上をPlayerに向かって歩いてくる。歩く間は、`EnemyController`がタイマーでスプライトシートのコマ(4番と5番)を0.3秒ごとに切り替えて、歩きアニメーションにしている。スコア・HP・無敵時間・ゲームオーバー(SPACEでタイトルへ)・`EventBus`のイベント名はSample2Dと同じ。Player・敵はDynamicの`BoxRigidbodyComponent`(重力あり・回転なし。Y速度は`GetVelocity().y`を維持したまま`SetVelocity()`で動かす)、弾はKinematicのトリガー(`SphereRigidbodyComponent`)。地面は、1000四方のタイルを3Dカメラの描画距離(farZ)の範囲だけ敷き詰めて描く`GroundController`(見た目)と、見えない大きなStaticの板(当たり判定)の組み合わせ。遠景はスカイボックス。
 
 **Sample3Dの実装メモ**: 向きはすべて`transform.rotate.y`(度)で表し、`rotate.y`の時の正面(ローカルの+Z)は`(sin, 0, cos)`の方向になる(`CameraController::GetYaw()`の式と同じ)。Worldモードの`SpriteRenderer`は`rotate.y`を使わない(ビルボードの向きとZ軸回転だけを使う)ので、敵の画像の向きは`SetBillboardLock(true, false, true)`でカメラの方へ向けている。Playerは`SetFreezeRotation(true)`で、`RigidbodyComponent`は位置しか同期しないため、`PlayerController`が`rotate.y`が変わった時に`GetActor()`の`setGlobalPose`で当たり判定の箱の回転も合わせている(デバッグ表示の枠と実際の判定が同じ向きになる)。一人称の間は、カメラが立方体の内側に入るのでPlayerの`MeshRenderer`を非表示にしている。
 

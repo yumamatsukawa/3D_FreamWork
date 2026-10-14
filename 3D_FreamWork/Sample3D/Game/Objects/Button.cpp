@@ -4,12 +4,12 @@
 #include "../../../Engine/SpriteRenderer.h"
 #include "../Components/ButtonController.h"
 
-GameObject* CreateButton(Scene& scene, const std::wstring& label, DirectX::XMFLOAT2 position,
+GameObject* CreateButton(Scene& scene, const std::wstring& label, Transform tf,
     std::function<void()> onClick) {
     // 位置と大きさ
     GameObject* button = scene.CreateObject("Button");
-    button->transform.position = { position.x, position.y, 0.f };
-    button->transform.scale = { 320.f, 96.f, 1.f };
+    button->transform.position = { tf.position.x, tf.position.y, 0.f };
+    button->transform.scale = { tf.scale.x, tf.scale.y, 1.f };
 
     // 見た目
     button->AddComponent<SpriteRenderer>(L"Assets/button.png");

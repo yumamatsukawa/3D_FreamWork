@@ -9,7 +9,7 @@ class GameObject;
 class BulletController : public Component {
 private:
     DirectX::XMFLOAT3 direction{ 0.f, 0.f, 1.f };   // 進む方向(地面と水平。Yは0)
-    float speed = 500.0f;                           // 移動速度
+    float speed = 1500.0f;                          // 移動速度
     float lifeTime = 2.0f;                          // 寿命(秒)
     float elapsed = 0.f;                            // 発射されてからの経過時間
     ObjectPool* pool = nullptr;                     // 自分が所属するプール(消える時に返す)
