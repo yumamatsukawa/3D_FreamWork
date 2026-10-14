@@ -104,6 +104,7 @@ xcopy /y /d "$(SolutionDir)Shader3D.hlsl" "$(OutDir)"</Command>
     <ClCompile Include="Text.cpp" />
     <ClCompile Include="Texture.cpp" />
     <ClCompile Include="Time.cpp" />
+    <ClCompile Include="TweenComponent.cpp" />
     <ClCompile Include="WICTextureLoader11.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -111,6 +112,7 @@ xcopy /y /d "$(SolutionDir)Shader3D.hlsl" "$(OutDir)"</Command>
     <ClInclude Include="Camera.h" />
     <ClInclude Include="Collider.h" />
     <ClInclude Include="Component.h" />
+    <ClInclude Include="Ease.h" />
     <ClInclude Include="EventBus.h" />
     <ClInclude Include="GameEngine.h" />
     <ClInclude Include="GameObject.h" />
@@ -134,6 +136,7 @@ xcopy /y /d "$(SolutionDir)Shader3D.hlsl" "$(OutDir)"</Command>
     <ClInclude Include="Time.h" />
     <ClInclude Include="Timer.h" />
     <ClInclude Include="Transform.h" />
+    <ClInclude Include="TweenComponent.h" />
     <ClInclude Include="WICTextureLoader11.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

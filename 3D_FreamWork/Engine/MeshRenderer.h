@@ -31,6 +31,7 @@ public:
     }
 
     void SetColor(float r, float g, float b, float a) { color = { r, g, b, a }; }
+    DirectX::XMFLOAT4 GetColor() const { return color; }
 
     // スカイボックスなど、光源の影響を受けたくない(常に一定の明るさで表示したい)場合に使う
     void SetUnlit(bool value) { unlit = value; }

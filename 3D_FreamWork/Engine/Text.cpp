@@ -95,6 +95,9 @@ namespace Text {
             return;
         }
 
+        // ★ 折り返さない(改行文字の所だけ改行する)
+        textLayout->SetWordWrapping(DWRITE_WORD_WRAPPING_NO_WRAP);
+
         // ★ 実際のテキストサイズを取得
         DWRITE_TEXT_METRICS metrics;
         textLayout->GetMetrics(&metrics);
@@ -114,19 +117,12 @@ namespace Text {
         screenX -= metrics.width / 2.f;
         screenY -= metrics.height / 2.f;
 
-        D2D1_RECT_F rect = D2D1::RectF(
-            screenX,
-            screenY,
-            screenX + metrics.width,
-            screenY + metrics.height
-        );
-
-        // ★ 描画
-        d2dRenderTarget->DrawText(
-            text.c_str(),
-            (UINT32)text.size(),
-            textFormat,
-            rect,
+        // ★ 描画: 測ったレイアウトをそのまま描く
+        // (DrawTextに幅ぴったりの四角を渡すと、レイアウトし直した時の小数の誤差で最後の文字が折り返されるため)
+        // レイアウトの原点は左上。文字の左上(metrics.left/top)が原点からずれている分を戻す
+        d2dRenderTarget->DrawTextLayout(
+            D2D1::Point2F(screenX - metrics.left, screenY - metrics.top),
+            textLayout,
             brush
         );
 

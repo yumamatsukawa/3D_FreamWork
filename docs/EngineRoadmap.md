@@ -6,7 +6,7 @@
 Engine(`3D_FreamWork/Engine/`)に今後追加したい16個の機能について、「どんな関数を作るか」「どの順番で作るか」「Sampleではどう使えるか(使用例)」をまとめた設計書です。チーム(C++初心者を含む)で分担して実装する時の資料として使います。
 
 ### 状態
-**ここに書いてある内容は「設計案」です。実装済みのものは、4章の表の状態が「完了」になっています(今は計算系、時間とタイマー、リソースの使い回し)。**
+**ここに書いてある内容は「設計案」です。実装済みのものは、4章の表の状態が「完了」になっています(今は計算系、時間とタイマー、リソースの使い回し、イージング)。**
 関数名・引数は実装しながら変わってよいものです。実際に作る時は、この文書を出発点にして、下の「共通ルール」どおりに1機能ずつ、着手する時に説明してから進めてください(了承は待ちません)。実装したら、この文書の「作る順番」の表の状態を更新してください。
 
 ---
@@ -89,7 +89,7 @@ Engineを変えると Sample2D と Sample3D の**両方**に影響します(`CLA
 | 1 | [計算系](#51-計算系) | すべての土台。ほかの機能のほとんどが使う | | 完了 |
 | 2 | [時間とタイマー](#52-時間とタイマー) | イージング・画面エフェクト・アニメーションが使う | | 完了 |
 | 3 | [リソースの使い回し](#53-リソースの使い回し) | 画像を共有する前に「データ」と「1体ごとの状態」を分けておく(アニメ・音・モデルの前提) | | 完了 |
-| 4 | [イージング](#54-イージング) | カメラ・UI・画面エフェクトが使う | | 未着手 |
+| 4 | [イージング](#54-イージング) | カメラ・UI・画面エフェクトが使う | | 完了 |
 | 5 | [移動系](#55-移動系) + [物理の問い合わせと力](#56-物理の問い合わせと力) | 加速度で動く移動は `AddForce` を使うので、同じ段の中では物理(5.6)を先に作る | | 未着手 |
 | 6 | [カメラ機能](#57-カメラ機能) | イージング・計算系を使う | | 未着手 |
 | 7 | [画面エフェクト](#58-画面エフェクト) | 時間(Unscaled)・イージングを使う | | 未着手 |
@@ -324,6 +324,24 @@ namespace Resources {
 
 ### 5.4 イージング
 
+> **実装済み**: `Engine/Ease.h`(`namespace Ease` と `EaseFunction`、ヘッダーだけ)と `Engine/TweenComponent.h/.cpp`。`MeshRenderer` に `GetColor()` を足した。下の「対象」のSampleのコード(両サンプルの `StartButton`)も置き換え済み。使い方は `README.md` の「12. イージング(Ease / TweenComponent)」を参照。
+> 決まったこと:
+> - **`SetUnscaled(bool)` を足した**(直前の動きに効く)。trueの動きはポーズ中も `Time::GetUnscaledDeltaTime()` で進む。既定はfalseで、`Update` の `dt`(= `Time::GetDeltaTime()`)で進む
+> - **`ColorTo` は `SpriteRenderer` があればその色、無ければ `MeshRenderer` の色を変える。** どちらも無ければ何もしない(出力ウィンドウに表示する)。そのため `MeshRenderer` に `GetColor()` を足した
+>
+> 設計から変えた・決めた所:
+> - `Ease` の関数は、t が0〜1の外で渡されたら0〜1に収めて(Clampして)から計算する。`OutBack` / `OutElastic` / `OutBounce` は、小数の誤差で両端が0・1ぴったりにならないので、t=0とt=1は決め打ちで0・1を返す
+> - 好きな値を動かす関数は、仕様の `Value` から `TweenValue` に名前を変えた
+> - 開始値は「動き出した時(`SetDelay` の待ち時間が終わった時)の今の値」。`TweenValue` だけは引数の `from` から始まる
+> - 同じ種類(位置・大きさ・回転・色)の動きを始めると、前の動きは消える(前の動きのOnCompleteは呼ばない)。**`TweenValue` は上書きせず、いくつでも同時に持てる**(毎回別の値を動かすため)
+> - `duration <= 0` の動きは、次の `Update` で(`SetDelay` があれば待ってから)すぐ1周終わった状態にする。普通の動きは目標値で完了扱い(OnCompleteも呼ぶ)、`SetLoop(false, true)` は開始値で完了扱い(OnCompleteも呼ぶ)、`SetLoop(true, ...)` は終わらない。呼んだ瞬間には値を変えない(後から `SetDelay` / `SetOnComplete` をつなげられるように)
+> - `SetLoop(true, ...)` の動きは終わらないので、**OnCompleteは呼ばない**(毎周も呼ばない)。`pingPong` は「行って戻る」(durationの2倍)を1周とする。`SetLoop(false, true)` は1回だけ行って戻って終わる(OnCompleteも呼ぶ)
+> - `Stop()` は今の値のまま止める(OnCompleteは呼ばない)
+> - コールバック(`SetOnComplete` / `TweenValue` の関数)の中で動きを始めた時は、一旦別のリストに入れて、そのフレームの最後に加える(回している途中のリストを書き換えない)。新しい動きは次のフレームから動く。コールバックの中で `Stop()` しても、オブジェクトを `Destroy()` しても落ちない。`Destroy()` された後は、残りの動きを進めない
+> - `RotateTo` は数値をそのまま補間する(近い方向へは回らない)
+> - `Timer` は使わなかった(pingPongで「1周 = durationの2倍」を扱うため、経過時間を自分で持った)
+> - Sampleの `ButtonController`(両サンプル)で、文字の大きさをボタンの高さに合わせるようにした(ボタンが大きくなる途中で、文字だけ最初から大きく出ないように)。作った時の高さを基準にするので、出終わった後の文字の大きさは今までと同じ
+
 **目的**: 「最初は速く、最後はゆっくり止まる」のような気持ちいい動きを、1行で付けられるようにする。
 
 **ファイル案**: `Engine/Ease.h`(`namespace Ease`)、`Engine/TweenComponent.h/.cpp`
@@ -349,7 +367,7 @@ public:
     TweenComponent& ScaleTo(XMFLOAT3 target, float duration, EaseFunction ease = Ease::OutQuad);  // 大きさを変える
     TweenComponent& RotateTo(XMFLOAT3 target, float duration, EaseFunction ease = Ease::OutQuad); // 回転させる(度)
     TweenComponent& ColorTo(XMFLOAT4 target, float duration, EaseFunction ease = Ease::OutQuad);  // SpriteRendererの色を変える
-    TweenComponent& Value(float from, float to, float duration,
+    TweenComponent& TweenValue(float from, float to, float duration,
         std::function<void(float)> onUpdate, EaseFunction ease = Ease::OutQuad);                  // 好きな値を動かす
 
     TweenComponent& SetDelay(float seconds);                       // 始まるまで待つ時間
@@ -373,7 +391,7 @@ auto* tween = button->AddComponent<TweenComponent>();
 button->transform.scale = { 0.f, 0.f, 1.f };
 tween->ScaleTo({ 300.f, 80.f, 1.f }, 0.4f, Ease::OutBack);
 ```
-対象: 両サンプルの `Title` / `StartButton` の出し方(今は一瞬で表示されている)。
+対象: 両サンプルの `Title` / `StartButton` の出し方(今は一瞬で表示されている)。(`StartButton` は置き換え済み。`Title` の文字は `TitleController::Draw` が `Text::Draw` で直接描いていてTransformを持たないので、今回は置き換えていない)
 
 **依存する機能**: 5.2 時間とタイマー
 

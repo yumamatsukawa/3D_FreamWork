@@ -152,6 +152,7 @@ sprite->SetBillboardLock(true, false, true);
 auto* meshRenderer = cube->AddComponent<MeshRenderer>(Mesh::CreateCube());
 meshRenderer->SetTexture(L"Assets/box.png");
 meshRenderer->SetColor(1.0f, 1.0f, 1.0f, 1.0f);
+XMFLOAT4 color = meshRenderer->GetColor();   // 今の色(SpriteRendererと同じ)
 ```
 
 用意されている形状:
@@ -254,7 +255,7 @@ player->AddComponent<CameraController>();
 
 ## 6. Collider(当たり判定)
 
-**当たり判定は、2D/3D問わず全てPhysX(`RigidbodyComponent`、§14参照)で計算しています。**2Dのゲームでは、2D向けに使いやすくした`SquareRigidbodyComponent`/`CircleRigidbodyComponent`を使い、`SetFreezePositionZ(true)`で奥行き方向に動かないようにします(Sample2Dが実例)。
+**当たり判定は、2D/3D問わず全てPhysX(`RigidbodyComponent`、§15参照)で計算しています。**2Dのゲームでは、2D向けに使いやすくした`SquareRigidbodyComponent`/`CircleRigidbodyComponent`を使い、`SetFreezePositionZ(true)`で奥行き方向に動かないようにします(Sample2Dが実例)。
 
 ```cpp
 // Playerの例(すり抜けない円形・半径50。Dynamic+速度指定で動かし、衝突応答はPhysXに任せる)
@@ -308,7 +309,7 @@ RigidbodyComponent::SetDebugDrawEnabled(true);
 | `SquareRigidbodyComponent` | Z軸方向で切った断面の四角 |
 | `CircleRigidbodyComponent` | Z軸方向で切った断面の丸 |
 
-2D向けのSquare/Circleは、PhysX上は奥行きのある立方体/球ですが(§14)、2Dゲームでは奥行き方向に動かないので、平面で見た時の形(断面)だけを表示しています。
+2D向けのSquare/Circleは、PhysX上は奥行きのある立方体/球ですが(§15)、2Dゲームでは奥行き方向に動かないので、平面で見た時の形(断面)だけを表示しています。
 
 **内部実装メモ**: `RigidbodyComponent::Draw()`が、`PxShape`から実際のジオメトリ(`PxBoxGeometry`/`PxSphereGeometry`)を取得し、Ownerの`Transform`の`scale`だけを一時的に差し替えて描画しています(位置・回転は普段どおりOwnerのTransformをそのまま使う)。枠は三角形ではなく線(`D3D11_PRIMITIVE_TOPOLOGY_LINELIST`)で描いていて、形ごとの輪郭データは`Mesh::CreateCubeOutline()`などで作り、全`RigidbodyComponent`で1つずつ共有しています。
 
@@ -514,7 +515,96 @@ Resources::ReleaseTexture(texID);
 
 ---
 
-## 12. 開発時の注意点
+## 12. イージング(Ease / TweenComponent)
+
+「最初は速く、最後はゆっくり止まる」「少し行き過ぎてから戻る」のような気持ちいい動きを、1行で付けられます。
+
+- `Engine/Ease.h` の `namespace Ease`: 動きの「速さの変化」を決める関数(イージング関数)
+- `Engine/TweenComponent.h`: オブジェクトの位置・大きさ・回転・色(と好きな値)を、イージングを付けて目標値まで動かすComponent
+
+```cpp
+#include "../../../Engine/TweenComponent.h"   // Ease.h も一緒に読み込まれる
+```
+
+### Ease(イージング関数)
+
+すべて `float 関数名(float t)` の形で、進み具合 `t`(0〜1)を受け取って0〜1の値を返します(t=0で0、t=1で1)。`t` が0〜1の外で渡された時は、0〜1に収めてから計算します(t<0は0、t>1は1)。
+
+| 関数 | 動き |
+|---|---|
+| `Ease::Linear` | 一定の速さ |
+| `Ease::InQuad` | ゆっくり始まる |
+| `Ease::OutQuad` | ゆっくり止まる(TweenComponentの既定) |
+| `Ease::InOutQuad` | ゆっくり始まって、ゆっくり止まる |
+| `Ease::OutCubic` | OutQuadより強くゆっくり止まる |
+| `Ease::OutBack` | 少し行き過ぎてから戻る(途中で1を超える。最大1.1くらい) |
+| `Ease::OutElastic` | ばねのように揺れて止まる(途中で0〜1をはみ出す) |
+| `Ease::OutBounce` | ボールのように跳ねて止まる |
+
+計算式は [easings.net](https://easings.net/ja) と同じなので、動きはそこで見比べられます。イージング関数を変数に入れる時の型は `EaseFunction` です。TweenComponentを使わずに、自分で補間する時にも使えます:
+
+```cpp
+float t = timer.GetProgress();                            // 0〜1
+float y = Math::Lerp(startY, endY, Ease::OutBounce(t));   // 跳ねながら止まる
+```
+
+### TweenComponent(動きを付ける)
+
+```cpp
+auto* tween = obj->AddComponent<TweenComponent>();
+tween->MoveTo({ 0.f, 100.f, 0.f }, 1.0f);                         // 1秒で(0,100)へ動く(既定はEase::OutQuad)
+tween->ScaleTo({ 2.f, 2.f, 1.f }, 0.5f, Ease::OutBack);           // 0.5秒で2倍に(少し行き過ぎて戻る)
+
+// SetDelay などは「直前に始めた動き」に効く。自分自身を返すので、つなげて書ける
+tween->ColorTo({ 1.f, 0.f, 0.f, 1.f }, 0.3f)                      // 0.3秒で赤くする
+     .SetDelay(0.5f)                                              // 0.5秒待ってから
+     .SetOnComplete([this] { GetOwner()->Destroy(); });           // 終わったら消える
+
+// 好きな値を動かす(毎フレーム今の値が渡される)
+tween->TweenValue(0.f, 1.f, 2.0f, [this](float v) { alpha = v; }, Ease::Linear);
+```
+
+| 関数 | 内容 |
+|---|---|
+| `MoveTo(目標, 秒, イージング)` | 位置(`transform.position`)を動かす |
+| `ScaleTo(目標, 秒, イージング)` | 大きさ(`transform.scale`)を変える |
+| `RotateTo(目標, 秒, イージング)` | 回転(`transform.rotate`、度)を変える。数値をそのまま補間するので、350度→10度は逆回りに340度回る(近い方へ回したい時は `Math::DeltaAngle` で目標を計算する) |
+| `ColorTo(目標, 秒, イージング)` | 色を変える。`SpriteRenderer` があればその色、無ければ `MeshRenderer` の色。どちらも無ければ何もしない(出力ウィンドウに表示される) |
+| `TweenValue(開始, 目標, 秒, 関数, イージング)` | 好きな値を動かす。毎フレーム、今の値を関数に渡す |
+| `SetDelay(秒)` | 動き出すまで待つ時間 |
+| `SetLoop(loop, pingPong)` | 繰り返す。`pingPong=true` なら「行って戻る」を1周として繰り返す。`SetLoop(false, true)` なら1回だけ行って戻って終わる |
+| `SetUnscaled(true)` | ポーズ中(`Time::SetTimeScale(0)`)・スロー中も、本当の時間(`Time::GetUnscaledDeltaTime()`)で動く。ポーズ画面のUIなどに使う。既定(false)は `Update` の `dt` と同じ時間で動く |
+| `SetOnComplete(関数)` | 終わった時に呼ぶ関数 |
+| `Stop()` | すべての動きを、今の値のまま止める(OnCompleteは呼ばない) |
+
+**決まり**:
+- **開始値は「動き出した時の今の値」です**(`SetDelay` を付けた時は、待ち時間が終わった時の値)。`TweenValue` だけは引数の「開始」から始まります。
+- 位置・大きさ・回転・色・TweenValueは**同時に動かせます**。**同じ種類の動き(位置なら位置)を2つ始めると、前の動きは消えて後から始めた方だけが動きます**(前の動きのOnCompleteは呼ばれません)。`TweenValue` は毎回別の値を動かすものなので上書きせず、いくつでも同時に動かせます。
+- 秒数が0以下の動きは、次のフレームですぐ1周終わった状態になります。普通の動きは目標値になって終わります(OnCompleteも呼ばれる)。`SetLoop(false, true)`(1回だけ行って戻る)は開始値に戻って終わります。`SetLoop(true, ...)` は終わりません。
+- `SetLoop(true, ...)` の動きは終わらないので、**OnCompleteは呼ばれません**。止める時は `Stop()` を呼びます。
+- 終わった動きは自動で消えます。
+- 位置・大きさ・回転は `transform` の値(親がいれば親からの相対)をそのまま書き換えます。**PhysXのDynamicな剛体(`RigidbodyComponent`)が付いたオブジェクトには `MoveTo` / `RotateTo` を使わないでください**(PhysXの位置で上書きされます。Dynamicは `SetVelocity()` で動かす決まりです)。
+- GameObjectが非アクティブ(`SetActive(false)`)の間は、動きも止まります。
+
+**コールバックの安全性**:
+- Componentなので、オブジェクトが消えると一緒に消えます。`SetOnComplete` のラムダが、**消えたオブジェクトを触る心配がありません**(`EventBus` と違い、自分で `Clear()` しなくてよい)。ただし、ラムダの中で**別の**オブジェクトのポインタを使う時は、そのオブジェクトが先に消えていないか気を付けてください。
+- `SetOnComplete` や `TweenValue` の関数の中で、同じTweenComponentに新しい動きを始めても、`Stop()` しても、オブジェクトを `Destroy()` しても大丈夫です。新しく始めた動きは次のフレームから動きます。`Destroy()` された後は、残りの動きは進みません。
+
+```cpp
+// 動きを順番につなげる(右へ動いて、終わったら上へ)
+tween->MoveTo({ 100.f, 0.f, 0.f }, 0.5f).SetOnComplete([tween] {
+    tween->MoveTo({ 100.f, 100.f, 0.f }, 0.5f);
+});
+
+// ポーズ中もふわふわ上下し続ける(行って戻るを繰り返す)
+tween->MoveTo({ 0.f, 20.f, 0.f }, 0.8f, Ease::InOutQuad).SetLoop(true, true).SetUnscaled(true);
+```
+
+**実例**: 両サンプルのタイトル画面のSTARTボタン(`Game/Objects/StartButton.cpp`)は、大きさ0から本来の大きさへ `Ease::OutBack` で0.4秒かけて大きくなって出ます。ボタンのクリック判定(`ButtonController`)も `transform.scale` を使っているので、大きくなる途中でも見た目と判定が合っています(ボタンの文字の大きさも、ボタンの高さに合わせて一緒に大きくなります)。
+
+---
+
+## 13. 開発時の注意点
 
 ### 文字コード(重要)
 
@@ -552,7 +642,7 @@ Claude Code で作業する場合は、`.claude/`の設定で、メインの会�
 
 ---
 
-## 13. サンプル構成(現状)
+## 14. サンプル構成(現状)
 
 プロジェクト構成自体は`0. プロジェクト構成`を参照してください。ここでは各サンプルの中身(`Game/`)を説明します。
 
@@ -573,8 +663,8 @@ Sample3D/Game/Components/  TitleController, ButtonController, GroundController, 
 Sample3D/Game/Scenes/      TitleScene, GameScene
 ```
 
-- **Sample2D**: トップダウン視点のアリーナシューター。タイトル画面のSTARTボタンをクリックするとゲーム開始(ボタンは`CreateButton(scene, 文字, 位置, クリックされた時の処理)`で作れる汎用部品なので、他の画面のボタンにも使い回せる)。WASDで移動、Playerは常にマウスの方を向き、左クリックでその方向へ弾を発射。背景はタイル状に敷き詰めた床(`BackgroundController`)で、移動するとスクロールする。敵(`EnemyManager`が一定間隔でPlayerの周囲にランダムスポーンさせる)がゆっくり追いかけてきて、弾を当てると倒せる(`EventBus`で`"EnemyDefeated"`イベントを発行しスコア加算)。敵に触れるとHPが減り(1秒間の無敵時間つき)、0になるとゲームオーバー画面が出てSPACEでタイトルに戻る。当たり判定・物理はPhysXを使い(Player=`CircleRigidbodyComponent`、敵=`SquareRigidbodyComponent`、弾=`CircleRigidbodyComponent`)、Player・敵はDynamic(`SetVelocity()`で速度を渡して動かす。重力なし・回転なし・`SetFreezePositionZ(true)`で奥行き方向に固定)、弾はKinematicのトリガー。3Dカメラは使わない(`CameraController`なし)。
-- **Sample3D**: Sample2Dと同じアリーナシューターを3D空間で遊べるようにしたもの。タイトル画面のボタンをクリックするとゲーム開始(Sample3Dの`CreateButton()`は、位置と大きさをまとめて`Transform`で受け取る形になっている: `CreateButton(scene, 文字, transform, クリックされた時の処理)`)。Player(立方体)は三人称カメラ(`CameraController`。マウス移動で視点回転。カーソルは画面中心に固定され、ESCで解除・左クリックで再固定。TABで一人称に切り替え)と同じ向きを向き、WASDもカメラ基準(W=カメラの前、D=カメラの右)で移動する。左クリックでPlayerの向いている方向へ、地面と水平に弾(球)を発射。敵は2Dの画像(Worldモードの`SpriteRenderer`。Y軸だけカメラの方を向く立て看板)で、地面の上をPlayerに向かって歩いてくる。歩く間は、`EnemyController`がタイマーでスプライトシートのコマ(4番と5番)を0.3秒ごとに切り替えて、歩きアニメーションにしている。スコア・HP・無敵時間・ゲームオーバー(SPACEでタイトルへ)・`EventBus`のイベント名はSample2Dと同じ。Player・敵はDynamicの`BoxRigidbodyComponent`(重力あり・回転なし。Y速度は`GetVelocity().y`を維持したまま`SetVelocity()`で動かす)、弾はKinematicのトリガー(`SphereRigidbodyComponent`)。地面は、1000四方のタイルを3Dカメラの描画距離(farZ)の範囲だけ敷き詰めて描く`GroundController`(見た目)と、見えない大きなStaticの板(当たり判定)の組み合わせ。遠景はスカイボックス。
+- **Sample2D**: トップダウン視点のアリーナシューター。タイトル画面のSTARTボタン(出る時に`TweenComponent`でぴょこっと大きくなる)をクリックするとゲーム開始(ボタンは`CreateButton(scene, 文字, 位置, クリックされた時の処理)`で作れる汎用部品なので、他の画面のボタンにも使い回せる)。WASDで移動、Playerは常にマウスの方を向き、左クリックでその方向へ弾を発射。背景はタイル状に敷き詰めた床(`BackgroundController`)で、移動するとスクロールする。敵(`EnemyManager`が一定間隔でPlayerの周囲にランダムスポーンさせる)がゆっくり追いかけてきて、弾を当てると倒せる(`EventBus`で`"EnemyDefeated"`イベントを発行しスコア加算)。敵に触れるとHPが減り(1秒間の無敵時間つき)、0になるとゲームオーバー画面が出てSPACEでタイトルに戻る。当たり判定・物理はPhysXを使い(Player=`CircleRigidbodyComponent`、敵=`SquareRigidbodyComponent`、弾=`CircleRigidbodyComponent`)、Player・敵はDynamic(`SetVelocity()`で速度を渡して動かす。重力なし・回転なし・`SetFreezePositionZ(true)`で奥行き方向に固定)、弾はKinematicのトリガー。3Dカメラは使わない(`CameraController`なし)。
+- **Sample3D**: Sample2Dと同じアリーナシューターを3D空間で遊べるようにしたもの。タイトル画面のボタン(Sample2Dと同じく、出る時に`TweenComponent`でぴょこっと大きくなる)をクリックするとゲーム開始(Sample3Dの`CreateButton()`は、位置と大きさをまとめて`Transform`で受け取る形になっている: `CreateButton(scene, 文字, transform, クリックされた時の処理)`)。Player(立方体)は三人称カメラ(`CameraController`。マウス移動で視点回転。カーソルは画面中心に固定され、ESCで解除・左クリックで再固定。TABで一人称に切り替え)と同じ向きを向き、WASDもカメラ基準(W=カメラの前、D=カメラの右)で移動する。左クリックでPlayerの向いている方向へ、地面と水平に弾(球)を発射。敵は2Dの画像(Worldモードの`SpriteRenderer`。Y軸だけカメラの方を向く立て看板)で、地面の上をPlayerに向かって歩いてくる。歩く間は、`EnemyController`がタイマーでスプライトシートのコマ(4番と5番)を0.3秒ごとに切り替えて、歩きアニメーションにしている。スコア・HP・無敵時間・ゲームオーバー(SPACEでタイトルへ)・`EventBus`のイベント名はSample2Dと同じ。Player・敵はDynamicの`BoxRigidbodyComponent`(重力あり・回転なし。Y速度は`GetVelocity().y`を維持したまま`SetVelocity()`で動かす)、弾はKinematicのトリガー(`SphereRigidbodyComponent`)。地面は、1000四方のタイルを3Dカメラの描画距離(farZ)の範囲だけ敷き詰めて描く`GroundController`(見た目)と、見えない大きなStaticの板(当たり判定)の組み合わせ。遠景はスカイボックス。
 
 **Sample3Dの実装メモ**: 向きはすべて`transform.rotate.y`(度)で表し、`rotate.y`の時の正面(ローカルの+Z)は`(sin, 0, cos)`の方向になる(`CameraController::GetYaw()`の式と同じ。`Math::Forward3D()`で求められる)。Worldモードの`SpriteRenderer`は`rotate.y`を使わない(ビルボードの向きとZ軸回転だけを使う)ので、敵の画像の向きは`SetBillboardLock(true, false, true)`でカメラの方へ向けている。Playerは`SetFreezeRotation(true)`で、`RigidbodyComponent`は位置しか同期しないため、`PlayerController`が`rotate.y`が変わった時に`GetActor()`の`setGlobalPose`で当たり判定の箱の回転も合わせている(デバッグ表示の枠と実際の判定が同じ向きになる)。一人称の間は、カメラが立方体の内側に入るのでPlayerの`MeshRenderer`を非表示にしている。
 
@@ -602,6 +692,7 @@ GameManager/HUD/EnemyManager/BulletManagerのような「見た目の無い管�
 |---|---|
 | タイトルに戻った時にカメラを原点へ戻す | `TitleController::Init()` |
 | STARTを押したらGameSceneへ | `Objects/StartButton.cpp`(汎用の`CreateButton()`に「押された時の処理」を渡す) |
+| STARTボタンをぴょこっと出す | `Objects/StartButton.cpp`(`TweenComponent`を付けて`ScaleTo`。§12) |
 | `"FireBullet"`を受けて弾を出す | `BulletManager::Init()` |
 | 一定間隔で敵を出す | `EnemyManager::Update()` |
 | コライダー枠の表示ON | `GameManager::Init()` |
@@ -612,7 +703,7 @@ Sceneに残してよいのは、オブジェクトの配置と、シーン全体
 
 ---
 
-## 14. PhysX(3D物理演算)
+## 15. PhysX(3D物理演算)
 
 3D用の物理エンジンとして[NVIDIA PhysX 4.1](https://github.com/NVIDIA-Omniverse/PhysX)を導入しています。ビルド済みのライブラリ一式(ヘッダー・dll・lib)を`ThirdParty/PhysX/`にコミット済みなので、**チームメンバーは自分でビルドし直す必要はありません**(`git clone`してそのままビルドできます)。
 
