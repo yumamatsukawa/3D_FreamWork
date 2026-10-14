@@ -8,6 +8,11 @@
 #include "../../../Engine/MathUtil.h"
 #include <PxPhysicsAPI.h>
 
+void PlayerController::Init() {
+    // 最初は無敵ではない(「終わった状態」にしておき、ダメージを受けたらResetで数え始める)
+    invincibleTimer.Complete();
+}
+
 void PlayerController::Update(float dt) {
 
     // 必要なComponentを取得(無ければ何もしない)
@@ -20,7 +25,7 @@ void PlayerController::Update(float dt) {
     renderer->SetEnabled(camera->GetMode() == CameraController::Mode::ThirdPerson);
 
     // 無敵時間
-    if (invincibleTimer > 0.f) invincibleTimer -= dt;
+    invincibleTimer.Update(dt);
 
     // 色の初期化
     if (!touchingEnemy) renderer->SetColor(1.0f, 1.0f, 1.0f, 1.0f);
@@ -84,9 +89,9 @@ void PlayerController::OnCollisionStay2D(CollisionInfo info) {
         if (renderer) renderer->SetColor(1.0f, 1.0f, 0.0f, 1.0f);
 
         // OnCollisionStay2Dは接触中ずっと毎フレーム呼ばれるので、無敵時間で連続ダメージを防ぐ
-        if (hp <= 0 || invincibleTimer > 0.f) return;
+        if (hp <= 0 || !invincibleTimer.IsFinished()) return;
         hp--;
-        invincibleTimer = invincibleDuration;
+        invincibleTimer.Reset();
 
         // ゲームオーバー
         if (hp <= 0) EventBus::Get().Publish("PlayerDied");

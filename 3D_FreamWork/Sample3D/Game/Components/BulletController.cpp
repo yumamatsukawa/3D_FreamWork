@@ -11,8 +11,7 @@ void BulletController::Update(float dt) {
     t.position.z += direction.z * speed * dt;
 
     // 寿命が来たらプールに返す
-    elapsed += dt;
-    if (elapsed >= lifeTime && pool) {
+    if (lifeTimer.Update(dt) && pool) {
         pool->Return(GetOwner());
     }
 }

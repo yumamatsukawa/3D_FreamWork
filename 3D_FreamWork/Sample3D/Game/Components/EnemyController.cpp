@@ -17,11 +17,9 @@ void EnemyController::Update(float dt) {
     RigidbodyComponent* rigidbody = GetOwner()->GetComponent<RigidbodyComponent>(); if (!rigidbody) return;
     SpriteRenderer* sprite = GetOwner()->GetComponent<SpriteRenderer>(); if (!sprite) return;
 
-    animationTimer += dt;
-    float loopTime = frameDuration * walkFrameCount;
-    if (animationTimer >= loopTime) animationTimer -= loopTime;   // 余った時間は捨てずに次の周へ
-    int frame = (int)(animationTimer / frameDuration);
-    sprite->SetSpriteIndex(walkFrames[frame]);
+    // 歩きアニメーション: 1コマ分の時間が来る度に次のコマへ(余った時間はTimerが次へ持ち越す)
+    if (frameTimer.Update(dt)) frameIndex = (frameIndex + 1) % walkFrameCount;
+    sprite->SetSpriteIndex(walkFrames[frameIndex]);
 
     // ★ Y速度は0にせず、今の値をそのまま使う(0にすると重力で落ちなくなる)
     float velocityY = rigidbody->GetVelocity().y;

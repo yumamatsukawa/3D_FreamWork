@@ -8,10 +8,7 @@ private:
     GameEngine() = default;
     Scene    scene;
 
-    LARGE_INTEGER frequency{}, lastTime{};
     bool isRunning = false;
-
-    float CalcDeltaTime();
 public:
     static GameEngine& Get() {          // シングルトン
         static GameEngine instance;

@@ -252,7 +252,7 @@ player->AddComponent<CameraController>();
 
 ## 6. Collider(当たり判定)
 
-**当たり判定は、2D/3D問わず全てPhysX(`RigidbodyComponent`、§12参照)で計算しています。**2Dのゲームでは、2D向けに使いやすくした`SquareRigidbodyComponent`/`CircleRigidbodyComponent`を使い、`SetFreezePositionZ(true)`で奥行き方向に動かないようにします(Sample2Dが実例)。
+**当たり判定は、2D/3D問わず全てPhysX(`RigidbodyComponent`、§13参照)で計算しています。**2Dのゲームでは、2D向けに使いやすくした`SquareRigidbodyComponent`/`CircleRigidbodyComponent`を使い、`SetFreezePositionZ(true)`で奥行き方向に動かないようにします(Sample2Dが実例)。
 
 ```cpp
 // Playerの例(すり抜けない円形・半径50。Dynamic+速度指定で動かし、衝突応答はPhysXに任せる)
@@ -306,7 +306,7 @@ RigidbodyComponent::SetDebugDrawEnabled(true);
 | `SquareRigidbodyComponent` | Z軸方向で切った断面の四角 |
 | `CircleRigidbodyComponent` | Z軸方向で切った断面の丸 |
 
-2D向けのSquare/Circleは、PhysX上は奥行きのある立方体/球ですが(§12)、2Dゲームでは奥行き方向に動かないので、平面で見た時の形(断面)だけを表示しています。
+2D向けのSquare/Circleは、PhysX上は奥行きのある立方体/球ですが(§13)、2Dゲームでは奥行き方向に動かないので、平面で見た時の形(断面)だけを表示しています。
 
 **内部実装メモ**: `RigidbodyComponent::Draw()`が、`PxShape`から実際のジオメトリ(`PxBoxGeometry`/`PxSphereGeometry`)を取得し、Ownerの`Transform`の`scale`だけを一時的に差し替えて描画しています(位置・回転は普段どおりOwnerのTransformをそのまま使う)。枠は三角形ではなく線(`D3D11_PRIMITIVE_TOPOLOGY_LINELIST`)で描いていて、形ごとの輪郭データは`Mesh::CreateCubeOutline()`などで作り、全`RigidbodyComponent`で1つずつ共有しています。
 
@@ -395,7 +395,88 @@ XMFLOAT2 offset = Math::RandomOnCircle(spawnDistance);
 
 ---
 
-## 10. 開発時の注意点
+## 10. 時間とタイマー(Time / Timer)
+
+「1フレームの時間」「時間の倍率(スロー・ポーズ)」は `Engine/Time.h` の `namespace Time`、「○秒たったら」を数えるのは `Engine/Timer.h` の `Timer` でできます。各Componentで `timer -= dt; if (timer <= 0) ...` のような処理を手書きせずに、こちらを使ってください。
+
+### Time(1フレームの時間・スロー・ポーズ)
+
+```cpp
+#include "../../../Engine/Time.h"
+```
+
+| 関数 | 内容 |
+|---|---|
+| `Time::GetDeltaTime()` | 1フレームの時間(秒)。倍率の影響を受ける(ポーズ中は0)。各Componentの `Update(float dt)` の `dt` と同じ値 |
+| `Time::GetUnscaledDeltaTime()` | 1フレームの本当の時間(秒)。倍率の影響を受けない。ポーズ中も動かしたいUIなどに使う |
+| `Time::GetTime()` | 起動してからの時間(秒)。倍率の影響を受ける |
+| `Time::SetTimeScale(scale)` | 時間の倍率。1=通常、0.3=スロー、0=ポーズ(負の値は0になる) |
+| `Time::GetTimeScale()` | 今の倍率 |
+| `Time::IsPaused()` | ポーズ中か(倍率が0の時true) |
+
+`Time::Init()` / `Time::Update()` はEngine(`GameEngine`)だけが呼ぶ関数です。ゲーム側からは呼ばないでください。
+
+```cpp
+Time::SetTimeScale(0.3f);   // スローにする
+Time::SetTimeScale(0.0f);   // ポーズ
+Time::SetTimeScale(1.0f);   // 元に戻す
+```
+
+**決まり**:
+- **1フレームの時間には上限(0.1秒)があります。** ウィンドウをドラッグしている間などはゲームが止まっていて、その分を1フレームでまとめて進めると、物がすり抜けたりワープしたりするためです。シーンを切り替えた直後(読み込みで1フレームが長くなった時)なども、`dt` は最大0.1秒になります。上限は倍率をかける前の時間にかかるので、`GetUnscaledDeltaTime()` も0.1秒を超えません。
+- **時間の倍率はシーンをまたいで残ります。** ポーズ中(倍率0)のままシーンを切り替えると、次のシーンも止まったままになるので、切り替える前に `Time::SetTimeScale(1.0f)` で元に戻してください。
+- **ポーズ中も、Engineは各Componentの `Update` を止めません**(`dt` が0で呼ばれ続けます。PhysXの物理演算は止まります)。そのため、何もしないとポーズ中でもキー入力で弾が出てしまいます。**入力を止めたいControllerは、`Update` の先頭(入力を読む前)で次のように書いてください。**
+  ```cpp
+  void PlayerController::Update(float dt) {
+      if (Time::IsPaused()) return;   // ポーズ中は操作を受け付けない
+      ...
+  }
+  ```
+  (今のサンプルにはポーズ機能が無いので、まだどのControllerにも書いていません)
+
+### Timer(○秒たったら)
+
+```cpp
+#include "../../../Engine/Timer.h"
+```
+
+Componentのメンバに持って、`Update` で毎フレーム `dt` を渡します。
+
+| メンバ・関数 | 内容 |
+|---|---|
+| `Timer(duration, loop)` | 作る。`duration`=何秒で時間が来るか、`loop`=繰り返すか(省略すると1秒・繰り返さない) |
+| `Update(dt)` | 時間を進める。**時間が来たフレームだけtrue**。`loop` なら余った時間を次の周へ持ち越す。`loop` でなければ、一度trueを返した後はfalseのまま(0秒のタイマーは次の `Update` で1回だけtrue) |
+| `Reset()` | 最初から数え直す |
+| `Complete()` | すぐに「終わった状態」にする(繰り返す(`loop`)タイマーで呼んだ場合は、終わった状態にはならず、次の `Update` で時間が来る(trueが返る)) |
+| `GetProgress()` | 進み具合(0〜1) |
+| `IsFinished()` | 終わったか(`loop` なら常にfalse) |
+| `elapsed` | 経過時間(秒)。直接書き換えてもよい(最初の1回だけ早くしたい時など) |
+
+```cpp
+// 一定間隔でくり返す(Sample2D/3D EnemyManager)
+Timer spawnTimer{ 2.5f, true };                      // 2.5秒ごと
+spawnTimer.elapsed = 2.5f - 1.0f;                    // 最初の1回だけ1.0秒で来るようにする(Initで)
+if (spawnTimer.Update(dt)) Spawn(...);               // 時間が来たフレームだけ出す
+
+// きっかけがあってから○秒の間(Sample2D/3D PlayerControllerの無敵時間)
+Timer invincibleTimer{ 1.0f };
+invincibleTimer.Complete();                          // Init: 最初は無敵ではない(終わった状態)
+invincibleTimer.Update(dt);                          // Update: 毎フレーム進める
+if (!invincibleTimer.IsFinished()) return;           // 無敵中はダメージを受けない
+invincibleTimer.Reset();                             // ダメージを受けたら数え始める
+
+// 寿命(Sample2D/3D BulletController)
+if (lifeTimer.Update(dt)) pool->Return(GetOwner());  // 2秒たったらプールに返す
+
+// コマ送りのアニメーション(Sample3D EnemyController)
+if (frameTimer.Update(dt)) frameIndex = (frameIndex + 1) % walkFrameCount;   // 0.3秒ごとに次のコマへ
+```
+
+**注意**: `ObjectPool` で使い回すオブジェクトのタイマーは、借りた/発射した時に呼ぶ関数(`BulletController::Fire()` など)で `Reset()` してください(§8 と同じ理由。`Init()` は2回目以降は呼ばれません)。
+
+---
+
+## 11. 開発時の注意点
 
 ### 文字コード(重要)
 
@@ -431,7 +512,7 @@ Claude Code で作業する場合は、`.claude/`の設定で、メインの会�
 
 ---
 
-## 11. サンプル構成(現状)
+## 12. サンプル構成(現状)
 
 プロジェクト構成自体は`0. プロジェクト構成`を参照してください。ここでは各サンプルの中身(`Game/`)を説明します。
 
@@ -491,7 +572,7 @@ Sceneに残してよいのは、オブジェクトの配置と、シーン全体
 
 ---
 
-## 12. PhysX(3D物理演算)
+## 13. PhysX(3D物理演算)
 
 3D用の物理エンジンとして[NVIDIA PhysX 4.1](https://github.com/NVIDIA-Omniverse/PhysX)を導入しています。ビルド済みのライブラリ一式(ヘッダー・dll・lib)を`ThirdParty/PhysX/`にコミット済みなので、**チームメンバーは自分でビルドし直す必要はありません**(`git clone`してそのままビルドできます)。
 

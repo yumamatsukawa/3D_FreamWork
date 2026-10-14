@@ -6,6 +6,7 @@
 #include "Audio.h"
 #include "Text.h"
 #include "Physics.h"
+#include "Time.h"
 
 bool GameEngine::Init(HWND hwnd, int w, int h)
 {
@@ -13,8 +14,7 @@ bool GameEngine::Init(HWND hwnd, int w, int h)
     if (!Audio::Init())           return false;
     if (!Text::Init())            return false;
     if (!Physics::Init())         return false;
-    QueryPerformanceFrequency(&frequency);
-    QueryPerformanceCounter(&lastTime);
+    Time::Init();
     isRunning = true;
     return true;
 }
@@ -30,12 +30,12 @@ void GameEngine::Run()
             if (msg.message == WM_QUIT) isRunning = false;
         }
 
-        float dt = CalcDeltaTime();
+        Time::Update();
 
         Input::Update();
-        
-        Physics::Update(dt);
-        SceneManager::Get().Update(dt);
+
+        Physics::Update(Time::GetDeltaTime());
+        SceneManager::Get().Update(Time::GetDeltaTime());
 
         Image::BeginFrame();
         Text::BeginDraw();
@@ -53,13 +53,4 @@ void GameEngine::Uninit()
     Text::Uninit();
     Audio::Uninit();
     Image::Uninit();
-}
-
-float GameEngine::CalcDeltaTime()
-{
-    LARGE_INTEGER now;
-    QueryPerformanceCounter(&now);
-    float dt = float(now.QuadPart - lastTime.QuadPart) / frequency.QuadPart;
-    lastTime = now;
-    return dt;
 }

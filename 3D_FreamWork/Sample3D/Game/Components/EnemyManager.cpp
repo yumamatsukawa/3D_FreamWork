@@ -34,6 +34,9 @@ namespace {
 }
 
 void EnemyManager::Init() {
+    // 最初の1体だけfirstSpawnDelay秒で出す(その分だけ経過時間を先に進めておく)
+    spawnTimer.elapsed = spawnInterval - firstSpawnDelay;
+
     // Playerが倒れたら出現を止める
     // ※ラムダがthisを使うので、シーン終了時にGameScene::Uninit()で登録を消している
     EventBus::Get().Subscribe("PlayerDied", [this]() {
@@ -45,10 +48,7 @@ void EnemyManager::Update(float dt) {
     if (stopped || !target) return;
 
     // 一定間隔で出現
-    spawnTimer -= dt;
-    if (spawnTimer <= 0.f) {
-        spawnTimer = spawnInterval;
-
+    if (spawnTimer.Update(dt)) {
         // targetを中心に、XZ平面上のランダムな方向・一定距離離れた地面の上に出現させる
         // (円周上の点のx,yを、地面のx,zとして使う)
         XMFLOAT2 offset = Math::RandomOnCircle(spawnDistance);

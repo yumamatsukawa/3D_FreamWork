@@ -1,5 +1,6 @@
 ﻿#pragma once
 #include "../../../Engine/Component.h"
+#include "../../../Engine/Timer.h"
 
 class CameraController;
 
@@ -14,13 +15,14 @@ private:
     int hp = 3;                         // 現在のHP
     static constexpr int maxHp = 3;     // 最大HP
 
-    float invincibleTimer = 0.f;                        // 無敵時間の残り
     static constexpr float invincibleDuration = 1.0f;   // ダメージを受けた後の無敵時間(秒)
+    Timer invincibleTimer{ invincibleDuration };         // 無敵時間を数える(終わっていれば無敵ではない)
 
 public:
     // 向き・移動の基準にするカメラを、CreatePlayer()から渡してもらう
     void Setup(CameraController* cameraController) { camera = cameraController; }
 
+    void Init() override;
     void Update(float dt) override;
     void OnCollisionStay2D(CollisionInfo info) override;
 

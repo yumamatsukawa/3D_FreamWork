@@ -6,7 +6,7 @@
 Engine(`3D_FreamWork/Engine/`)に今後追加したい16個の機能について、「どんな関数を作るか」「どの順番で作るか」「Sampleではどう使えるか(使用例)」をまとめた設計書です。チーム(C++初心者を含む)で分担して実装する時の資料として使います。
 
 ### 状態
-**ここに書いてある内容は「設計案」です。実装済みのものは、4章の表の状態が「完了」になっています(今は計算系だけ)。**
+**ここに書いてある内容は「設計案」です。実装済みのものは、4章の表の状態が「完了」になっています(今は計算系と、時間とタイマー)。**
 関数名・引数は実装しながら変わってよいものです。実際に作る時は、この文書を出発点にして、下の「共通ルール」どおりに1機能ずつ相談してから手を付けてください。実装したら、この文書の「作る順番」の表の状態を更新してください。
 
 ---
@@ -59,7 +59,7 @@ Engineを変えると Sample2D と Sample3D の**両方**に影響します(`CLA
    `SetSpriteIndex` のコマ番号と `SetColor` の色は、`Image.cpp` の `TextureData`(画像1枚ぶんのデータ)に入っています。今は「1体ごとに画像を読み直している」ので困っていませんが、1の問題を直して画像を共有すると、**同じ画像を使う全員のコマと色が連動してしまいます**(1体を赤くすると全員赤くなる)。そのため、コマ番号と色は `SpriteRenderer` 側へ移す必要があります。
 3. **同じ効果音を重ねて鳴らせない**
    `Audio` は1つの音に再生口(`IXAudio2SourceVoice`)を1つしか持たず、`Audio::Play` の度に前の音を `Stop` + `FlushSourceBuffers` で止めてから鳴らし直します。連射の音が途切れてしまいます。
-4. **各Componentがタイマーを手書きしている**
+4. **各Componentがタイマーを手書きしている**(→ 5.2 で解決済み)
    `spawnTimer`(EnemyManager)、`invincibleTimer`(PlayerController)、`animationTimer`(Sample3D EnemyController)など、「時間を引いて0以下になったら…」という同じ処理があちこちにあります。
 5. **HUDの座標が直書き**
    `HUDController` の `Text::Draw(buf, -560.f, 320.f, 28.f)` のように、画面の左上を数字で決め打ちしています。画面サイズが変わるとずれます。
@@ -82,7 +82,7 @@ Engineを変えると Sample2D と Sample3D の**両方**に影響します(`CLA
 | 順 | 機能 | 理由・依存 | 担当者 | 状態 |
 |---|---|---|---|---|
 | 1 | [計算系](#51-計算系) | すべての土台。ほかの機能のほとんどが使う | | 完了 |
-| 2 | [時間とタイマー](#52-時間とタイマー) | イージング・画面エフェクト・アニメーションが使う | | 未着手 |
+| 2 | [時間とタイマー](#52-時間とタイマー) | イージング・画面エフェクト・アニメーションが使う | | 完了 |
 | 3 | [リソースの使い回し](#53-リソースの使い回し) | 画像を共有する前に「データ」と「1体ごとの状態」を分けておく(アニメ・音・モデルの前提) | | 未着手 |
 | 4 | [イージング](#54-イージング) | カメラ・UI・画面エフェクトが使う | | 未着手 |
 | 5 | [移動系](#55-移動系) + [物理の問い合わせと力](#56-物理の問い合わせと力) | 加速度で動く移動は `AddForce` を使うので、同じ段の中では物理(5.6)を先に作る | | 未着手 |
@@ -198,6 +198,21 @@ XMFLOAT2 offset = Math::RandomOnCircle(spawnDistance);
 
 ### 5.2 時間とタイマー
 
+> **実装済み**: `Engine/Time.h/.cpp`(`namespace Time`)と `Engine/Timer.h`(`struct Timer`、ヘッダーだけ)。`GameEngine` の `CalcDeltaTime()` は `Time::Update()` に移した。下の「対象」のSampleのコードも置き換え済み。使い方は `README.md` の「10. 時間とタイマー(Time / Timer)」を参照。
+> 決まったこと:
+> - **A. ポーズ中の入力**: Engineはポーズ中も各Componentの `Update` を止めない(`dt=0` で呼ばれ続ける)。`Time::IsPaused()`(倍率が0ならtrue)を用意し、入力を止めたいControllerが `Update` の先頭で `if (Time::IsPaused()) return;` と書く。「ポーズ中も動くGameObject」の印は作らない
+> - **B. dtの上限**: 1フレームの時間に上限0.1秒を付けた(ウィンドウのドラッグ中などに、すり抜け・ワープしないように)。上限は倍率をかける前の本当の時間にかけるので、`GetUnscaledDeltaTime()` も上限付き
+> - **`Timer::Complete()` を追加**: すぐに「終わった状態」にする(`elapsed = duration`)。無敵時間のように「最初は終わっていて、きっかけがあったら `Reset()` で数え始める」使い方のため
+>
+> 設計から変えた・足した所:
+> - `Time::Init()` / `Time::Update()`(Engine内部用。`GameEngine` だけが呼ぶ)を足した
+> - `SetTimeScale` に負の値を渡すと0(ポーズ)になる
+> - `Timer` にコンストラクタ `Timer(float duration = 1.0f, bool loop = false)` を付けた。`loop` で1フレームに何周分も進んだ時は、trueは1回だけ返し、`elapsed` は余り(duration未満)に戻す。`duration <= 0` でも0で割らない
+> - `Timer` に `finished`(終わったか)を足した。0秒のタイマー(loopなし)も、作った直後・`Reset()` 直後は終わっておらず、次の `Update` で1回だけtrueを返すようにするため。loopで0秒以下の時は `Update` の度に毎回true
+> - Sample3D `EnemyController::Spawn()` で歩きアニメーションを最初のコマに戻す(プールで再利用された敵が前回の続きから歩き始めないように)
+> - 置き換え対象に、両サンプルの `BulletController`(寿命)と Sample3D `EnemyController`(歩きアニメーションのコマ送り)も加えた
+> - `EnemyManager` の出現タイマーは、余った時間を次へ持ち越すようになった(前は捨てていたので、1回ごとに最大1フレーム分だけ間隔が長かった)。最初の1体が1.0秒で出るのは前と同じ(`elapsed` の初期値を `spawnInterval - firstSpawnDelay` にしている)
+
 **目的**: 「1フレームの時間」をどこからでも取れるようにして、スロー・ポーズを作れるようにする。各Componentで手書きしているタイマーを1つの型にまとめる。
 
 **ファイル案**: `Engine/Time.h/.cpp`(`namespace Time`)、`Engine/Timer.h`(`struct Timer`、短いのでヘッダーだけ)
@@ -208,17 +223,24 @@ namespace Time {
     float GetDeltaTime();           // 1フレームの時間(秒)。スロー・ポーズの影響を受ける
     float GetUnscaledDeltaTime();   // 1フレームの本当の時間。ポーズ中も動かしたいUI・画面エフェクト用
     float GetTime();                // 起動してからの時間(秒。倍率の影響を受ける)
-    void  SetTimeScale(float scale);// 時間の倍率(1=通常、0.3=スロー、0=ポーズ)
+    void  SetTimeScale(float scale);// 時間の倍率(1=通常、0.3=スロー、0=ポーズ)。負の値は0にする
     float GetTimeScale();           // 今の倍率
+    bool  IsPaused();               // ポーズ中か(倍率が0の時true)
+
+    void  Init();                   // Engine内部用: 時間の計測を始める
+    void  Update();                 // Engine内部用: 毎フレームのdtを計算する(上限0.1秒・倍率)
 }
 
 struct Timer {
     float duration = 1.0f;          // 何秒ごとか
     bool  loop = false;             // 繰り返すか
     float elapsed = 0.0f;           // 経過時間
+    bool  finished = false;         // 終わったか(loopでない時だけ使う)
 
+    Timer(float duration = 1.0f, bool loop = false);
     bool  Update(float dt);         // 時間が来たフレームだけtrue(loopなら余った時間を次へ持ち越す)
     void  Reset();                  // 最初からやり直す
+    void  Complete();               // すぐに「終わった状態」にする
     float GetProgress() const;      // 進み具合(0〜1)
     bool  IsFinished() const;       // 終わったか(loopなら常にfalse)
 };
@@ -226,9 +248,10 @@ struct Timer {
 
 **設計のポイント**:
 - `GameEngine::Run` の `CalcDeltaTime()` の計算を `Time` に移します。`Physics::Update` と `SceneManager::Get().Update` には、倍率をかけたdt(`GetDeltaTime()`)を渡します。
-- 倍率0(ポーズ)の時、`Physics::Update` は `dt <= 0` で何もしないので安全です。ただし `SceneManager` の `Update(0)` は呼ばれ続けるので、**ポーズ中にキー入力で弾が出てしまう**ことがあります。入力を止めるのは各Controllerの仕事にするか、Engineで「ポーズ中も動くGameObject」の印を作るかは未決定です。
-- (提案)ウィンドウをドラッグしている間などにdtが極端に大きくなると、物がすり抜けたり飛んだりするので、dtに上限(例: 0.1秒)を付けるかも合わせて決めます。
-- `Timer` は `loop` の時、余った時間を捨てずに次の周へ持ち越します(Sample3D EnemyController の `animationTimer -= loopTime` と同じ考え方)。
+- 倍率0(ポーズ)の時、`Physics::Update` は `dt <= 0` で何もしないので安全です。ただし `SceneManager` の `Update(0)` は呼ばれ続けるので、**ポーズ中にキー入力で弾が出てしまう**ことがあります。→ **決定(A)**: 入力を止めるのは各Controllerの仕事にする。止めたいControllerが `Update` の先頭で `if (Time::IsPaused()) return;` と書く。
+- ウィンドウをドラッグしている間などにdtが極端に大きくなると、物がすり抜けたり飛んだりします。→ **決定(B)**: dtに上限0.1秒を付ける(倍率をかける前の本当の時間にかけるので、`GetUnscaledDeltaTime()` も上限付き)。
+- `Timer::Complete()` で「終わった状態」から始められます(無敵時間: 最初は `Complete()`、ダメージを受けたら `Reset()`、無敵中かは `!IsFinished()`)。
+- `Timer` は `loop` の時、余った時間を捨てずに次の周へ持ち越します(置き換え前の Sample3D EnemyController の `animationTimer -= loopTime` と同じ考え方)。
 - **「○秒後に関数を呼ぶ」機能は今回は作りません。** ラムダが、もう消えたオブジェクトを触ってしまう危険があるからです(EventBusと同じ問題)。作るなら、呼び出し元のGameObjectに付くComponentとして作り、オブジェクトが消えたら自動でキャンセルされる形にします(5.4 の `TweenComponent` の `SetDelay` + `SetOnComplete` でも代用できます)。
 
 **置き換えるSampleのコード(使用例)**:
@@ -239,7 +262,7 @@ Timer spawnTimer{ 2.5f, true };   // 2.5秒ごとに出現
 // EnemyManager::Update
 if (spawnTimer.Update(dt)) Spawn(...);
 ```
-対象: 両サンプルの `EnemyManager` の `spawnTimer`、`PlayerController` の `invincibleTimer`。
+対象: 両サンプルの `EnemyManager` の `spawnTimer`、`PlayerController` の `invincibleTimer`、`BulletController` の寿命(`lifeTimer`)。Sample3D `EnemyController` の歩きアニメーション(`frameTimer`)。(すべて置き換え済み)
 
 **依存する機能**: なし
 
@@ -587,7 +610,7 @@ anim->AddClip("Idle", { 4 }, 1.0f, true);
 // Controller::Update
 if (moving) anim->Play("Walk"); else anim->Play("Idle");
 ```
-対象: Sample3D `EnemyController` の `animationTimer` と `walkFrames` の計算。
+対象: Sample3D `EnemyController` の `frameTimer` / `frameIndex`(5.2 で `Timer` に置き換え済みのコマ送り)と `walkFrames` の計算。
 
 **依存する機能**: 5.2 時間とタイマー、5.3 リソースの使い回し(コマ番号をSpriteRendererへ移す)
 
