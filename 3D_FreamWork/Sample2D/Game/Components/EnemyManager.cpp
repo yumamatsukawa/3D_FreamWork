@@ -5,6 +5,7 @@
 #include "../../../Engine/RigidbodyComponent.h"
 #include "../../../Engine/EventBus.h"
 #include "../../../Engine/MathUtil.h"
+#include "../../../Engine/ChaseComponent.h"
 #include "EnemyController.h"
 
 namespace {
@@ -24,7 +25,10 @@ namespace {
         rigidbody->SetFreezeRotation(true);
         rigidbody->SetFreezePositionZ(true);
 
-        // 動き
+        // 動き(追いかける相手と速さはSpawnで渡す)
+        obj->AddComponent<ChaseComponent>();
+
+        // 弾に当たった時の処理
         obj->AddComponent<EnemyController>();
     }
 }
@@ -64,9 +68,16 @@ GameObject* EnemyManager::Spawn(XMFLOAT3 position) {
     SpriteRenderer* sprite = enemy->GetComponent<SpriteRenderer>();
     if (sprite) sprite->SetColor(1.0f, 0.0f, 1.0f, 1.0f);
 
-    // 追いかける相手と、倒された時の返却先を渡す
+    // 追いかける相手と速さを渡す
+    ChaseComponent* chase = enemy->GetComponent<ChaseComponent>();
+    if (chase) {
+        chase->SetTarget(target);
+        chase->SetSpeed(enemySpeed);
+    }
+
+    // 倒された時の返却先を渡す
     EnemyController* controller = enemy->GetComponent<EnemyController>();
-    if (controller) controller->Spawn(target, &pool);
+    if (controller) controller->Spawn(&pool);
 
     return enemy;
 }

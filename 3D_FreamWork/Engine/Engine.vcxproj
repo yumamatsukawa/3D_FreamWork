@@ -86,14 +86,18 @@ xcopy /y /d "$(SolutionDir)Shader3D.hlsl" "$(OutDir)"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="AccelerateChaseComponent.cpp" />
     <ClCompile Include="Audio.cpp" />
+    <ClCompile Include="ChaseComponent.cpp" />
     <ClCompile Include="Collider.cpp" />
     <ClCompile Include="GameEngine.cpp" />
     <ClCompile Include="Graphics.cpp" />
+    <ClCompile Include="HomingComponent.cpp" />
     <ClCompile Include="Image.cpp" />
     <ClCompile Include="Input.cpp" />
     <ClCompile Include="MathUtil.cpp" />
     <ClCompile Include="Mesh.cpp" />
+    <ClCompile Include="MoveComponent.cpp" />
     <ClCompile Include="Physics.cpp" />
     <ClCompile Include="Resources.cpp" />
     <ClCompile Include="RigidbodyComponent.cpp" />
@@ -108,8 +112,10 @@ xcopy /y /d "$(SolutionDir)Shader3D.hlsl" "$(OutDir)"</Command>
     <ClCompile Include="WICTextureLoader11.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="AccelerateChaseComponent.h" />
     <ClInclude Include="Audio.h" />
     <ClInclude Include="Camera.h" />
+    <ClInclude Include="ChaseComponent.h" />
     <ClInclude Include="Collider.h" />
     <ClInclude Include="Component.h" />
     <ClInclude Include="Ease.h" />
@@ -117,12 +123,14 @@ xcopy /y /d "$(SolutionDir)Shader3D.hlsl" "$(OutDir)"</Command>
     <ClInclude Include="GameEngine.h" />
     <ClInclude Include="GameObject.h" />
     <ClInclude Include="Graphics.h" />
+    <ClInclude Include="HomingComponent.h" />
     <ClInclude Include="Image.h" />
     <ClInclude Include="Input.h" />
     <ClInclude Include="Light.h" />
     <ClInclude Include="MathUtil.h" />
     <ClInclude Include="Mesh.h" />
     <ClInclude Include="MeshRenderer.h" />
+    <ClInclude Include="MoveComponent.h" />
     <ClInclude Include="ObjectPool.h" />
     <ClInclude Include="Physics.h" />
     <ClInclude Include="Resources.h" />

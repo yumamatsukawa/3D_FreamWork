@@ -5,6 +5,7 @@
 #include "../../../Engine/RigidbodyComponent.h"
 #include "../../../Engine/EventBus.h"
 #include "../../../Engine/MathUtil.h"
+#include "../../../Engine/ChaseComponent.h"
 #include "EnemyController.h"
 
 namespace {
@@ -28,7 +29,12 @@ namespace {
         rigidbody->SetUseGravity(true);
         rigidbody->SetFreezeRotation(true);
 
-        // 動き
+        // 動き: 地面(XZ平面)の上を追いかける。Yの速度(重力で落ちる速さ)はChaseComponentがそのまま残す
+        // (追いかける相手と速さはSpawnで渡す)
+        auto* chase = obj->AddComponent<ChaseComponent>();
+        chase->SetPlane(MovePlane::XZ);
+
+        // 歩きアニメーションと、弾に当たった時の処理
         obj->AddComponent<EnemyController>();
     }
 }
@@ -69,9 +75,16 @@ GameObject* EnemyManager::Spawn(XMFLOAT3 position) {
     SpriteRenderer* sprite = enemy->GetComponent<SpriteRenderer>();
     if (sprite) sprite->SetColor(1.0f, 0.0f, 1.0f, 1.0f);
 
-    // 追いかける相手と、倒された時の返却先を渡す
+    // 追いかける相手と速さを渡す
+    ChaseComponent* chase = enemy->GetComponent<ChaseComponent>();
+    if (chase) {
+        chase->SetTarget(target);
+        chase->SetSpeed(enemySpeed);
+    }
+
+    // 倒された時の返却先を渡す(歩きアニメーションも最初のコマに戻る)
     EnemyController* controller = enemy->GetComponent<EnemyController>();
-    if (controller) controller->Spawn(target, &pool);
+    if (controller) controller->Spawn(&pool);
 
     return enemy;
 }

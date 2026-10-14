@@ -6,7 +6,7 @@
 Engine(`3D_FreamWork/Engine/`)に今後追加したい16個の機能について、「どんな関数を作るか」「どの順番で作るか」「Sampleではどう使えるか(使用例)」をまとめた設計書です。チーム(C++初心者を含む)で分担して実装する時の資料として使います。
 
 ### 状態
-**ここに書いてある内容は「設計案」です。実装済みのものは、4章の表の状態が「完了」になっています(今は計算系、時間とタイマー、リソースの使い回し、イージング)。**
+**ここに書いてある内容は「設計案」です。実装済みのものは、4章の表の状態が「完了」になっています(今は計算系、時間とタイマー、リソースの使い回し、イージング、移動系、物理の問い合わせと力)。**
 関数名・引数は実装しながら変わってよいものです。実際に作る時は、この文書を出発点にして、下の「共通ルール」どおりに1機能ずつ、着手する時に説明してから進めてください(了承は待ちません)。実装したら、この文書の「作る順番」の表の状態を更新してください。
 
 ---
@@ -90,7 +90,7 @@ Engineを変えると Sample2D と Sample3D の**両方**に影響します(`CLA
 | 2 | [時間とタイマー](#52-時間とタイマー) | イージング・画面エフェクト・アニメーションが使う | | 完了 |
 | 3 | [リソースの使い回し](#53-リソースの使い回し) | 画像を共有する前に「データ」と「1体ごとの状態」を分けておく(アニメ・音・モデルの前提) | | 完了 |
 | 4 | [イージング](#54-イージング) | カメラ・UI・画面エフェクトが使う | | 完了 |
-| 5 | [移動系](#55-移動系) + [物理の問い合わせと力](#56-物理の問い合わせと力) | 加速度で動く移動は `AddForce` を使うので、同じ段の中では物理(5.6)を先に作る | | 未着手 |
+| 5 | [移動系](#55-移動系) + [物理の問い合わせと力](#56-物理の問い合わせと力) | 加速度で動く移動は `AddForce` を使うので、同じ段の中では物理(5.6)を先に作る | | 完了 |
 | 6 | [カメラ機能](#57-カメラ機能) | イージング・計算系を使う | | 未着手 |
 | 7 | [画面エフェクト](#58-画面エフェクト) | 時間(Unscaled)・イージングを使う | | 未着手 |
 | 8 | [2Dアニメーション](#59-2dアニメーション) | 3(コマ番号をSpriteRendererへ移す)が前提 | | 未着手 |
@@ -399,6 +399,22 @@ tween->ScaleTo({ 300.f, 80.f, 1.f }, 0.4f, Ease::OutBack);
 
 ### 5.5 移動系
 
+> **実装済み**: `Engine/MoveComponent.h/.cpp`(親クラスと `enum class MovePlane`)、`Engine/ChaseComponent.h/.cpp`、`Engine/AccelerateChaseComponent.h/.cpp`、`Engine/HomingComponent.h/.cpp`。下の「対象」のSampleのコード(両サンプルの `EnemyController` の移動処理)も置き換え済み。使い方は `README.md` の「13. 移動(MoveComponent ほか)」を参照。
+> 決まったこと(下の「未決定」):
+> - **Rigidbodyが無い時の動かし方**: Rigidbody必須にはしない。DynamicのRigidbodyなら `SetVelocity`、Kinematic・Rigidbody無しなら `transform.position` を dt 分だけ直接動かす、Staticなら動かさない(出力ウィンドウに1回だけ知らせる)
+> - **2Dと3D**: 1つのComponentで `SetPlane(MovePlane::XY / XZ)` を使う(既定XY)。XZの時はY方向の速度(`GetVelocity().y`、重力)を残す。XYの時はZ方向の速度を0にする
+>
+> 設計から変えた・足した所:
+> - `ApplyVelocity` に `dt` の引数を足した(`ApplyVelocity(velocity, dt)`。transformを直接動かす時に使う)
+> - 目的地は「`SetTarget` の相手 → `SetTargetPosition` の場所」の順。どちらも無ければ止まる(速度0)。**相手が非アクティブ(`SetActive(false)`・`Destroy()` 済み)の間は追わずに止まる**。相手が `Destroy()` されて本当に消えた後のポインタは見分けられないので、呼ぶ側の責任(先に `SetTarget(nullptr)` する)とし、コメントに書いた
+> - 距離・向きは平面の上だけで計算する(XYならZ、XZならYの差を無視。置き換え前の両サンプルの `EnemyController` と同じ)。`StopDistance` の既定は1.0(置き換え前の「`DistanceSq < 1.0` で止まる」と同じ)
+> - `ChaseComponent` は、1フレームで残りの距離より先へは進まない(行き過ぎて往復しないように)。Sampleの敵はPlayerと当たり判定でぶつかるので、この制限がかかる距離まで近づかず、動きは置き換え前と同じ
+> - `AccelerateChaseComponent`: `SetMaxSpeed` は `SetSpeed` と同じもの(最高速度)にした。Dynamicなら `AddForce(dir * acceleration, ForceMode::Acceleration)`、Kinematic・Rigidbody無しなら自分で速度を持って積分する。空気抵抗(`SetDrag`)は、Rigidbodyの `SetDrag`(PhysXの減衰。重力で落ちる速さにも効く)は使わず、平面の上の速度だけに自分でかける(XZでYの速度を残すため)。`StopDistance` より近い間は加速しない(勢いで行き過ぎて戻ってくる)。Dynamicでは1フレーム分の加速だけ最高速度を超えることがある。ポーズ中(dt=0)は `AddForce` しない(PhysXが進まない間に力が貯まって、再開時に飛び出さないように)
+> - `HomingComponent`: 進行方向(度)を持ち、`Math::MoveTowardsAngle` で1フレームに最大 `turnSpeed * dt` 度だけ曲げる。向きは `rotate` と同じ(XYは `rotate.z` = `AngleToTarget2D` / `Forward2D`、XZは `rotate.y` = `AngleToTargetY` / `Forward3D`)。最初の進行方向は、出した後の最初の `Update` の時の `rotate`。`SetTurnSpeed` の既定は180度/秒、負の値は0にする
+> - `ObjectPool` で再利用された時(`OnActiveChanged(true)`)に、`AccelerateChaseComponent` は速度を0に、`HomingComponent` は進行方向を `rotate` から読み直す。相手・速さなどの設定は残る
+> - `GetTarget()` / `GetSpeed()` を足した。`RigidbodyComponent` に `GetBodyType()` を足した(`ApplyVelocity` が剛体の種類を見るため)
+> - Sampleの `EnemyController::Spawn` は、追いかける相手を受け取らなくなった(`Spawn(pool)`)。敵の速さ(60)は `EnemyManager` の `enemySpeed` に移した
+
 **目的**: 「ターゲットに向かって動く」処理をComponentにして、敵・弾・ミサイルなどで使い回す。
 
 **ファイル案**: `Engine/MoveComponent.h/.cpp`(親クラス)、`Engine/ChaseComponent.h/.cpp`、`Engine/AccelerateChaseComponent.h/.cpp`、`Engine/HomingComponent.h/.cpp`
@@ -462,6 +478,24 @@ chase->SetSpeed(60.f);
 ---
 
 ### 5.6 物理の問い合わせと力
+
+> **実装済み**: `Engine/Physics.h/.cpp`(`struct RaycastHit`、`enum class ForceMode`、`Physics::Raycast` / `OverlapSphere` / `OverlapBox`)と `Engine/RigidbodyComponent.h/.cpp`(`AddForce` / `AddTorque` / `SetMass` / `SetDrag`)。下の「対象」のSampleのコード(Sample2Dの被弾時のノックバック)も置き換え済み。使い方は `README.md` の「16. PhysX」の「物理の問い合わせと力」を参照。
+> 決まったこと(下の「未決定」):
+> - **トリガーを含めるか**: 既定では含めない(視線の判定が飛んでいる弾などにさえぎられないように)。含めたい時用の引数 `QueryTriggers triggers = QueryTriggers::Ignore` を、`Raycast` / `OverlapSphere` / `OverlapBox` の最後に足した。アイテムやゴールのようなトリガーそのものを探す時は `QueryTriggers::Include`(例: `Physics::OverlapSphere(pos, 200.f, "Item", QueryTriggers::Include)`)。タグを指定してもトリガーは無視のまま
+>
+> 設計から変えた・足した所:
+> - `enum class QueryTriggers { Ignore, Include }` を `Physics.h` に足した。最初は `bool includeTriggers = false` にしたが、呼ぶ側で `..., "Item", true)` と書くと `true` が何の意味か読めないので、名前で分かる `enum class` に変えた(`ForceMode` と同じ形)
+> - トリガー同士が重なっても `OnTriggerEnter2D` / `OnTriggerExit2D` は呼ばれない(PhysX 4.1の仕様。`PxShape.h` / `PxSimulationEventCallback.h` に記載。Unityとは違う)。トリガー同士の重なりを知りたい時は、範囲の側が `Physics::OverlapBox(..., "Bullet", QueryTriggers::Include)` などで自分から探す(README「当たり判定」の注意に記載)
+> - `RaycastHit` と `ForceMode` は `Physics.h` に置いた(`RigidbodyComponent.h` は `Physics.h` を読み込む)
+> - 当たったアクターから `GameObject*` を取り出す方法は、当たり判定のコールバックと同じ(`actor->userData` の `Collider2D` の `owner`)。探す物はPhysXの `PxQueryFilterCallback`(preFilter)で選ぶ: タグ・トリガー・**非アクティブ/Destroy済み**(`SetActive(false)` したアクターがシーンから外れるのは次の `Physics::Update()` なので、その間も返さないように `GameObject` の状態で確かめる)。シーンから外れたアクターはPhysXが探さない
+> - `Raycast` は、始点が中に入っている物には当たらない(PhysXは「距離0で当たった」と返すので、postFilterで外す。Unityと同じ。自分の中心から線を飛ばしても自分に当たらない)。`direction` は中で長さ1にする(長さ0・`maxDistance <= 0` ならfalse)。tag指定時は、そのタグの物のうち一番近い物を返す
+> - `OverlapSphere` / `OverlapBox` は、見つかった数に上限が無い(64件ずつ受け取ってvectorに集める)。同じGameObjectは1回だけ入る。半径・大きさが0以下なら空。箱は回転しない
+> - **`AddForce` / `AddTorque` は、PhysXのコールバックの中(`OnCollisionStay2D` など)で呼んでもよい**。PhysXはコールバックの中でのSDKへの書き込みを禁止している(`PxSimulationEventCallback` の注意書き)ので、`fetchResults()` の途中で呼ばれた時は `Physics` が預かり、`fetchResults()` とシーンへの追加/削除の予約が終わった直後に加える(Engine内部用 `Physics::ApplyForce`)。`CancelQueuedSceneChange` は預かった力も取り消す
+> - ロックした軸(`SetFreezePositionX/Y/Z`・`SetFreezeRotation`)の向きの成分は、加える前に0にする(PhysXに任せず、確実にその向きへ動かないように)
+> - Dynamic以外で呼ばれた時の「効きません」の表示は、Componentごとに1回だけ(毎フレーム呼ばれても出力ウィンドウが埋まらないように)。非アクティブ(シーンに入っていない)間の `AddForce` は何もしない
+> - `SetMass` は `PxRigidBodyExt::setMassAndUpdateInertia`(回りにくさも計算し直す)。0以下は無視。`SetDrag` は `setLinearDamping`(負の値は0)。この2つはコールバックの中からは呼ばない(コメントに注意書き)
+> - `GetMass()` を足した。Sample2DのPlayerは密度100で重さが約5200万あり、設計の使用例の `away * 500.f`(Impulse)ではほとんど動かないため、ノックバックの強さを「弾かれる速さ(800)× `GetMass()`」にした
+> - Sample2Dのノックバック: 被弾してHPが残っている時だけ弾く(倒れた時は `Update` で速度0になるため)。弾かれている0.2秒間(`Timer`)は、`Update` で移動キーの `SetVelocity` をしない
 
 **目的**: 「この線の先に何があるか」「この範囲に敵がいるか」を調べられるようにする。ノックバック・ジャンプなど、力で動かせるようにする。
 

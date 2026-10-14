@@ -255,7 +255,7 @@ player->AddComponent<CameraController>();
 
 ## 6. Collider(当たり判定)
 
-**当たり判定は、2D/3D問わず全てPhysX(`RigidbodyComponent`、§15参照)で計算しています。**2Dのゲームでは、2D向けに使いやすくした`SquareRigidbodyComponent`/`CircleRigidbodyComponent`を使い、`SetFreezePositionZ(true)`で奥行き方向に動かないようにします(Sample2Dが実例)。
+**当たり判定は、2D/3D問わず全てPhysX(`RigidbodyComponent`、§16参照)で計算しています。**2Dのゲームでは、2D向けに使いやすくした`SquareRigidbodyComponent`/`CircleRigidbodyComponent`を使い、`SetFreezePositionZ(true)`で奥行き方向に動かないようにします(Sample2Dが実例)。
 
 ```cpp
 // Playerの例(すり抜けない円形・半径50。Dynamic+速度指定で動かし、衝突応答はPhysXに任せる)
@@ -272,9 +272,9 @@ bullet->AddComponent<CircleRigidbodyComponent>(BodyType::Kinematic, 8.0f, 1.0f, 
 
 ```cpp
 // isTrigger = true の時
-void OnTriggerEnter2D(Collider2D* other) override;
-void OnTriggerExit2D(Collider2D* other) override;
-// ※ OnTriggerStay2Dは今のところ呼ばれません(PhysXのトリガーにはStay相当の通知が無いため)
+void OnTriggerEnter2D(Collider2D* other) override;  // 入った瞬間
+void OnTriggerStay2D(Collider2D* other) override;   // 入ったフレームの次から、出るまで毎フレーム
+void OnTriggerExit2D(Collider2D* other) override;   // 出た瞬間
 
 // isTrigger = false の時(押し返しも自動で行われる)
 void OnCollisionEnter2D(CollisionInfo info) override;  // info.otherで相手のColliderが取れる
@@ -283,6 +283,20 @@ void OnCollisionExit2D(CollisionInfo info) override;
 ```
 
 相手のタグは `other->GetTag()` (Trigger) / `info.other->GetTag()` (Collision) で判定します(`Collider2D`は当たり判定の計算自体は持たない、コールバック用の軽いハンドルです)。
+
+**`OnTriggerStay2D` が呼ばれるタイミング**
+- 入ったフレームは `OnTriggerEnter2D` だけで、**次のフレームから**、出る(`OnTriggerExit2D`)まで毎フレーム呼ばれます(Unityと同じ順番)。トリガー側と入ってきた側の両方に呼ばれます
+- ポーズ中(`Time::SetTimeScale(0.0f)` で、PhysXの計算が止まっている間)は呼ばれません
+- どちらかが非アクティブ(`ObjectPool` に戻った)・`Destroy()` 済みの間は呼ばれません。プールに戻した物をまた使った時は、重なっていれば `OnTriggerEnter2D` からやり直しになります
+- `OnTriggerStay2D` の中で、相手をプールに戻す・`Destroy()` する・`AddForce` するのは大丈夫です(`AddForce` はその場で効きます)
+- PhysXはトリガーの「重なっている間」の知らせを出さないので、`Engine/Physics.cpp` が Enter で組み合わせを覚えて、Exit で忘れ、`Physics::Update()` の最後に毎回呼んでいます
+
+**注意: トリガー同士が重なっても、トリガーのコールバックは呼ばれません**
+- 両方が `isTrigger = true` の物同士が重なっても、`OnTriggerEnter2D` / `OnTriggerStay2D` / `OnTriggerExit2D` は呼ばれません。これはPhysX 4.1の仕様です(`PxShape.h` / `PxSimulationEventCallback.h` に書かれています)。Unityでは、どちらかにRigidbodyがあればトリガー同士でも呼ばれるので、ここはUnityと違います
+- トリガーと普通の当たり判定(`isTrigger = false`)の組み合わせは呼ばれます(今のサンプルの「弾(トリガー)と敵」や、ゴールをトリガーにしてPlayerが触れる場合など)
+- トリガー同士で重なりを知りたい時の対策:
+  1. 片方をトリガーにしない(ただし普通の当たり判定は、ぶつかって止まる/押し返す動きになります)
+  2. すり抜けたまま調べたい時は、範囲の側が自分から探す。例: `Physics::OverlapBox(t.position, t.scale, "Bullet", QueryTriggers::Include)`(→「物理の問い合わせと力」の節)
 
 **内部実装メモ**: `Engine/Physics.cpp`のシミュレーションコールバック(`onContact`/`onTrigger`)が、PhysXの結果をこれらのコールバックに変換しています。Kinematicなオブジェクト同士がぶつかった時の「押し戻し」は、PhysXの自動計算に任せられない(キネマティックは力の影響を受けないため)ので、接触の法線・めり込み量から手動で`Transform.position`をずらしています(`isStaticForPush=true`側は動かさない)。Dynamicなオブジェクト(Sphereなど)が絡む場合は、PhysX自身が正しく押し返すので、この手動処理はスキップされます。
 
@@ -309,7 +323,7 @@ RigidbodyComponent::SetDebugDrawEnabled(true);
 | `SquareRigidbodyComponent` | Z軸方向で切った断面の四角 |
 | `CircleRigidbodyComponent` | Z軸方向で切った断面の丸 |
 
-2D向けのSquare/Circleは、PhysX上は奥行きのある立方体/球ですが(§15)、2Dゲームでは奥行き方向に動かないので、平面で見た時の形(断面)だけを表示しています。
+2D向けのSquare/Circleは、PhysX上は奥行きのある立方体/球ですが(§16)、2Dゲームでは奥行き方向に動かないので、平面で見た時の形(断面)だけを表示しています。
 
 **内部実装メモ**: `RigidbodyComponent::Draw()`が、`PxShape`から実際のジオメトリ(`PxBoxGeometry`/`PxSphereGeometry`)を取得し、Ownerの`Transform`の`scale`だけを一時的に差し替えて描画しています(位置・回転は普段どおりOwnerのTransformをそのまま使う)。枠は三角形ではなく線(`D3D11_PRIMITIVE_TOPOLOGY_LINELIST`)で描いていて、形ごとの輪郭データは`Mesh::CreateCubeOutline()`などで作り、全`RigidbodyComponent`で1つずつ共有しています。
 
@@ -380,8 +394,12 @@ pool.Return(obj);
 XMFLOAT2 playerPos = Math::ToXY(t.position);
 t.rotate.z = Math::AngleToTarget2D(playerPos, Input::GetMouseWorldPosition());
 
-// 追いかける(Sample2D EnemyController)
-XMFLOAT2 velocity = Math::DirectionTo(from, to) * speed;
+// 目的地の方へ進む速度(Engine ChaseComponent。offset=自分から目的地までのずれ)
+ApplyVelocity(Math::Normalize(offset) * moveSpeed, dt);
+
+// 敵から離れる向き(Sample2D PlayerControllerのノックバック)
+XMFLOAT2 away = Math::DirectionTo(
+    Math::ToXY(info.other->owner->transform.position), Math::ToXY(GetOwner()->transform.position));
 
 // 3D: 正面と右(Sample3D PlayerController)
 XMFLOAT3 forward = Math::Forward3D(t);
@@ -604,7 +622,59 @@ tween->MoveTo({ 0.f, 20.f, 0.f }, 0.8f, Ease::InOutQuad).SetLoop(true, true).Set
 
 ---
 
-## 13. 開発時の注意点
+## 13. 移動(MoveComponent ほか)
+
+「目的地(相手・場所)へ向かって動く」処理をComponentにしたものです。敵・弾・ミサイルなどで使い回せます。
+
+```cpp
+#include "../../../Engine/ChaseComponent.h"   // 使うComponentのヘッダーを読む(MoveComponent.h も一緒に読み込まれる)
+
+auto* chase = enemy->AddComponent<ChaseComponent>();
+chase->SetTarget(player);          // 追いかける相手
+chase->SetSpeed(60.f);             // 速さ(1秒に進む距離)
+chase->SetPlane(MovePlane::XZ);    // 3Dの地面の上を動く時(2Dなら不要。既定はXY)
+```
+
+| Component | 動き |
+|---|---|
+| `ChaseComponent` | 一定の速さでまっすぐ向かう(両サンプルの敵) |
+| `AccelerateChaseComponent` | 加速しながら向かう。勢いがあるので行き過ぎて戻ってくる |
+| `HomingComponent` | 曲がれる角度に上限がある追尾(ミサイル・車・魚向け)。急に向きを変えない |
+
+3つとも、親クラス `MoveComponent` の次の関数が使えます(`MoveComponent` 単体ではAddComponentしません)。
+
+| 関数 | 内容 |
+|---|---|
+| `SetTarget(相手)` | 追いかける相手(`nullptr` で外す) |
+| `SetTargetPosition(位置)` | 決まった場所へ向かう(相手がいない時に使う) |
+| `SetSpeed(速さ)` | 速さ(1秒に進む距離。既定100)。`AccelerateChaseComponent` では最高速度 |
+| `SetStopDistance(距離)` | これより近づいたら止まる(既定1.0 = ほぼ重なったら止まる) |
+| `SetPlane(MovePlane::XY / XZ)` | 動く平面(2D=XY、3Dの地面=XZ。既定XY) |
+| `HasArrived()` | 着いたか(目的地が `SetStopDistance` より近いか) |
+
+| Component | 自分だけの関数 |
+|---|---|
+| `AccelerateChaseComponent` | `SetAcceleration(強さ)`(1秒に速さがいくつ増えるか。既定200)、`SetMaxSpeed(最高速度)`(`SetSpeed` と同じ)、`SetDrag(空気抵抗)`(0で減速しない。大きいほどすぐ減速する。既定0) |
+| `HomingComponent` | `SetTurnSpeed(度)`(1秒に何度まで曲がれるか。既定180)、`SetFaceMovement(true)`(見た目の向き `rotate` も進行方向に合わせる) |
+
+**決まり**:
+- 目的地は、`SetTarget` の相手がいればその位置、いなければ `SetTargetPosition` の位置です。**どちらも無ければ止まります**(速度0)。
+- 相手が非アクティブ(`SetActive(false)`・`Destroy()` 済み)の間は、追わずに止まります。ただし、相手が `Destroy()` されて**本当に消えた後**は、ポインタが消えた物を指したままになり見分けられません。相手を消す時は、先に追いかけている側で `SetTarget(nullptr)` してください。
+- 距離・向きは動く平面の上だけで考えます(XYならZの差、XZならYの差は無視)。
+- 動かし方は、付いている `RigidbodyComponent` で変わります。
+  - **Dynamic**: `SetVelocity()` で速度を渡す(Dynamicは `transform` を直接書き換えない決まりのため)。XZの時は、Y方向の速度(重力で落ちる速さ)を今の値のまま残します。XYの時はZ方向の速度を0にします
+  - **Kinematic・Rigidbody無し**: `transform.position` を直接動かす
+  - **Static**: 動かさない(Visual Studioの出力ウィンドウに1回だけ知らせる)
+- `ObjectPool` で使い回された時(`SetActive(true)`)は、速度・進行方向などの状態をリセットします。相手・速さなどの設定は残るので、出す度に `SetTarget` などで入れ直してください(Sampleの `EnemyManager::Spawn` が実例)。
+- Dynamicの剛体と一緒に使う時は、`RigidbodyComponent` の**後に** `AddComponent` してください(Componentは追加順に `Update` されるので、PhysXの結果が反映された位置で計算できる)。
+- `HomingComponent` の進行方向は `rotate` と同じ向きです(XYは `rotate.z` = `Math::Forward2D`、XZは `rotate.y` = `Math::Forward3D`)。最初の進行方向は、出した時の `rotate` の向きです(出す時に向きを決めておけば、その向きへ飛び出してから曲がっていく)。`SetFaceMovement(true)` をDynamicの剛体で使う時は、`SetFreezeRotation(true)` にしておきます(PhysXの回転で上書きされないように)。
+- `AccelerateChaseComponent` は、Dynamicなら `AddForce(..., ForceMode::Acceleration)`(§16)で加速します(ぶつかって跳ね返った勢いも残る)。1フレーム分の加速だけ、最高速度を少し超えることがあります。
+
+**実例**: 両サンプルの `EnemyManager` が、敵に `ChaseComponent` を付けて(`SetupEnemy`)、出す時に追いかける相手(Player)と速さを渡しています(`Spawn`)。Sample3Dは `SetPlane(MovePlane::XZ)` で、地面の上を重力で落ちながら追いかけます。
+
+---
+
+## 14. 開発時の注意点
 
 ### 文字コード(重要)
 
@@ -642,7 +712,7 @@ Claude Code で作業する場合は、`.claude/`の設定で、メインの会�
 
 ---
 
-## 14. サンプル構成(現状)
+## 15. サンプル構成(現状)
 
 プロジェクト構成自体は`0. プロジェクト構成`を参照してください。ここでは各サンプルの中身(`Game/`)を説明します。
 
@@ -663,8 +733,8 @@ Sample3D/Game/Components/  TitleController, ButtonController, GroundController, 
 Sample3D/Game/Scenes/      TitleScene, GameScene
 ```
 
-- **Sample2D**: トップダウン視点のアリーナシューター。タイトル画面のSTARTボタン(出る時に`TweenComponent`でぴょこっと大きくなる)をクリックするとゲーム開始(ボタンは`CreateButton(scene, 文字, 位置, クリックされた時の処理)`で作れる汎用部品なので、他の画面のボタンにも使い回せる)。WASDで移動、Playerは常にマウスの方を向き、左クリックでその方向へ弾を発射。背景はタイル状に敷き詰めた床(`BackgroundController`)で、移動するとスクロールする。敵(`EnemyManager`が一定間隔でPlayerの周囲にランダムスポーンさせる)がゆっくり追いかけてきて、弾を当てると倒せる(`EventBus`で`"EnemyDefeated"`イベントを発行しスコア加算)。敵に触れるとHPが減り(1秒間の無敵時間つき)、0になるとゲームオーバー画面が出てSPACEでタイトルに戻る。当たり判定・物理はPhysXを使い(Player=`CircleRigidbodyComponent`、敵=`SquareRigidbodyComponent`、弾=`CircleRigidbodyComponent`)、Player・敵はDynamic(`SetVelocity()`で速度を渡して動かす。重力なし・回転なし・`SetFreezePositionZ(true)`で奥行き方向に固定)、弾はKinematicのトリガー。3Dカメラは使わない(`CameraController`なし)。
-- **Sample3D**: Sample2Dと同じアリーナシューターを3D空間で遊べるようにしたもの。タイトル画面のボタン(Sample2Dと同じく、出る時に`TweenComponent`でぴょこっと大きくなる)をクリックするとゲーム開始(Sample3Dの`CreateButton()`は、位置と大きさをまとめて`Transform`で受け取る形になっている: `CreateButton(scene, 文字, transform, クリックされた時の処理)`)。Player(立方体)は三人称カメラ(`CameraController`。マウス移動で視点回転。カーソルは画面中心に固定され、ESCで解除・左クリックで再固定。TABで一人称に切り替え)と同じ向きを向き、WASDもカメラ基準(W=カメラの前、D=カメラの右)で移動する。左クリックでPlayerの向いている方向へ、地面と水平に弾(球)を発射。敵は2Dの画像(Worldモードの`SpriteRenderer`。Y軸だけカメラの方を向く立て看板)で、地面の上をPlayerに向かって歩いてくる。歩く間は、`EnemyController`がタイマーでスプライトシートのコマ(4番と5番)を0.3秒ごとに切り替えて、歩きアニメーションにしている。スコア・HP・無敵時間・ゲームオーバー(SPACEでタイトルへ)・`EventBus`のイベント名はSample2Dと同じ。Player・敵はDynamicの`BoxRigidbodyComponent`(重力あり・回転なし。Y速度は`GetVelocity().y`を維持したまま`SetVelocity()`で動かす)、弾はKinematicのトリガー(`SphereRigidbodyComponent`)。地面は、1000四方のタイルを3Dカメラの描画距離(farZ)の範囲だけ敷き詰めて描く`GroundController`(見た目)と、見えない大きなStaticの板(当たり判定)の組み合わせ。遠景はスカイボックス。
+- **Sample2D**: トップダウン視点のアリーナシューター。タイトル画面のSTARTボタン(出る時に`TweenComponent`でぴょこっと大きくなる)をクリックするとゲーム開始(ボタンは`CreateButton(scene, 文字, 位置, クリックされた時の処理)`で作れる汎用部品なので、他の画面のボタンにも使い回せる)。WASDで移動、Playerは常にマウスの方を向き、左クリックでその方向へ弾を発射。背景はタイル状に敷き詰めた床(`BackgroundController`)で、移動するとスクロールする。敵(`EnemyManager`が一定間隔でPlayerの周囲にランダムスポーンさせる)がゆっくり追いかけてきて(`ChaseComponent`。§13)、弾を当てると倒せる(`EventBus`で`"EnemyDefeated"`イベントを発行しスコア加算)。敵に触れるとHPが減り(1秒間の無敵時間つき)、敵から離れる向きに弾かれる(ノックバック。`AddForce`で衝撃を加え、0.2秒間は移動キーが効かない。§16)。HPが0になるとゲームオーバー画面が出てSPACEでタイトルに戻る。当たり判定・物理はPhysXを使い(Player=`CircleRigidbodyComponent`、敵=`SquareRigidbodyComponent`、弾=`CircleRigidbodyComponent`)、Player・敵はDynamic(`SetVelocity()`で速度を渡して動かす。重力なし・回転なし・`SetFreezePositionZ(true)`で奥行き方向に固定)、弾はKinematicのトリガー。3Dカメラは使わない(`CameraController`なし)。
+- **Sample3D**: Sample2Dと同じアリーナシューターを3D空間で遊べるようにしたもの。タイトル画面のボタン(Sample2Dと同じく、出る時に`TweenComponent`でぴょこっと大きくなる)をクリックするとゲーム開始(Sample3Dの`CreateButton()`は、位置と大きさをまとめて`Transform`で受け取る形になっている: `CreateButton(scene, 文字, transform, クリックされた時の処理)`)。Player(立方体)は三人称カメラ(`CameraController`。マウス移動で視点回転。カーソルは画面中心に固定され、ESCで解除・左クリックで再固定。TABで一人称に切り替え)と同じ向きを向き、WASDもカメラ基準(W=カメラの前、D=カメラの右)で移動する。左クリックでPlayerの向いている方向へ、地面と水平に弾(球)を発射。敵は2Dの画像(Worldモードの`SpriteRenderer`。Y軸だけカメラの方を向く立て看板)で、地面の上をPlayerに向かって歩いてくる(`ChaseComponent`を`SetPlane(MovePlane::XZ)`で使う。§13)。歩く間は、`EnemyController`がタイマーでスプライトシートのコマ(4番と5番)を0.3秒ごとに切り替えて、歩きアニメーションにしている。スコア・HP・無敵時間・ゲームオーバー(SPACEでタイトルへ)・`EventBus`のイベント名はSample2Dと同じ。Player・敵はDynamicの`BoxRigidbodyComponent`(重力あり・回転なし。Y速度は`GetVelocity().y`を維持したまま`SetVelocity()`で動かす。敵は`ChaseComponent`がこれをしている)、弾はKinematicのトリガー(`SphereRigidbodyComponent`)。地面は、1000四方のタイルを3Dカメラの描画距離(farZ)の範囲だけ敷き詰めて描く`GroundController`(見た目)と、見えない大きなStaticの板(当たり判定)の組み合わせ。遠景はスカイボックス。
 
 **Sample3Dの実装メモ**: 向きはすべて`transform.rotate.y`(度)で表し、`rotate.y`の時の正面(ローカルの+Z)は`(sin, 0, cos)`の方向になる(`CameraController::GetYaw()`の式と同じ。`Math::Forward3D()`で求められる)。Worldモードの`SpriteRenderer`は`rotate.y`を使わない(ビルボードの向きとZ軸回転だけを使う)ので、敵の画像の向きは`SetBillboardLock(true, false, true)`でカメラの方へ向けている。Playerは`SetFreezeRotation(true)`で、`RigidbodyComponent`は位置しか同期しないため、`PlayerController`が`rotate.y`が変わった時に`GetActor()`の`setGlobalPose`で当たり判定の箱の回転も合わせている(デバッグ表示の枠と実際の判定が同じ向きになる)。一人称の間は、カメラが立方体の内側に入るのでPlayerの`MeshRenderer`を非表示にしている。
 
@@ -674,9 +744,9 @@ Sample3D/Game/Scenes/      TitleScene, GameScene
 
 | Component | 持っている値・担当 |
 |---|---|
-| `PlayerController` | HP・無敵時間(HPが0になったら`EventBus`で`"PlayerDied"`を発行し、以後は移動・向き・発射を受け付けない) |
+| `PlayerController` | HP・無敵時間・ノックバック(HPが0になったら`EventBus`で`"PlayerDied"`を発行し、以後は移動・向き・発射を受け付けない) |
 | `GameManager` | スコア(`"EnemyDefeated"`で加算)・ゲームオーバー判定(`"PlayerDied"`を受けて)・タイトルへの遷移。表示は一切しない |
-| `EnemyManager` | 敵のプールと出現タイマー。一定間隔でPlayerの周囲に敵を出し、`"PlayerDied"`を受けたら出現を止める |
+| `EnemyManager` | 敵のプールと出現タイマー。一定間隔でPlayerの周囲に敵を出し(追いかける動きは敵に付けた`ChaseComponent`に、相手と速さを渡す)、`"PlayerDied"`を受けたら出現を止める |
 | `BulletManager` | 弾のプール。`"FireBullet"`を受けて、撃った本人の向きへ弾を出す |
 | `HUDController` | 画面表示(Score/HP/GAME OVER)だけ。値は自分で持たず、`GameManager::GetScore()`/`PlayerController::GetHp()`などで毎フレーム読む |
 
@@ -695,6 +765,8 @@ GameManager/HUD/EnemyManager/BulletManagerのような「見た目の無い管�
 | STARTボタンをぴょこっと出す | `Objects/StartButton.cpp`(`TweenComponent`を付けて`ScaleTo`。§12) |
 | `"FireBullet"`を受けて弾を出す | `BulletManager::Init()` |
 | 一定間隔で敵を出す | `EnemyManager::Update()` |
+| 敵がPlayerを追いかける | 敵に付けた`ChaseComponent`(Engine。§13)。相手と速さは`EnemyManager::Spawn()`が渡す |
+| 敵に当たったら弾かれる(Sample2D) | `PlayerController::OnCollisionStay2D()`(`AddForce`。§16) |
 | コライダー枠の表示ON | `GameManager::Init()` |
 
 Sceneに残してよいのは、オブジェクトの配置と、シーン全体の後片付け(`GameScene::Uninit()`の`EventBus::Get().Clear()`)くらい。新しい処理を足したくなったら、まず「どのオブジェクトの仕事か」を考えて、そのComponentに書くこと。
@@ -703,7 +775,7 @@ Sceneに残してよいのは、オブジェクトの配置と、シーン全体
 
 ---
 
-## 15. PhysX(3D物理演算)
+## 16. PhysX(3D物理演算)
 
 3D用の物理エンジンとして[NVIDIA PhysX 4.1](https://github.com/NVIDIA-Omniverse/PhysX)を導入しています。ビルド済みのライブラリ一式(ヘッダー・dll・lib)を`ThirdParty/PhysX/`にコミット済みなので、**チームメンバーは自分でビルドし直す必要はありません**(`git clone`してそのままビルドできます)。
 
@@ -718,6 +790,8 @@ namespace Physics {
     void Uninit();    // 後片付け(GameEngine::Uninitから呼ばれる)
 }
 ```
+
+ゲーム側から使う「問い合わせ」(`Raycast`/`OverlapSphere`/`OverlapBox`)と、剛体に力を加える関数(`AddForce`など)は、下の「物理の問い合わせと力」を参照してください。
 
 ### RigidbodyComponent(3Dの物理演算でオブジェクトを動かす)
 
@@ -802,9 +876,82 @@ if (rigidbody) rigidbody->SetVelocity(velocity);
 - `SetVelocity()`/`SetUseGravity()`/`SetFreezeRotation()`/`SetFreezePositionY()`は全て`Kinematic`/`Static`では何もしません(`Dynamic`専用)。PhysXの生のAPIをもっと細かく触りたい時だけ`GetActor()`を使ってください
 - `ObjectPool`で使い回されるオブジェクト(Bulletなど)は、`SetActive()`が呼ばれると`OnActiveChanged()`経由でPhysXのシーンから着脱される。再度有効化された直後は、前回位置からの掃引(スイープ)で誤ったヒット判定が出ないよう、次の`Update()`で`setKinematicTarget()`ではなく直接`setGlobalPose()`でテレポートするようにしている
 
-**重要な注意(ハマりやすいポイント)**: `OnTriggerEnter2D`/`OnCollisionEnter2D`などのコールバックは、PhysXのシミュレーションコールバックの中から呼ばれています。PhysXは「コールバックの中でシーンを書き換えるAPI(`scene->addActor()`/`removeActor()`など)を直接呼んではいけない」という制約を持っているため、これらのコールバック内(や、そこから呼ばれる`ObjectPool::Return()`のような処理)で`SetActive(false)`する場合は要注意です。`RigidbodyComponent`はこれに対応済み(`Physics::QueueSceneChange()`で安全なタイミングまで遅延させている)ですが、**今後もし`OnTriggerEnter2D`などの中から新しくPhysXのシーンを直接触るコードを書く場合は、同じように`Physics::QueueSceneChange()`を使うか、フラグを立てて次のフレームで処理するようにしてください**。直接呼ぶと`Concurrent API write call ... during a callback function are not permitted`というアサーションでクラッシュします。
+**重要な注意(ハマりやすいポイント)**: `OnTriggerEnter2D`/`OnCollisionEnter2D`などのコールバックは、PhysXのシミュレーションコールバックの中から呼ばれています。PhysXは「コールバックの中でシーンを書き換えるAPI(`scene->addActor()`/`removeActor()`など)を直接呼んではいけない」という制約を持っているため、これらのコールバック内(や、そこから呼ばれる`ObjectPool::Return()`のような処理)で`SetActive(false)`する場合は要注意です。`RigidbodyComponent`はこれに対応済み(`Physics::QueueSceneChange()`で安全なタイミングまで遅延させている)ですが、**今後もし`OnTriggerEnter2D`などの中から新しくPhysXのシーンを直接触るコードを書く場合は、同じように`Physics::QueueSceneChange()`を使うか、フラグを立てて次のフレームで処理するようにしてください**。直接呼ぶと`Concurrent API write call ... during a callback function are not permitted`というアサーションでクラッシュします。(`RigidbodyComponent::AddForce()`/`AddTorque()`も対応済みで、コールバックの中で呼ばれた時は、PhysXの計算が終わった直後にまとめて加えます。次の節を参照)
 
 `GameEngine::Run()`では、`Physics::Update(dt)`を`SceneManager::Get().Update(dt)`より**先に**呼ぶようにしています。逆順にすると、RigidbodyComponentが1フレーム古い物理結果をTransformに反映してしまいます。
+
+### 物理の問い合わせと力(Raycast / Overlap / AddForce)
+
+「この線の先に何があるか」「この範囲に何がいるか」を調べる関数(`Engine/Physics.h`)と、剛体に力を加える関数(`RigidbodyComponent`)です。
+
+```cpp
+#include "../../../Engine/Physics.h"
+
+// 正面へ線を飛ばして、最初に当たった敵を調べる
+RaycastHit hit;
+if (Physics::Raycast(t.position, Math::Forward3D(t), 1000.f, hit, "Enemy")) {
+    // hit.object(当たったGameObject)、hit.point(当たった場所)、hit.normal(当たった面の向き)、hit.distance(距離)
+}
+
+// 半径300の範囲にいる敵を全部探す(2Dでは円として使う)
+for (GameObject* enemy : Physics::OverlapSphere(t.position, 300.f, "Enemy")) {
+    // ...
+}
+
+// 半径200の範囲にあるアイテム(トリガー)を探す。トリガーを探す時は QueryTriggers::Include を付ける
+for (GameObject* item : Physics::OverlapSphere(t.position, 200.f, "Item", QueryTriggers::Include)) {
+    // ...
+}
+```
+
+| 関数 | 内容 |
+|---|---|
+| `Physics::Raycast(始点, 向き, 最大距離, hit, タグ, トリガー)` | 始点から向きへ線を飛ばし、最初に当たった物を `hit` に入れる。当たればtrue。向きは長さ1でなくてよい(長さ0ならfalse) |
+| `Physics::OverlapSphere(中心, 半径, タグ, トリガー)` | 球(2Dでは円)の中にいる物を全部返す(`std::vector<GameObject*>`) |
+| `Physics::OverlapBox(中心, 大きさ, タグ, トリガー)` | 箱の中にいる物を全部返す。大きさは `transform.scale` と同じく辺の長さ。箱は回転しない |
+
+最後の引数「トリガー」は `QueryTriggers` で指定します(省略すると `Ignore`):
+
+| 値 | 意味 |
+|---|---|
+| `QueryTriggers::Ignore`(既定) | トリガーを無視する。視線の判定(Raycast)が、飛んでいる弾などにさえぎられないようにするため |
+| `QueryTriggers::Include` | トリガーも探す。アイテムやゴールのような、トリガーそのものを探す時に使う |
+
+**問い合わせの決まり**:
+- タグ(省略すると `""` = 全部)を指定すると、そのタグのオブジェクトだけを探します。`Raycast` は、そのタグの物のうち一番近い物を返します(手前に別のタグの物があっても通り抜ける)。
+- トリガー(`isTrigger=true` のすり抜ける当たり判定。弾など)は、`QueryTriggers::Include` を渡した時だけ探します(既定は `QueryTriggers::Ignore`)。**タグを指定しても、トリガーは無視されたまま**です。探したいアイテムがトリガーなら、タグと一緒に `QueryTriggers::Include` も必要です。
+- 非アクティブ(`ObjectPool` に戻った)・`Destroy()` 済みのオブジェクトは返しません。
+- `Raycast` は、始点が中に入っている物には当たりません(自分の中心から線を飛ばしても、自分には当たらない。Unityと同じ)。
+- 位置は、最後にPhysXが計算した時(そのフレームの始め)のものです。そのフレームに `transform` を動かしたKinematicや、出したばかりのオブジェクトは、次のフレームから見つかります。
+- 読むだけなので、`OnTriggerEnter2D` などのコールバックの中から呼んでも大丈夫です。
+
+```cpp
+// 敵から離れる向きへ、一瞬で速さ600だけ弾く
+rigidbody->AddForce(away * 600.f, ForceMode::VelocityChange);
+```
+
+| 関数(`RigidbodyComponent`) | 内容 |
+|---|---|
+| `AddForce(力, ForceMode)` | 力を加える(下の4種類。省略すると `Force`) |
+| `AddTorque(回す力, ForceMode)` | 回す力を加える |
+| `SetMass(重さ)` / `GetMass()` | 重さを変える / 今の重さ。作った時は「密度 × 体積」で自動で決まっている |
+| `SetDrag(空気抵抗)` | 速度が自然に落ちる(0で落ちない、大きいほどすぐ止まる)。重力で落ちる速さにも効く |
+
+| `ForceMode` | 重さで割るか | 時間 | 使いどころ |
+|---|---|---|---|
+| `Force` | 割る | かける(押し続ける) | 風・エンジンなど、毎フレーム押す |
+| `Impulse` | 割る | 一瞬 | 衝撃(ノックバックなど) |
+| `Acceleration` | 割らない | かける | 重さに関係なく同じように加速させる(`AccelerateChaseComponent`) |
+| `VelocityChange` | 割らない | 一瞬 | 速度を一気に変える(ジャンプなど) |
+
+**力の決まり**:
+- **Dynamicにしか効きません。** Kinematic/Staticでは何もせず、出力ウィンドウに1回だけ「Dynamicではないので効きません」と表示されます。非アクティブ(プールに戻っている)間も何もしません。
+- ロックした軸(`SetFreezePositionX/Y/Z`・`SetFreezeRotation`)の向きの力は0になります(力をかけても、その向きには動かない・回らない)。
+- `AddForce`/`AddTorque` は、`OnCollisionStay2D` などのコールバックの中で呼んでも大丈夫です(PhysXの計算が終わった直後にまとめて加わります)。`SetMass`/`SetDrag` はコールバックの中では呼ばず、`Init`/`Update` で呼んでください。
+- 毎フレーム `SetVelocity()` で速度を上書きしているオブジェクト(Playerなど)は、上書きした時点で力で付いた勢いが消えます。力で動かしている間は `SetVelocity()` を止めてください(下の実例)。
+- `Impulse`/`Force` は重さで割られるので、重いオブジェクトほど動きません。重さに関係なく決まった速さにしたい時は、`VelocityChange`/`Acceleration` を使うか、強さを「速さ × `GetMass()`」にします。
+
+**実例(Sample2Dのノックバック)**: `PlayerController::OnCollisionStay2D` で、敵に当たってダメージを受けた時に、敵から離れる向き(`Math::DirectionTo`、XY平面)へ `AddForce(..., ForceMode::Impulse)` で弾いています。Playerは重い(密度100)ので、強さは「弾かれる速さ(`knockbackSpeed`)× `GetMass()`」にしています。弾かれている0.2秒間(`knockbackTimer`)は、移動キーでの `SetVelocity()` をしないようにして、弾かれた勢いを残しています。
 
 ### ワールド単位について
 

@@ -14,6 +14,10 @@ private:
     static constexpr float invincibleDuration = 1.0f;   // ダメージを受けた後の無敵時間(秒)
     Timer invincibleTimer{ invincibleDuration };         // 無敵時間を数える(終わっていれば無敵ではない)
 
+    static constexpr float knockbackSpeed = 800.0f;     // 敵に当たった時に弾かれる速さ
+    static constexpr float knockbackDuration = 0.2f;    // 弾かれている時間(秒。この間は移動キーが効かない)
+    Timer knockbackTimer{ knockbackDuration };           // 弾かれている時間を数える(終わっていれば弾かれていない)
+
 public:
     void Init() override;
     void Update(float dt) override;

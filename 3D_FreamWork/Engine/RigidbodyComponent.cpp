@@ -3,6 +3,7 @@
 #include "Mesh.h"
 #include "Image.h"
 #include <windows.h>
+#include <cstdio>
 #include <PxPhysicsAPI.h>
 
 using namespace physx;
@@ -248,6 +249,7 @@ void RigidbodyComponent::Uninit() {
         //   残っていることがある。先にそれを取り消してからでないと、次のPhysics::Update()で
         //   既に解放済み(もう存在しない)アクターへアクセスしてクラッシュする
         Physics::CancelQueuedSceneChange(actor);
+        Physics::ForgetTriggerPairs(actor);   // 同じ理由で、OnTriggerStay2D用に覚えている組み合わせも忘れる
         actor->release();
         actor = nullptr;
     }
@@ -264,9 +266,14 @@ void RigidbodyComponent::OnActiveChanged(bool active) {
         }
         justActivated = true;
     }
-    else if (inScene) {
-        Physics::QueueSceneChange(actor, false);
-        inScene = false;
+    else {
+        // プールに戻ったら、トリガーに重なっている組み合わせを忘れる(OnTriggerStay2Dを止める。
+        // また使われた時は、重なっていればOnTriggerEnter2Dからやり直しになる)
+        Physics::ForgetTriggerPairs(actor);
+        if (inScene) {
+            Physics::QueueSceneChange(actor, false);
+            inScene = false;
+        }
     }
 }
 
@@ -333,6 +340,54 @@ void RigidbodyComponent::SetFreezePositionZ(bool freeze) {
     dynamic->setRigidDynamicLockFlags(freeze
         ? (flags | PxRigidDynamicLockFlag::eLOCK_LINEAR_Z)
         : (flags & ~PxRigidDynamicLockFlag::eLOCK_LINEAR_Z));
+}
+
+// ─── 力・重さ・空気抵抗 ─────────────────────────
+PxRigidDynamic* RigidbodyComponent::GetDynamicActor(const char* functionName) {
+    if (!actor) return nullptr;
+    if (bodyType != BodyType::Dynamic) {
+        // 毎フレーム呼ばれても出力ウィンドウが埋まらないように、1回だけ知らせる
+        if (!warnedNotDynamic) {
+            char message[256];
+            sprintf_s(message, "★ RigidbodyComponent::%s: Dynamicではないので効きません(%s)\n",
+                functionName, GetOwner()->GetName().c_str());
+            OutputDebugStringA(message);
+            warnedNotDynamic = true;
+        }
+        return nullptr;
+    }
+    return actor->is<PxRigidDynamic>();
+}
+
+void RigidbodyComponent::AddForce(XMFLOAT3 force, ForceMode mode) {
+    if (!GetDynamicActor("AddForce")) return;
+    if (!inScene) return;   // 非アクティブ(プールに戻っている)間は加えない
+    Physics::ApplyForce(actor, force, mode, false);
+}
+
+void RigidbodyComponent::AddTorque(XMFLOAT3 torque, ForceMode mode) {
+    if (!GetDynamicActor("AddTorque")) return;
+    if (!inScene) return;
+    Physics::ApplyForce(actor, torque, mode, true);
+}
+
+void RigidbodyComponent::SetMass(float mass) {
+    PxRigidDynamic* dynamic = GetDynamicActor("SetMass");
+    if (!dynamic || mass <= 0.f) return;
+    // 形に合わせて回りにくさ(慣性)も一緒に計算し直す
+    PxRigidBodyExt::setMassAndUpdateInertia(*dynamic, mass);
+}
+
+float RigidbodyComponent::GetMass() const {
+    if (!actor) return 0.f;
+    PxRigidDynamic* dynamic = actor->is<PxRigidDynamic>();
+    return dynamic ? dynamic->getMass() : 0.f;
+}
+
+void RigidbodyComponent::SetDrag(float drag) {
+    PxRigidDynamic* dynamic = GetDynamicActor("SetDrag");
+    if (!dynamic) return;
+    dynamic->setLinearDamping(drag > 0.f ? drag : 0.f);
 }
 
 // ─────────────────────────── BoxRigidbodyComponent ───────────────────────────

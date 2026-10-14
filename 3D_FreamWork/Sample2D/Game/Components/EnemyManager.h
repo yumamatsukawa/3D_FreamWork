@@ -16,6 +16,7 @@ private:
     static constexpr float firstSpawnDelay = 1.0f;    // 最初の1体が出るまでの時間(秒)
     Timer spawnTimer{ spawnInterval, true };          // 出現間隔を数える(最初だけInitで短くする)
     static constexpr float spawnDistance = 700.0f;    // targetからどれだけ離れた場所に出すか
+    static constexpr float enemySpeed = 60.0f;        // 敵が追いかける速さ
 
     bool stopped = false;             // 出現を止めたか
 

@@ -2,9 +2,11 @@
 #include "Component.h"
 #include "GameObject.h"
 #include "Collider.h"
+#include "Physics.h"
 
 namespace physx {
     class PxRigidActor;
+    class PxRigidDynamic;
     class PxGeometry;
 }
 
@@ -34,6 +36,10 @@ protected:
     bool inScene = false;
     bool justActivated = false;  // ObjectPoolで再利用された直後、次のUpdate()でスイープを避けて直接テレポートする
     bool flat2D = false;         // 2D向け(Square/Circle)かどうか。デバッグ表示で断面だけを描くのに使う
+    bool warnedNotDynamic = false;  // 「Dynamicではないので効きません」を出力したか(毎フレーム出さないように1回だけ)
+
+    // Dynamicなら、PhysXのPxRigidDynamicを返す。違えば1回だけ出力ウィンドウに知らせてnullptrを返す
+    physx::PxRigidDynamic* GetDynamicActor(const char* functionName);
 
     RigidbodyComponent(BodyType bodyType, float density,
         bool isTrigger, bool isStaticForPush);
@@ -75,6 +81,29 @@ public:
     void SetFreezePositionX(bool freeze);
     void SetFreezePositionY(bool freeze);
     void SetFreezePositionZ(bool freeze);
+
+    // ─── 力・重さ・空気抵抗 ─────────────────────────
+    // ""Dynamicの時だけ効く""(Kinematic/Staticでは何もせず、出力ウィンドウに1回だけ知らせる)
+    // ロックした軸(SetFreezePositionX/Y/Z・SetFreezeRotation)の向きの力は0になる(力をかけてもその向きには動かない)
+
+    // 力を加える。例: rigidbody->AddForce(away * 600.f, ForceMode::VelocityChange);
+    // OnCollisionStay2DなどPhysXのコールバックの中で呼んでもよい(その場合はPhysXの計算の直後にまとめて加わる)
+    void AddForce(DirectX::XMFLOAT3 force, ForceMode mode = ForceMode::Force);
+    // 回す力を加える(SetFreezeRotation(true)の時は回らない)。コールバックの中で呼んでもよい
+    void AddTorque(DirectX::XMFLOAT3 torque, ForceMode mode = ForceMode::Force);
+
+    // 重さを変える(作った時は「密度×体積」で自動計算されている)。0以下は無視する。
+    // ※PhysXのコールバック(OnCollisionStay2Dなど)の中からは呼ばない(Init/Updateで呼ぶ)
+    void SetMass(float mass);
+    // 今の重さ(Static・作成失敗の時は0)。Impulseの強さを「速さ×重さ」で決める時などに使う
+    float GetMass() const;
+
+    // 空気抵抗(速度が自然に落ちる。0で落ちない、大きいほどすぐ止まる)。負の値は0にする。
+    // 重力で落ちる速さにも効く。※PhysXのコールバックの中からは呼ばない(Init/Updateで呼ぶ)
+    void SetDrag(float drag);
+
+    // 剛体の種類(Dynamic/Kinematic/Static)
+    BodyType GetBodyType() const { return bodyType; }
 
     // PhysXのAPIを直接触りたい時だけ使う(通常は上のメソッドで十分)
     physx::PxRigidActor* GetActor() const { return actor; }

@@ -1,6 +1,7 @@
 ﻿#include "Physics.h"
 #include "Collider.h"
 #include "GameObject.h"
+#include "MathUtil.h"
 #include <windows.h>
 #include <vector>
 #include <utility>
@@ -46,6 +47,64 @@ namespace {
     bool IsPureDynamic(PxRigidActor* actor) {
         PxRigidDynamic* dynamic = actor->is<PxRigidDynamic>();
         return dynamic && !(dynamic->getRigidBodyFlags() & PxRigidBodyFlag::eKINEMATIC);
+    }
+
+    // ─── トリガーの「重なっている間」(OnTriggerStay2D) ─────────────
+    // ★ PhysX 4.1はトリガーの「重なっている間」の通知を出さないので、Enterで組み合わせを覚えて、
+    //   Exitで忘れ、Physics::Update()の最後に、覚えている組み合わせへ毎回OnTriggerStay2Dを呼ぶ
+
+    // トリガーに重なっている組み合わせ1つ分
+    struct TriggerPair {
+        PxRigidActor* triggerActor = nullptr;   // トリガー側
+        PxRigidActor* otherActor = nullptr;     // 入ってきた側
+        unsigned long long enterStep = 0;       // 入った時のgStepCount(このstepの間はStayを呼ばない)
+    };
+
+    std::vector<TriggerPair> gTriggerPairs;     // 今重なっている組み合わせ(重複なし)
+    unsigned long long gStepCount = 0;          // Physics::Update()でシミュレーションを進めた回数
+
+    // 動いている(非アクティブでもDestroy済みでもない)オブジェクトか
+    bool IsWorkingObject(const GameObject* obj) {
+        return obj && obj->GetIsActive() && !obj->GetIsDestroyed();
+    }
+
+    // 覚えている組み合わせを探す(無ければgTriggerPairs.end())。アドレスを比べるだけで、アクターの中身は読まない
+    std::vector<TriggerPair>::iterator FindTriggerPair(const PxRigidActor* triggerActor, const PxRigidActor* otherActor) {
+        return std::find_if(gTriggerPairs.begin(), gTriggerPairs.end(),
+            [=](const TriggerPair& pair) { return pair.triggerActor == triggerActor && pair.otherActor == otherActor; });
+    }
+
+    // 組み合わせを覚える(PhysXが同じEnterを2回送ってきても、重複して覚えない)
+    void RememberTriggerPair(PxRigidActor* triggerActor, PxRigidActor* otherActor) {
+        if (FindTriggerPair(triggerActor, otherActor) != gTriggerPairs.end()) return;
+        gTriggerPairs.push_back({ triggerActor, otherActor, gStepCount });
+    }
+
+    // OnTriggerStay2Dを呼んでよいか: まだ覚えていて、両方とも動いているオブジェクトか
+    bool CanCallTriggerStay(const TriggerPair& pair) {
+        if (FindTriggerPair(pair.triggerActor, pair.otherActor) == gTriggerPairs.end()) return false;
+        Collider2D* colTrigger = static_cast<Collider2D*>(pair.triggerActor->userData);
+        Collider2D* colOther = static_cast<Collider2D*>(pair.otherActor->userData);
+        return colTrigger && colOther && IsWorkingObject(colTrigger->owner) && IsWorkingObject(colOther->owner);
+    }
+
+    // 覚えている組み合わせすべてに、OnTriggerStay2Dを両方向で呼ぶ
+    void CallTriggerStay() {
+        // ★ コールバックの中でプールに戻す・Destroy・SetActive・新しいオブジェクトを作るなどで
+        //   一覧が変わっても壊れないように、コピーを回す。呼ぶ前に毎回「まだ覚えているか」を確かめる
+        //   (忘れた組み合わせのアクターは、解放済みかもしれないので触らない)
+        std::vector<TriggerPair> pairs = gTriggerPairs;
+        for (const TriggerPair& pair : pairs) {
+            if (pair.enterStep == gStepCount) continue;   // 入ったフレームはEnterだけ(次のフレームからStay。Unityと同じ)
+            if (!CanCallTriggerStay(pair)) continue;
+            Collider2D* colTrigger = static_cast<Collider2D*>(pair.triggerActor->userData);
+            Collider2D* colOther = static_cast<Collider2D*>(pair.otherActor->userData);
+            colTrigger->owner->OnTriggerStay2D(colOther);
+
+            // 1つ目のコールバックで、どちらかをプールに戻した・Destroyした時は、もう片方には呼ばない
+            if (!CanCallTriggerStay(pair)) continue;
+            colOther->owner->OnTriggerStay2D(colTrigger);
+        }
     }
 
     // PhysXのシミュレーション結果を、GameObjectのOnTriggerEnter2D/OnCollisionEnter2Dなどの
@@ -129,23 +188,134 @@ namespace {
         void onTrigger(PxTriggerPair* pairs, PxU32 count) override {
             for (PxU32 i = 0; i < count; i++) {
                 const PxTriggerPair& pair = pairs[i];
-                // アクターやシェイプがこのフレームで消えている場合は触らない
-                if (pair.flags & (PxTriggerPairFlag::eREMOVED_SHAPE_TRIGGER | PxTriggerPairFlag::eREMOVED_SHAPE_OTHER)) continue;
+                // アクターやシェイプがこのフレームで消えている場合は触らない(覚えていた組み合わせは忘れる)
+                if (pair.flags & (PxTriggerPairFlag::eREMOVED_SHAPE_TRIGGER | PxTriggerPairFlag::eREMOVED_SHAPE_OTHER)) {
+                    // ★ アクターは解放済みかもしれないので、アドレスを比べるだけにする。
+                    //   このstepで入ったばかりの組み合わせ(プールで再利用されて、また入ってきた時)は、
+                    //   消えた方の知らせとは別物なので忘れない
+                    auto found = FindTriggerPair(pair.triggerActor, pair.otherActor);
+                    if (found != gTriggerPairs.end() && found->enterStep != gStepCount) gTriggerPairs.erase(found);
+                    continue;
+                }
 
                 Collider2D* colTrigger = static_cast<Collider2D*>(pair.triggerActor->userData);
                 Collider2D* colOther = static_cast<Collider2D*>(pair.otherActor->userData);
                 if (!colTrigger || !colOther) continue;
 
                 if (pair.status & PxPairFlag::eNOTIFY_TOUCH_FOUND) {
+                    // Stay用に覚える。Enterの中で相手をプールに戻した時にちゃんと忘れられるよう、呼ぶ前に覚える
+                    if (IsWorkingObject(colTrigger->owner) && IsWorkingObject(colOther->owner)) {
+                        RememberTriggerPair(pair.triggerActor, pair.otherActor);
+                    }
                     colTrigger->owner->OnTriggerEnter2D(colOther);
                     colOther->owner->OnTriggerEnter2D(colTrigger);
                 }
                 else if (pair.status & PxPairFlag::eNOTIFY_TOUCH_LOST) {
+                    auto found = FindTriggerPair(pair.triggerActor, pair.otherActor);
+                    if (found != gTriggerPairs.end()) gTriggerPairs.erase(found);
                     colTrigger->owner->OnTriggerExit2D(colOther);
                     colOther->owner->OnTriggerExit2D(colTrigger);
                 }
             }
         }
+    };
+
+    // アクターからGameObjectを取り出す(当たり判定のコールバックと同じく、userDataのCollider2Dのownerを使う)
+    GameObject* GetGameObject(const PxRigidActor* actor) {
+        if (!actor) return nullptr;
+        Collider2D* collider = static_cast<Collider2D*>(actor->userData);
+        return collider ? collider->owner : nullptr;
+    }
+
+    // Raycast / Overlap で、探す物を選ぶフィルター
+    class QueryFilter : public PxQueryFilterCallback {
+    public:
+        QueryFilter(const std::string& tag, QueryTriggers triggers, PxQueryHitType::Enum hitType)
+            : tag(tag), triggers(triggers), hitType(hitType) {
+        }
+
+        PxQueryHitType::Enum preFilter(const PxFilterData&, const PxShape* shape,
+            const PxRigidActor* actor, PxHitFlags&) override {
+            GameObject* obj = GetGameObject(actor);
+            if (!obj) return PxQueryHitType::eNONE;
+            // ★ SetActive(false)したアクターがシーンから外れるのは次のPhysics::Update()なので、
+            //   それまでの間も見つからないように、GameObjectの状態で確かめる
+            if (!obj->GetIsActive() || obj->GetIsDestroyed()) return PxQueryHitType::eNONE;
+            if (triggers == QueryTriggers::Ignore && (shape->getFlags() & PxShapeFlag::eTRIGGER_SHAPE)) return PxQueryHitType::eNONE;
+            if (!tag.empty() && obj->GetTag() != tag) return PxQueryHitType::eNONE;
+            return hitType;
+        }
+
+        // Raycastだけが使う: originが中に入っている物には、PhysXは「距離0で当たった」と返すので、当たらなかった扱いにする
+        PxQueryHitType::Enum postFilter(const PxFilterData&, const PxQueryHit& hit) override {
+            const PxLocationHit& locationHit = static_cast<const PxLocationHit&>(hit);
+            if (locationHit.distance <= 0.f) return PxQueryHitType::eNONE;
+            return hitType;
+        }
+
+    private:
+        const std::string& tag;          // 探すタグ(""なら全部)
+        QueryTriggers triggers;          // トリガーも探すか
+        PxQueryHitType::Enum hitType;    // 見つけた物の扱い(Raycast=eBLOCK(一番近い物だけ)、Overlap=eTOUCH(全部))
+    };
+
+    // Overlapで見つかった物を、すべてvectorに集める(バッファがいっぱいになる度にprocessTouchesが呼ばれる)
+    class OverlapCollector : public PxOverlapCallback {
+    public:
+        std::vector<GameObject*> objects;   // 見つかったオブジェクト(重複なし)
+
+        OverlapCollector(PxOverlapHit* buffer, PxU32 bufferSize) : PxOverlapCallback(buffer, bufferSize) {}
+
+        PxAgain processTouches(const PxOverlapHit* hits, PxU32 count) override {
+            Collect(hits, count);
+            return true;   // まだあれば続けて受け取る(nbTouchesは0に戻る)
+        }
+
+        void Collect(const PxOverlapHit* hits, PxU32 count) {
+            for (PxU32 i = 0; i < count; i++) {
+                GameObject* obj = GetGameObject(hits[i].actor);
+                if (obj && std::find(objects.begin(), objects.end(), obj) == objects.end()) objects.push_back(obj);
+            }
+        }
+    };
+
+    PxForceMode::Enum ToPxForceMode(ForceMode mode) {
+        switch (mode) {
+        case ForceMode::Impulse:        return PxForceMode::eIMPULSE;
+        case ForceMode::Acceleration:   return PxForceMode::eACCELERATION;
+        case ForceMode::VelocityChange: return PxForceMode::eVELOCITY_CHANGE;
+        case ForceMode::Force:
+        default:                        return PxForceMode::eFORCE;
+        }
+    }
+
+    // 力・回す力を今すぐ加える。ロックした軸(SetFreezePositionX/SetFreezeRotationなど)の成分は0にしてから加える
+    void AddForceNow(PxRigidActor* actor, PxVec3 value, ForceMode mode, bool torque) {
+        PxRigidDynamic* dynamic = actor->is<PxRigidDynamic>();
+        if (!dynamic || !actor->getScene()) return;   // シーンに入っていない(非アクティブ)アクターには加えない
+        if (dynamic->getRigidBodyFlags() & PxRigidBodyFlag::eKINEMATIC) return;
+
+        PxRigidDynamicLockFlags locks = dynamic->getRigidDynamicLockFlags();
+        if (torque) {
+            if (locks & PxRigidDynamicLockFlag::eLOCK_ANGULAR_X) value.x = 0.f;
+            if (locks & PxRigidDynamicLockFlag::eLOCK_ANGULAR_Y) value.y = 0.f;
+            if (locks & PxRigidDynamicLockFlag::eLOCK_ANGULAR_Z) value.z = 0.f;
+            dynamic->addTorque(value, ToPxForceMode(mode));
+        }
+        else {
+            if (locks & PxRigidDynamicLockFlag::eLOCK_LINEAR_X) value.x = 0.f;
+            if (locks & PxRigidDynamicLockFlag::eLOCK_LINEAR_Y) value.y = 0.f;
+            if (locks & PxRigidDynamicLockFlag::eLOCK_LINEAR_Z) value.z = 0.f;
+            dynamic->addForce(value, ToPxForceMode(mode));
+        }
+    }
+
+    // コールバックの中で呼ばれたApplyForceを、fetchResults()の後まで預かっておくための1件分
+    struct PendingForce {
+        PxRigidActor* actor = nullptr;
+        PxVec3 value{ 0.f, 0.f, 0.f };
+        ForceMode mode = ForceMode::Force;
+        bool torque = false;
     };
 }
 
@@ -159,6 +329,8 @@ namespace Physics {
     static PxMaterial* gDefaultMaterial = nullptr;
     static SimulationEventCallback gEventCallback;
     static std::vector<std::pair<PxRigidActor*, bool>> gPendingSceneChanges;  // {アクター, true=追加/false=削除}
+    static std::vector<PendingForce> gPendingForces;  // コールバックの中で呼ばれたApplyForce(fetchResultsの後で加える)
+    static bool gFetchingResults = false;             // fetchResults()の途中(= onContact/onTriggerのコールバックの中)か
 
     bool Init() {
         gFoundation = PxCreateFoundation(PX_PHYSICS_VERSION, gAllocator, gErrorCallback);
@@ -198,9 +370,12 @@ namespace Physics {
     }
 
     void Update(float dt) {
-        if (!gScene || dt <= 0.f) return;
+        if (!gScene || dt <= 0.f) return;   // ポーズ中はOnTriggerStay2Dも呼ばない
+        gStepCount++;
         gScene->simulate(dt);
+        gFetchingResults = true;    // この間にonContact/onTrigger(OnCollisionStay2Dなど)が呼ばれる
         gScene->fetchResults(true);
+        gFetchingResults = false;
 
         // ★ シミュレーションコールバック(onContact/onTrigger)の中では、PhysXのAPI書き込み
         //   (addActor/removeActorなど)が禁止されている。そこから予約されていた変更を、
@@ -209,12 +384,28 @@ namespace Physics {
             PxRigidActor* actor = change.first;
             bool add = change.second;
             if (add) gScene->addActor(*actor);
-            else gScene->removeActor(*actor);
+            else {
+                gScene->removeActor(*actor);
+                // SetActive(false)の後、外れるまでの間に入った組み合わせも忘れる
+                ForgetTriggerPairs(actor);
+            }
         }
         gPendingSceneChanges.clear();
+
+        // コールバックの中で預かった力を加える(シーンの変更の後なので、シーンから外れたアクターには加わらない)
+        for (auto& force : gPendingForces) {
+            AddForceNow(force.actor, force.value, force.mode, force.torque);
+        }
+        gPendingForces.clear();
+
+        // トリガーに重なっている組み合わせへOnTriggerStay2Dを呼ぶ。
+        // fetchResults()の外なので、この中で呼ばれたAddForceなどはその場で効く
+        CallTriggerStay();
     }
 
     void Uninit() {
+        gPendingForces.clear();
+        gTriggerPairs.clear();
         if (gDefaultMaterial) { gDefaultMaterial->release(); gDefaultMaterial = nullptr; }
         if (gScene) { gScene->release(); gScene = nullptr; }
         if (gDispatcher) { gDispatcher->release(); gDispatcher = nullptr; }
@@ -235,5 +426,86 @@ namespace Physics {
             std::remove_if(gPendingSceneChanges.begin(), gPendingSceneChanges.end(),
                 [actor](const std::pair<PxRigidActor*, bool>& change) { return change.first == actor; }),
             gPendingSceneChanges.end());
+        gPendingForces.erase(
+            std::remove_if(gPendingForces.begin(), gPendingForces.end(),
+                [actor](const PendingForce& force) { return force.actor == actor; }),
+            gPendingForces.end());
+    }
+
+    void ForgetTriggerPairs(PxRigidActor* actor) {
+        gTriggerPairs.erase(
+            std::remove_if(gTriggerPairs.begin(), gTriggerPairs.end(),
+                [actor](const TriggerPair& pair) { return pair.triggerActor == actor || pair.otherActor == actor; }),
+            gTriggerPairs.end());
+    }
+
+    // ─── 問い合わせ ─────────────────────────────
+    bool Raycast(XMFLOAT3 origin, XMFLOAT3 direction, float maxDistance,
+        RaycastHit& hit, const std::string& tag, QueryTriggers triggers) {
+        hit = RaycastHit();
+        if (!gScene || maxDistance <= 0.f) return false;
+        XMFLOAT3 dir = Math::Normalize(direction);
+        if (Math::Length(dir) < 0.5f) return false;   // 長さ0の向き(Normalizeが0ベクトルを返した)
+
+        // 条件に合う物だけを「行く手をふさぐ物(eBLOCK)」にして、一番近い1つを探す
+        QueryFilter filter(tag, triggers, PxQueryHitType::eBLOCK);
+        PxQueryFilterData filterData;
+        filterData.flags = PxQueryFlag::eSTATIC | PxQueryFlag::eDYNAMIC | PxQueryFlag::ePREFILTER | PxQueryFlag::ePOSTFILTER;
+        PxRaycastBuffer buffer;
+        gScene->raycast(PxVec3(origin.x, origin.y, origin.z), PxVec3(dir.x, dir.y, dir.z), maxDistance,
+            buffer, PxHitFlag::eDEFAULT, filterData, &filter);
+        if (!buffer.hasBlock) return false;
+
+        const PxRaycastHit& block = buffer.block;
+        hit.object = GetGameObject(block.actor);
+        hit.point = { block.position.x, block.position.y, block.position.z };
+        hit.normal = { block.normal.x, block.normal.y, block.normal.z };
+        hit.distance = block.distance;
+        return hit.object != nullptr;
+    }
+
+    namespace {
+        // OverlapSphere / OverlapBox の共通部分
+        std::vector<GameObject*> Overlap(const PxGeometry& geometry, XMFLOAT3 center,
+            const std::string& tag, QueryTriggers triggers) {
+            if (!gScene) return {};
+
+            // 条件に合う物を全部「触れている物(eTOUCH)」として集める
+            QueryFilter filter(tag, triggers, PxQueryHitType::eTOUCH);
+            PxQueryFilterData filterData;
+            filterData.flags = PxQueryFlag::eSTATIC | PxQueryFlag::eDYNAMIC | PxQueryFlag::ePREFILTER;
+            PxOverlapHit hitBuffer[64];
+            OverlapCollector collector(hitBuffer, 64);
+            gScene->overlap(geometry, PxTransform(PxVec3(center.x, center.y, center.z)), collector, filterData, &filter);
+
+            // 最後にバッファへ残っている分も集める(processTouchesで受け取った分はnbTouchesが0に戻っている)
+            collector.Collect(collector.touches, collector.nbTouches);
+            return collector.objects;
+        }
+    }
+
+    std::vector<GameObject*> OverlapSphere(XMFLOAT3 center, float radius,
+        const std::string& tag, QueryTriggers triggers) {
+        if (radius <= 0.f) return {};
+        return Overlap(PxSphereGeometry(radius), center, tag, triggers);
+    }
+
+    std::vector<GameObject*> OverlapBox(XMFLOAT3 center, XMFLOAT3 size,
+        const std::string& tag, QueryTriggers triggers) {
+        if (size.x <= 0.f || size.y <= 0.f || size.z <= 0.f) return {};
+        return Overlap(PxBoxGeometry(size.x * 0.5f, size.y * 0.5f, size.z * 0.5f), center, tag, triggers);
+    }
+
+    // ─── 力(Engine内部用) ─────────────────────────────
+    void ApplyForce(PxRigidActor* actor, XMFLOAT3 value, ForceMode mode, bool torque) {
+        if (!actor) return;
+        PxVec3 pxValue(value.x, value.y, value.z);
+        if (gFetchingResults) {
+            // ★ PhysXのコールバックの中ではSDKへの書き込みが禁止されている(PxSimulationEventCallbackの注意書き)。
+            //   ここで預かって、fetchResults()が終わった直後(Update()の最後)に加える
+            gPendingForces.push_back({ actor, pxValue, mode, torque });
+            return;
+        }
+        AddForceNow(actor, pxValue, mode, torque);
     }
 }

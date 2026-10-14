@@ -17,6 +17,7 @@ private:
     Timer spawnTimer{ spawnInterval, true };          // 出現間隔を数える(最初だけInitで短くする)
     static constexpr float spawnDistance = 700.0f;    // targetからどれだけ離れた場所に出すか(XZ平面上)
     static constexpr float spawnHeight = 10.0f;       // 出現する高さ(敵の中心。地面の上面-50より少し上に出して、重力で着地させる)
+    static constexpr float enemySpeed = 60.0f;        // 敵が追いかける速さ
 
     bool stopped = false;             // 出現を止めたか
 
