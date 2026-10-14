@@ -252,7 +252,7 @@ player->AddComponent<CameraController>();
 
 ## 6. Collider(当たり判定)
 
-**当たり判定は、2D/3D問わず全てPhysX(`RigidbodyComponent`、§11参照)で計算しています。**2Dのゲームでは、2D向けに使いやすくした`SquareRigidbodyComponent`/`CircleRigidbodyComponent`を使い、`SetFreezePositionZ(true)`で奥行き方向に動かないようにします(Sample2Dが実例)。
+**当たり判定は、2D/3D問わず全てPhysX(`RigidbodyComponent`、§12参照)で計算しています。**2Dのゲームでは、2D向けに使いやすくした`SquareRigidbodyComponent`/`CircleRigidbodyComponent`を使い、`SetFreezePositionZ(true)`で奥行き方向に動かないようにします(Sample2Dが実例)。
 
 ```cpp
 // Playerの例(すり抜けない円形・半径50。Dynamic+速度指定で動かし、衝突応答はPhysXに任せる)
@@ -306,7 +306,7 @@ RigidbodyComponent::SetDebugDrawEnabled(true);
 | `SquareRigidbodyComponent` | Z軸方向で切った断面の四角 |
 | `CircleRigidbodyComponent` | Z軸方向で切った断面の丸 |
 
-2D向けのSquare/Circleは、PhysX上は奥行きのある立方体/球ですが(§11)、2Dゲームでは奥行き方向に動かないので、平面で見た時の形(断面)だけを表示しています。
+2D向けのSquare/Circleは、PhysX上は奥行きのある立方体/球ですが(§12)、2Dゲームでは奥行き方向に動かないので、平面で見た時の形(断面)だけを表示しています。
 
 **内部実装メモ**: `RigidbodyComponent::Draw()`が、`PxShape`から実際のジオメトリ(`PxBoxGeometry`/`PxSphereGeometry`)を取得し、Ownerの`Transform`の`scale`だけを一時的に差し替えて描画しています(位置・回転は普段どおりOwnerのTransformをそのまま使う)。枠は三角形ではなく線(`D3D11_PRIMITIVE_TOPOLOGY_LINELIST`)で描いていて、形ごとの輪郭データは`Mesh::CreateCubeOutline()`などで作り、全`RigidbodyComponent`で1つずつ共有しています。
 
@@ -355,7 +355,47 @@ pool.Return(obj);
 
 ---
 
-## 9. 開発時の注意点
+## 9. 計算系(Math)
+
+方向・距離・角度・乱数の計算は、`Engine/MathUtil.h` の `namespace Math` にまとめてあります。各Componentで `atan2f`/`sqrtf`/`sinf`/`cosf`/`rand()` を直接書かずに、こちらを使ってください(0で割る・角度の向きを間違える、といったミスを防ぐため)。
+
+```cpp
+#include "../../../Engine/MathUtil.h"
+```
+
+`XMFLOAT2`/`XMFLOAT3` の `+` `-`(2つの和・差)と `* float`(何倍か)も使えるようになります。
+
+| 種類 | 主な関数 |
+|---|---|
+| ベクトル | `Length` / `Distance` / `DistanceSq`(距離の2乗。大小を比べるだけならこちらが速い) / `Normalize`(長さ1に。長さ0なら0ベクトル) / `DirectionTo(from, to)`(向き。長さ1) / `Dot` / `Cross` / `ToXY`(XMFLOAT3→XMFLOAT2)。`Cross`以外はXMFLOAT2版もある |
+| 補間・制限 | `Lerp(a, b, t)`(tは0〜1に制限しない) / `Clamp(value, min, max)` / `MoveTowards(current, target, maxDistance)`(行き過ぎない) |
+| 角度(すべて度) | `DeltaAngle`(差。-180〜180) / `MoveTowardsAngle` / `AngleToTarget2D(from, to)` / `AngleToTargetY(from, to)` / `Forward2D(transform)` / `Forward3D(transform)` |
+| 乱数 | `RandomRange(min, max)`(小数。整数を渡すとmaxも含む整数) / `RandomOnCircle(radius)`(円周上のランダムな点) |
+
+```cpp
+// 2D: マウスの方を向く(Sample2D PlayerController)
+XMFLOAT2 playerPos = Math::ToXY(t.position);
+t.rotate.z = Math::AngleToTarget2D(playerPos, Input::GetMouseWorldPosition());
+
+// 追いかける(Sample2D EnemyController)
+XMFLOAT2 velocity = Math::DirectionTo(from, to) * speed;
+
+// 3D: 正面と右(Sample3D PlayerController)
+XMFLOAT3 forward = Math::Forward3D(t);
+XMFLOAT3 right = Math::Cross({ 0.f, 1.f, 0.f }, forward);
+
+// Playerの周りのランダムな位置(Sample2D/3D EnemyManager)
+XMFLOAT2 offset = Math::RandomOnCircle(spawnDistance);
+```
+
+**角度の向きの決まり**:
+- **2D**(`rotate.z`): `rotate.z = 0` で上(Y+)を向き、増えると左回り。`Forward2D` が正面の向き、`AngleToTarget2D` は「その点の方を向く `rotate.z`」で、お互いに逆の関係になっている
+- **3D**(`rotate.y`、水平の向き): `rotate.y = 0` で+Zを向き、増えると+X(右)側へ回る。正面は `(sin, 0, cos)`(`CameraController::GetYaw()` と同じ)。`Forward3D` は `rotate.y` だけを使う(上下の向き `rotate.x` は無視)。右は `Math::Cross({0,1,0}, 正面)`
+- どちらも角度は**度**。ラジアンが必要な時は `XMConvertToRadians()` で変換する
+
+---
+
+## 10. 開発時の注意点
 
 ### 文字コード(重要)
 
@@ -391,7 +431,7 @@ Claude Code で作業する場合は、`.claude/`の設定で、メインの会�
 
 ---
 
-## 10. サンプル構成(現状)
+## 11. サンプル構成(現状)
 
 プロジェクト構成自体は`0. プロジェクト構成`を参照してください。ここでは各サンプルの中身(`Game/`)を説明します。
 
@@ -415,7 +455,7 @@ Sample3D/Game/Scenes/      TitleScene, GameScene
 - **Sample2D**: トップダウン視点のアリーナシューター。タイトル画面のSTARTボタンをクリックするとゲーム開始(ボタンは`CreateButton(scene, 文字, 位置, クリックされた時の処理)`で作れる汎用部品なので、他の画面のボタンにも使い回せる)。WASDで移動、Playerは常にマウスの方を向き、左クリックでその方向へ弾を発射。背景はタイル状に敷き詰めた床(`BackgroundController`)で、移動するとスクロールする。敵(`EnemyManager`が一定間隔でPlayerの周囲にランダムスポーンさせる)がゆっくり追いかけてきて、弾を当てると倒せる(`EventBus`で`"EnemyDefeated"`イベントを発行しスコア加算)。敵に触れるとHPが減り(1秒間の無敵時間つき)、0になるとゲームオーバー画面が出てSPACEでタイトルに戻る。当たり判定・物理はPhysXを使い(Player=`CircleRigidbodyComponent`、敵=`SquareRigidbodyComponent`、弾=`CircleRigidbodyComponent`)、Player・敵はDynamic(`SetVelocity()`で速度を渡して動かす。重力なし・回転なし・`SetFreezePositionZ(true)`で奥行き方向に固定)、弾はKinematicのトリガー。3Dカメラは使わない(`CameraController`なし)。
 - **Sample3D**: Sample2Dと同じアリーナシューターを3D空間で遊べるようにしたもの。タイトル画面のボタンをクリックするとゲーム開始(Sample3Dの`CreateButton()`は、位置と大きさをまとめて`Transform`で受け取る形になっている: `CreateButton(scene, 文字, transform, クリックされた時の処理)`)。Player(立方体)は三人称カメラ(`CameraController`。マウス移動で視点回転。カーソルは画面中心に固定され、ESCで解除・左クリックで再固定。TABで一人称に切り替え)と同じ向きを向き、WASDもカメラ基準(W=カメラの前、D=カメラの右)で移動する。左クリックでPlayerの向いている方向へ、地面と水平に弾(球)を発射。敵は2Dの画像(Worldモードの`SpriteRenderer`。Y軸だけカメラの方を向く立て看板)で、地面の上をPlayerに向かって歩いてくる。歩く間は、`EnemyController`がタイマーでスプライトシートのコマ(4番と5番)を0.3秒ごとに切り替えて、歩きアニメーションにしている。スコア・HP・無敵時間・ゲームオーバー(SPACEでタイトルへ)・`EventBus`のイベント名はSample2Dと同じ。Player・敵はDynamicの`BoxRigidbodyComponent`(重力あり・回転なし。Y速度は`GetVelocity().y`を維持したまま`SetVelocity()`で動かす)、弾はKinematicのトリガー(`SphereRigidbodyComponent`)。地面は、1000四方のタイルを3Dカメラの描画距離(farZ)の範囲だけ敷き詰めて描く`GroundController`(見た目)と、見えない大きなStaticの板(当たり判定)の組み合わせ。遠景はスカイボックス。
 
-**Sample3Dの実装メモ**: 向きはすべて`transform.rotate.y`(度)で表し、`rotate.y`の時の正面(ローカルの+Z)は`(sin, 0, cos)`の方向になる(`CameraController::GetYaw()`の式と同じ)。Worldモードの`SpriteRenderer`は`rotate.y`を使わない(ビルボードの向きとZ軸回転だけを使う)ので、敵の画像の向きは`SetBillboardLock(true, false, true)`でカメラの方へ向けている。Playerは`SetFreezeRotation(true)`で、`RigidbodyComponent`は位置しか同期しないため、`PlayerController`が`rotate.y`が変わった時に`GetActor()`の`setGlobalPose`で当たり判定の箱の回転も合わせている(デバッグ表示の枠と実際の判定が同じ向きになる)。一人称の間は、カメラが立方体の内側に入るのでPlayerの`MeshRenderer`を非表示にしている。
+**Sample3Dの実装メモ**: 向きはすべて`transform.rotate.y`(度)で表し、`rotate.y`の時の正面(ローカルの+Z)は`(sin, 0, cos)`の方向になる(`CameraController::GetYaw()`の式と同じ。`Math::Forward3D()`で求められる)。Worldモードの`SpriteRenderer`は`rotate.y`を使わない(ビルボードの向きとZ軸回転だけを使う)ので、敵の画像の向きは`SetBillboardLock(true, false, true)`でカメラの方へ向けている。Playerは`SetFreezeRotation(true)`で、`RigidbodyComponent`は位置しか同期しないため、`PlayerController`が`rotate.y`が変わった時に`GetActor()`の`setGlobalPose`で当たり判定の箱の回転も合わせている(デバッグ表示の枠と実際の判定が同じ向きになる)。一人称の間は、カメラが立方体の内側に入るのでPlayerの`MeshRenderer`を非表示にしている。
 
 **Sample2Dの実装メモ**: `EnemyManager`/`BulletManager`はどちらも`ObjectPool`を使った使い回し方式(実例は`Engine/ObjectPool.h`)。プールで使い回すオブジェクトは`Scene::CreateObject("Pooled")`で名前だけ付けて作られるため、`GameObject::SetTag()`で組み立て時にタグ("Enemy"/"Bullet")を後付けしている。敵を倒す/Playerがダメージを受ける判定は、それぞれ`EnemyController::OnTriggerEnter2D`(相手のタグが"Bullet")と`PlayerController::OnCollisionStay2D`(相手のタグが"Enemy")が担当する。
 
@@ -451,7 +491,7 @@ Sceneに残してよいのは、オブジェクトの配置と、シーン全体
 
 ---
 
-## 11. PhysX(3D物理演算)
+## 12. PhysX(3D物理演算)
 
 3D用の物理エンジンとして[NVIDIA PhysX 4.1](https://github.com/NVIDIA-Omniverse/PhysX)を導入しています。ビルド済みのライブラリ一式(ヘッダー・dll・lib)を`ThirdParty/PhysX/`にコミット済みなので、**チームメンバーは自分でビルドし直す必要はありません**(`git clone`してそのままビルドできます)。
 

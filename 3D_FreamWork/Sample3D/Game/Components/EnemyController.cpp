@@ -4,7 +4,7 @@
 #include "../../../Engine/EventBus.h"
 #include "../../../Engine/RigidbodyComponent.h"
 #include "../../../Engine/SpriteRenderer.h"
-#include <cmath>
+#include "../../../Engine/MathUtil.h"
 
 namespace {
     const int walkFrames[] = { 4, 5 };   // 歩きアニメーションで使うコマの番号(この順に表示)
@@ -26,20 +26,20 @@ void EnemyController::Update(float dt) {
     // ★ Y速度は0にせず、今の値をそのまま使う(0にすると重力で落ちなくなる)
     float velocityY = rigidbody->GetVelocity().y;
 
-    // targetへの方向と距離(地面と水平なXZ平面で考える)
+    // 自分とtargetの位置(地面と水平なXZ平面で考えるので、Yは0にそろえる)
     Transform& t = GetOwner()->transform;
-    float dx = target->transform.position.x - t.position.x;
-    float dz = target->transform.position.z - t.position.z;
-    float len = sqrtf(dx * dx + dz * dz);
+    XMFLOAT3 from = { t.position.x, 0.f, t.position.z };
+    XMFLOAT3 to = { target->transform.position.x, 0.f, target->transform.position.z };
 
-    // ほぼ重なっている時は止まる(方向が定まらない・0で割ってしまうため)
-    if (len < 1.0f) {
+    // ほぼ重なっている時は止まる(方向が定まらないため)
+    if (Math::DistanceSq(from, to) < 1.0f) {
         rigidbody->SetVelocity({ 0.f, velocityY, 0.f });
         return;
     }
 
     // 移動処理: 位置を直接書き換えるのではなく、PhysXの剛体に速度を渡す
-    rigidbody->SetVelocity({ (dx / len) * speed, velocityY, (dz / len) * speed });
+    XMFLOAT3 dir = Math::DirectionTo(from, to);
+    rigidbody->SetVelocity({ dir.x * speed, velocityY, dir.z * speed });
 }
 
 void EnemyController::OnTriggerEnter2D(Collider2D* other) {

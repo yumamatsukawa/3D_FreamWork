@@ -4,8 +4,8 @@
 #include "../../../Engine/MeshRenderer.h"
 #include "../../../Engine/RigidbodyComponent.h"
 #include "../../../Engine/EventBus.h"
+#include "../../../Engine/MathUtil.h"
 #include "BulletController.h"
-#include <cmath>
 
 namespace {
     // プールに新しい弾を追加する時に1回だけ呼ばれる組み立て処理
@@ -31,10 +31,8 @@ void BulletManager::Init() {
     EventBus::Get().SubscribeObject("FireBullet", [this](GameObject* shooter) {
         if (!shooter) return;
 
-        // rotate.z = 0 の時の正面を(0, 1)として、見た目の回転と同じ向きに回転させる
-        float rad = -shooter->transform.rotate.z * (DirectX::XM_PI / 180.f);
-        XMFLOAT2 dir = { sinf(rad), cosf(rad) };
-        Fire(shooter->transform.position, dir);
+        // 撃った本人の正面(rotate.z = 0 で上向き)へ
+        Fire(shooter->transform.position, Math::Forward2D(shooter->transform));
     });
 }
 

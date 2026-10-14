@@ -4,8 +4,8 @@
 #include "../../../Engine/MeshRenderer.h"
 #include "../../../Engine/RigidbodyComponent.h"
 #include "../../../Engine/EventBus.h"
+#include "../../../Engine/MathUtil.h"
 #include "BulletController.h"
-#include <cmath>
 
 namespace {
     // プールに新しい弾を追加する時に1回だけ呼ばれる組み立て処理
@@ -31,14 +31,11 @@ void BulletManager::Init() {
     EventBus::Get().SubscribeObject("FireBullet", [this](GameObject* shooter) {
         if (!shooter) return;
 
-        // rotate.y(度)の時の正面は (sin, 0, cos)。Yは0にして地面と水平に飛ばす
-        float rad = DirectX::XMConvertToRadians(shooter->transform.rotate.y);
-        XMFLOAT3 dir = { sinf(rad), 0.f, cosf(rad) };
+        // 撃った本人の水平の正面(rotate.yの向き。Yは0なので地面と水平に飛ぶ)
+        XMFLOAT3 dir = Math::Forward3D(shooter->transform);
 
         // 撃った本人の中心から、少し前に出す(本人の体の中に埋もれて見えないため)
-        XMFLOAT3 pos = shooter->transform.position;
-        pos.x += dir.x * muzzleDistance;
-        pos.z += dir.z * muzzleDistance;
+        XMFLOAT3 pos = shooter->transform.position + dir * muzzleDistance;
         Fire(pos, dir);
     });
 }

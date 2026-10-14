@@ -5,7 +5,7 @@
 #include "../../../Engine/Input.h"
 #include "../../../Engine/EventBus.h"
 #include "../../../Engine/RigidbodyComponent.h"
-#include <cmath>
+#include "../../../Engine/MathUtil.h"
 #include <PxPhysicsAPI.h>
 
 void PlayerController::Update(float dt) {
@@ -54,29 +54,21 @@ void PlayerController::Update(float dt) {
     }
 
     // 移動処理: カメラ基準(W=カメラの前、D=カメラの右)で、地面と水平に動く
-    DirectX::XMFLOAT3 forward = { sinf(yaw), 0.f, cosf(yaw) };
-    DirectX::XMFLOAT3 right = { cosf(yaw), 0.f, -sinf(yaw) };
-    float moveForward = 0.f;
-    float moveRight = 0.f;
-    if (Input::GetKeyPress(KEY_W)) moveForward += 1.f;
-    if (Input::GetKeyPress(KEY_S)) moveForward -= 1.f;
-    if (Input::GetKeyPress(KEY_D)) moveRight += 1.f;
-    if (Input::GetKeyPress(KEY_A)) moveRight -= 1.f;
+    // 正面は上でカメラに合わせたrotate.yの向き、右は「上」と「正面」の外積
+    DirectX::XMFLOAT3 forward = Math::Forward3D(t);
+    DirectX::XMFLOAT3 right = Math::Cross({ 0.f, 1.f, 0.f }, forward);
+    DirectX::XMFLOAT2 input = { 0.f, 0.f };   // x=右方向、y=前方向の入力
+    if (Input::GetKeyPress(KEY_W)) input.y += 1.f;
+    if (Input::GetKeyPress(KEY_S)) input.y -= 1.f;
+    if (Input::GetKeyPress(KEY_D)) input.x += 1.f;
+    if (Input::GetKeyPress(KEY_A)) input.x -= 1.f;
 
-    // 斜め移動で速くならないよう、長さを1にそろえる
-    float len = sqrtf(moveForward * moveForward + moveRight * moveRight);
-    if (len > 0.f) {
-        moveForward /= len;
-        moveRight /= len;
-    }
+    // 斜め移動で速くならないよう、長さを1にそろえる(何も押していない時は0のまま)
+    input = Math::Normalize(input);
 
-    // 位置を直接書き換えるのではなく、PhysXの剛体に速度を渡す
-    DirectX::XMFLOAT3 velocity = {
-        (forward.x * moveForward + right.x * moveRight) * speed,
-        velocityY,
-        (forward.z * moveForward + right.z * moveRight) * speed
-    };
-    rigidbody->SetVelocity(velocity);
+    // 位置を直接書き換えるのではなく、PhysXの剛体に速度を渡す(Yは今の速度のまま)
+    DirectX::XMFLOAT3 move = (forward * input.y + right * input.x) * speed;
+    rigidbody->SetVelocity({ move.x, velocityY, move.z });
 
     // 弾を生成(カーソル固定中だけ。カーソルを固定するための左クリックでは撃たない)
     if (Input::GetKeyDown(MOUSE_LEFT) && camera->IsCursorLocked() && !camera->IsLockedThisFrame()) {

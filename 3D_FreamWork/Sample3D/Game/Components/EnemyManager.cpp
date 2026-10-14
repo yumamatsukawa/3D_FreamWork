@@ -4,9 +4,8 @@
 #include "../../../Engine/SpriteRenderer.h"
 #include "../../../Engine/RigidbodyComponent.h"
 #include "../../../Engine/EventBus.h"
+#include "../../../Engine/MathUtil.h"
 #include "EnemyController.h"
-#include <cstdlib>
-#include <cmath>
 
 namespace {
     // プールに新しい敵を追加する時に1回だけ呼ばれる組み立て処理
@@ -51,11 +50,12 @@ void EnemyManager::Update(float dt) {
         spawnTimer = spawnInterval;
 
         // targetを中心に、XZ平面上のランダムな方向・一定距離離れた地面の上に出現させる
-        float angle = ((float)rand() / RAND_MAX) * DirectX::XM_2PI;
+        // (円周上の点のx,yを、地面のx,zとして使う)
+        XMFLOAT2 offset = Math::RandomOnCircle(spawnDistance);
         XMFLOAT3 pos = {
-            target->transform.position.x + cosf(angle) * spawnDistance,
+            target->transform.position.x + offset.x,
             spawnHeight,
-            target->transform.position.z + sinf(angle) * spawnDistance
+            target->transform.position.z + offset.y
         };
         Spawn(pos);
     }

@@ -6,7 +6,7 @@
 #include "../../../Engine/Image.h"
 #include "../../../Engine/EventBus.h"
 #include "../../../Engine/RigidbodyComponent.h"
-#include <cmath>
+#include "../../../Engine/MathUtil.h"
 
 void PlayerController::Update(float dt) {
 
@@ -44,10 +44,9 @@ void PlayerController::Update(float dt) {
     // マウスの方を向く
     // カメラは上で先に動かしてあるので、このフレームのカメラ位置で計算される
     DirectX::XMFLOAT2 mouseWorldPos = Input::GetMouseWorldPosition();
-    float dx = mouseWorldPos.x - t.position.x;
-    float dy = mouseWorldPos.y - t.position.y;
-    if (dx * dx + dy * dy > 1.0f) {  // マウスがほぼ真上にある時は向きが定まらないので変えない
-        t.rotate.z = DirectX::XMConvertToDegrees(atan2f(-dx, dy));
+    DirectX::XMFLOAT2 playerPos = Math::ToXY(t.position);
+    if (Math::DistanceSq(playerPos, mouseWorldPos) > 1.0f) {  // マウスがほぼ真上にある時は向きが定まらないので変えない
+        t.rotate.z = Math::AngleToTarget2D(playerPos, mouseWorldPos);
     }
 
     // 弾を生成
