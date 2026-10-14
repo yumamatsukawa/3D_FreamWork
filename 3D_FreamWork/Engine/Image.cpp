@@ -15,11 +15,10 @@ namespace Image
     Light& GetLight() { return mainLight; }
     void SetCamera3DAutoSync(bool enabled) { camera3DAutoSync = enabled; }
 
+    // 画像1枚ぶんの「みんなで共有するデータ」。コマ番号・色など1体ごとの状態は持たない
     struct TextureData {
         ID3D11ShaderResourceView* srv = nullptr;
         int width = 0, height = 0;
-        SpriteSheet sheet;
-        XMFLOAT4 color = { 1.f, 1.f, 1.f, 1.f };
     };
     std::vector<TextureData> textures;
 
@@ -31,7 +30,7 @@ namespace Image
         return true;
     }
 
-    unsigned int LoadTexture(const std::wstring& filepath, int cols, int rows) {
+    unsigned int LoadTexture(const std::wstring& filepath) {
         Texture::LoadResult result = Texture::Load(filepath);
         if (!result.srv) return UINT_MAX;
 
@@ -39,7 +38,6 @@ namespace Image
         data.srv = result.srv;
         data.width = result.width;
         data.height = result.height;
-        data.sheet = { cols, rows, 0 };
 
         textures.push_back(data);
         return (unsigned int)(textures.size() - 1);
@@ -56,20 +54,15 @@ namespace Image
         textures.clear();
     }
 
-    void SetSpriteIndex(unsigned int id, int index) {
-        if (id >= textures.size()) return;
-        textures[id].sheet.index = index;
-    }
-
-    void Draw(Transform transform, unsigned int texID, bool worldSpace,
-        bool lockX, bool lockY, bool lockZ) {
+    void Draw(Transform transform, unsigned int texID, XMFLOAT4 color, const SpriteSheet& sheet,
+        bool worldSpace, bool lockX, bool lockY, bool lockZ) {
         if (texID >= textures.size()) return;
         auto& tex = textures[texID];
         if (!tex.srv) return;
 
         sprite.SetTexture(tex.srv);
         sprite.SetTextureSize(tex.width, tex.height);
-        sprite.Draw(transform, textures[texID].color, tex.sheet, worldSpace, lockX, lockY, lockZ);
+        sprite.Draw(transform, color, sheet, worldSpace, lockX, lockY, lockZ);
     }
 
     ID3D11ShaderResourceView* GetTextureView(unsigned int texID) {
@@ -118,15 +111,5 @@ namespace Image
         ReleaseAllTextures();
         sprite.Uninit();
         Graphics::Uninit();
-    }
-
-    void SetColor(unsigned int texID, float r, float g, float b, float a)
-    {
-        textures[texID].color = { r, g, b, a };
-    }
-
-    XMFLOAT4 GetColor(unsigned int texID)
-    {
-        return textures[texID].color;
     }
 }

@@ -7,6 +7,7 @@
 #include "Text.h"
 #include "Physics.h"
 #include "Time.h"
+#include "Resources.h"
 
 bool GameEngine::Init(HWND hwnd, int w, int h)
 {
@@ -49,6 +50,7 @@ void GameEngine::Run()
 void GameEngine::Uninit()
 {
     SceneManager::Get().Uninit();
+    Resources::UnloadAll();   // Image::Uninitより先に(画像の解放にImageを使うため)
     Physics::Uninit();
     Text::Uninit();
     Audio::Uninit();

@@ -7,7 +7,11 @@
 // UnityのSpriteRendererに相当する。
 class SpriteRenderer : public Component {
 private:
-    unsigned int texID = UINT_MAX;
+    unsigned int texID = UINT_MAX;   // Resourcesから借りている画像(同じ画像の人みんなで共有)
+
+    // ここから下は1体ごとの状態(同じ画像を使う他のオブジェクトとは連動しない)
+    SpriteSheet sheet;                                  // 横・縦の分割数とコマ番号
+    DirectX::XMFLOAT4 color{ 1.f, 1.f, 1.f, 1.f };      // 画像にかける色
 
     // false(既定): UIのように常に手前に描画される
     // true        : 3Dオブジェクトのように、奥行き(position.z)で前後関係が決まる

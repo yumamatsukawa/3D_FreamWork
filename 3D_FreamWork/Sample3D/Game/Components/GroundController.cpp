@@ -1,11 +1,12 @@
 ﻿#include "GroundController.h"
 #include "../../../Engine/Image.h"
+#include "../../../Engine/Resources.h"
 #include <cmath>
 
 void GroundController::Init() {
-    // タイルの形(単位立方体)とテクスチャの読み込み
+    // タイルの形(単位立方体)と、テクスチャを借りる(読み込み済みなら使い回す)
     mesh.Init(Mesh::CreateCube());
-    texID = Image::LoadTexture(texturePath);
+    texID = Resources::LoadTexture(texturePath);
     mesh.SetTexture(Image::GetTextureView(texID));
 }
 
@@ -37,7 +38,9 @@ void GroundController::Draw() {
 }
 
 void GroundController::Uninit() {
-    // 形とテクスチャの解放
+    // 形の解放と、テクスチャを返す
     mesh.Uninit();
-    Image::ReleaseTexture(texID);
+    mesh.SetTexture(nullptr);
+    Resources::ReleaseTexture(texID);
+    texID = UINT_MAX;
 }

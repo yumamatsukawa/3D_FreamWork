@@ -14,7 +14,7 @@ private:
     static constexpr float tileThickness = 1.0f;   // タイルの厚み(薄い立方体で描く)
 
     Mesh mesh;                         // タイル1枚の形(全タイルで使い回す)
-    unsigned int texID = UINT_MAX;     // 読み込んだテクスチャ
+    unsigned int texID = UINT_MAX;     // Resourcesから借りたテクスチャ
 
 public:
     GroundController(const std::wstring& texturePath, float tileSize, float topY)

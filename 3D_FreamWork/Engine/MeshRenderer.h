@@ -2,6 +2,7 @@
 #include "Component.h"
 #include "Mesh.h"
 #include "Image.h"
+#include "Resources.h"
 #include <memory>
 
 // GameObjectに「3Dメッシュを描画する見た目」を持たせるComponent。
@@ -9,7 +10,7 @@
 class MeshRenderer : public Component {
 private:
     std::shared_ptr<Mesh> mesh;
-    unsigned int texID = UINT_MAX;
+    unsigned int texID = UINT_MAX;   // Resourcesから借りている画像(同じ画像の人みんなで共有)
     DirectX::XMFLOAT4 color{ 1.f, 1.f, 1.f, 1.f };
     bool unlit = false;
     bool depthWrite = true;
@@ -22,7 +23,10 @@ public:
     }
 
     void SetTexture(const std::wstring& filepath) {
-        texID = Image::LoadTexture(filepath);
+        // 新しい画像を先に借りてから、前の画像を返す(同じ画像を設定し直しても読み直さないように)
+        unsigned int newTexID = Resources::LoadTexture(filepath);
+        if (texID != UINT_MAX) Resources::ReleaseTexture(texID);
+        texID = newTexID;
         mesh->SetTexture(Image::GetTextureView(texID));
     }
 
@@ -50,5 +54,9 @@ public:
 
     void Uninit() override {
         mesh->Uninit();
+        // 借りた画像を返す(他に使っている人がいるかもしれないので、ここでは解放しない)
+        if (texID != UINT_MAX) Resources::ReleaseTexture(texID);
+        texID = UINT_MAX;
+        mesh->SetTexture(nullptr);
     }
 };

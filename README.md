@@ -119,6 +119,8 @@ sprite->SetSpriteIndex(1);           // スプライトシートの何コマ目�
 sprite->SetColor(1.0f, 0.0f, 0.0f, 1.0f); // r, g, b, a
 ```
 
+画像そのものは、同じ画像を使うオブジェクトみんなで共有しています(§11)。コマ番号(`SetSpriteIndex`)と色(`SetColor`)は**1体ごと**なので、同じ`player.png`を使うPlayerと敵で、色やコマが連動することはありません。
+
 **UIモード / Worldモード**を選べます:
 
 ```cpp
@@ -178,7 +180,7 @@ meshRenderer->SetDepthWrite(false);    // 深度バッファに書き込まな�
 
 一つのGameObjectには、基本的に`SpriteRenderer`か`MeshRenderer`の**どちらか片方**を付けます。
 
-**内部実装メモ**: シェーダー・サンプラー・ブレンド/深度/ラスタライザステート・定数バッファは、`Mesh`クラス全体で1つだけ作成して全インスタンスで共有しています(Cube/Sphere/Skyboxを何体作っても、シェーダーのコンパイルなどは初回の1回だけ)。頂点バッファ(形状データ)とテクスチャだけがインスタンスごとに別です。特に意識する必要はありませんが、`Engine/Mesh.h/.cpp`を触る時は「インスタンスごとの値」と「共有する値(static)」を混同しないよう注意してください。
+**内部実装メモ**: シェーダー・サンプラー・ブレンド/深度/ラスタライザステート・定数バッファは、`Mesh`クラス全体で1つだけ作成して全インスタンスで共有しています(Cube/Sphere/Skyboxを何体作っても、シェーダーのコンパイルなどは初回の1回だけ)。頂点バッファ(形状データ)だけがインスタンスごとに別です(テクスチャは`Resources`で同じ画像どうし共有しています。§11)。特に意識する必要はありませんが、`Engine/Mesh.h/.cpp`を触る時は「インスタンスごとの値」と「共有する値(static)」を混同しないよう注意してください。
 
 ### ライティング(3Dメッシュの陰影)
 
@@ -252,7 +254,7 @@ player->AddComponent<CameraController>();
 
 ## 6. Collider(当たり判定)
 
-**当たり判定は、2D/3D問わず全てPhysX(`RigidbodyComponent`、§13参照)で計算しています。**2Dのゲームでは、2D向けに使いやすくした`SquareRigidbodyComponent`/`CircleRigidbodyComponent`を使い、`SetFreezePositionZ(true)`で奥行き方向に動かないようにします(Sample2Dが実例)。
+**当たり判定は、2D/3D問わず全てPhysX(`RigidbodyComponent`、§14参照)で計算しています。**2Dのゲームでは、2D向けに使いやすくした`SquareRigidbodyComponent`/`CircleRigidbodyComponent`を使い、`SetFreezePositionZ(true)`で奥行き方向に動かないようにします(Sample2Dが実例)。
 
 ```cpp
 // Playerの例(すり抜けない円形・半径50。Dynamic+速度指定で動かし、衝突応答はPhysXに任せる)
@@ -306,7 +308,7 @@ RigidbodyComponent::SetDebugDrawEnabled(true);
 | `SquareRigidbodyComponent` | Z軸方向で切った断面の四角 |
 | `CircleRigidbodyComponent` | Z軸方向で切った断面の丸 |
 
-2D向けのSquare/Circleは、PhysX上は奥行きのある立方体/球ですが(§13)、2Dゲームでは奥行き方向に動かないので、平面で見た時の形(断面)だけを表示しています。
+2D向けのSquare/Circleは、PhysX上は奥行きのある立方体/球ですが(§14)、2Dゲームでは奥行き方向に動かないので、平面で見た時の形(断面)だけを表示しています。
 
 **内部実装メモ**: `RigidbodyComponent::Draw()`が、`PxShape`から実際のジオメトリ(`PxBoxGeometry`/`PxSphereGeometry`)を取得し、Ownerの`Transform`の`scale`だけを一時的に差し替えて描画しています(位置・回転は普段どおりOwnerのTransformをそのまま使う)。枠は三角形ではなく線(`D3D11_PRIMITIVE_TOPOLOGY_LINELIST`)で描いていて、形ごとの輪郭データは`Mesh::CreateCubeOutline()`などで作り、全`RigidbodyComponent`で1つずつ共有しています。
 
@@ -476,7 +478,43 @@ if (frameTimer.Update(dt)) frameIndex = (frameIndex + 1) % walkFrameCount;   // 
 
 ---
 
-## 11. 開発時の注意点
+## 11. リソース(Resources、画像の使い回し)
+
+同じ画像を何度も読み込まないための仕組みです(`Engine/Resources.h` の `namespace Resources`)。同じパスの画像は1回だけ読み込み、「何人が使っているか」(参照カウント)を数えて管理します。敵を100体出しても、`player.png` を読み込むのは1回だけです。
+
+**`SpriteRenderer` / `MeshRenderer` は中で自動で使っているので、ゲーム側は普段意識しなくてかまいません**(`AddComponent<SpriteRenderer>(L"Assets/player.png", 8, 2)` の書き方はそのまま)。自分で画像を読んで描くComponent(Sample2D `BackgroundController`、Sample3D `GroundController` など)だけが、直接使います。
+
+```cpp
+#include "../../../Engine/Resources.h"
+
+// Init: 画像を借りる(読み込み済みなら読み直さずに同じIDが返る)
+texID = Resources::LoadTexture(L"Assets/grid.png");
+
+// Draw: 描く(2Dの場合。色とコマは自分で渡す。省略すると白・1枚絵)
+Image::Draw(transform, texID);
+Image::Draw(transform, texID, { 1.f, 0.f, 0.f, 1.f }, { 8, 2, 5 });  // 赤、横8×縦2に分けた5コマ目
+
+// Uninit: 借りた画像を返す
+Resources::ReleaseTexture(texID);
+```
+
+| 関数 | 内容 |
+|---|---|
+| `Resources::LoadTexture(path)` | 画像を借りる。同じパスは2回目以降読み込まずに同じIDを返す(`/` と `\`、大文字と小文字の違いは同じ画像として扱う)。失敗したら `UINT_MAX` |
+| `Resources::ReleaseTexture(id)` | 借りた画像を返す(参照カウントを1減らす) |
+| `Resources::UnloadUnused()` | 誰も使っていない画像をまとめて解放する。シーン切り替えの時に `SceneManager` が自動で呼ぶ |
+
+**決まり**:
+- **参照カウントが0になっても、すぐには解放されません。** 次のシーン切り替えまで残ります。弾や敵のように出たり消えたりするものが、その度に画像を読み直さないようにするためです。
+- シーン切り替えでは、新しいシーンの `Init()` が終わった後に `UnloadUnused()` が呼ばれます。両方のシーンで使う画像(ボタンなど)は、読み直さずにそのまま使い回されます。
+- `LoadTexture` で借りたら、必ず `Uninit()` などで `ReleaseTexture` を返してください。返し忘れると、その画像はゲームを終了するまで解放されません(終了時にはまとめて解放され、Visual Studioの出力ウィンドウに「返し忘れの画像があります」と表示されます)。
+- 画像は共有されるので、**色やコマ番号は画像ではなく、描く側(`SpriteRenderer` など)が1体ごとに持ちます。** `Image::Draw` には、色とコマ(`SpriteSheet` = 横の分割数・縦の分割数・コマ番号)を毎回渡します。
+- `Image::LoadTexture` / `Image::ReleaseTexture` はEngine内部用(`Resources` だけが使う)です。ゲーム側からは呼ばないでください(呼ぶ度に同じ画像を読み直してしまいます)。
+- 音(`Audio`)とモデルの使い回しは、まだありません(音は「データ」と「再生口」を分ける時に一緒に作る予定。`docs/EngineRoadmap.md` の 5.13 / 5.16)。
+
+---
+
+## 12. 開発時の注意点
 
 ### 文字コード(重要)
 
@@ -496,7 +534,9 @@ Sample2Dの`PlayerController.cpp`に合わせて、短く書きます。
 
 **Engine(`Engine/`・`Shader.hlsl`・`Shader3D.hlsl`・`PhysX.props`)を変える時は、必ず先にチームに相談してください。** 両方のサンプルに影響するためです。
 
-Claude Code で作業する場合は、`.claude/`の設定で、メインの会話が相談役(navigator)になり、実装は作業役(implementer)、確認はレビュー役(reviewer)が分担します。オブジェクトの追加(`add-object`)・ビルド確認(`build`)・コミット文の作成(`commit-message`)は手順書(スキル)になっています。Engine・`CLAUDE.md`・`.claude/`を変更しようとすると、毎回確認のダイアログが出ます。詳しくは`CLAUDE.md`の「役割分担」「スキル」を参照してください。
+ただし今は、`docs/EngineRoadmap.md` の機能を順番に作っている間の**例外**として、ロードマップの機能を作るためのEngine変更は、了承を待たずに進めてよいことにしています(着手する時に「何を作るか・どのEngineファイルを変えるか・両サンプルへの影響」を説明し、終わったら変更したファイルを報告して、レビューは必ず受けます)。ロードマップに無いEngineの変更(バグ修正など)は、今まで通り先に相談してください。ロードマップがすべて終わったら、この例外は元に戻します(詳しくは`CLAUDE.md`の「docs/EngineRoadmap.md の機能を作る間の例外」)。
+
+Claude Code で作業する場合は、`.claude/`の設定で、メインの会話が相談役(navigator)になり、実装は作業役(implementer)、確認はレビュー役(reviewer)が分担します。オブジェクトの追加(`add-object`)・ビルド確認(`build`)・コミット文の作成(`commit-message`)は手順書(スキル)になっています。`CLAUDE.md`・`.claude/`を変更しようとすると、毎回確認のダイアログが出ます(普段はEngineの変更でも出ますが、ロードマップの間は外しています)。詳しくは`CLAUDE.md`の「役割分担」「スキル」を参照してください。
 
 ### 新しいファイルを追加したら
 
@@ -512,7 +552,7 @@ Claude Code で作業する場合は、`.claude/`の設定で、メインの会�
 
 ---
 
-## 12. サンプル構成(現状)
+## 13. サンプル構成(現状)
 
 プロジェクト構成自体は`0. プロジェクト構成`を参照してください。ここでは各サンプルの中身(`Game/`)を説明します。
 
@@ -572,7 +612,7 @@ Sceneに残してよいのは、オブジェクトの配置と、シーン全体
 
 ---
 
-## 13. PhysX(3D物理演算)
+## 14. PhysX(3D物理演算)
 
 3D用の物理エンジンとして[NVIDIA PhysX 4.1](https://github.com/NVIDIA-Omniverse/PhysX)を導入しています。ビルド済みのライブラリ一式(ヘッダー・dll・lib)を`ThirdParty/PhysX/`にコミット済みなので、**チームメンバーは自分でビルドし直す必要はありません**(`git clone`してそのままビルドできます)。
 

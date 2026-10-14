@@ -32,29 +32,22 @@ namespace Image
     // false にしてこの自動追従を止める(使い終わったら忘れずtrueに戻すこと)
     void SetCamera3DAutoSync(bool enabled);
 
-    // テクスチャのロード
-    // RGBA形式のpng画像を読み込ませるようにしてほしい
-    unsigned int LoadTexture(const std::wstring& filepath, int cols = 1, int rows = 1);
+    // ─── Engine内部用(Resourcesだけが呼ぶ。ゲーム側は Resources::LoadTexture / ReleaseTexture を使う) ───
+    // ここで読むと、同じ画像でも呼ぶ度に読み直してしまう(共有されない)
+    unsigned int LoadTexture(const std::wstring& filepath);  // 画像を読む(RGBA形式のpng)。失敗したらUINT_MAX
+    void ReleaseTexture(unsigned int id);                     // 画像を解放する
+    void ReleaseAllTextures();                                // すべての画像を解放する(Image::Uninitが呼ぶ)
 
-    // テクスチャの削除
-    void ReleaseTexture(unsigned int id);
-
-    // すべてのテクスチャの削除
-    void ReleaseAllTextures();
-
-    // スプライトのIndexの変更(アニメーションなどに使う)
-    void SetSpriteIndex(unsigned int id, int index);
-
+    // 画像を1枚描く。画像(texID)はみんなで共有し、コマ・色は描く側(SpriteRendererなど)が1体ごとに渡す
+    // color: 画像にかける色(白=そのまま)
+    // sheet: 横・縦の分割数(cols/rows)と、何コマ目を描くか(index)
     // worldSpace = false(既定) : UIのように常に手前に描画される
     // worldSpace = true        : 3Dオブジェクトのように、奥行きで前後関係が決まる
     // lockX/lockY/lockZ: worldSpace時のビルボード回転を軸ごとに止める(SpriteRenderer::SetBillboardLock参照)
-    void Draw(Transform transform, unsigned int texID, bool worldSpace = false,
-        bool lockX = false, bool lockY = false, bool lockZ = false);
+    void Draw(Transform transform, unsigned int texID,
+        XMFLOAT4 color = XMFLOAT4(1.f, 1.f, 1.f, 1.f), const SpriteSheet& sheet = SpriteSheet(),
+        bool worldSpace = false, bool lockX = false, bool lockY = false, bool lockZ = false);
 
     // Mesh(3D)など、Sprite以外の描画にテクスチャを使い回したい時に、生のSRVを取り出す
     ID3D11ShaderResourceView* GetTextureView(unsigned int texID);
-
-    void SetColor(unsigned int texID, float r, float g, float b, float a);
-
-    XMFLOAT4 GetColor(unsigned int texID);
 }

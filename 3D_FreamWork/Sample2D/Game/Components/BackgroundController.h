@@ -8,7 +8,7 @@ class BackgroundController : public Component {
 private:
     std::wstring texturePath;     // タイルの画像
     float tileSize;               // タイル1枚の大きさ
-    unsigned int texID = UINT_MAX;   // 読み込んだテクスチャ
+    unsigned int texID = UINT_MAX;   // Resourcesから借りたテクスチャ
 
 public:
     BackgroundController(const std::wstring& texturePath, float tileSize)

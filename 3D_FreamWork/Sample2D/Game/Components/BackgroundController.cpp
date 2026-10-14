@@ -1,10 +1,11 @@
 ﻿#include "BackgroundController.h"
 #include "../../../Engine/Image.h"
+#include "../../../Engine/Resources.h"
 #include <cmath>
 
 void BackgroundController::Init() {
-    // テクスチャの読み込み
-    texID = Image::LoadTexture(texturePath);
+    // テクスチャを借りる(読み込み済みなら使い回す)
+    texID = Resources::LoadTexture(texturePath);
 }
 
 void BackgroundController::Draw() {
@@ -29,6 +30,7 @@ void BackgroundController::Draw() {
 }
 
 void BackgroundController::Uninit() {
-    // テクスチャの解放
-    Image::ReleaseTexture(texID);
+    // テクスチャを返す
+    Resources::ReleaseTexture(texID);
+    texID = UINT_MAX;
 }
