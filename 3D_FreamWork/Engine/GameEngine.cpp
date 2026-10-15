@@ -8,6 +8,7 @@
 #include "Physics.h"
 #include "Time.h"
 #include "Resources.h"
+#include "CameraShake.h"
 
 bool GameEngine::Init(HWND hwnd, int w, int h)
 {
@@ -34,14 +35,19 @@ void GameEngine::Run()
         Time::Update();
 
         Input::Update();
+        CameraShake::Update(Time::GetUnscaledDeltaTime());   // 画面の揺れはポーズ中も進める
 
         Physics::Update(Time::GetDeltaTime());
         SceneManager::Get().Update(Time::GetDeltaTime());
 
+        // 画面の揺れは描画の間だけカメラをずらす(Image::BeginFrameで3Dカメラを2Dカメラに合わせた後にずらし、
+        // 描き終わったら元に戻す。Updateの中のカメラの値には揺れが入らない)
         Image::BeginFrame();
+        CameraShake::BeginDraw();
         Text::BeginDraw();
         SceneManager::Get().Draw();
         Text::EndDraw();
+        CameraShake::EndDraw();
 
         Image::EndFrame();
     }

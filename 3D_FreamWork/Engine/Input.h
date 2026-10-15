@@ -124,7 +124,9 @@ namespace Input {
     bool IsCursorLocked();
 
     // マウスのワールド座標(2D用カメラ Image::GetCamera() の位置を考慮し、Y+は上方向)。
-    // 2Dのオブジェクト(Z=0)とそのまま比較できるので、クリック判定や「マウスの方を向く」に使う
+    // 2Dのオブジェクト(Z=0)とそのまま比較できるので、クリック判定や「マウスの方を向く」に使う。
+    // 中身は Image::ScreenToWorld2D。カメラを動かすComponent(CameraFollowComponentなど)より後で呼ぶと、
+    // そのフレームに画面に見えている位置と一致する(CameraShakeの揺れは入らない)
     DirectX::XMFLOAT2 GetMouseWorldPosition();
 
     // スティック・トリガー

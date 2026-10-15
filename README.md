@@ -212,6 +212,8 @@ Image::GetCamera().position.x = player->transform.position.x;
 Image::GetCamera().position.y = player->transform.position.y;
 ```
 
+オブジェクトを追いかけさせる時は、上のように毎フレーム書く代わりに`CameraFollowComponent`を付けます。画面を揺らす`CameraShake`、ワールド座標と画面座標の変換(`Image::WorldToScreen2D`など)も含めて、§14にまとめてあります。
+
 `position.y`は2D・3D共通で**上方向が+**です(標準的な数学と同じ、Mesh/Sprite/当たり判定すべて統一)。マウス座標は2種類あります:
 
 | 関数 | 中身 | 使いどころ |
@@ -230,7 +232,7 @@ Image::GetCamera().position.y = player->transform.position.y;
 
 「ESCで解除・クリックで再固定」のようなルールはEngineには無いので、使う側(Sample3Dの`CameraController`が実例)で決めます。固定したComponentが破棄される時は、`Uninit()`で`SetCursorLocked(false)`に戻してください。
 
-`GetMouseWorldPosition()`は「カメラ位置 + マウス座標(Yは反転)」で計算しているので、Z=0にある2Dオブジェクトとぴったり一致します。カメラを動かす処理がある場合は、カメラを動かした**後**で呼ぶと、そのフレームのカメラ位置で計算されます。
+`GetMouseWorldPosition()`は、マウス座標(Yを反転して上方向に合わせたもの)を`Image::ScreenToWorld2D`(§14)でZ=0の平面のワールド座標に直しています。カメラが既定の奥行き(z=-500)なら「カメラ位置 + マウス座標」と同じで、Z=0にある2Dオブジェクトとぴったり一致します。カメラを動かす処理(`CameraFollowComponent`など)がある場合は、カメラを動かした**後**で呼ぶと、そのフレームのカメラ位置で計算されます。画面の揺れ(`CameraShake`)は入りません。
 
 **2D/3Dのスクロール速度について**: 2Dは疑似的な正射影(距離に関係なく一定速度でスクロール)、3D(Mesh)は本物の透視投影(近いものほど速く、遠いものほどゆっくり動く)なので、根本的に仕組みが違います。`Camera.focalLength`(既定500)の距離にある3Dオブジェクトだけは、2Dと同じ速度で動くように`fovY`を自動調整していますが、それ以外の距離にあるオブジェクトは2Dとズレます(これは正しい遠近感なので、バグではありません)。
 
@@ -255,7 +257,7 @@ player->AddComponent<CameraController>();
 
 ## 6. Collider(当たり判定)
 
-**当たり判定は、2D/3D問わず全てPhysX(`RigidbodyComponent`、§16参照)で計算しています。**2Dのゲームでは、2D向けに使いやすくした`SquareRigidbodyComponent`/`CircleRigidbodyComponent`を使い、`SetFreezePositionZ(true)`で奥行き方向に動かないようにします(Sample2Dが実例)。
+**当たり判定は、2D/3D問わず全てPhysX(`RigidbodyComponent`、§17参照)で計算しています。**2Dのゲームでは、2D向けに使いやすくした`SquareRigidbodyComponent`/`CircleRigidbodyComponent`を使い、`SetFreezePositionZ(true)`で奥行き方向に動かないようにします(Sample2Dが実例)。
 
 ```cpp
 // Playerの例(すり抜けない円形・半径50。Dynamic+速度指定で動かし、衝突応答はPhysXに任せる)
@@ -323,7 +325,7 @@ RigidbodyComponent::SetDebugDrawEnabled(true);
 | `SquareRigidbodyComponent` | Z軸方向で切った断面の四角 |
 | `CircleRigidbodyComponent` | Z軸方向で切った断面の丸 |
 
-2D向けのSquare/Circleは、PhysX上は奥行きのある立方体/球ですが(§16)、2Dゲームでは奥行き方向に動かないので、平面で見た時の形(断面)だけを表示しています。
+2D向けのSquare/Circleは、PhysX上は奥行きのある立方体/球ですが(§17)、2Dゲームでは奥行き方向に動かないので、平面で見た時の形(断面)だけを表示しています。
 
 **内部実装メモ**: `RigidbodyComponent::Draw()`が、`PxShape`から実際のジオメトリ(`PxBoxGeometry`/`PxSphereGeometry`)を取得し、Ownerの`Transform`の`scale`だけを一時的に差し替えて描画しています(位置・回転は普段どおりOwnerのTransformをそのまま使う)。枠は三角形ではなく線(`D3D11_PRIMITIVE_TOPOLOGY_LINELIST`)で描いていて、形ごとの輪郭データは`Mesh::CreateCubeOutline()`などで作り、全`RigidbodyComponent`で1つずつ共有しています。
 
@@ -668,13 +670,102 @@ chase->SetPlane(MovePlane::XZ);    // 3Dの地面の上を動く時(2Dなら不�
 - `ObjectPool` で使い回された時(`SetActive(true)`)は、速度・進行方向などの状態をリセットします。相手・速さなどの設定は残るので、出す度に `SetTarget` などで入れ直してください(Sampleの `EnemyManager::Spawn` が実例)。
 - Dynamicの剛体と一緒に使う時は、`RigidbodyComponent` の**後に** `AddComponent` してください(Componentは追加順に `Update` されるので、PhysXの結果が反映された位置で計算できる)。
 - `HomingComponent` の進行方向は `rotate` と同じ向きです(XYは `rotate.z` = `Math::Forward2D`、XZは `rotate.y` = `Math::Forward3D`)。最初の進行方向は、出した時の `rotate` の向きです(出す時に向きを決めておけば、その向きへ飛び出してから曲がっていく)。`SetFaceMovement(true)` をDynamicの剛体で使う時は、`SetFreezeRotation(true)` にしておきます(PhysXの回転で上書きされないように)。
-- `AccelerateChaseComponent` は、Dynamicなら `AddForce(..., ForceMode::Acceleration)`(§16)で加速します(ぶつかって跳ね返った勢いも残る)。1フレーム分の加速だけ、最高速度を少し超えることがあります。
+- `AccelerateChaseComponent` は、Dynamicなら `AddForce(..., ForceMode::Acceleration)`(§17)で加速します(ぶつかって跳ね返った勢いも残る)。1フレーム分の加速だけ、最高速度を少し超えることがあります。
 
 **実例**: 両サンプルの `EnemyManager` が、敵に `ChaseComponent` を付けて(`SetupEnemy`)、出す時に追いかける相手(Player)と速さを渡しています(`Spawn`)。Sample3Dは `SetPlane(MovePlane::XZ)` で、地面の上を重力で落ちながら追いかけます。
 
 ---
 
-## 14. 開発時の注意点
+## 14. カメラ(CameraFollowComponent / CameraShake / 座標の変換)
+
+カメラの追従・画面の揺れ・座標の変換を、毎回手書きしなくて済むようにしたものです。カメラそのもの(2D用`Image::GetCamera()`と3D用`Image::GetCamera3D()`の違い)は§5を参照してください。
+
+```cpp
+#include "../../../Engine/CameraFollowComponent.h"   // 追従
+#include "../../../Engine/CameraShake.h"             // 揺れ
+#include "../../../Engine/Image.h"                   // 座標の変換
+```
+
+### CameraFollowComponent(2Dカメラで追いかける)
+
+追いかけてほしいオブジェクト(Playerなど)に付けると、2D用カメラ(`Image::GetCamera()`)がそのオブジェクトを追いかけます。動かすのはカメラの`position`のx,yだけです。
+
+```cpp
+auto* follow = player->AddComponent<CameraFollowComponent>();
+follow->SetSmoothTime(0.15f);                                  // 少し遅れてなめらかに追う(既定0=ピッタリ)
+follow->SetBounds({ -2000.f, -2000.f }, { 2000.f, 2000.f });   // ステージの外を映さない
+follow->SetDeadZone({ 200.f, 100.f });                         // 画面中央の200x100の中で動いてもカメラは動かない
+```
+
+| 関数 | 内容 |
+|---|---|
+| `SetOffset({x, y})` | 対象からどれだけずらして映すか(例: `{0, 100}` で対象より上を映す=対象は画面の少し下に見える) |
+| `SetSmoothTime(秒)` | 追いつくまでの時間。0(既定)はピッタリ追従。この秒数で残りの距離が約5%になる。フレームレートが変わっても同じ動きになる(指数的に近づく式) |
+| `SetBounds(左下, 右上)` | **画面に映してよい範囲**(Z=0の平面のワールド座標)。画面の端がこの外に出ないところでカメラが止まる(カメラの中心ではなく、画面の半分の大きさも考えて止める)。範囲が画面より狭い向きは、範囲の真ん中に固定する |
+| `SetDeadZone({幅, 高さ})` | この大きさの四角(対象がいつも映る位置が中心)の中で対象が動いても、カメラは動かさない。四角から出た分だけ動く(画面酔い対策) |
+
+**決まり**:
+- **付ける順番に注意**: Componentは付けた順に`Update`されます。**DynamicのRigidbodyより後**(PhysXの結果が反映された位置で追う)、**`Input::GetMouseWorldPosition()`を使うComponentより前**(画面に見えているマウスの位置とずれない)に`AddComponent`してください(Sample2Dの`Objects/Player.cpp`が実例: 物理 → カメラ追従 → `PlayerController`)。
+- 最初の`Update`と、`SetActive(true)`で戻った時は、なめらかに追わずに一気に合わせます(遠くから流れてこない)。
+- 対象の位置は、親がいてもワールド座標(`GetWorldTransform()`)で追います。
+- 対象が非アクティブの間はカメラはその場で止まります。ポーズ中(`Update`の`dt`が0)も止まります。
+- 2つ以上のオブジェクトに付けると、後から`Update`された方が勝ちます(1つだけに付ける)。
+- 3D用カメラは動かしません(3Dのカメラ操作は、今はSample3Dの`CameraController`が担当)。ただし`Image::SetCamera3DAutoSync`がtrue(既定)なら、3Dカメラは2Dカメラに自動で付いてきます(§5)。
+- シーンを切り替えてもカメラの位置は残ります。Sample2Dでは`TitleController::Init()`が原点に戻しています。
+
+### CameraShake(画面を揺らす)
+
+```cpp
+CameraShake::Shake(6.f, 0.2f);   // 強さ6で0.2秒揺らす
+```
+
+- 強さは「1方向に最大どれだけずれるか」(2Dはピクセル、3Dはワールドの単位)。揺れは時間とともに弱まって(`Ease::OutQuad`)、指定した秒数で0になります。
+- **2D用・3D用の両方のカメラ**が揺れます。3Dカメラは、カメラから見た右・上の向きに、`position`と`target`を同じだけずらします(向きは変わらない)。
+- **カメラの`position`は変えません。描画している間だけずらして、描き終わったら元の値に戻します**(`GameEngine::Run`の`Image::BeginFrame()`の後〜`Image::EndFrame()`の前)。そのため`Update`の中で読むカメラの値・`Input::GetMouseWorldPosition()`・`CameraFollowComponent`の計算には揺れが入らず、追従とぶつかったり、カメラが元の位置に戻らなくなったりしません。
+- `Draw`の中で読むカメラの値(`Image::WorldToScreen2D`など)には揺れが入ります。オブジェクトに重ねて描く文字(ボタンの文字など)は、絵と一緒に揺れます。画面の決まった位置に描く文字(HUD)は揺れません。
+- 揺れの時間はポーズ中も進みます(`Time::GetUnscaledDeltaTime()`)。
+- **揺れている途中にまた`Shake`を呼んだ時**: 今の揺れの強さ(弱まった後の値)と比べて、新しい方が強いか同じなら、新しい揺れに置き換えます(最初から数え直す)。弱ければ無視します(強い揺れが、後から来た弱い揺れで消されない)。
+- `CameraShake::IsShaking()` で揺れている途中か分かります。
+
+**実例**: Sample2Dの`PlayerController::OnCollisionStay2D()`で、敵に当たってダメージを受けた時に揺らしています(強さ・時間は`PlayerController.h`の`damageShakeStrength`/`damageShakeDuration`)。
+
+### 座標の変換(ワールド ⇔ 画面)
+
+**画面座標は「画面中央が(0,0)、Y+=上、単位はゲーム画面のピクセル」**(`Text::Draw`と同じ)なので、結果をそのまま`Text::Draw`に渡せます。
+
+| 関数 | カメラ | 内容 |
+|---|---|---|
+| `Image::WorldToScreen2D(ワールド座標)` | 2D用 | ワールド座標 → 画面座標(`XMFLOAT2`)。UIモードの`SpriteRenderer`と同じ計算(奥(Z+)にあるほど小さく、中心に寄って見える。Z=0なら「ワールド座標 - カメラ位置」) |
+| `Image::ScreenToWorld2D(画面座標)` | 2D用 | 画面座標 → Z=0の平面の上のワールド座標(`XMFLOAT3`、zは0)。`WorldToScreen2D`の逆。`Input::GetMouseWorldPosition()`の中身 |
+| `Image::WorldToScreen3D(ワールド座標)` | 3D用 | ワールド座標 → 画面座標(`XMFLOAT3`)。`MeshRenderer`と同じ透視投影。x,yが画面座標、**zはカメラからの奥行き**。**zが0以下ならカメラの後ろ**(画面に映らない。x,yは0で使えない)なので、使う前に必ず`z > 0`を確かめる |
+| `Image::ScreenPointToRay3D(画面座標, origin, direction)` | 3D用 | 画面の点から奥へ伸びる線(`origin`=手前の描画限界(nearZ)の面の上の点、`direction`=長さ1の向き)。`Physics::Raycast`と組み合わせると、画面のその点に映っている物を探せる |
+
+```cpp
+// 2D: 敵の頭の上に文字を出す(Drawの中で)
+XMFLOAT2 p = Image::WorldToScreen2D(enemy->transform.position);
+Text::Draw(L"!", p.x, p.y + 60.f, 30.f);
+
+// 3D: 敵の頭の上に文字を出す(カメラの後ろにいる時は出さない)
+XMFLOAT3 q = Image::WorldToScreen3D(enemy->transform.position);
+if (q.z > 0.f) Text::Draw(L"HP", q.x, q.y + 40.f, 24.f);
+
+// 3D: マウスの下にある物を探す(GetMousePositionはY+=下なので、Yの符号を反転して渡す)
+XMFLOAT2 mouse = Input::GetMousePosition();
+XMFLOAT3 origin, direction;
+Image::ScreenPointToRay3D({ mouse.x, -mouse.y }, origin, direction);
+RaycastHit hit;
+if (Physics::Raycast(origin, direction, 5000.f, hit, "Enemy")) { /* hit.object がマウスの下の敵 */ }
+```
+
+- **`Input::GetMousePosition()`はY+=下**なので、これらの関数に渡す時はYの符号を反転してください(`GetMouseWorldPosition()`は反転済み)。
+- `Draw`の中で呼ぶと`CameraShake`の揺れが入ったカメラで、`Update`の中で呼ぶと揺れの入らないカメラで計算します。
+- 2D用カメラ(疑似的な正射影)と3D用カメラ(透視投影)は計算の仕方が違うので、関数の名前で`2D`/`3D`を分けています。
+
+**実例**: 両サンプルの`ButtonController::Draw()`が、ボタンの文字の位置を`Image::WorldToScreen2D`で求めています。
+
+---
+
+## 15. 開発時の注意点
 
 ### 文字コード(重要)
 
@@ -712,7 +803,7 @@ Claude Code で作業する場合は、`.claude/`の設定で、メインの会�
 
 ---
 
-## 15. サンプル構成(現状)
+## 16. サンプル構成(現状)
 
 プロジェクト構成自体は`0. プロジェクト構成`を参照してください。ここでは各サンプルの中身(`Game/`)を説明します。
 
@@ -733,7 +824,7 @@ Sample3D/Game/Components/  TitleController, ButtonController, GroundController, 
 Sample3D/Game/Scenes/      TitleScene, GameScene
 ```
 
-- **Sample2D**: トップダウン視点のアリーナシューター。タイトル画面のSTARTボタン(出る時に`TweenComponent`でぴょこっと大きくなる)をクリックするとゲーム開始(ボタンは`CreateButton(scene, 文字, 位置, クリックされた時の処理)`で作れる汎用部品なので、他の画面のボタンにも使い回せる)。WASDで移動、Playerは常にマウスの方を向き、左クリックでその方向へ弾を発射。背景はタイル状に敷き詰めた床(`BackgroundController`)で、移動するとスクロールする。敵(`EnemyManager`が一定間隔でPlayerの周囲にランダムスポーンさせる)がゆっくり追いかけてきて(`ChaseComponent`。§13)、弾を当てると倒せる(`EventBus`で`"EnemyDefeated"`イベントを発行しスコア加算)。敵に触れるとHPが減り(1秒間の無敵時間つき)、敵から離れる向きに弾かれる(ノックバック。`AddForce`で衝撃を加え、0.2秒間は移動キーが効かない。§16)。HPが0になるとゲームオーバー画面が出てSPACEでタイトルに戻る。当たり判定・物理はPhysXを使い(Player=`CircleRigidbodyComponent`、敵=`SquareRigidbodyComponent`、弾=`CircleRigidbodyComponent`)、Player・敵はDynamic(`SetVelocity()`で速度を渡して動かす。重力なし・回転なし・`SetFreezePositionZ(true)`で奥行き方向に固定)、弾はKinematicのトリガー。3Dカメラは使わない(`CameraController`なし)。
+- **Sample2D**: トップダウン視点のアリーナシューター。タイトル画面のSTARTボタン(出る時に`TweenComponent`でぴょこっと大きくなる)をクリックするとゲーム開始(ボタンは`CreateButton(scene, 文字, 位置, クリックされた時の処理)`で作れる汎用部品なので、他の画面のボタンにも使い回せる)。WASDで移動、Playerは常にマウスの方を向き、左クリックでその方向へ弾を発射。背景はタイル状に敷き詰めた床(`BackgroundController`)で、移動するとスクロールする(カメラはPlayerに付けた`CameraFollowComponent`が追いかける。§14)。敵(`EnemyManager`が一定間隔でPlayerの周囲にランダムスポーンさせる)がゆっくり追いかけてきて(`ChaseComponent`。§13)、弾を当てると倒せる(`EventBus`で`"EnemyDefeated"`イベントを発行しスコア加算)。敵に触れるとHPが減り(1秒間の無敵時間つき)、敵から離れる向きに弾かれる(ノックバック。`AddForce`で衝撃を加え、0.2秒間は移動キーが効かない。§17)、画面が少し揺れる(`CameraShake`。§14)。HPが0になるとゲームオーバー画面が出てSPACEでタイトルに戻る。当たり判定・物理はPhysXを使い(Player=`CircleRigidbodyComponent`、敵=`SquareRigidbodyComponent`、弾=`CircleRigidbodyComponent`)、Player・敵はDynamic(`SetVelocity()`で速度を渡して動かす。重力なし・回転なし・`SetFreezePositionZ(true)`で奥行き方向に固定)、弾はKinematicのトリガー。3Dカメラは使わない(`CameraController`なし)。
 - **Sample3D**: Sample2Dと同じアリーナシューターを3D空間で遊べるようにしたもの。タイトル画面のボタン(Sample2Dと同じく、出る時に`TweenComponent`でぴょこっと大きくなる)をクリックするとゲーム開始(Sample3Dの`CreateButton()`は、位置と大きさをまとめて`Transform`で受け取る形になっている: `CreateButton(scene, 文字, transform, クリックされた時の処理)`)。Player(立方体)は三人称カメラ(`CameraController`。マウス移動で視点回転。カーソルは画面中心に固定され、ESCで解除・左クリックで再固定。TABで一人称に切り替え)と同じ向きを向き、WASDもカメラ基準(W=カメラの前、D=カメラの右)で移動する。左クリックでPlayerの向いている方向へ、地面と水平に弾(球)を発射。敵は2Dの画像(Worldモードの`SpriteRenderer`。Y軸だけカメラの方を向く立て看板)で、地面の上をPlayerに向かって歩いてくる(`ChaseComponent`を`SetPlane(MovePlane::XZ)`で使う。§13)。歩く間は、`EnemyController`がタイマーでスプライトシートのコマ(4番と5番)を0.3秒ごとに切り替えて、歩きアニメーションにしている。スコア・HP・無敵時間・ゲームオーバー(SPACEでタイトルへ)・`EventBus`のイベント名はSample2Dと同じ。Player・敵はDynamicの`BoxRigidbodyComponent`(重力あり・回転なし。Y速度は`GetVelocity().y`を維持したまま`SetVelocity()`で動かす。敵は`ChaseComponent`がこれをしている)、弾はKinematicのトリガー(`SphereRigidbodyComponent`)。地面は、1000四方のタイルを3Dカメラの描画距離(farZ)の範囲だけ敷き詰めて描く`GroundController`(見た目)と、見えない大きなStaticの板(当たり判定)の組み合わせ。遠景はスカイボックス。
 
 **Sample3Dの実装メモ**: 向きはすべて`transform.rotate.y`(度)で表し、`rotate.y`の時の正面(ローカルの+Z)は`(sin, 0, cos)`の方向になる(`CameraController::GetYaw()`の式と同じ。`Math::Forward3D()`で求められる)。Worldモードの`SpriteRenderer`は`rotate.y`を使わない(ビルボードの向きとZ軸回転だけを使う)ので、敵の画像の向きは`SetBillboardLock(true, false, true)`でカメラの方へ向けている。Playerは`SetFreezeRotation(true)`で、`RigidbodyComponent`は位置しか同期しないため、`PlayerController`が`rotate.y`が変わった時に`GetActor()`の`setGlobalPose`で当たり判定の箱の回転も合わせている(デバッグ表示の枠と実際の判定が同じ向きになる)。一人称の間は、カメラが立方体の内側に入るのでPlayerの`MeshRenderer`を非表示にしている。
@@ -766,7 +857,9 @@ GameManager/HUD/EnemyManager/BulletManagerのような「見た目の無い管�
 | `"FireBullet"`を受けて弾を出す | `BulletManager::Init()` |
 | 一定間隔で敵を出す | `EnemyManager::Update()` |
 | 敵がPlayerを追いかける | 敵に付けた`ChaseComponent`(Engine。§13)。相手と速さは`EnemyManager::Spawn()`が渡す |
-| 敵に当たったら弾かれる(Sample2D) | `PlayerController::OnCollisionStay2D()`(`AddForce`。§16) |
+| 敵に当たったら弾かれる(Sample2D) | `PlayerController::OnCollisionStay2D()`(`AddForce`。§17) |
+| 敵に当たったら画面が揺れる(Sample2D) | `PlayerController::OnCollisionStay2D()`(`CameraShake::Shake`。§14) |
+| カメラがPlayerを追いかける(Sample2D) | `Objects/Player.cpp`で付けた`CameraFollowComponent`(Engine。§14) |
 | コライダー枠の表示ON | `GameManager::Init()` |
 
 Sceneに残してよいのは、オブジェクトの配置と、シーン全体の後片付け(`GameScene::Uninit()`の`EventBus::Get().Clear()`)くらい。新しい処理を足したくなったら、まず「どのオブジェクトの仕事か」を考えて、そのComponentに書くこと。
@@ -775,7 +868,7 @@ Sceneに残してよいのは、オブジェクトの配置と、シーン全体
 
 ---
 
-## 16. PhysX(3D物理演算)
+## 17. PhysX(3D物理演算)
 
 3D用の物理エンジンとして[NVIDIA PhysX 4.1](https://github.com/NVIDIA-Omniverse/PhysX)を導入しています。ビルド済みのライブラリ一式(ヘッダー・dll・lib)を`ThirdParty/PhysX/`にコミット済みなので、**チームメンバーは自分でビルドし直す必要はありません**(`git clone`してそのままビルドできます)。
 
@@ -872,7 +965,7 @@ if (rigidbody) rigidbody->SetVelocity(velocity);
 - `SetUseGravity(false)`/`SetFreezeRotation(true)`/`SetFreezePositionY(true)`はそれぞれ独立していて、必要なものだけ呼べる。Playerは3つ全部、Sphereはどれも呼ばない(重力あり・自由に回転)、といった使い分けができる
 - **`SetVelocity()`は毎回3軸全部を上書きする**ので注意してください。`PlayerController`はX/Zだけ操作したいのですが、`{velocity.x, 0, velocity.z}`のように**Y成分に0を渡すと、重力で付いたY速度が毎フレーム消されてしまい、自由落下がほとんど効かなくなります**(`SetFreezePositionY(true)`の時はY速度自体が無意味なので問題になりませんが、重力を使う設定に変えると表面化します)。触らない軸は`GetVelocity()`で今の値を読んでから渡してください
 - `SetFreezeRotation(true)`にしてあるので、PhysXの回転はTransform.rotateへ反映されない。そのため見た目の向き(Sample2Dでは`rotate.z`=マウスの方向、Sample3Dでは`rotate.y`=カメラの向き。どちらも弾の発射方向にも使う)は、物理側に上書きされることなく`PlayerController`が直接書き換えたまま維持される(`SetFreezeRotation`は「ぶつかっても回転しない」かどうかと、「物理の回転をTransformへ反映するか」を同時に切り替える。詳しくは`RigidbodyComponent.h`のコメント参照)
-- **コンポーネントの追加順に注意**: `SphereRigidbodyComponent`は`PlayerController`より先に`AddComponent`すること。Componentは追加順に`Update()`されるため、逆にすると`PlayerController`のカメラ追従処理が1フレーム古い位置を読んでしまう
+- **コンポーネントの追加順に注意**: `SphereRigidbodyComponent`は`PlayerController`より先に`AddComponent`すること。Componentは追加順に`Update()`されるため、逆にすると`PlayerController`(Sample2Dでは`CameraFollowComponent`も。§14)が1フレーム古い位置を読んでしまう
 - `SetVelocity()`/`SetUseGravity()`/`SetFreezeRotation()`/`SetFreezePositionY()`は全て`Kinematic`/`Static`では何もしません(`Dynamic`専用)。PhysXの生のAPIをもっと細かく触りたい時だけ`GetActor()`を使ってください
 - `ObjectPool`で使い回されるオブジェクト(Bulletなど)は、`SetActive()`が呼ばれると`OnActiveChanged()`経由でPhysXのシーンから着脱される。再度有効化された直後は、前回位置からの掃引(スイープ)で誤ったヒット判定が出ないよう、次の`Update()`で`setKinematicTarget()`ではなく直接`setGlobalPose()`でテレポートするようにしている
 

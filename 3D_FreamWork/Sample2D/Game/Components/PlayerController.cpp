@@ -3,7 +3,7 @@
 #include "../../../Engine/SpriteRenderer.h"
 #include "../../../Engine/Input.h"
 #include "../../../Engine/Collider.h"
-#include "../../../Engine/Image.h"
+#include "../../../Engine/CameraShake.h"
 #include "../../../Engine/EventBus.h"
 #include "../../../Engine/RigidbodyComponent.h"
 #include "../../../Engine/MathUtil.h"
@@ -29,11 +29,6 @@ void PlayerController::Update(float dt) {
     if (!touchingEnemy) renderer->SetColor(1.0f, 1.0f, 1.0f, 1.0f);
     touchingEnemy = false;
 
-    // カメラをプレイヤーに追従させる
-    Camera& camera = Image::GetCamera();
-    camera.position.x = t.position.x;
-    camera.position.y = t.position.y;
-
     // HPが0なら操作を受け付けない(滑り続けないよう速度も0にする)
     if (hp <= 0) {
         if (rigidbody) rigidbody->SetVelocity({ 0.f, 0.f, 0.f });
@@ -52,7 +47,7 @@ void PlayerController::Update(float dt) {
     }
 
     // マウスの方を向く
-    // カメラは上で先に動かしてあるので、このフレームのカメラ位置で計算される
+    // カメラはCameraFollowComponent(このComponentより先にUpdateされる)が動かしてあるので、このフレームのカメラ位置で計算される
     DirectX::XMFLOAT2 mouseWorldPos = Input::GetMouseWorldPosition();
     DirectX::XMFLOAT2 playerPos = Math::ToXY(t.position);
     if (Math::DistanceSq(playerPos, mouseWorldPos) > 1.0f) {  // マウスがほぼ真上にある時は向きが定まらないので変えない
@@ -76,6 +71,9 @@ void PlayerController::OnCollisionStay2D(CollisionInfo info) {
         if (hp <= 0 || !invincibleTimer.IsFinished()) return;
         hp--;
         invincibleTimer.Reset();
+
+        // 画面を揺らす
+        CameraShake::Shake(damageShakeStrength, damageShakeDuration);
 
         // ゲームオーバー
         if (hp <= 0) EventBus::Get().Publish("PlayerDied");

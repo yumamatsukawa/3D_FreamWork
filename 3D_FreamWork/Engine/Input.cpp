@@ -156,13 +156,13 @@ namespace Input {
         return cursorLocked;
     }
 
-    // 2Dスプライト(UIモード)は「ワールド座標 - カメラ位置」がそのまま画面中央からの
-    // ピクセル数になる(Z=0のオブジェクトの場合)ので、逆にたどると
-    // ワールド座標 = カメラ位置 + マウス座標(Yは符号を反転して上方向に合わせる)
+    // 画面座標→ワールド座標(Z=0の平面)はImage::ScreenToWorld2Dに任せる。
+    // GetMousePositionはY+=下なので、Yの符号を反転して「Y+=上」の画面座標にしてから渡す
+    // (カメラが既定の位置(z=-500、focalLength=500)なら「カメラ位置 + マウス座標」と同じ)
     DirectX::XMFLOAT2 GetMouseWorldPosition() {
-        const Camera& camera = Image::GetCamera();
         DirectX::XMFLOAT2 screen = GetMousePosition();
-        return { camera.position.x + screen.x, camera.position.y - screen.y };
+        DirectX::XMFLOAT3 world = Image::ScreenToWorld2D({ screen.x, -screen.y });
+        return { world.x, world.y };
     }
 
     // ─── スティック ───────────────────────────

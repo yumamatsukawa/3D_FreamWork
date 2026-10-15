@@ -35,12 +35,12 @@ void ButtonController::Update(float dt) {
 }
 
 void ButtonController::Draw() {
-    // ボタンの文字(Text::Drawは画面中央基準なので、カメラ位置を引いてボタンの画像に重ねる)
-    const Camera& camera = Image::GetCamera();
+    // ボタンの文字(Text::Drawは画面座標なので、ボタンのワールド座標を画面座標に直して画像に重ねる)
     const Transform t = GetOwner()->transform.GetWorldTransform();
+    DirectX::XMFLOAT2 screenPos = Image::WorldToScreen2D(t.position);
 
     // 文字の大きさはボタンの高さに合わせる(TweenComponentで大きさが変わる途中も、画像と一緒に大きくなる)
     float textScale = (baseHeight != 0.f) ? GetOwner()->transform.scale.y / baseHeight : 1.f;
     if (textScale <= 0.01f) return;   // ほぼ大きさ0の時は描かない
-    Text::Draw(label, t.position.x - camera.position.x, t.position.y - camera.position.y, textSize * textScale);
+    Text::Draw(label, screenPos.x, screenPos.y, textSize * textScale);
 }

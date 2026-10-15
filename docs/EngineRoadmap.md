@@ -6,7 +6,7 @@
 Engine(`3D_FreamWork/Engine/`)に今後追加したい16個の機能について、「どんな関数を作るか」「どの順番で作るか」「Sampleではどう使えるか(使用例)」をまとめた設計書です。チーム(C++初心者を含む)で分担して実装する時の資料として使います。
 
 ### 状態
-**ここに書いてある内容は「設計案」です。実装済みのものは、4章の表の状態が「完了」になっています(今は計算系、時間とタイマー、リソースの使い回し、イージング、移動系、物理の問い合わせと力)。**
+**ここに書いてある内容は「設計案」です。実装済みのものは、4章の表の状態が「完了」になっています(今は計算系、時間とタイマー、リソースの使い回し、イージング、移動系、物理の問い合わせと力、カメラ機能)。**
 関数名・引数は実装しながら変わってよいものです。実際に作る時は、この文書を出発点にして、下の「共通ルール」どおりに1機能ずつ、着手する時に説明してから進めてください(了承は待ちません)。実装したら、この文書の「作る順番」の表の状態を更新してください。
 
 ---
@@ -91,7 +91,7 @@ Engineを変えると Sample2D と Sample3D の**両方**に影響します(`CLA
 | 3 | [リソースの使い回し](#53-リソースの使い回し) | 画像を共有する前に「データ」と「1体ごとの状態」を分けておく(アニメ・音・モデルの前提) | | 完了 |
 | 4 | [イージング](#54-イージング) | カメラ・UI・画面エフェクトが使う | | 完了 |
 | 5 | [移動系](#55-移動系) + [物理の問い合わせと力](#56-物理の問い合わせと力) | 加速度で動く移動は `AddForce` を使うので、同じ段の中では物理(5.6)を先に作る | | 完了 |
-| 6 | [カメラ機能](#57-カメラ機能) | イージング・計算系を使う | | 未着手 |
+| 6 | [カメラ機能](#57-カメラ機能) | イージング・計算系を使う | | 完了 |
 | 7 | [画面エフェクト](#58-画面エフェクト) | 時間(Unscaled)・イージングを使う | | 未着手 |
 | 8 | [2Dアニメーション](#59-2dアニメーション) | 3(コマ番号をSpriteRendererへ移す)が前提 | | 未着手 |
 | 9 | [UI](#510-ui) ・ [テキスト](#511-テキスト) + [セーブ/ロード](#512-セーブロード) | スライダーの値(音量など)を保存するため、セーブ/ロードも一緒に作る | | 未着手 |
@@ -479,7 +479,7 @@ chase->SetSpeed(60.f);
 
 ### 5.6 物理の問い合わせと力
 
-> **実装済み**: `Engine/Physics.h/.cpp`(`struct RaycastHit`、`enum class ForceMode`、`Physics::Raycast` / `OverlapSphere` / `OverlapBox`)と `Engine/RigidbodyComponent.h/.cpp`(`AddForce` / `AddTorque` / `SetMass` / `SetDrag`)。下の「対象」のSampleのコード(Sample2Dの被弾時のノックバック)も置き換え済み。使い方は `README.md` の「16. PhysX」の「物理の問い合わせと力」を参照。
+> **実装済み**: `Engine/Physics.h/.cpp`(`struct RaycastHit`、`enum class ForceMode`、`Physics::Raycast` / `OverlapSphere` / `OverlapBox`)と `Engine/RigidbodyComponent.h/.cpp`(`AddForce` / `AddTorque` / `SetMass` / `SetDrag`)。下の「対象」のSampleのコード(Sample2Dの被弾時のノックバック)も置き換え済み。使い方は `README.md` の「17. PhysX」の「物理の問い合わせと力」を参照。
 > 決まったこと(下の「未決定」):
 > - **トリガーを含めるか**: 既定では含めない(視線の判定が飛んでいる弾などにさえぎられないように)。含めたい時用の引数 `QueryTriggers triggers = QueryTriggers::Ignore` を、`Raycast` / `OverlapSphere` / `OverlapBox` の最後に足した。アイテムやゴールのようなトリガーそのものを探す時は `QueryTriggers::Include`(例: `Physics::OverlapSphere(pos, 200.f, "Item", QueryTriggers::Include)`)。タグを指定してもトリガーは無視のまま
 >
@@ -554,6 +554,27 @@ rigidbody->AddForce(away * 500.f, ForceMode::Impulse);
 ---
 
 ### 5.7 カメラ機能
+
+> **実装済み**: `Engine/CameraFollowComponent.h/.cpp`、`Engine/CameraShake.h/.cpp`(`namespace CameraShake`)、`Engine/Image.h/.cpp` に座標の変換(`WorldToScreen2D` / `ScreenToWorld2D` / `WorldToScreen3D` / `ScreenPointToRay3D`)。`Input::GetMouseWorldPosition()` は `Image::ScreenToWorld2D` を使う形にした(結果は今までと同じ)。`GameEngine::Run` に揺れの呼び出しを足した。下の「対象」のSampleのコード(Sample2D `PlayerController` のカメラ追従3行と、被弾時の揺れ)も置き換え済み。使い方は `README.md` の「14. カメラ(CameraFollowComponent / CameraShake / 座標の変換)」を参照。
+> 決まったこと(下の「未決定」):
+> - **2Dと3Dの座標の変換**: `Camera` に2D/3Dを持たせず、`Image` の関数を2D用・3D用で分けた(`Camera` クラスへの追加はしていない)。2D用は `Image::GetCamera()`、3D用は `Image::GetCamera3D()` を使う
+>
+> 設計から変えた・決めた所:
+> - 画面座標は「画面中央が(0,0)、Y+=上、単位はゲーム画面のピクセル」(`Text::Draw` と同じ)
+> - `WorldToScreen2D` は UIモードの `Sprite` と同じ計算((ワールド - カメラ位置) × 遠近の倍率 `focalLength / (z - カメラのz)`。カメラより手前は等倍)。`ScreenToWorld2D` はその逆で、Z=0 の平面の上の点を返す(戻り値は `XMFLOAT3`、zは0)
+> - `WorldToScreen3D` は `Mesh` と同じ view/proj(アスペクト比も同じ)を掛けて w で割る。戻り値は `XMFLOAT3` で、**z = カメラからの奥行き(w)**。z が0以下はカメラの後ろで、x,y は0を返す(使う前に `z > 0` を確かめる。Unityの `WorldToScreenPoint` と同じ考え方)
+> - `ScreenPointToRay3D` は view×proj の逆行列で、手前の面(深さ0)と奥の面(深さ1)の点に戻して線を作る。origin は nearZ の面の上の点、direction は長さ1
+> - `CameraShake`: **描画の間だけ**カメラをずらす。`GameEngine::Run` で `Image::BeginFrame()`(3Dカメラを2Dカメラに合わせる処理)の後に `CameraShake::BeginDraw()` でずらし、シーンと文字を描き終わったら `CameraShake::EndDraw()` で**ずらす前に覚えた値をそのまま戻す**(足した分を引くのではないので、誤差も残らない)。揺れを進める `CameraShake::Update(Time::GetUnscaledDeltaTime())` は `Input::Update()` の直後(シーンのUpdateより前。そのフレームに `Shake` された揺れは、そのフレームの描画で一番強く出る)
+> - `CameraShake`: 2D・3Dの両方のカメラを揺らす。3Dはカメラから見た右・上の向きに position と target を同じだけずらす。ずらす量は毎フレームばらばら(x,yそれぞれ -強さ〜+強さ)で、強さは `強さ × (1 - Ease::OutQuad(経過/時間))` で弱まる
+> - `CameraShake`: 揺れている途中に `Shake` が呼ばれたら、今の強さ(弱まった後)と比べて、新しい方が強いか同じなら置き換える(最初から数え直す)。弱ければ無視する。`strength` か `duration` が0以下なら何もしない。`IsShaking()` を足した
+> - `CameraFollowComponent`: `SetSmoothTime` は「残りの距離を1秒あたり一定の割合で縮める」式(`1 - e^(-3·dt/smoothTime)`。smoothTime秒で残り約5%)で、dtの刻み方によらない。`Update` の `dt` で進む(ポーズ中は止まる)
+> - `CameraFollowComponent`: `SetBounds` は**画面に映る範囲**(Z=0の平面。カメラのzから画面の半分の大きさを求めて考える)。範囲が画面より狭い向きは真ん中に固定。min/maxが逆でも並べ直す。`SetDeadZone` は、対象がいつも映る位置を中心とした四角で、出た分だけカメラの行き先を動かす
+> - `CameraFollowComponent`: 最初の `Update` と `SetActive(true)` で戻った時は、なめらかに追わずに一気に合わせる。動かすのはカメラの position の x,y だけ(z・target はそのまま)。対象の位置は `GetWorldTransform()`
+> - Sample2D `Player.cpp`: Componentの順番を「`SpriteRenderer` → `CircleRigidbodyComponent` → `CameraFollowComponent` → `PlayerController`」にした(物理の結果が反映された位置へカメラを動かしてから、そのカメラでマウスのワールド座標を出す。置き換え前は `PlayerController` が先で、カメラが1フレーム古いPlayerの位置を追っていた)。SmoothTimeは0(置き換え前と同じピッタリ)
+> - Sample2D の被弾時の揺れは `CameraShake::Shake(6, 0.2)`(`PlayerController.h` の `damageShakeStrength` / `damageShakeDuration`)
+> - 両サンプルの `ButtonController::Draw` の文字の位置を `Image::WorldToScreen2D` に置き換えた(作った関数を使う所を作るため。ボタンはZ=0なので結果は同じ)
+> - `WorldToScreen3D` / `ScreenPointToRay3D` は、今はSampleで使っていない(5.10 `GaugeRenderer`・5.11 `TextRenderer` で使う予定)。5.10・5.11 の「`WorldToScreen`」は、2Dなら `WorldToScreen2D`、3Dなら `WorldToScreen3D` のこと
+> - Sample3D の `CameraController`(3Dのカメラ操作)は変えていない
 
 **目的**: カメラの追従・揺れ・座標の変換を、毎回手書きしなくて済むようにする。
 

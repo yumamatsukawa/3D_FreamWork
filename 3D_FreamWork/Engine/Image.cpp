@@ -15,6 +15,67 @@ namespace Image
     Light& GetLight() { return mainLight; }
     void SetCamera3DAutoSync(bool enabled) { camera3DAutoSync = enabled; }
 
+    namespace {
+        // 2D描画の遠近の倍率(Sprite::BuildWorldMatrixと同じ式)。focalLengthの距離で等倍、カメラより手前なら等倍のまま
+        float GetDepthScale2D(float worldZ) {
+            float depth = worldZ - mainCamera.position.z;
+            return (depth > 0.f) ? mainCamera.focalLength / depth : 1.f;
+        }
+
+        // 3D描画のアスペクト比(Mesh::Init・Sprite::BuildBillboardMatrixと同じ)
+        float GetAspectRatio() {
+            return (Graphics::height > 0.f) ? (Graphics::width / Graphics::height) : 1.f;
+        }
+    }
+
+    // ワールド→画面: (ワールド - カメラ位置) × 遠近の倍率
+    XMFLOAT2 WorldToScreen2D(XMFLOAT3 worldPosition) {
+        float scale = GetDepthScale2D(worldPosition.z);
+        return {
+            (worldPosition.x - mainCamera.position.x) * scale,
+            (worldPosition.y - mainCamera.position.y) * scale
+        };
+    }
+
+    // 画面→ワールド: WorldToScreen2Dを Z=0 について逆にたどる(カメラ位置 + 画面座標 ÷ 遠近の倍率)
+    XMFLOAT3 ScreenToWorld2D(XMFLOAT2 screenPosition) {
+        float scale = GetDepthScale2D(0.f);
+        return {
+            mainCamera.position.x + screenPosition.x / scale,
+            mainCamera.position.y + screenPosition.y / scale,
+            0.f
+        };
+    }
+
+    // ワールド→画面: view・projを掛けてwで割る(-1〜1の範囲)→ 画面の半分の大きさを掛けてピクセルにする
+    XMFLOAT3 WorldToScreen3D(XMFLOAT3 worldPosition) {
+        XMMATRIX viewProj = mainCamera3D.GetViewMatrix() * mainCamera3D.GetProjectionMatrix(GetAspectRatio());
+        XMVECTOR clip = XMVector4Transform(XMVectorSet(worldPosition.x, worldPosition.y, worldPosition.z, 1.f), viewProj);
+
+        // 透視投影では w = カメラからの奥行き。0以下はカメラの後ろ(割ると上下左右が逆になるので、x,yは返さない)
+        float w = XMVectorGetW(clip);
+        if (w <= 0.f) return { 0.f, 0.f, w };
+        return {
+            XMVectorGetX(clip) / w * (Graphics::width * 0.5f),
+            XMVectorGetY(clip) / w * (Graphics::height * 0.5f),
+            w
+        };
+    }
+
+    // 画面→線: 画面座標を-1〜1の範囲に直し、view・projの逆行列で、手前の面(深さ0)と奥の面(深さ1)のワールド座標に戻す
+    void ScreenPointToRay3D(XMFLOAT2 screenPosition, XMFLOAT3& origin, XMFLOAT3& direction) {
+        float ndcX = (Graphics::width > 0.f) ? screenPosition.x / (Graphics::width * 0.5f) : 0.f;
+        float ndcY = (Graphics::height > 0.f) ? screenPosition.y / (Graphics::height * 0.5f) : 0.f;
+
+        XMMATRIX viewProj = mainCamera3D.GetViewMatrix() * mainCamera3D.GetProjectionMatrix(GetAspectRatio());
+        XMMATRIX inverse = XMMatrixInverse(nullptr, viewProj);
+        XMVECTOR nearPoint = XMVector3TransformCoord(XMVectorSet(ndcX, ndcY, 0.f, 1.f), inverse);
+        XMVECTOR farPoint = XMVector3TransformCoord(XMVectorSet(ndcX, ndcY, 1.f, 1.f), inverse);
+
+        XMStoreFloat3(&origin, nearPoint);
+        XMStoreFloat3(&direction, XMVector3Normalize(farPoint - nearPoint));
+    }
+
     // 画像1枚ぶんの「みんなで共有するデータ」。コマ番号・色など1体ごとの状態は持たない
     struct TextureData {
         ID3D11ShaderResourceView* srv = nullptr;

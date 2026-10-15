@@ -18,6 +18,9 @@ private:
     static constexpr float knockbackDuration = 0.2f;    // 弾かれている時間(秒。この間は移動キーが効かない)
     Timer knockbackTimer{ knockbackDuration };           // 弾かれている時間を数える(終わっていれば弾かれていない)
 
+    static constexpr float damageShakeStrength = 6.0f;  // ダメージを受けた時の画面の揺れの強さ(ピクセル)
+    static constexpr float damageShakeDuration = 0.2f;  // ダメージを受けた時に画面が揺れる時間(秒)
+
 public:
     void Init() override;
     void Update(float dt) override;

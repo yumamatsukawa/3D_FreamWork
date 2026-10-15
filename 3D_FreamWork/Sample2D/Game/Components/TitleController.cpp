@@ -4,7 +4,7 @@
 #include "../../../Engine/Image.h"
 
 void TitleController::Init(){
-    // カメラを原点に戻す(ゲーム画面から戻った時、Playerを追いかけていた位置のままになっているため)
+    // カメラを原点に戻す(ゲーム画面から戻った時、PlayerのCameraFollowComponentが追いかけていた位置のままになっているため)
     Image::GetCamera().position.x = 0.f;
     Image::GetCamera().position.y = 0.f;
 

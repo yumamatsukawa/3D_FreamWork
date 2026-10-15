@@ -3,6 +3,8 @@
   <ItemGroup>
     <ClCompile Include="AccelerateChaseComponent.cpp" />
     <ClCompile Include="Audio.cpp" />
+    <ClCompile Include="CameraFollowComponent.cpp" />
+    <ClCompile Include="CameraShake.cpp" />
     <ClCompile Include="ChaseComponent.cpp" />
     <ClCompile Include="Collider.cpp" />
     <ClCompile Include="GameEngine.cpp" />
@@ -30,6 +32,8 @@
     <ClInclude Include="AccelerateChaseComponent.h" />
     <ClInclude Include="Audio.h" />
     <ClInclude Include="Camera.h" />
+    <ClInclude Include="CameraFollowComponent.h" />
+    <ClInclude Include="CameraShake.h" />
     <ClInclude Include="ChaseComponent.h" />
     <ClInclude Include="Collider.h" />
     <ClInclude Include="Component.h" />
