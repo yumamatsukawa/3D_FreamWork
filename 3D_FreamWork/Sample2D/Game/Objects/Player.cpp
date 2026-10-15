@@ -4,6 +4,7 @@
 #include "../../../Engine/SpriteRenderer.h"
 #include "../../../Engine/RigidbodyComponent.h"
 #include "../../../Engine/CameraFollowComponent.h"
+#include "../../../Engine/GaugeRenderer.h"
 #include "../Components/PlayerController.h"
 
 GameObject* CreatePlayer(Scene& scene) {
@@ -28,7 +29,16 @@ GameObject* CreatePlayer(Scene& scene) {
     player->AddComponent<CameraFollowComponent>();
 
     // 動き・入力操作
-    player->AddComponent<PlayerController>();
+    auto* controller = player->AddComponent<PlayerController>();
+
+    // 頭上のHPバー(Playerの上70の位置に出る。値は持たず、PlayerControllerのHPを毎フレーム読んで表示するだけ)
+    auto* gauge = player->AddComponent<GaugeRenderer>();
+    gauge->SetFollowTarget(player, { 0.f, 70.f });
+    gauge->SetSize(80.f, 10.f);
+    gauge->SetDelayedBar(true, { 1.0f, 0.9f, 0.4f, 1.0f });   // 減った分が少し遅れて縮む
+    gauge->SetValueSource(
+        [controller] { return static_cast<float>(controller->GetHp()); },
+        [controller] { return static_cast<float>(controller->GetMaxHp()); });
 
     return player;
 }

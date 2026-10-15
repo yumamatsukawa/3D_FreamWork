@@ -53,6 +53,7 @@
       <ConformanceMode>true</ConformanceMode>
       <!-- 複数プロジェクトの並行ビルドでPDB書き込みが衝突しないようにする -->
       <AdditionalOptions>/FS %(AdditionalOptions)</AdditionalOptions>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
     </ClCompile>
     <!--
       Assets/シェーダー/PhysX DLLは、EngineとSample2D/Sample3Dの共有出力先($(OutDir))へ
@@ -77,6 +78,7 @@ xcopy /y /d "$(SolutionDir)Shader3D.hlsl" "$(OutDir)"</Command>
       <PreprocessorDefinitions>NDEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <AdditionalOptions>/FS %(AdditionalOptions)</AdditionalOptions>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
     </ClCompile>
     <PostBuildEvent>
       <Command>xcopy /y /d "$(SolutionDir)..\ThirdParty\PhysX\lib\x64-release\*.dll" "$(OutDir)"
@@ -87,13 +89,16 @@ xcopy /y /d "$(SolutionDir)Shader3D.hlsl" "$(OutDir)"</Command>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="AccelerateChaseComponent.cpp" />
+    <ClCompile Include="Anchor.cpp" />
     <ClCompile Include="Audio.cpp" />
+    <ClCompile Include="ButtonComponent.cpp" />
     <ClCompile Include="CameraFollowComponent.cpp" />
     <ClCompile Include="CameraShake.cpp" />
     <ClCompile Include="FadeTransition.cpp" />
     <ClCompile Include="ChaseComponent.cpp" />
     <ClCompile Include="Collider.cpp" />
     <ClCompile Include="GameEngine.cpp" />
+    <ClCompile Include="GaugeRenderer.cpp" />
     <ClCompile Include="Graphics.cpp" />
     <ClCompile Include="HomingComponent.cpp" />
     <ClCompile Include="Image.cpp" />
@@ -109,6 +114,7 @@ xcopy /y /d "$(SolutionDir)Shader3D.hlsl" "$(OutDir)"</Command>
     <ClCompile Include="SceneManager.cpp" />
     <ClCompile Include="SceneTransition.cpp" />
     <ClCompile Include="ScreenEffect.cpp" />
+    <ClCompile Include="SliderComponent.cpp" />
     <ClCompile Include="Sprite.cpp" />
     <ClCompile Include="SpriteAnimationComponent.cpp" />
     <ClCompile Include="SpriteRenderer.cpp" />
@@ -122,7 +128,9 @@ xcopy /y /d "$(SolutionDir)Shader3D.hlsl" "$(OutDir)"</Command>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="AccelerateChaseComponent.h" />
+    <ClInclude Include="Anchor.h" />
     <ClInclude Include="Audio.h" />
+    <ClInclude Include="ButtonComponent.h" />
     <ClInclude Include="Camera.h" />
     <ClInclude Include="CameraFollowComponent.h" />
     <ClInclude Include="CameraShake.h" />
@@ -134,6 +142,7 @@ xcopy /y /d "$(SolutionDir)Shader3D.hlsl" "$(OutDir)"</Command>
     <ClInclude Include="FadeTransition.h" />
     <ClInclude Include="GameEngine.h" />
     <ClInclude Include="GameObject.h" />
+    <ClInclude Include="GaugeRenderer.h" />
     <ClInclude Include="Graphics.h" />
     <ClInclude Include="HomingComponent.h" />
     <ClInclude Include="Image.h" />
@@ -152,6 +161,7 @@ xcopy /y /d "$(SolutionDir)Shader3D.hlsl" "$(OutDir)"</Command>
     <ClInclude Include="SceneManager.h" />
     <ClInclude Include="SceneTransition.h" />
     <ClInclude Include="ScreenEffect.h" />
+    <ClInclude Include="SliderComponent.h" />
     <ClInclude Include="Sprite.h" />
     <ClInclude Include="SpriteAnimationComponent.h" />
     <ClInclude Include="SpriteRenderer.h" />

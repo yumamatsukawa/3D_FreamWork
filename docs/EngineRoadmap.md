@@ -6,7 +6,7 @@
 Engine(`3D_FreamWork/Engine/`)に今後追加したい17個の機能について、「どんな関数を作るか」「どの順番で作るか」「Sampleではどう使えるか(使用例)」をまとめた設計書です。チーム(C++初心者を含む)で分担して実装する時の資料として使います。
 
 ### 状態
-**ここに書いてある内容は「設計案」です。実装済みのものは、4章の表の状態が「完了」になっています(今は計算系、時間とタイマー、リソースの使い回し、イージング、移動系、物理の問い合わせと力、カメラ機能、画面エフェクト、2Dアニメーション、シーン切り替え。9番のうちセーブ/ロードとテキストも実装済み)。**
+**ここに書いてある内容は「設計案」です。実装済みのものは、4章の表の状態が「完了」になっています(今は計算系、時間とタイマー、リソースの使い回し、イージング、移動系、物理の問い合わせと力、カメラ機能、画面エフェクト、2Dアニメーション、シーン切り替え。9番のUI・テキスト・セーブ/ロードも実装済み)。**
 関数名・引数は実装しながら変わってよいものです。実際に作る時は、この文書を出発点にして、下の「共通ルール」どおりに1機能ずつ、着手する時に説明してから進めてください(了承は待ちません)。実装したら、この文書の「作る順番」の表の状態を更新してください。
 
 ---
@@ -66,18 +66,18 @@ Engineを変えると Sample2D と Sample3D の**両方**に影響します(`CLA
    `Audio` は1つの音に再生口(`IXAudio2SourceVoice`)を1つしか持たず、`Audio::Play` の度に前の音を `Stop` + `FlushSourceBuffers` で止めてから鳴らし直します。連射の音が途切れてしまいます。
 4. **各Componentがタイマーを手書きしている**(→ 5.2 で解決済み)
    `spawnTimer`(EnemyManager)、`invincibleTimer`(PlayerController)、`animationTimer`(Sample3D EnemyController)など、「時間を引いて0以下になったら…」という同じ処理があちこちにあります。
-5. **HUDの座標が直書き**
+5. **HUDの座標が直書き**(→ 5.10 で解決済み)
    `HUDController` の `Text::Draw(buf, -560.f, 320.f, 28.f)` のように、画面の左上を数字で決め打ちしています。画面サイズが変わるとずれます。
 6. **方向・距離・角度の計算が散らばっている**(→ 5.1 で解決済み)
    `atan2f`(Sample2D PlayerController)、`sqrtf`(両サンプルの EnemyController)、`sinf/cosf`(両サンプルの BulletManager / EnemyManager、Sample3D PlayerController)が各Componentにそのまま書かれています。
 
 ### コードを読んで追加で分かったこと
-- **UIモードの `SpriteRenderer` も2Dカメラと一緒にスクロールする**。`Sprite.cpp` はUIモードでも `Image::GetCamera()` の位置を引いて描画しています(Sample2Dの敵がスクロールするのはこのため)。画面に固定したいHPバーなどには、カメラの影響を受けない描き方(→ 5.10 の `Image::DrawRect`)が要ります。
+- **UIモードの `SpriteRenderer` も2Dカメラと一緒にスクロールする**。`Sprite.cpp` はUIモードでも `Image::GetCamera()` の位置を引いて描画しています(Sample2Dの敵がスクロールするのはこのため)。画面に固定したいHPバーなどには、カメラの影響を受けない描き方が要ります(→ 5.10 で解決済み: `Image::DrawRect` はDirect2Dで描くので、カメラの影響を受けない)。
 - **画面の座標のY方向が関数によって逆**。`Text::Draw` は「画面中央が(0,0)、Y+=上」、`Input::GetMousePosition` は「画面中央が(0,0)、Y+=下」です。この文書の新しい関数は「画面中央が(0,0)、Y+=上」(`Text::Draw` と同じ)にそろえます。
 - **`Text::Draw` は指定した座標に文字の「中心」を合わせる**。左寄せにはできません(→ 5.11 で解決済み: `TextStyle::align` で左寄せ・右寄せにできる。既定は今まで通り中心)。
 - **文字はいつもゲーム画面の一番上に出る**。`GameEngine::Run` は `Text::BeginDraw` 〜 `Text::EndDraw` の間でシーンを描画していて、Direct2Dの文字は `EndDraw` の時にまとめて描かれます。画面エフェクト(5.8)で暗転しても、今のままでは文字だけ見えたままになります。(→ 5.8 で解決済み: 画面エフェクトは文字も含めて一番上に描く)
 - **`Text::Draw` は呼ばれる度にフォントの設定(`IDWriteTextFormat`)を作り直している**(重い)(→ 5.11 で解決済み: フォント名・大きさ・太字ごとに取っておいて使い回す。ブラシも使い回す)。なお、`IDWriteTextLayout` を `Release` していなかったメモリリークは修正済み。
-- **`ButtonController` は Sample2D と Sample3D に、まったく同じ内容でコピーされている**。
+- **`ButtonController` は Sample2D と Sample3D に、まったく同じ内容でコピーされている**(→ 5.10 で解決済み: Engineの `ButtonComponent` に移して、両サンプルの `ButtonController` は消した)。
 - **`Physics::Update` は `dt <= 0` の時は何もしない**。時間の倍率を0(ポーズ)にしてもPhysXは安全に止まります(→ 5.2)。
 
 ---
@@ -94,7 +94,7 @@ Engineを変えると Sample2D と Sample3D の**両方**に影響します(`CLA
 | 6 | [カメラ機能](#57-カメラ機能) | イージング・計算系を使う | | 完了 |
 | 7 | [画面エフェクト](#58-画面エフェクト) | 時間(Unscaled)・イージングを使う | | 完了 |
 | 8 | [2Dアニメーション](#59-2dアニメーション) | 3(コマ番号をSpriteRendererへ移す)が前提 | | 完了 |
-| 9 | [UI](#510-ui) ・ [テキスト](#511-テキスト) + [セーブ/ロード](#512-セーブロード) | スライダーの値(音量など)を保存するため、セーブ/ロードも一緒に作る | | 作業中(セーブ/ロード・テキストは完了) |
+| 9 | [UI](#510-ui) ・ [テキスト](#511-テキスト) + [セーブ/ロード](#512-セーブロード) | スライダーの値(音量など)を保存するため、セーブ/ロードも一緒に作る | | 完了 |
 | 10 | [音(立体音響・グループ音量)](#513-音の発生源と聞く位置立体音響) | 3(`Resources` の仕組み。音のデータ共有 `LoadSound` はここで足す)・9(音量スライダー・保存)を使う | | 未着手 |
 | 11 | [CSV](#514-csv) | ほかに依存しないので、いつでも並行して作れる | | 未着手 |
 | 12 | [パーティクル](#515-パーティクル) | 時間・計算系・リソースを使う | | 未着手 |
@@ -480,7 +480,7 @@ chase->SetSpeed(60.f);
 
 ### 5.6 物理の問い合わせと力
 
-> **実装済み**: `Engine/Physics.h/.cpp`(`struct RaycastHit`、`enum class ForceMode`、`Physics::Raycast` / `OverlapSphere` / `OverlapBox`)と `Engine/RigidbodyComponent.h/.cpp`(`AddForce` / `AddTorque` / `SetMass` / `SetDrag`)。下の「対象」のSampleのコード(Sample2Dの被弾時のノックバック)も置き換え済み。使い方は `README.md` の「22. PhysX」の「物理の問い合わせと力」を参照。
+> **実装済み**: `Engine/Physics.h/.cpp`(`struct RaycastHit`、`enum class ForceMode`、`Physics::Raycast` / `OverlapSphere` / `OverlapBox`)と `Engine/RigidbodyComponent.h/.cpp`(`AddForce` / `AddTorque` / `SetMass` / `SetDrag`)。下の「対象」のSampleのコード(Sample2Dの被弾時のノックバック)も置き換え済み。使い方は `README.md` の「23. PhysX」の「物理の問い合わせと力」を参照。
 > 決まったこと(下の「未決定」):
 > - **トリガーを含めるか**: 既定では含めない(視線の判定が飛んでいる弾などにさえぎられないように)。含めたい時用の引数 `QueryTriggers triggers = QueryTriggers::Ignore` を、`Raycast` / `OverlapSphere` / `OverlapBox` の最後に足した。アイテムやゴールのようなトリガーそのものを探す時は `QueryTriggers::Include`(例: `Physics::OverlapSphere(pos, 200.f, "Item", QueryTriggers::Include)`)。タグを指定してもトリガーは無視のまま
 >
@@ -755,6 +755,20 @@ if (moving) anim->Play("Walk"); else anim->Play("Idle");
 
 ### 5.10 UI
 
+> **実装済み**: `Engine/Anchor.h/.cpp`(`enum class Anchor`、`GetAnchoredPosition`、足した `GetAnchoredCenter`)、`Engine/GaugeRenderer.h/.cpp`、`Engine/SliderComponent.h/.cpp`、`Engine/ButtonComponent.h/.cpp`(どれも新規)、`Engine/Image.h/.cpp` に `Image::DrawRect` と Engine内部用の `ReleaseDrawRectBrush()`、`Engine/GameEngine.cpp` の `Uninit` に `ReleaseDrawRectBrush()` の呼び出し。下の「対象」のSampleのコードも置き換え済み: 両サンプルの `HUDController` の座標(`GetAnchoredPosition`)、両サンプルの `ButtonController`(**消して** `ButtonComponent` に。`Objects/Button.cpp` が使う)。足したSample: 両サンプルの HUD にHPゲージ(`Objects/HUD.cpp`)、両サンプルの Player に頭上のHPバー(`Objects/Player.cpp`)、両サンプルのタイトルにBGMの音量スライダー(`Objects/VolumeSlider.h/.cpp`、`TitleController` に `GetVolume` / `SetVolume`)。使い方は `README.md` の「20. UI(Anchor / DrawRect / GaugeRenderer / SliderComponent / ButtonComponent)」を参照。
+>
+> 決めた所:
+> - **`Image::DrawRect` はDirect2D**(`Text::GetRenderTarget()`。`ScreenEffect` と同じ方法)で描く。設計の「1x1の白い画像を描く」方法はやめた(画像で描くとUIモードのスプライトと同じくカメラでスクロールしてしまい、文字との重なる順番も決められないため)。`Text::Draw` とは**呼んだ順**に重なる(ゲージの上に数字を重ねられる)。カメラの影響を受けない。座標は「画面中央(0,0)・Y+=上」で、`position` は四角の**中心**、`size` は幅と高さ。ブラシ(`ID2D1SolidColorBrush`)は1つ作って使い回し、描画先が変わっていたら作り直す。解放は `ScreenEffect` と同じ流れで、`GameEngine::Uninit` の `Text::Uninit` より前に `ReleaseDrawRectBrush()` を呼ぶ(`Image::Uninit` でも呼ぶが、`nullptr` の時は何もしないので二重には解放しない)。透明(`w<=0`)・大きさが0以下・NaN・無限大は描かない
+> - **`GetAnchoredPosition(anchor, offset)`**: `Graphics::width` / `height` から毎回計算する。`offset` は画面座標系(Y+=上)でのずらす量(`TopLeft` に `{40,-40}` なら左上から右に40・下に40)。**`GetAnchoredCenter(anchor, offset, size)` を足した**(設計に無い): 大きさ `size` の四角の `anchor` 側(左上なら左上の角、下なら下の辺の真ん中)を基準の位置に合わせた時の、四角の中心。ゲージとスライダーが使う(「左上から右へ40・下へ40」に置いても、画面からはみ出さない)
+> - **`GaugeRenderer`**: 値の持ち主にはならない。**`SetValueSource(今の値を返す関数, 最大値を返す関数)` を足した**(設計に無い): 持ち主のゲッターを渡すと、毎フレーム読んで表示する(`Objects/HUD.cpp` と `Objects/Player.cpp` が `PlayerController::GetHp()` / `GetMaxHp()` を渡す)。`SetValue` と、割合を返す `GetRatio()` / `GetDelayedRatio()` も足した。`SetSize(幅, 高さ)`・`SetUse3DCamera(bool)` も設計どおり。`SetAnchor` は**ゲージの `anchor` 側の角が基準の位置に合う**(`TopLeft` ならゲージの左上の角)、`SetFollowTarget` は**ゲージの中心が** `target` のワールド位置(親と合わせた位置)+`offset`(ワールドでずらす量。3Dも `x,y` を足す。`z` は変えない)の画面座標に来る。2Dは `Image::WorldToScreen2D`、`SetUse3DCamera(true)` なら `Image::WorldToScreen3D` で、カメラの後ろ(z<=0)なら描かない。`target` が `nullptr`・非アクティブ・`Destroy()` 済みなら描かない。★ ポインタだけでは `target` が消えたか調べられないので、**`target` はゲージより長く生きるオブジェクトにする**(両サンプルはゲージを付けたPlayer自身を渡している)
+> - **遅れて縮む帯**: 減ってから `delayedHoldTime`(0.4秒)は止まり、その後 `delayedShrinkSpeed`(ゲージ全体の0.5 / 秒)で中身に追いつくまで縮む。増えた時はすぐ追いつく。最初の値や、帯を使い始めた時は縮む動きをしない。**時間は `Update` の `dt`**(ポーズ中は止まり、スローの間は遅くなる。Unscaledにはしなかった=ダメージを受けたのもゲームの時間なので)。定数は `GaugeRenderer.h`。最大値が0以下・NaNは空、現在の値は0〜最大値に収める。描く順は 背景 → 遅れて縮む帯 → 中身
+> - **`SliderComponent`**: 位置は `SetAnchor`(`Center` + offset で、画面座標の位置になる)、溝の大きさは `SetSize`、`SetColors(溝, 左側, つまみ)`。つまみは幅16・高さ=溝の高さ+12(定数)。溝のどこか(つまみのはみ出しも含む四角)を押すとその位置へ値が飛び、押している間はマウスに付いてくる。マウスが溝・画面の外に出ても最後まで追従し(値は範囲に収まる)、離したら終わり。マウスは `Input::GetMousePosition()` の `y` の符号を反転した画面座標で比べる。`SetStep` は最小値から刻み幅ごとの値だけ(`round`)。端(最小・最大)は誤差が出ないよう、ぴったりその値にする。**`SetOnChanged` は、つまみを動かして値が実際に変わった時だけ**呼ぶ(同じ値なら呼ばない)。**コードからの `SetValue` / `SetRange` / `SetStep` では呼ばない**(最初の値を決める時に保存などが動かないように)。`Time::IsPaused()`(ポーズ中・シーン切り替え中)は操作できず、つかんでいたら離したことにする。非アクティブになった時も離したことにする
+> - **スライダーに足したもの**(設計に無い): `SetOnDragEnd(関数)`(つまみを離した時に1回。保存のタイミングに使う)、`SetLabel(文字, TextStyle)`(スライダーの上に出す文字)、`IsDragging()`、`SliderComponent::IsAnyDragging()`(どれかをつかんでいるか)
+> - **ドラッグ中の他のUIとの干渉**: `ButtonComponent` は `IsAnyDragging()` の間は、マウスが乗っていないことにする(つかんだままボタンの上で離してもクリックにならない)。ボタンの上で押してからスライダーに移っても、スライダーは「押した瞬間」にしかつかまないので始まらない
+> - **`ButtonComponent`**: 今の `ButtonController` の動きのまま移した(`SpriteRenderer` の見た目、`IsPointInBox` のクリック判定、押す→離すで `onClick`、押している間0.6・乗っている間1.0・それ以外0.8の色、文字の表示と、ボタンの高さの割合で変わる文字の大きさ)。コンストラクタ `(label, textSize, onClick)` はそのまま(全部省略もできる)。足したのは `SetOnClick` / `SetLabel` / `SetInteractable(bool)` / `IsInteractable()`。押せない間は、クリックを受け付けず、画像(明るさ0.4)も文字(0.6の灰色)も灰色になり、押している途中で押せなくすると押しかけはキャンセルされる
+> - **Sample**: 両サンプルの `HUDController` の `-560, 320` などの直書きを `GetAnchoredPosition` に(Score・High Score・HP は `TopLeft` の `{80,-40}` `{80,-75}` `{80,-115}`、GAME OVER と「press SPACE ...」は `Center` の `{0,40}` `{0,-30}`)。画面は1280x720なので、見た目は今までと同じ位置。HPゲージは `Objects/HUD.cpp` で `TopLeft` `{80,-135}` に幅240・高さ16(HPの文字の下)。Sample2D の Player の頭上のバーは `SetFollowTarget(player, {0,70})`・幅80・高さ10。**Sample3D の Player にも頭上のバー**(`SetUse3DCamera(true)`・`{0,80}`)を付けた。一人称の間はカメラがPlayerの位置にあって意味が無いので、`PlayerController` が見た目(`MeshRenderer`)と一緒にバー(`GaugeRenderer::SetEnabled`)も隠す。タイトルの音量スライダー(`CreateVolumeSlider(Scene&, TitleController*)`)は `Anchor::Bottom` の `{0,90}`・幅300・高さ12・範囲0〜1・ラベル「Volume」。**値の持ち主は `TitleController`**(`GetVolume()` / `SetVolume()`。最初の音量は `SaveData::GetFloat("MusicVolume", 1)` でBGMもその音量で鳴らす)。スライダーは最初の値を `GetVolume()` から取り、動かすと `SetVolume()`(`Audio::SetVolume` + `SaveData::SetFloat`)、離した時(`SetOnDragEnd`)に `SaveData::Save()`。`Scene`(`TitleScene`)には配置だけを書く
+> - **設計から変えた所**: `Image::DrawRect` の中身(1x1の白い画像 → Direct2D)。足した物は上の `GetAnchoredCenter`、`GaugeRenderer` の `SetValueSource` / `GetRatio` / `GetDelayedRatio`、`SliderComponent` の `SetOnDragEnd` / `SetLabel` / `IsDragging` / `IsAnyDragging` / `SetColors` / `SetAnchor` / `SetSize`、`ButtonComponent` の `SetLabel` / `IsInteractable`
+> - **テスト**: スクラッチのテスト(リポジトリには入れていない)で、`Input` をスタブに差し替えてOSの入力を使わずに確かめた。`GetAnchoredPosition` / `GetAnchoredCenter` の9か所(1280x720と800x600)、`DrawRect` の位置(実際に描いて画素を読む。Y+=上、カメラの影響を受けない、半透明、呼んだ順、描かない場合)、ブラシの再作成・二重解放が無いこと(`Text` を作り直す繰り返しでメモリが増えない)、ゲージの割合・範囲外・NaN・遅れて縮む帯の時間(0.4秒待ってから0.5/秒で縮む、回復で追いつく)・`SetValueSource`・追いかける位置(2D・3D・カメラの後ろ・非アクティブ・`Destroy`)、スライダーのドラッグ(溝の外に出ても追従、`step`、範囲外、端のぴったりの値、`onChanged` が値が変わった時だけ、`onDragEnd`、ポーズ中、非アクティブ、複数のスライダー)、`ButtonComponent` のクリック判定(外で押して中で離す等)と `SetInteractable`、スライダーをつかんでいる間のボタン
 **目的**: HPバー・音量スライダー・ボタンを、どのゲームでも使える部品にする。画面サイズが変わってもずれないようにする。
 
 **ファイル案**: `Engine/Anchor.h`、`Engine/GaugeRenderer.h/.cpp`、`Engine/SliderComponent.h/.cpp`、`Engine/ButtonComponent.h/.cpp`、`Engine/Image.h/.cpp` に `DrawRect` を追加
@@ -804,7 +818,7 @@ public:
 
 **設計のポイント**:
 - 画面座標は「画面中央が(0,0)、Y+=上」(`Text::Draw` と同じ)。`GetAnchoredPosition` は `Graphics::width` / `Graphics::height` から計算するので、画面サイズが変わってもずれません。
-- UIモードの `SpriteRenderer` は2Dカメラと一緒にスクロールしてしまうため、`Image::DrawRect` は**カメラの影響を受けない**描き方にします(中身は1x1の白い画像を、色と大きさを変えて描く)。
+- UIモードの `SpriteRenderer` は2Dカメラと一緒にスクロールしてしまうため、`Image::DrawRect` は**カメラの影響を受けない**描き方にします(→ 実装では Direct2D に変えた。5.10 の実装済みの注を参照)。
 - `GaugeRenderer` の `SetFollowTarget` は、5.7 の `WorldToScreen` で頭上の画面座標を求めます。
 - `ButtonComponent` は、今 Sample2D と Sample3D に**まったく同じ内容でコピーされている** `ButtonController` をEngineへ移したものです。移したら両サンプルの `ButtonController` を消して、`Objects/Button.cpp` から `ButtonComponent` を使います。
 - 値を表示するだけで、値の持ち主にはなりません(READMEの「値の持ち主は1か所、HUDは読むだけ」と同じ)。
@@ -827,7 +841,7 @@ gauge->SetFollowTarget(player, { 0.f, 70.f });
 
 ### 5.11 テキスト
 
-> **実装済み**: `Engine/Text.h/.cpp`(`enum class TextAlign`、`struct TextStyle`、`Text::LoadFont` / `Draw(text, x, y, style)` / `Measure`)と `Engine/TextRenderer.h/.cpp`(新規)。フォントは `Assets/Fonts/NotoSansJP[wght].ttf`(Noto Sans JP、Google Fonts から。太さを変えられる1ファイル)と、そのライセンス `Assets/Fonts/OFL.txt`(SIL Open Font License)。下の「対象」のSampleのコードのうち、両サンプルの `HUDController` と `TitleController` を置き換え済み(`ButtonController` の文字は 5.10 で `ButtonComponent` に移す時に置き換える)。`TextRenderer` の使用例として、Sample2Dに `Objects/ScorePopup.h/.cpp`(敵を倒した位置に「+10」)を足した。使い方は `README.md` の「19. テキスト」を参照。
+> **実装済み**: `Engine/Text.h/.cpp`(`enum class TextAlign`、`struct TextStyle`、`Text::LoadFont` / `Draw(text, x, y, style)` / `Measure`)と `Engine/TextRenderer.h/.cpp`(新規)。フォントは `Assets/Fonts/NotoSansJP[wght].ttf`(Noto Sans JP、Google Fonts から。太さを変えられる1ファイル)と、そのライセンス `Assets/Fonts/OFL.txt`(SIL Open Font License)。下の「対象」のSampleのコードのうち、両サンプルの `HUDController` と `TitleController` を置き換え済み(`ButtonController` の文字は、5.10 で `ButtonComponent` に移した。文字の描き方は今まで通り)。`TextRenderer` の使用例として、Sample2Dに `Objects/ScorePopup.h/.cpp`(敵を倒した位置に「+10」)を足した。使い方は `README.md` の「19. テキスト」を参照。
 >
 > 決めた所:
 > - **寄せ方**: `Left` は x が文字の左端、`Center` は中心、`Right` は右端(どれも `Measure` の幅=DirectWriteのレイアウトの幅が基準。字の形の左右の少しの余白も含む)。縦はいつも中心(今まで通り)。`Measure` の幅と高さは寄せ方では変わらず、縁取りの分は入らない

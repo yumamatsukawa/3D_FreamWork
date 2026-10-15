@@ -2,6 +2,7 @@
 #include "CameraController.h"
 #include "../../../Engine/GameObject.h"
 #include "../../../Engine/MeshRenderer.h"
+#include "../../../Engine/GaugeRenderer.h"
 #include "../../../Engine/Input.h"
 #include "../../../Engine/EventBus.h"
 #include "../../../Engine/RigidbodyComponent.h"
@@ -24,7 +25,9 @@ void PlayerController::Update(float dt) {
     if (!camera) return;
 
     // 一人称の間は自分の見た目を隠す(カメラが立方体の内側に入り、内側の面で画面が埋まるため)。当たり判定は残す
-    renderer->SetEnabled(camera->GetMode() == CameraController::Mode::ThirdPerson);
+    const bool thirdPerson = camera->GetMode() == CameraController::Mode::ThirdPerson;
+    renderer->SetEnabled(thirdPerson);
+    if (GaugeRenderer* gauge = GetOwner()->GetComponent<GaugeRenderer>()) gauge->SetEnabled(thirdPerson);   // 頭上のHPバーも隠す
 
     // ポーズ中・シーン切り替え中は操作を受け付けない(dtが0なのでタイマーも進まない)
     // ※見た目の切り替え(上)より後に置く。CameraControllerはポーズ中もTABで一人称にできるため

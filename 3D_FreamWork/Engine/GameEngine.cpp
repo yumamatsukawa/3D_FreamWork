@@ -68,6 +68,7 @@ void GameEngine::Uninit()
     Resources::UnloadAll();  // Image::Uninitより先に(画像の解放にImageを使うため)
     Physics::Uninit();
     ScreenEffect::Uninit();   // Text::Uninitより先に(ブラシはTextの描画先から作っているため)
+    Image::ReleaseDrawRectBrush();   // 同じ理由でText::Uninitより先に
     Text::Uninit();
     Audio::Uninit();
     Image::Uninit();

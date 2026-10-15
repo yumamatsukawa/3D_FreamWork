@@ -2,7 +2,17 @@
 #include "GameManager.h"
 #include "PlayerController.h"
 #include "../../../Engine/Text.h"
+#include "../../../Engine/Anchor.h"
 #include <cstdio>
+
+namespace {
+    // 文字の位置(画面の隅・中央からのずらし量。画面座標は「中央が(0,0)、Y+=上」なので、下へずらす時はマイナス)
+    constexpr DirectX::XMFLOAT2 scoreOffset = { 80.f, -40.f };         // 左上から: Score
+    constexpr DirectX::XMFLOAT2 highScoreOffset = { 80.f, -75.f };     // 左上から: High Score
+    constexpr DirectX::XMFLOAT2 hpOffset = { 80.f, -115.f };           // 左上から: HP(この下にHPゲージが出る。Objects/HUD.cpp)
+    constexpr DirectX::XMFLOAT2 gameOverOffset = { 0.f, 40.f };        // 中央から: GAME OVER
+    constexpr DirectX::XMFLOAT2 returnHintOffset = { 0.f, -30.f };     // 中央から: press SPACE ...
+}
 
 void HUDController::Init() {
     // フォントの読み込み(同じファイルは2回読まないので、シーンに入る度に呼んでよい)
@@ -23,12 +33,14 @@ void HUDController::Draw() {
         swprintf_s(buf, L"Score: %d", gameManager->GetScore());
         style.size = 28.f;
         style.color = { 1.0f, 1.0f, 1.0f, 1.0f };
-        Text::Draw(buf, -560.f, 320.f, style);
+        DirectX::XMFLOAT2 pos = GetAnchoredPosition(Anchor::TopLeft, scoreOffset);
+        Text::Draw(buf, pos.x, pos.y, style);
 
         swprintf_s(buf, L"High Score: %d", gameManager->GetHighScore());
         style.size = 22.f;
         style.color = { 1.0f, 0.9f, 0.4f, 1.0f };
-        Text::Draw(buf, -560.f, 285.f, style);
+        pos = GetAnchoredPosition(Anchor::TopLeft, highScoreOffset);
+        Text::Draw(buf, pos.x, pos.y, style);
     }
 
     // HP
@@ -36,7 +48,8 @@ void HUDController::Draw() {
         swprintf_s(buf, L"HP: %d / %d", player->GetHp(), player->GetMaxHp());
         style.size = 28.f;
         style.color = { 1.0f, 0.4f, 0.4f, 1.0f };
-        Text::Draw(buf, -560.f, 245.f, style);
+        DirectX::XMFLOAT2 pos = GetAnchoredPosition(Anchor::TopLeft, hpOffset);
+        Text::Draw(buf, pos.x, pos.y, style);
     }
 
     // ゲームオーバー(画面の中央に、中央寄せで)
@@ -44,10 +57,12 @@ void HUDController::Draw() {
         style.align = TextAlign::Center;
         style.size = 64.f;
         style.color = { 1.0f, 0.2f, 0.2f, 1.0f };
-        Text::Draw(L"GAME OVER", 0.f, 40.f, style);
+        DirectX::XMFLOAT2 pos = GetAnchoredPosition(Anchor::Center, gameOverOffset);
+        Text::Draw(L"GAME OVER", pos.x, pos.y, style);
 
         style.size = 24.f;
         style.color = { 1.0f, 1.0f, 1.0f, 1.0f };
-        Text::Draw(L"press SPACE to return to Title", 0.f, -30.f, style);
+        pos = GetAnchoredPosition(Anchor::Center, returnHintOffset);
+        Text::Draw(L"press SPACE to return to Title", pos.x, pos.y, style);
     }
 }

@@ -56,6 +56,19 @@ namespace Image
     // Physics::Raycast(origin, direction, ...) と組み合わせると、画面のその点に映っている物を探せる
     void ScreenPointToRay3D(XMFLOAT2 screenPosition, XMFLOAT3& origin, XMFLOAT3& direction);
 
+    // ─── 画面に四角を塗る ─────────────────────────────
+    // 画面に四角を1つ塗る(HPバーの帯など)。Text::Draw と同じ Direct2D で描くので、カメラの影響を受けず(スクロールしない)、
+    // 画像や3Dの描画が全部終わった後に重なる。Text::Draw とは「呼んだ順」に重なる(帯を描いてから数字を描けば、帯の上に数字が出る)
+    // position: 四角の「中心」の画面座標(画面中央が(0,0)、Y+=上。Text::Drawと同じ。GetAnchoredPosition(Anchor.h)の結果をそのまま渡せる)
+    // size: 幅と高さ(ピクセル)。color: 色(wは濃さ。0なら描かない)
+    // Component の Draw の中(GameEngine が Text::BeginDraw 〜 EndDraw で囲んでいる間)で呼ぶ
+    // 例: Image::DrawRect({ 0.f, 0.f }, { 200.f, 20.f }, { 1.f, 0.f, 0.f, 1.f });   // 画面の中央に赤い帯
+    void DrawRect(XMFLOAT2 position, XMFLOAT2 size, XMFLOAT4 color);
+
+    // ─── Engine内部用(GameEngineだけが呼ぶ。ゲーム側からは呼ばない) ───
+    // DrawRectが使い回しているブラシを解放する(Text::Uninitより先に。ブラシはTextの描画先から作っているため。何回呼んでもよい)
+    void ReleaseDrawRectBrush();
+
     // ─── Engine内部用(Resourcesだけが呼ぶ。ゲーム側は Resources::LoadTexture / ReleaseTexture を使う) ───
     // ここで読むと、同じ画像でも呼ぶ度に読み直してしまう(共有されない)
     unsigned int LoadTexture(const std::wstring& filepath);  // 画像を読む(RGBA形式のpng)。失敗したらUINT_MAX

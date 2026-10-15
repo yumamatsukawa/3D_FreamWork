@@ -2,7 +2,7 @@
 #include "../../../Engine/Scene.h"
 #include "../../../Engine/GameObject.h"
 #include "../../../Engine/SpriteRenderer.h"
-#include "../Components/ButtonController.h"
+#include "../../../Engine/ButtonComponent.h"
 
 GameObject* CreateButton(Scene& scene, const std::wstring& label, DirectX::XMFLOAT2 position,
     std::function<void()> onClick) {
@@ -15,6 +15,6 @@ GameObject* CreateButton(Scene& scene, const std::wstring& label, DirectX::XMFLO
     button->AddComponent<SpriteRenderer>(L"Assets/button.png");
 
     // クリック判定・文字の表示(文字の大きさ48)
-    button->AddComponent<ButtonController>(label, 48.f, std::move(onClick));
+    button->AddComponent<ButtonComponent>(label, 48.f, std::move(onClick));
     return button;
 }

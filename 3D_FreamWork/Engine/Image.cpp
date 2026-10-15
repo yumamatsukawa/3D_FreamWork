@@ -1,4 +1,6 @@
 ﻿#include "Image.h"
+#include "Text.h"
+#include <cmath>
 using namespace DirectX;
 
 namespace Image
@@ -74,6 +76,43 @@ namespace Image
 
         XMStoreFloat3(&origin, nearPoint);
         XMStoreFloat3(&direction, XMVector3Normalize(farPoint - nearPoint));
+    }
+
+    namespace {
+        // DrawRect用のブラシ(毎回作らず、最初に要った時に作って使い回す。ReleaseDrawRectBrushで解放)
+        ID2D1RenderTarget* rectBrushTarget = nullptr;   // ブラシを作った描画先(違う描画先では使えないため覚えておく)
+        ID2D1SolidColorBrush* rectBrush = nullptr;      // 色は描く時に変える
+    }
+
+    void ReleaseDrawRectBrush() {
+        if (rectBrush) { rectBrush->Release(); rectBrush = nullptr; }
+        rectBrushTarget = nullptr;
+    }
+
+    // 画面に四角を塗る: ゲーム座標(中央が原点、Y+=上)をDirect2Dの座標(左上が原点、Y+=下)に直して、Text::Drawと同じ描画先に塗る
+    void DrawRect(XMFLOAT2 position, XMFLOAT2 size, XMFLOAT4 color) {
+        ID2D1RenderTarget* target = Text::GetRenderTarget();
+        if (!target) return;
+        if (!(color.w > 0.f)) return;                       // 透明なら描かない
+        if (!(size.x > 0.f) || !(size.y > 0.f)) return;     // 大きさが0以下(やNaN)なら描かない
+        if (!std::isfinite(position.x) || !std::isfinite(position.y) || !std::isfinite(size.x) || !std::isfinite(size.y)) return;
+
+        // 描画先が変わっていたら、前の描画先で作ったブラシは使えないので作り直す
+        if (target != rectBrushTarget) {
+            ReleaseDrawRectBrush();
+            rectBrushTarget = target;
+        }
+        if (!rectBrush) {
+            target->CreateSolidColorBrush(D2D1::ColorF(0.f, 0.f, 0.f, 0.f), &rectBrush);
+            if (!rectBrush) return;
+        }
+
+        float centerX = position.x + Graphics::width * 0.5f;
+        float centerY = -position.y + Graphics::height * 0.5f;
+        rectBrush->SetColor(D2D1::ColorF(color.x, color.y, color.z, color.w));
+        target->FillRectangle(
+            D2D1::RectF(centerX - size.x * 0.5f, centerY - size.y * 0.5f, centerX + size.x * 0.5f, centerY + size.y * 0.5f),
+            rectBrush);
     }
 
     // 画像1枚ぶんの「みんなで共有するデータ」。コマ番号・色など1体ごとの状態は持たない
@@ -169,6 +208,7 @@ namespace Image
     }
 
     void Uninit() {
+        ReleaseDrawRectBrush();   // 普通はGameEngine::Uninitで解放済み(何回呼んでもよい)
         ReleaseAllTextures();
         sprite.Uninit();
         Graphics::Uninit();

@@ -218,7 +218,7 @@ Image::GetCamera().position.y = player->transform.position.y;
 
 | 関数 | 中身 | 使いどころ |
 |---|---|---|
-| `Input::GetMouseWorldPosition()` | ワールド座標(2D用カメラの位置を考慮済み、Y+=上方向) | クリック判定・マウスの方を向くなど、2Dオブジェクトと比較する時(Sample2Dの`PlayerController`/`ButtonController`が実例) |
+| `Input::GetMouseWorldPosition()` | ワールド座標(2D用カメラの位置を考慮済み、Y+=上方向) | クリック判定・マウスの方を向くなど、2Dオブジェクトと比較する時(Sample2Dの`PlayerController`/`ButtonComponent`が実例) |
 | `Input::GetMousePosition()` | 画面中央からのピクセル数(カメラ無関係、Y+=下方向のまま) | ドラッグ量など画面上での動きを見る時 |
 
 `GetMousePosition()`は、ウィンドウの中(クライアント領域)での位置を、ゲーム画面の解像度(`Graphics::width/height`)の単位に直して返します。ウィンドウ枠のぶん、実際のウィンドウの中はゲーム画面の解像度より少し小さく、画面はそこへ縮めて表示されているためです(以前は枠を含む幅の半分を中心にしていたので、数ピクセル〜十数ピクセルずれていました)。
@@ -257,7 +257,7 @@ player->AddComponent<CameraController>();
 
 ## 6. Collider(当たり判定)
 
-**当たり判定は、2D/3D問わず全てPhysX(`RigidbodyComponent`、§22参照)で計算しています。**2Dのゲームでは、2D向けに使いやすくした`SquareRigidbodyComponent`/`CircleRigidbodyComponent`を使い、`SetFreezePositionZ(true)`で奥行き方向に動かないようにします(Sample2Dが実例)。
+**当たり判定は、2D/3D問わず全てPhysX(`RigidbodyComponent`、§23参照)で計算しています。**2Dのゲームでは、2D向けに使いやすくした`SquareRigidbodyComponent`/`CircleRigidbodyComponent`を使い、`SetFreezePositionZ(true)`で奥行き方向に動かないようにします(Sample2Dが実例)。
 
 ```cpp
 // Playerの例(すり抜けない円形・半径50。Dynamic+速度指定で動かし、衝突応答はPhysXに任せる)
@@ -325,7 +325,7 @@ RigidbodyComponent::SetDebugDrawEnabled(true);
 | `SquareRigidbodyComponent` | Z軸方向で切った断面の四角 |
 | `CircleRigidbodyComponent` | Z軸方向で切った断面の丸 |
 
-2D向けのSquare/Circleは、PhysX上は奥行きのある立方体/球ですが(§22)、2Dゲームでは奥行き方向に動かないので、平面で見た時の形(断面)だけを表示しています。
+2D向けのSquare/Circleは、PhysX上は奥行きのある立方体/球ですが(§23)、2Dゲームでは奥行き方向に動かないので、平面で見た時の形(断面)だけを表示しています。
 
 **内部実装メモ**: `RigidbodyComponent::Draw()`が、`PxShape`から実際のジオメトリ(`PxBoxGeometry`/`PxSphereGeometry`)を取得し、Ownerの`Transform`の`scale`だけを一時的に差し替えて描画しています(位置・回転は普段どおりOwnerのTransformをそのまま使う)。枠は三角形ではなく線(`D3D11_PRIMITIVE_TOPOLOGY_LINELIST`)で描いていて、形ごとの輪郭データは`Mesh::CreateCubeOutline()`などで作り、全`RigidbodyComponent`で1つずつ共有しています。
 
@@ -619,7 +619,7 @@ tween->MoveTo({ 100.f, 0.f, 0.f }, 0.5f).SetOnComplete([tween] {
 tween->MoveTo({ 0.f, 20.f, 0.f }, 0.8f, Ease::InOutQuad).SetLoop(true, true).SetUnscaled(true);
 ```
 
-**実例**: 両サンプルのタイトル画面のSTARTボタン(`Game/Objects/StartButton.cpp`)は、大きさ0から本来の大きさへ `Ease::OutBack` で0.4秒かけて大きくなって出ます。ボタンのクリック判定(`ButtonController`)も `transform.scale` を使っているので、大きくなる途中でも見た目と判定が合っています(ボタンの文字の大きさも、ボタンの高さに合わせて一緒に大きくなります)。
+**実例**: 両サンプルのタイトル画面のSTARTボタン(`Game/Objects/StartButton.cpp`)は、大きさ0から本来の大きさへ `Ease::OutBack` で0.4秒かけて大きくなって出ます。ボタンのクリック判定(`ButtonComponent`。§20)も `transform.scale` を使っているので、大きくなる途中でも見た目と判定が合っています(ボタンの文字の大きさも、ボタンの高さに合わせて一緒に大きくなります)。
 
 ---
 
@@ -669,7 +669,7 @@ chase->SetPlane(MovePlane::XZ);    // 3Dの地面の上を動く時(2Dなら不�
 - `ObjectPool` で使い回された時(`SetActive(true)`)は、速度・進行方向などの状態をリセットします。相手・速さなどの設定は残るので、出す度に `SetTarget` などで入れ直してください(Sampleの `EnemyManager::Spawn` が実例)。
 - Dynamicの剛体と一緒に使う時は、`RigidbodyComponent` の**後に** `AddComponent` してください(Componentは追加順に `Update` されるので、PhysXの結果が反映された位置で計算できる)。
 - `HomingComponent` の進行方向は `rotate` と同じ向きです(XYは `rotate.z` = `Math::Forward2D`、XZは `rotate.y` = `Math::Forward3D`)。最初の進行方向は、出した時の `rotate` の向きです(出す時に向きを決めておけば、その向きへ飛び出してから曲がっていく)。`SetFaceMovement(true)` をDynamicの剛体で使う時は、`SetFreezeRotation(true)` にしておきます(PhysXの回転で上書きされないように)。
-- `AccelerateChaseComponent` は、Dynamicなら `AddForce(..., ForceMode::Acceleration)`(§22)で加速します(ぶつかって跳ね返った勢いも残る)。1フレーム分の加速だけ、最高速度を少し超えることがあります。
+- `AccelerateChaseComponent` は、Dynamicなら `AddForce(..., ForceMode::Acceleration)`(§23)で加速します(ぶつかって跳ね返った勢いも残る)。1フレーム分の加速だけ、最高速度を少し超えることがあります。
 
 **実例**: 両サンプルの `EnemyManager` が、敵に `ChaseComponent` を付けて(`SetupEnemy`)、出す時に追いかける相手(Player)と速さを渡しています(`Spawn`)。Sample3Dは `SetPlane(MovePlane::XZ)` で、地面の上を重力で落ちながら追いかけます。
 
@@ -762,7 +762,7 @@ if (Physics::Raycast(origin, direction, 5000.f, hit, "Enemy")) { /* hit.object �
 - `Draw`の中で呼ぶと`CameraShake`の揺れが入ったカメラで、`Update`の中で呼ぶと揺れの入らないカメラで計算します。
 - 2D用カメラ(疑似的な正射影)と3D用カメラ(透視投影)は計算の仕方が違うので、関数の名前で`2D`/`3D`を分けています。
 
-**実例**: 両サンプルの`ButtonController::Draw()`が、ボタンの文字の位置を`Image::WorldToScreen2D`で求めています。
+**実例**: 両サンプルの`ButtonComponent::Draw()`(Engine)が、ボタンの文字の位置を`Image::WorldToScreen2D`で求めています。
 
 ---
 
@@ -998,7 +998,7 @@ PlayerName=ゆうしゃ
 - `GetFloat` は、数として読めない値なら「無い時の値」を返します(`SetInt` で書いた `100` は 100.0 として読めます)
 - `GetString` は、どの型で書いた値も文字のまま返します(`SetInt("A", 5)` なら `L"5"`)
 
-**実例**: 両サンプルの `GameManager`。ゲームオーバーになった時(`"PlayerDied"` を受けた時)に、スコアがハイスコアより大きければ `SetInt(highScoreKey, score)` して `Save()` します(キーはSample2Dが `"Sample2DHighScore"`、Sample3Dが `"Sample3DHighScore"`)。HUDは `GameManager::GetHighScore()`(中で `SaveData::GetInt(highScoreKey)` を読むだけ)で、スコアの下にハイスコアを出します(値の持ち主は `SaveData` で、HUDは読むだけ。§21)。
+**実例**: 両サンプルの `GameManager`。ゲームオーバーになった時(`"PlayerDied"` を受けた時)に、スコアがハイスコアより大きければ `SetInt(highScoreKey, score)` して `Save()` します(キーはSample2Dが `"Sample2DHighScore"`、Sample3Dが `"Sample3DHighScore"`)。HUDは `GameManager::GetHighScore()`(中で `SaveData::GetInt(highScoreKey)` を読むだけ)で、スコアの下にハイスコアを出します(値の持ち主は `SaveData` で、HUDは読むだけ。§22)。
 
 ---
 
@@ -1087,7 +1087,153 @@ text->SetOffset({ 0.f, 60.f, 0.f });   // オブジェクトの位置から、�
 
 ---
 
-## 20. 開発時の注意点
+## 20. UI(Anchor / DrawRect / GaugeRenderer / SliderComponent / ButtonComponent)
+
+HPバー・音量スライダー・ボタンを、どのゲームでも使える部品にしたものです(`Engine/Anchor.h`、`Engine/GaugeRenderer.h`、`Engine/SliderComponent.h`、`Engine/ButtonComponent.h`、`Engine/Image.h` の `DrawRect`)。画面サイズが変わっても、隅や中央からの距離でずれずに置けます。
+
+### 画面座標の決まり
+
+- 座標は **「画面中央が(0,0)、Y+=上、単位はゲーム画面のピクセル」** です(§14の座標の変換、§19の `Text::Draw` と同じ)。下へずらす時はYをマイナスにします。
+- **`Input::GetMousePosition()` はY+=下**なので、マウスと比べる時はYの符号を反転します(`SliderComponent` は中でこれをやっています)。
+- UIの四角(`DrawRect`、ゲージ、スライダー)は、`Text::Draw` と同じ Direct2D で描きます。だから**カメラの影響を受けず(スクロールしない)、画像や3Dの描画が全部終わった後に重なります**。`Text::Draw` とは**呼んだ順**に重なります(ゲージを描いてから数字を描けば、ゲージの上に数字が出ます)。
+- 画面エフェクト(§15)とシーン切り替え(§16)は、UIよりさらに上に出ます。
+
+### Anchor(画面のどこを基準にするか)
+
+```cpp
+#include "../../../Engine/Anchor.h"
+
+XMFLOAT2 pos = GetAnchoredPosition(Anchor::TopLeft, { 40.f, -40.f });   // 左上の隅から、右に40・下に40
+Text::Draw(L"Score", pos.x, pos.y, style);
+```
+
+`Anchor` は9か所です: `TopLeft` `Top` `TopRight` / `Left` `Center` `Right` / `BottomLeft` `Bottom` `BottomRight`。
+
+| 関数 | 内容 |
+|---|---|
+| `GetAnchoredPosition(anchor, offset)` | 基準の位置(画面の隅・辺の真ん中・中央)に `offset`(ずらす量。画面座標なので、下へはマイナス)を足した画面座標を返す。画面の大きさは `Graphics::width` / `height` から毎回計算するので、画面サイズが変わってもずれない |
+| `GetAnchoredCenter(anchor, offset, size)` | 大きさ `size` の四角を、四角の `anchor` 側(左上なら左上の角、下なら下の辺の真ん中)を `GetAnchoredPosition` に合わせて置いた時の、四角の**中心**の画面座標。ゲージやスライダーを「左上から右へ40・下へ40」に置いても、画面からはみ出さない |
+
+### Image::DrawRect(画面に四角を塗る)
+
+```cpp
+Image::DrawRect({ 0.f, 0.f }, { 200.f, 20.f }, { 1.f, 0.f, 0.f, 1.f });   // 画面の中央に、幅200・高さ20の赤い帯
+```
+
+- 引数は **中心の画面座標**・**大きさ(幅, 高さ)**・**色**(`w` は濃さ。0なら描かない)です。
+- Component の `Draw()` の中で呼びます(`Text::Draw` と同じ)。
+- ブラシは使い回していて、`GameEngine::Uninit` が解放します(ゲーム側で解放する必要はありません)。
+
+### GaugeRenderer(HPバーなどの帯のゲージ)
+
+**値の持ち主にはならず、読んだ値を表示するだけ**のComponentです(§22の「値の持ち主は1か所」と同じ。HPは `PlayerController` が持ち、ゲージは読むだけ)。
+
+```cpp
+#include "../../../Engine/GaugeRenderer.h"
+
+// 画面の左上に固定して表示(HUD)
+auto* gauge = hud->AddComponent<GaugeRenderer>();
+gauge->SetAnchor(Anchor::TopLeft, { 80.f, -135.f });     // 左上の角が、画面の左上から右に80・下に135の所に来る
+gauge->SetSize(240.f, 16.f);                             // 幅と高さ
+gauge->SetDelayedBar(true, { 1.f, 0.9f, 0.4f, 1.f });    // 減った分を少し遅れて縮める(ダメージ量が分かる)
+gauge->SetValueSource(                                   // 毎フレーム、持ち主の値を読んで表示する
+    [player] { return (float)player->GetHp(); },
+    [player] { return (float)player->GetMaxHp(); });
+
+// オブジェクトの頭上に表示(Playerの上70の位置)
+auto* bar = player->AddComponent<GaugeRenderer>();
+bar->SetFollowTarget(player, { 0.f, 70.f });
+bar->SetSize(80.f, 10.f);
+// 3Dのオブジェクトの時は、3D用カメラで画面座標に直す
+// bar->SetUse3DCamera(true);
+```
+
+| 関数 | 内容 |
+|---|---|
+| `SetValue(current, max)` | 今の値と最大値(中身の割合 = current / max。0〜1に収める。`max` が0以下なら空) |
+| `SetValueSource(今の値を返す関数, 最大値を返す関数)` | 毎フレーム自動で読む関数を決める(持ち主のゲッターを渡す)。決めたら `SetValue` は呼ばなくてよい |
+| `SetColors(中身の色, 背景の色)` | 色(`w` は濃さ) |
+| `SetDelayedBar(有効か, 色)` | 減った分を遅れて縮める帯。減ってから0.4秒は止まっていて、その後、全体の半分を1秒の速さで縮む(`GaugeRenderer.h` の `delayedHoldTime` / `delayedShrinkSpeed`)。増えた時はすぐ追いつく |
+| `SetSize(幅, 高さ)` | ゲージの大きさ(ピクセル) |
+| `SetAnchor(anchor, offset)` | 画面に固定して表示。ゲージの `anchor` 側の角(辺)が `GetAnchoredPosition(anchor, offset)` に合う |
+| `SetFollowTarget(オブジェクト, offset)` | オブジェクトの上に表示。ゲージの**中心**が、オブジェクトの位置+`offset`(ワールドでずらす量)の画面座標に来る |
+| `SetUse3DCamera(true)` | `SetFollowTarget` で3Dのオブジェクトを追う時に使う。`Image::WorldToScreen3D`(§14)で画面座標に直し、カメラの後ろにある時は描かない。2Dは `Image::WorldToScreen2D` で、2Dカメラと一緒にスクロールする |
+| `GetRatio()` / `GetDelayedRatio()` | 中身・遅れて縮む帯の割合(0〜1) |
+
+- 時間は `Update` の `dt` で進むので、ポーズ中は帯も止まります(§10)。
+- 追いかける相手が非アクティブ(`SetActive(false)`)の間や、`Destroy()` された後は描きません。
+- ★ **追いかける相手(`target`)は、ゲージより長く生きるオブジェクトにしてください。** ゲージを付けたオブジェクト自身(上の `Player` の例)なら安全です。別のオブジェクトを追いかけて、そのオブジェクトが消える場合は、先に `SetFollowTarget(nullptr, ...)` で外すか、ゲージも一緒に `Destroy` してください(ポインタだけでは、相手が消えたかどうか調べられないためです)。`nullptr` の間は描きません。
+
+### SliderComponent(ドラッグで値を変えるスライダー)
+
+```cpp
+#include "../../../Engine/SliderComponent.h"
+
+auto* slider = obj->AddComponent<SliderComponent>();
+slider->SetRange(0.f, 1.f);                              // 値の範囲
+slider->SetValue(0.8f);                                  // 最初の値
+slider->SetAnchor(Anchor::Bottom, { 0.f, 90.f });        // 画面の下の真ん中から、上へ90(下の辺の真ん中がそこに来る)
+slider->SetSize(300.f, 12.f);                            // 溝の幅と高さ
+slider->SetLabel(L"Volume", labelStyle);                 // スライダーの上に出す文字(TextStyle)
+slider->SetOnChanged([](float v) { /* 値が変わった時 */ });
+slider->SetOnDragEnd([](float v) { /* つまみを離した時 */ });
+```
+
+| 関数 | 内容 |
+|---|---|
+| `SetRange(最小, 最大)` / `SetValue(値)` / `GetValue()` | 範囲・値。値は範囲に収まる。コードから変えた時は `SetOnChanged` は呼ばれない(最初の値を決める時に、保存などが動かないように) |
+| `SetStep(刻み幅)` | 最小値から刻み幅ごとの値だけになる(0=刻まない) |
+| `SetOnChanged(関数)` | つまみを動かして値が**実際に変わった時だけ**呼ばれる(同じ値のままなら呼ばれない) |
+| `SetOnDragEnd(関数)` | つまみを離した時に1回呼ばれる(値が変わっていなくても)。保存などに使う |
+| `SetAnchor(anchor, offset)` / `SetSize(幅, 高さ)` | 画面のどこに置くか(溝の `anchor` 側の角が合う)・溝の大きさ |
+| `SetColors(溝, 左側, つまみ)` / `SetLabel(文字, style)` | 色・スライダーの上に出す文字 |
+| `IsDragging()` / `SliderComponent::IsAnyDragging()` | つまみをつかんでいるか(自分 / どれか) |
+
+- 溝のどこか(つまみのまわりも含む)を押すと、そこへつまみが動いて、押している間はマウスに付いてきます。**マウスが溝や画面の外に出ても、離すまで付いてきます**(値は範囲に収まる)。離したら終わりです。
+- **ポーズ中・シーン切り替え中(`Time::IsPaused()`)は、スライダーは操作できません**(つかんでいたら離したことになります。ボタンは押せます)。
+- **ウィンドウの外でマウスボタンを離した時も、離したことになります。** `Input` はウィンドウの外で離したことに気付けない場合があるので、スライダーは物理的なボタンの状態(`GetAsyncKeyState`)も見ています。他のアプリをクリックした時にドラッグが終わるのは仕様です。
+- つかんでいる間に、スライダーのComponentだけを `SetEnabled(false)` しないでください(`Update` が呼ばれなくなり、「つかんでいる」状態が残ってボタンが反応しなくなります)。止めたい時はオブジェクトごと `SetActive(false)` にします(離したことになります)。
+- つかんでいる間は、ボタン(`ButtonComponent`)は反応しません(マウスが乗っても、離しても押されない)。
+
+### ButtonComponent(クリックできるボタン)
+
+見た目の画像は、同じオブジェクトの `SpriteRenderer` を使います(先に付けておく)。以前は Sample2D・Sample3D に同じ内容の `ButtonController` がコピーされていましたが、Engineの `ButtonComponent` に移しました。
+
+```cpp
+#include "../../../Engine/ButtonComponent.h"
+
+GameObject* button = scene.CreateObject("Button");
+button->transform.position = { 0.f, -150.f, 0.f };
+button->transform.scale = { 320.f, 96.f, 1.f };                  // ボタンの大きさ(クリック判定もこの大きさ)
+button->AddComponent<SpriteRenderer>(L"Assets/button.png");
+button->AddComponent<ButtonComponent>(L"START", 48.f, [] { /* 押された時の処理 */ });   // 文字・文字の大きさ・押された時の処理
+
+// あとから変える時
+auto* component = button->GetComponent<ButtonComponent>();
+component->SetOnClick([] { /* ... */ });
+component->SetInteractable(false);    // 押せなくして、灰色にする
+```
+
+- 押す→離すで `onClick` が呼ばれます。**ボタンの上で押して、ボタンの上で離した時だけ**です(途中で外に出たらキャンセル)。
+- 見た目は、押している間は暗く、マウスが乗っている間は明るく、それ以外は少し暗めです。`SetInteractable(false)` の間は、クリックを受け付けず、画像も文字も灰色になります。
+- クリック判定は**ワールド座標**で行います(`Input::GetMouseWorldPosition` と `transform`)。文字は画面座標に直して重ねます(§14)。
+- 文字の大きさは、作った時(`AddComponent` した時)のボタンの高さに対する、今の高さの割合で変わります。`TweenComponent`(§12)でボタンが大きくなる途中も、文字が画像と一緒に大きくなります。だから、**ボタンの大きさ(`transform.scale`)は `AddComponent` の前に決めてください**。
+
+### 実例
+
+- **HUD(両サンプル)**: `HUDController` の文字の位置は `GetAnchoredPosition` で決めています(Score / High Score / HP は `Anchor::TopLeft`、GAME OVER などは `Anchor::Center`)。HPの文字の下のHPゲージは、`Objects/HUD.cpp` で `GaugeRenderer` を付けて、`SetValueSource` で `PlayerController::GetHp()` / `GetMaxHp()` を読んで描いています。
+- **頭上のHPバー**: Sample2Dの `Objects/Player.cpp` で `SetFollowTarget(player, { 0, 70 })`。Sample3Dは `SetUse3DCamera(true)` も付けています(3Dカメラで画面座標に直す)。一人称の間はカメラがPlayerの位置にあって意味が無いので、`PlayerController` がPlayerの見た目と一緒に隠しています。
+- **タイトルの音量スライダー(両サンプル)**: `Objects/VolumeSlider.cpp` の `CreateVolumeSlider(scene, titleController)`。範囲は0〜1で、最初の値は `TitleController::GetVolume()`(= `SaveData` の `"MusicVolume"`、無ければ1)。動かすと `TitleController::SetVolume()` がBGMの音量を変えて `SaveData::SetFloat` で書き、つまみを離した時(`SetOnDragEnd`)に `SaveData::Save()` でファイルに保存します(§18)。次に起動した時も、その音量でBGMが鳴ります。音量の値の持ち主は `TitleController` で、スライダーはそれを変えてもらうだけです。キーはSample2DとSample3Dで共通です。
+- **ボタン(両サンプル)**: `Objects/Button.cpp` の `CreateButton()` が `ButtonComponent` を付けています。
+
+### 注意
+
+- UIの四角と文字は、画像や3Dの後ろには隠れません(Direct2Dで、描画が全部終わった後に描かれるため)。
+- ゲージやスライダーは、`DrawRect` の位置が整数のピクセルなら輪郭がくっきり出ます。割合で伸びる帯の端は、ピクセルの途中で止まることがあります(少しぼやけて見えます)。
+
+---
+
+## 21. 開発時の注意点
 
 ### 文字コード(重要)
 
@@ -1125,31 +1271,31 @@ Claude Code で作業する場合は、`.claude/`の設定で、メインの会�
 
 ---
 
-## 21. サンプル構成(現状)
+## 22. サンプル構成(現状)
 
 プロジェクト構成自体は`0. プロジェクト構成`を参照してください。ここでは各サンプルの中身(`Game/`)を説明します。
 
 ```
-Sample2D/Game/Objects/     Title, Button, StartButton, Background, Player, GameSystem, HUD,
+Sample2D/Game/Objects/     Title, Button, StartButton, VolumeSlider, Background, Player, GameSystem, HUD,
                             EnemySpawner, BulletSpawner, ScorePopup
-Sample2D/Game/Components/  TitleController, ButtonController, BackgroundController, PlayerController,
+Sample2D/Game/Components/  TitleController, BackgroundController, PlayerController,
                             BulletController, EnemyController, GameManager, HUDController,
                             EnemyManager, BulletManager
 Sample2D/Game/Scenes/      TitleScene, GameScene
 
-Sample3D/Game/Objects/     Title, Button, StartButton, Skybox, Ground, Player, GameSystem, HUD,
+Sample3D/Game/Objects/     Title, Button, StartButton, VolumeSlider, Skybox, Ground, Player, GameSystem, HUD,
                             EnemySpawner, BulletSpawner, Cube(未使用), Sphere(未使用)
-Sample3D/Game/Components/  TitleController, ButtonController, GroundController, PlayerController,
+Sample3D/Game/Components/  TitleController, GroundController, PlayerController,
                             CameraController, BulletController, EnemyController, GameManager,
                             HUDController, EnemyManager, BulletManager, SkyboxFollowComponent,
                             SpinComponent(未使用)
 Sample3D/Game/Scenes/      TitleScene, GameScene
 ```
 
-- **Sample2D**: トップダウン視点のアリーナシューター。タイトル画面のSTARTボタン(出る時に`TweenComponent`でぴょこっと大きくなる)をクリックすると、画面が暗転してからゲーム開始(ゲーム画面に入ると明転する。`FadeTransition`。§16)(ボタンは`CreateButton(scene, 文字, 位置, クリックされた時の処理)`で作れる汎用部品なので、他の画面のボタンにも使い回せる)。WASDで移動、Playerは常にマウスの方を向き、左クリックでその方向へ弾を発射。背景はタイル状に敷き詰めた床(`BackgroundController`)で、移動するとスクロールする(カメラはPlayerに付けた`CameraFollowComponent`が追いかける。§14)。敵(`EnemyManager`が一定間隔でPlayerの周囲にランダムスポーンさせる)がゆっくり追いかけてきて(`ChaseComponent`。§13)、弾を当てると倒せる(`EventBus`で`"EnemyDefeated"`イベントを発行しスコア加算。倒した位置に「+10」が出て、上に動きながら消える=`CreateScorePopup`。§19)。敵に触れるとHPが減り(1秒間の無敵時間つき)、敵から離れる向きに弾かれる(ノックバック。`AddForce`で衝撃を加え、0.2秒間は移動キーが効かない。§22)、画面が少し揺れて(`CameraShake`。§14)、画面の端が赤く点滅する(`ScreenEffect::Vignette`。§15)。HPが0になるとゲームオーバー画面が出てSPACEでタイトルに戻る(黒い丸が閉じて開く`SpriteTransition`。§16)。スコアがハイスコアを超えていたら、ゲームオーバーの時に保存され(`SaveData`。キーは`"Sample2DHighScore"`で、Sample3Dの記録とは別。§18)、画面左上のスコアの下に出る(次に起動しても残る)。当たり判定・物理はPhysXを使い(Player=`CircleRigidbodyComponent`、敵=`SquareRigidbodyComponent`、弾=`CircleRigidbodyComponent`)、Player・敵はDynamic(`SetVelocity()`で速度を渡して動かす。重力なし・回転なし・`SetFreezePositionZ(true)`で奥行き方向に固定)、弾はKinematicのトリガー。3Dカメラは使わない(`CameraController`なし)。
-- **Sample3D**: Sample2Dと同じアリーナシューターを3D空間で遊べるようにしたもの。タイトル画面のボタン(Sample2Dと同じく、出る時に`TweenComponent`でぴょこっと大きくなる)をクリックすると、Sample2Dと同じく暗転してからゲーム開始(Sample3Dの`CreateButton()`は、位置と大きさをまとめて`Transform`で受け取る形になっている: `CreateButton(scene, 文字, transform, クリックされた時の処理)`)。Player(立方体)は三人称カメラ(`CameraController`。マウス移動で視点回転。カーソルは画面中心に固定され、ESCで解除・左クリックで再固定。TABで一人称に切り替え)と同じ向きを向き、WASDもカメラ基準(W=カメラの前、D=カメラの右)で移動する。左クリックでPlayerの向いている方向へ、地面と水平に弾(球)を発射。敵は2Dの画像(Worldモードの`SpriteRenderer`。Y軸だけカメラの方を向く立て看板)で、地面の上をPlayerに向かって歩いてくる(`ChaseComponent`を`SetPlane(MovePlane::XZ)`で使う。§13)。歩く間は、敵に付けた`SpriteAnimationComponent`がスプライトシートのコマ(4番と5番)を0.3秒ごとに切り替えて、歩きアニメーションにしている(始まるコマはランダムなので、何体いても足踏みがそろわない。§17)。スコア・ハイスコア(保存先のファイルはSample2Dと同じだが、キーは`"Sample3DHighScore"`で、記録はSample2Dとは別。§18)・HP・無敵時間・被弾時に画面の端が赤く点滅すること・ゲームオーバー(SPACEでタイトルへ。Sample3Dは、黒い帯が左から覆って右へ抜けていく`SpriteTransition(...).SetSwitchFrame(7)`。§16)・`EventBus`のイベント名はSample2Dと同じ。Player・敵はDynamicの`BoxRigidbodyComponent`(重力あり・回転なし。Y速度は`GetVelocity().y`を維持したまま`SetVelocity()`で動かす。敵は`ChaseComponent`がこれをしている)、弾はKinematicのトリガー(`SphereRigidbodyComponent`)。地面は、1000四方のタイルを3Dカメラの描画距離(farZ)の範囲だけ敷き詰めて描く`GroundController`(見た目)と、見えない大きなStaticの板(当たり判定)の組み合わせ。遠景はスカイボックス。
+- **Sample2D**: トップダウン視点のアリーナシューター。タイトル画面のSTARTボタン(出る時に`TweenComponent`でぴょこっと大きくなる)をクリックすると、画面が暗転してからゲーム開始(ゲーム画面に入ると明転する。`FadeTransition`。§16)(ボタンは`CreateButton(scene, 文字, 位置, クリックされた時の処理)`で作れる汎用部品で、動きはEngineの`ButtonComponent`。他の画面のボタンにも使い回せる。§20)。WASDで移動、Playerは常にマウスの方を向き、左クリックでその方向へ弾を発射。背景はタイル状に敷き詰めた床(`BackgroundController`)で、移動するとスクロールする(カメラはPlayerに付けた`CameraFollowComponent`が追いかける。§14)。敵(`EnemyManager`が一定間隔でPlayerの周囲にランダムスポーンさせる)がゆっくり追いかけてきて(`ChaseComponent`。§13)、弾を当てると倒せる(`EventBus`で`"EnemyDefeated"`イベントを発行しスコア加算。倒した位置に「+10」が出て、上に動きながら消える=`CreateScorePopup`。§19)。敵に触れるとHPが減り(1秒間の無敵時間つき)、敵から離れる向きに弾かれる(ノックバック。`AddForce`で衝撃を加え、0.2秒間は移動キーが効かない。§23)、画面が少し揺れて(`CameraShake`。§14)、画面の端が赤く点滅する(`ScreenEffect::Vignette`。§15)。HPが0になるとゲームオーバー画面が出てSPACEでタイトルに戻る(黒い丸が閉じて開く`SpriteTransition`。§16)。スコアがハイスコアを超えていたら、ゲームオーバーの時に保存され(`SaveData`。キーは`"Sample2DHighScore"`で、Sample3Dの記録とは別。§18)、画面左上のスコアの下に出る(次に起動しても残る)。タイトル画面の下にはBGMの音量スライダー(`CreateVolumeSlider`。つまみをドラッグして0〜1で変えられ、離すと保存されて次に起動した時も残る。§20)がある。画面左上のHPの文字の下にはHPゲージ(減った分が少し遅れて縮む)、Playerの頭上にも小さなHPバーが出る(`GaugeRenderer`。§20)。当たり判定・物理はPhysXを使い(Player=`CircleRigidbodyComponent`、敵=`SquareRigidbodyComponent`、弾=`CircleRigidbodyComponent`)、Player・敵はDynamic(`SetVelocity()`で速度を渡して動かす。重力なし・回転なし・`SetFreezePositionZ(true)`で奥行き方向に固定)、弾はKinematicのトリガー。3Dカメラは使わない(`CameraController`なし)。
+- **Sample3D**: Sample2Dと同じアリーナシューターを3D空間で遊べるようにしたもの。タイトル画面のボタン(Sample2Dと同じく、出る時に`TweenComponent`でぴょこっと大きくなる)をクリックすると、Sample2Dと同じく暗転してからゲーム開始(Sample3Dの`CreateButton()`は、位置と大きさをまとめて`Transform`で受け取る形になっている: `CreateButton(scene, 文字, transform, クリックされた時の処理)`)。Player(立方体)は三人称カメラ(`CameraController`。マウス移動で視点回転。カーソルは画面中心に固定され、ESCで解除・左クリックで再固定。TABで一人称に切り替え)と同じ向きを向き、WASDもカメラ基準(W=カメラの前、D=カメラの右)で移動する。左クリックでPlayerの向いている方向へ、地面と水平に弾(球)を発射。敵は2Dの画像(Worldモードの`SpriteRenderer`。Y軸だけカメラの方を向く立て看板)で、地面の上をPlayerに向かって歩いてくる(`ChaseComponent`を`SetPlane(MovePlane::XZ)`で使う。§13)。歩く間は、敵に付けた`SpriteAnimationComponent`がスプライトシートのコマ(4番と5番)を0.3秒ごとに切り替えて、歩きアニメーションにしている(始まるコマはランダムなので、何体いても足踏みがそろわない。§17)。スコア・ハイスコア(保存先のファイルはSample2Dと同じだが、キーは`"Sample3DHighScore"`で、記録はSample2Dとは別。§18)・HP・無敵時間・被弾時に画面の端が赤く点滅すること・ゲームオーバー(SPACEでタイトルへ。Sample3Dは、黒い帯が左から覆って右へ抜けていく`SpriteTransition(...).SetSwitchFrame(7)`。§16)・`EventBus`のイベント名はSample2Dと同じ。タイトル画面の下のBGMの音量スライダーと、画面左上のHPゲージ(Sample2Dと同じ)、三人称の間だけ出るPlayerの頭上のHPバー(`SetUse3DCamera(true)`の`GaugeRenderer`)もある(§20)。Player・敵はDynamicの`BoxRigidbodyComponent`(重力あり・回転なし。Y速度は`GetVelocity().y`を維持したまま`SetVelocity()`で動かす。敵は`ChaseComponent`がこれをしている)、弾はKinematicのトリガー(`SphereRigidbodyComponent`)。地面は、1000四方のタイルを3Dカメラの描画距離(farZ)の範囲だけ敷き詰めて描く`GroundController`(見た目)と、見えない大きなStaticの板(当たり判定)の組み合わせ。遠景はスカイボックス。
 
-**Sample3Dの実装メモ**: 向きはすべて`transform.rotate.y`(度)で表し、`rotate.y`の時の正面(ローカルの+Z)は`(sin, 0, cos)`の方向になる(`CameraController::GetYaw()`の式と同じ。`Math::Forward3D()`で求められる)。Worldモードの`SpriteRenderer`は`rotate.y`を使わない(ビルボードの向きとZ軸回転だけを使う)ので、敵の画像の向きは`SetBillboardLock(true, false, true)`でカメラの方へ向けている。Playerは`SetFreezeRotation(true)`で、`RigidbodyComponent`は位置しか同期しないため、`PlayerController`が`rotate.y`が変わった時に`GetActor()`の`setGlobalPose`で当たり判定の箱の回転も合わせている(デバッグ表示の枠と実際の判定が同じ向きになる)。一人称の間は、カメラが立方体の内側に入るのでPlayerの`MeshRenderer`を非表示にしている。
+**Sample3Dの実装メモ**: 向きはすべて`transform.rotate.y`(度)で表し、`rotate.y`の時の正面(ローカルの+Z)は`(sin, 0, cos)`の方向になる(`CameraController::GetYaw()`の式と同じ。`Math::Forward3D()`で求められる)。Worldモードの`SpriteRenderer`は`rotate.y`を使わない(ビルボードの向きとZ軸回転だけを使う)ので、敵の画像の向きは`SetBillboardLock(true, false, true)`でカメラの方へ向けている。Playerは`SetFreezeRotation(true)`で、`RigidbodyComponent`は位置しか同期しないため、`PlayerController`が`rotate.y`が変わった時に`GetActor()`の`setGlobalPose`で当たり判定の箱の回転も合わせている(デバッグ表示の枠と実際の判定が同じ向きになる)。一人称の間は、カメラが立方体の内側に入るのでPlayerの`MeshRenderer`と頭上のHPバー(`GaugeRenderer`)を非表示にしている。
 
 **Sample2Dの実装メモ**: `EnemyManager`/`BulletManager`はどちらも`ObjectPool`を使った使い回し方式(実例は`Engine/ObjectPool.h`)。プールで使い回すオブジェクトは`Scene::CreateObject("Pooled")`で名前だけ付けて作られるため、`GameObject::SetTag()`で組み立て時にタグ("Enemy"/"Bullet")を後付けしている。敵を倒す/Playerがダメージを受ける判定は、それぞれ`EnemyController::OnTriggerEnter2D`(相手のタグが"Bullet")と`PlayerController::OnCollisionStay2D`(相手のタグが"Enemy")が担当する。
 
@@ -1161,9 +1307,10 @@ Sample3D/Game/Scenes/      TitleScene, GameScene
 | `GameManager` | スコア(`"EnemyDefeated"`で加算)・ゲームオーバー判定(`"PlayerDied"`を受けて)・ハイスコアの更新と保存(ゲームオーバーの時。ハイスコアの値そのものは`SaveData`が持ち、`GetHighScore()`はそれを読むだけ。§18)・タイトルへの遷移。表示は一切しない |
 | `EnemyManager` | 敵のプールと出現タイマー。一定間隔でPlayerの周囲に敵を出し(追いかける動きは敵に付けた`ChaseComponent`に、相手と速さを渡す)、`"PlayerDied"`を受けたら出現を止める |
 | `BulletManager` | 弾のプール。`"FireBullet"`を受けて、撃った本人の向きへ弾を出す |
-| `HUDController` | 画面表示(Score/High Score/HP/GAME OVER)だけ。値は自分で持たず、`GameManager::GetScore()`/`GameManager::GetHighScore()`/`PlayerController::GetHp()`などで毎フレーム読む。文字は`Init()`で`Text::LoadFont`したNoto Sans JPで、左上の文字は左寄せ+黒い縁取り(`TextStyle`。§19) |
+| `HUDController` | 画面表示(Score/High Score/HP/GAME OVER)だけ。値は自分で持たず、`GameManager::GetScore()`/`GameManager::GetHighScore()`/`PlayerController::GetHp()`などで毎フレーム読む。文字は`Init()`で`Text::LoadFont`したNoto Sans JPで、左上の文字は左寄せ+黒い縁取り(`TextStyle`。§19)。位置は`GetAnchoredPosition`で画面の隅・中央から決める(§20)。HUDオブジェクトに付けた`GaugeRenderer`のHPゲージも、`SetValueSource`で`PlayerController`のHPを読んで描くだけ(§20) |
+| `TitleController` | タイトルの表示とBGMの再生。BGMの音量の持ち主(`GetVolume()`/`SetVolume()`。`SaveData`の`"MusicVolume"`に書く)。音量スライダー(`SliderComponent`)は、`CreateVolumeSlider`でここへつないで、動かしてもらうだけ(§20) |
 
-表示用に値のコピーを別に持つと、本物の値とズレる原因になるため、HUDは読むだけにしている。新しいUI要素を足す時は`HUDController::Draw()`に追加し、表示したい値は持ち主側にゲッターを生やす形にすること。
+表示用に値のコピーを別に持つと、本物の値とズレる原因になるため、HUDは読むだけにしている(HPゲージも`SetValueSource`で読むだけ)。新しいUI要素を足す時は`HUDController::Draw()`(ゲージなら`GaugeRenderer`。§20)に追加し、表示したい値は持ち主側にゲッターを生やす形にすること。
 
 GameManager/HUD/EnemyManager/BulletManagerのような「見た目の無い管理役」も、Player/Enemyと同じく`Game/Objects/`の工場関数(`CreateGameSystem()`/`CreateHUD()`/`CreateEnemySpawner()`/`CreateBulletSpawner()`)で、それぞれ専用のGameObjectにアタッチして組み立てている(Unityで空のGameObjectにスクリプトを付けるのと同じ)。依存する相手(GameManagerやPlayerControllerのポインタ)は工場関数の引数で受け取るので、`GameScene::Init()`を見れば「誰が誰に依存しているか」が一目で分かる。なお、Component名とファイル名がぶつからないよう、工場関数側は別名にしてある(`GameManager` ↔ `Objects/GameSystem`、`EnemyManager` ↔ `Objects/EnemySpawner`、`BulletManager` ↔ `Objects/BulletSpawner`。TitleController ↔ `Objects/Title.cpp`と同じ関係)。
 
@@ -1182,9 +1329,12 @@ GameManager/HUD/EnemyManager/BulletManagerのような「見た目の無い管�
 | 敵を倒した位置に「+10」を出す(Sample2D) | `EnemyController::OnTriggerEnter2D()`から`CreateScorePopup()`を呼ぶ(動き・消え方は`Objects/ScorePopup.cpp`で付けた`TweenComponent`。§19) |
 | 敵がPlayerを追いかける | 敵に付けた`ChaseComponent`(Engine。§13)。相手と速さは`EnemyManager::Spawn()`が渡す |
 | 敵の歩きアニメーション(Sample3D) | 敵に付けた`SpriteAnimationComponent`(Engine。§17)。クリップの登録と再生は`EnemyManager`の`SetupEnemy` |
-| 敵に当たったら弾かれる(Sample2D) | `PlayerController::OnCollisionStay2D()`(`AddForce`。§22) |
+| 敵に当たったら弾かれる(Sample2D) | `PlayerController::OnCollisionStay2D()`(`AddForce`。§23) |
 | 敵に当たったら画面が揺れる(Sample2D) | `PlayerController::OnCollisionStay2D()`(`CameraShake::Shake`。§14) |
 | 敵に当たったら画面の端が赤く点滅する | `PlayerController::OnCollisionStay2D()`(`ScreenEffect::Vignette`。§15) |
+| タイトルのBGM音量スライダー | `Objects/VolumeSlider.cpp`(`SliderComponent`を付け、動かしたら`TitleController::SetVolume()`、離したら`SaveData::Save()`。§20) |
+| 画面左上のHPゲージ | `Objects/HUD.cpp`(`GaugeRenderer`を付け、`SetValueSource`で`PlayerController`のHPを読む。§20) |
+| Playerの頭上のHPバー | `Objects/Player.cpp`(`GaugeRenderer`の`SetFollowTarget`。Sample3Dは`SetUse3DCamera(true)`も。一人称の間は`PlayerController`が隠す。§20) |
 | カメラがPlayerを追いかける(Sample2D) | `Objects/Player.cpp`で付けた`CameraFollowComponent`(Engine。§14) |
 | コライダー枠の表示ON | `GameManager::Init()` |
 | ゲームオーバーの時にハイスコアを保存する | `GameManager::Init()`の`"PlayerDied"`を受けた所(`SaveData::SetInt` + `Save`。§18) |
@@ -1195,7 +1345,7 @@ Sceneに残してよいのは、オブジェクトの配置と、シーン全体
 
 ---
 
-## 22. PhysX(3D物理演算)
+## 23. PhysX(3D物理演算)
 
 3D用の物理エンジンとして[NVIDIA PhysX 4.1](https://github.com/NVIDIA-Omniverse/PhysX)を導入しています。ビルド済みのライブラリ一式(ヘッダー・dll・lib)を`ThirdParty/PhysX/`にコミット済みなので、**チームメンバーは自分でビルドし直す必要はありません**(`git clone`してそのままビルドできます)。
 
