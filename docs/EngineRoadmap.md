@@ -6,7 +6,7 @@
 Engine(`3D_FreamWork/Engine/`)に今後追加したい17個の機能について、「どんな関数を作るか」「どの順番で作るか」「Sampleではどう使えるか(使用例)」をまとめた設計書です。チーム(C++初心者を含む)で分担して実装する時の資料として使います。
 
 ### 状態
-**ここに書いてある内容は「設計案」です。実装済みのものは、4章の表の状態が「完了」になっています(今は計算系、時間とタイマー、リソースの使い回し、イージング、移動系、物理の問い合わせと力、カメラ機能、画面エフェクト、2Dアニメーション、シーン切り替え)。**
+**ここに書いてある内容は「設計案」です。実装済みのものは、4章の表の状態が「完了」になっています(今は計算系、時間とタイマー、リソースの使い回し、イージング、移動系、物理の問い合わせと力、カメラ機能、画面エフェクト、2Dアニメーション、シーン切り替え。9番のうちセーブ/ロードとテキストも実装済み)。**
 関数名・引数は実装しながら変わってよいものです。実際に作る時は、この文書を出発点にして、下の「共通ルール」どおりに1機能ずつ、着手する時に説明してから進めてください(了承は待ちません)。実装したら、この文書の「作る順番」の表の状態を更新してください。
 
 ---
@@ -74,9 +74,9 @@ Engineを変えると Sample2D と Sample3D の**両方**に影響します(`CLA
 ### コードを読んで追加で分かったこと
 - **UIモードの `SpriteRenderer` も2Dカメラと一緒にスクロールする**。`Sprite.cpp` はUIモードでも `Image::GetCamera()` の位置を引いて描画しています(Sample2Dの敵がスクロールするのはこのため)。画面に固定したいHPバーなどには、カメラの影響を受けない描き方(→ 5.10 の `Image::DrawRect`)が要ります。
 - **画面の座標のY方向が関数によって逆**。`Text::Draw` は「画面中央が(0,0)、Y+=上」、`Input::GetMousePosition` は「画面中央が(0,0)、Y+=下」です。この文書の新しい関数は「画面中央が(0,0)、Y+=上」(`Text::Draw` と同じ)にそろえます。
-- **`Text::Draw` は指定した座標に文字の「中心」を合わせる**。左寄せにはできません(→ 5.11)。
+- **`Text::Draw` は指定した座標に文字の「中心」を合わせる**。左寄せにはできません(→ 5.11 で解決済み: `TextStyle::align` で左寄せ・右寄せにできる。既定は今まで通り中心)。
 - **文字はいつもゲーム画面の一番上に出る**。`GameEngine::Run` は `Text::BeginDraw` 〜 `Text::EndDraw` の間でシーンを描画していて、Direct2Dの文字は `EndDraw` の時にまとめて描かれます。画面エフェクト(5.8)で暗転しても、今のままでは文字だけ見えたままになります。(→ 5.8 で解決済み: 画面エフェクトは文字も含めて一番上に描く)
-- **`Text::Draw` は呼ばれる度にフォントの設定(`IDWriteTextFormat`)を作り直している**(重い)。なお、`IDWriteTextLayout` を `Release` していなかったメモリリークは修正済み。
+- **`Text::Draw` は呼ばれる度にフォントの設定(`IDWriteTextFormat`)を作り直している**(重い)(→ 5.11 で解決済み: フォント名・大きさ・太字ごとに取っておいて使い回す。ブラシも使い回す)。なお、`IDWriteTextLayout` を `Release` していなかったメモリリークは修正済み。
 - **`ButtonController` は Sample2D と Sample3D に、まったく同じ内容でコピーされている**。
 - **`Physics::Update` は `dt <= 0` の時は何もしない**。時間の倍率を0(ポーズ)にしてもPhysXは安全に止まります(→ 5.2)。
 
@@ -94,7 +94,7 @@ Engineを変えると Sample2D と Sample3D の**両方**に影響します(`CLA
 | 6 | [カメラ機能](#57-カメラ機能) | イージング・計算系を使う | | 完了 |
 | 7 | [画面エフェクト](#58-画面エフェクト) | 時間(Unscaled)・イージングを使う | | 完了 |
 | 8 | [2Dアニメーション](#59-2dアニメーション) | 3(コマ番号をSpriteRendererへ移す)が前提 | | 完了 |
-| 9 | [UI](#510-ui) ・ [テキスト](#511-テキスト) + [セーブ/ロード](#512-セーブロード) | スライダーの値(音量など)を保存するため、セーブ/ロードも一緒に作る | | 未着手 |
+| 9 | [UI](#510-ui) ・ [テキスト](#511-テキスト) + [セーブ/ロード](#512-セーブロード) | スライダーの値(音量など)を保存するため、セーブ/ロードも一緒に作る | | 作業中(セーブ/ロード・テキストは完了) |
 | 10 | [音(立体音響・グループ音量)](#513-音の発生源と聞く位置立体音響) | 3(`Resources` の仕組み。音のデータ共有 `LoadSound` はここで足す)・9(音量スライダー・保存)を使う | | 未着手 |
 | 11 | [CSV](#514-csv) | ほかに依存しないので、いつでも並行して作れる | | 未着手 |
 | 12 | [パーティクル](#515-パーティクル) | 時間・計算系・リソースを使う | | 未着手 |
@@ -480,7 +480,7 @@ chase->SetSpeed(60.f);
 
 ### 5.6 物理の問い合わせと力
 
-> **実装済み**: `Engine/Physics.h/.cpp`(`struct RaycastHit`、`enum class ForceMode`、`Physics::Raycast` / `OverlapSphere` / `OverlapBox`)と `Engine/RigidbodyComponent.h/.cpp`(`AddForce` / `AddTorque` / `SetMass` / `SetDrag`)。下の「対象」のSampleのコード(Sample2Dの被弾時のノックバック)も置き換え済み。使い方は `README.md` の「20. PhysX」の「物理の問い合わせと力」を参照。
+> **実装済み**: `Engine/Physics.h/.cpp`(`struct RaycastHit`、`enum class ForceMode`、`Physics::Raycast` / `OverlapSphere` / `OverlapBox`)と `Engine/RigidbodyComponent.h/.cpp`(`AddForce` / `AddTorque` / `SetMass` / `SetDrag`)。下の「対象」のSampleのコード(Sample2Dの被弾時のノックバック)も置き換え済み。使い方は `README.md` の「22. PhysX」の「物理の問い合わせと力」を参照。
 > 決まったこと(下の「未決定」):
 > - **トリガーを含めるか**: 既定では含めない(視線の判定が飛んでいる弾などにさえぎられないように)。含めたい時用の引数 `QueryTriggers triggers = QueryTriggers::Ignore` を、`Raycast` / `OverlapSphere` / `OverlapBox` の最後に足した。アイテムやゴールのようなトリガーそのものを探す時は `QueryTriggers::Include`(例: `Physics::OverlapSphere(pos, 200.f, "Item", QueryTriggers::Include)`)。タグを指定してもトリガーは無視のまま
 >
@@ -574,7 +574,7 @@ rigidbody->AddForce(away * 500.f, ForceMode::Impulse);
 > - Sample2D `Player.cpp`: Componentの順番を「`SpriteRenderer` → `CircleRigidbodyComponent` → `CameraFollowComponent` → `PlayerController`」にした(物理の結果が反映された位置へカメラを動かしてから、そのカメラでマウスのワールド座標を出す。置き換え前は `PlayerController` が先で、カメラが1フレーム古いPlayerの位置を追っていた)。SmoothTimeは0(置き換え前と同じピッタリ)
 > - Sample2D の被弾時の揺れは `CameraShake::Shake(6, 0.2)`(`PlayerController.h` の `damageShakeStrength` / `damageShakeDuration`)
 > - 両サンプルの `ButtonController::Draw` の文字の位置を `Image::WorldToScreen2D` に置き換えた(作った関数を使う所を作るため。ボタンはZ=0なので結果は同じ)
-> - `WorldToScreen3D` / `ScreenPointToRay3D` は、今はSampleで使っていない(5.10 `GaugeRenderer`・5.11 `TextRenderer` で使う予定)。5.10・5.11 の「`WorldToScreen`」は、2Dなら `WorldToScreen2D`、3Dなら `WorldToScreen3D` のこと
+> - `WorldToScreen3D` / `ScreenPointToRay3D` は、今はSampleで使っていない(5.10 `GaugeRenderer` で使う予定。`WorldToScreen3D` は 5.11 の `TextRenderer::SetUse3DCamera(true)` の中で使うようになったが、Sample3Dではまだ `TextRenderer` を使っていない)。5.10・5.11 の「`WorldToScreen`」は、2Dなら `WorldToScreen2D`、3Dなら `WorldToScreen3D` のこと
 > - Sample3D の `CameraController`(3Dのカメラ操作)は変えていない
 > - 仕上げで足した所: `CameraShake::Stop()`(揺れをすぐ止める)。揺れの強さ・時間だけを0にし、`applied` と覚えた値は触らないので、`BeginDraw`〜`EndDraw` の間に呼ばれても `EndDraw` でカメラが元に戻る。**シーンを切り替えると揺れは止まる**(`SceneManager::Update` が、古いシーンの `Uninit` の後・新しいシーンを作って `Init` する前に `CameraShake::Stop()` を呼ぶ。新しいシーンの `Init` で始めた `Shake` は消えない)
 
@@ -827,6 +827,21 @@ gauge->SetFollowTarget(player, { 0.f, 70.f });
 
 ### 5.11 テキスト
 
+> **実装済み**: `Engine/Text.h/.cpp`(`enum class TextAlign`、`struct TextStyle`、`Text::LoadFont` / `Draw(text, x, y, style)` / `Measure`)と `Engine/TextRenderer.h/.cpp`(新規)。フォントは `Assets/Fonts/NotoSansJP[wght].ttf`(Noto Sans JP、Google Fonts から。太さを変えられる1ファイル)と、そのライセンス `Assets/Fonts/OFL.txt`(SIL Open Font License)。下の「対象」のSampleのコードのうち、両サンプルの `HUDController` と `TitleController` を置き換え済み(`ButtonController` の文字は 5.10 で `ButtonComponent` に移す時に置き換える)。`TextRenderer` の使用例として、Sample2Dに `Objects/ScorePopup.h/.cpp`(敵を倒した位置に「+10」)を足した。使い方は `README.md` の「19. テキスト」を参照。
+>
+> 決めた所:
+> - **寄せ方**: `Left` は x が文字の左端、`Center` は中心、`Right` は右端(どれも `Measure` の幅=DirectWriteのレイアウトの幅が基準。字の形の左右の少しの余白も含む)。縦はいつも中心(今まで通り)。`Measure` の幅と高さは寄せ方では変わらず、縁取りの分は入らない
+> - **縁取り**: 8方向(上下左右と斜め)に `outlineWidth` ずらして縁の色で描いてから本体を描く。斜めは `outlineWidth/√2` ずつずらして、どの方向も同じ距離にする。縁の濃さには本体の濃さ(`color.w`)も掛ける。本体が半透明(`color.w < 1`)で縁取りがある時は、Direct2Dのレイヤー(`PushLayer` の不透明度)に濃いまま描いてから層ごと薄くする(そのまま薄く描くと、本体の下の縁取りが透けて黒っぽくなるため)
+> - **TextStyleに足した項目**: `outlineWidth`(縁取りの太さ、既定2px)。`fontName` が空(`LoadFont` に失敗した時など)なら Arial(既定のフォント)
+> - **使い回し**: `IDWriteTextFormat` は「フォント名・大きさ・太字」ごとに作って `std::map` に取っておく。**64種類を超えたら全部解放して作り直す**(大きさを毎フレーム変えるアニメーションでも増え続けないように)。ブラシ(`ID2D1SolidColorBrush`、色は `SetColor`)とレイヤーは1つずつ作って使い回す。`IDWriteTextLayout` は文字が毎回違うので `Draw` / `Measure` の度に作って解放する(1回の `Draw` の縁取り9回分は同じものを使う)。`Text::Uninit` で全部解放する
+> - **LoadFont の仕組み**: パスを `GetFullPathNameW` で絶対パスにして、大文字小文字を区別せずに比べ、同じファイルは2回読まない(読めなかったファイルも覚えておき、2回目からはすぐ空を返す=出力ウィンドウに知らせるのは1回だけ)。`IDWriteFactory` を `QueryInterface` して `IDWriteFactory5` を取り(取れない古いWindowsは失敗)、ファイル1つずつ `IDWriteFontSetBuilder1::AddFontFile` → `CreateFontSet` でフォントの集まりを作る。ファミリー名は、そのファイルだけで作った一覧の最初のファミリーの英語名(無ければ最初の名前)。読めたら、今まで読めた全部の集まりを1つのビルダーに `AddFontSet` して `CreateFontCollectionFromFontSet` で一覧を作り直す(同じファミリーの別の太さのファイルを足すと、1つのファミリーにまとまる)。作り直したら、前の一覧で作ったフォント設定は捨てる
+> - **フォントの探し方**: `fontName` が読み込んだフォントの一覧にあれば(`FindFamilyName`)その一覧を、無ければ `nullptr`(PCにインストール済みのフォント)を `CreateTextFormat` に渡す
+> - **TextRenderer**: `SetText` / `SetStyle` / `SetOffset` / `SetUse3DCamera` に加えて、`GetText` / `GetStyle` / `SetColor`(色だけ変える。消えていく演出用)を足した。2Dは `GetWorldTransform().position`(SpriteRendererと同じ)+offset を `WorldToScreen2D`、3Dは `GetWorldMatrix()` の位置+offset を `WorldToScreen3D` で画面座標にし、z<=0(カメラの後ろ)なら描かない。文字の大きさは距離で変えない
+> - **今までの `Text::Draw(text, x, y, size, color, fontName)`**: 中で `TextStyle`(中心・縁取り無し・太字無し)に直して新しい `Draw` を呼ぶ。描き方(レイアウトの原点、`ja-jp`、普通の太さ)は今までと同じなので見た目も同じ(スクラッチのテストで、置き換え前の `Text::Draw` の処理と、今の書き方で描いた画面を比べ、ピクセルが1つも違わないことを確認。HUD・タイトル・半透明の文字など)
+> - Sample: 両サンプルの `HUDController` に `Init()` を足して `LoadFont`(返った名前をメンバ `fontName` に)。Score / High Score / HP は左寄せ+黒い縁取り(x=-560 などの値はそのまま。5.10 の `Anchor` で置き換える)。GAME OVER と「press SPACE ...」も同じフォント・黒い縁取り(中央寄せ)。`TitleController` も `Init()` で `LoadFont` して、タイトル文字をNoto Sans JPで描く(大きさ100、縁取り無し)
+> - Sample2D: `CreateScorePopup(Scene&, XMFLOAT3 position)` は、`TextRenderer`(「+10」、黄色・太字・黒い縁取り、大きさ32)と `TweenComponent`(`MoveTo` で0.8秒かけて60上へ、`TweenValue` で文字の濃さを1→0、その `SetOnComplete` で `Destroy`)を付けたオブジェクトを作る。`EnemyController::OnTriggerEnter2D` で、プールに返す前に今の位置で呼ぶ
+> - **設計から変えた所**: なし(関数は設計どおり。足した物は上の `outlineWidth` と TextRenderer のゲッター・`SetColor`)
+
 **目的**: 文字の左寄せ・縁取り・自前のフォントを使えるようにする。オブジェクトに付いて動く文字(ダメージの数字など)を出せるようにする。
 
 **ファイル案**: 既存の `Engine/Text.h/.cpp` に追加、`Engine/TextRenderer.h/.cpp`
@@ -883,6 +898,26 @@ Text::Draw(buf, pos.x, pos.y, style);
 
 ### 5.12 セーブ/ロード
 
+> **実装済み**: `Engine/SaveData.h/.cpp`(`namespace SaveData`)。`Engine/GameEngine.cpp` の `Init` で `SaveData::Init()`(= `Load(0)`)、`Uninit` で `SaveData::Uninit()`(書き換えていれば `Save`)を呼ぶ。下の「対象」のSampleのコード(両サンプルの `GameManager` と `HUDController`)も置き換え済み。使い方は `README.md` の「18. セーブ/ロード(SaveData)」を参照。
+>
+> 決めた所(設計の「未決定」):
+> - **起動時(`GameEngine::Init` の最初)に自動で `Load(0)`、終了時(`GameEngine::Uninit`。`SceneManager::Uninit` の後)に自動で `Save`** する。ゲーム側が `Save` を呼び忘れても消えない。ゲーム側から `Save` を呼ぶのも自由(ハイスコア更新時など)
+>
+> 細かい決まり:
+> - **型**: 値は型を覚えずにUTF-8の文字で持ち、`Get` の時に変換する。同じキーに別の型で書いたら、後に書いた方で上書き。`GetInt` は全体が整数として読めてintに入る時だけ値を返し、`"1.5"`・`"abc"`・大きすぎる数は `defaultValue`(切り捨てない)。`GetFloat` は数として読めて有限の時だけ(`"100"` は読める)。`GetString` はどの型で書いた値も文字のまま返す。読めない値は出力ウィンドウにキーごとに1回知らせる(Setし直したら、また知らせる)。数の前後の空白は無視する
+> - `SetFloat` の無限大・NaNは書かない(知らせる)。小数は、読み直すと同じ値に戻る一番短い書き方にする(`0.1f` は `0.1`)。小数点がPCの地域設定で `,` にならないように、"C" のロケールで読み書きする
+> - **キー**: 英字・数字・`_` だけ(空は不可)。使えないキーは Set しても保存せず、Get はいつも `defaultValue`、`HasKey` はfalse(キーごとに1回知らせる)。キーに `=` や改行が入らないので、ファイルは「最初の `=`」で分けられる
+> - **ファイルの形式**: UTF-8 **BOM付き**で書く(読む時はBOMの有無どちらでもよい)。改行はCRLFで書く(LFだけでも読める)。1行に「キー=値」、キーの順(`std::map`)。キーの前後の空白は読む時に無視、値は「最初の `=` の後ろから行の終わりまで」をそのまま(値の中の `=`・先頭/末尾の空白も残る)
+> - **エスケープ**: 値の中の `\` → `\\`、改行 → `\n`、CR → `\r`。決まっていない `\○` はそのまま残す(手で書いた `C:\Users` が壊れないように)
+> - 空の行・`#` で始まる行は飛ばす(`#` は手書きのメモ用。`Save` し直すと消える)。`=` が無い・キーに使えない文字がある・UTF-8として読めない行は、壊れた行として飛ばし、出力ウィンドウに行番号を出す。同じキーが2回あったら後の行
+> - **保存**: `%LOCALAPPDATA%\3D_FreamWork\`(`SHGetKnownFolderPath(FOLDERID_LocalAppData)`。フォルダが無ければ作る)に、`save{slot}.txt.tmp` を書いて `FlushFileBuffers` してから、`MoveFileExW(MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH)` で本物と差し替える。失敗したら一時ファイルを消してfalse(本物はそのまま。出力ウィンドウにエラー番号を出す)。書く中身が16MB(Loadの上限)より大きい時は、書かずにfalse(次の起動で読めないファイルを作らないため)。前の保存で落ちて残った `.tmp` は、次の保存で上書きされる
+> - **Load の戻り値**: ファイルが無い(初めての起動)のは正常で、空の状態にして **true**。ファイルはあるのに読めない(ほかのアプリが開いている・16MBより大きい)時は **false** で、今の値はそのまま残す。壊れた行があっても、残りを読んで true。成功した時は、今の値をすべて捨ててファイルの中身に置き換える
+> - スロットは0以上(負ならfalse)
+> - **書き換えた時だけ自動保存する**: `Set○○` で前と同じ値を書いた時・無いキーを `DeleteKey` した時は、書き換えたことにしない。`Load` / `Save` に成功したら「書き換えていない」に戻る。明示的に呼んだ `Save` は、書き換えていなくても必ず書く(`Load` がfalseだった後に呼ぶと、読めなかったファイルを今の値で上書きする。SaveData.h とREADMEに注意を書いた)
+> - **設計から変えた所(ユーザーが了承済みで、決定)**: 終了時の自動保存の先は、`Save(0)` 固定ではなく「**最後に `Load` / `Save` に成功したスロット**」(普段は0)。`Load(1)` で切り替えた後に、スロット1の中身をスロット0へ書いてしまわないように。**`Load` / `Save` に1回も成功していない時(起動時の `Load(0)` がfalseだった時)は、終了時の自動保存はしない**(読めなかった本物の save0.txt を、数キーだけの中身で上書きして他のキーを消さないように。出力ウィンドウに知らせる)
+> - 設計に足した関数: Engine内部用の `SaveData::Init()` / `SaveData::Uninit()`(GameEngineだけが呼ぶ)
+> - Sample: `GameManager` に `GetHighScore()`(中身は `SaveData::GetInt(highScoreKey)`。キーの文字は `GameManager.cpp` の `highScoreKey` の1か所だけ)を足し、`"PlayerDied"` を受けた時にスコアがハイスコアより大きければ `SetInt` + `Save`。`HUDController` は `GameManager::GetHighScore()` を読んで、スコアの下に `High Score: ○○` を出す(HPの行を下にずらした)。Sample2DとSample3Dは同じ `save0.txt` を使うが、**ハイスコアはサンプルごとに別のキー**(`"Sample2DHighScore"` / `"Sample3DHighScore"`)にして、別々に記録する
+
 **目的**: ハイスコア・音量などを保存して、次に起動した時も残るようにする。
 
 **ファイル案**: `Engine/SaveData.h/.cpp`(`namespace SaveData`)
@@ -910,7 +945,7 @@ namespace SaveData {
 - 形式は `HighScore=1200` のような、人が読める文字にします(UTF-8)。デバッグ中にメモ帳で開いて中身を確認・書き換えできます。
 - 保存する時は、いったん一時ファイルに書いてから本物と差し替えます。保存中にゲームが落ちても、前のセーブデータが壊れません。
 - キーの名前は、EventBusのイベント名と同じくPascalCaseの英語にします(`"HighScore"`, `"MusicVolume"`)。
-- 終了時(`GameEngine::Uninit`)に自動で `Save` するかは未決定。
+- 終了時(`GameEngine::Uninit`)に自動で `Save` するかは未決定。(→ 自動で保存すると決めた。上の「実装済み」を参照)
 
 **置き換えるSampleのコード(使用例)**:
 ```cpp

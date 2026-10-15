@@ -3,7 +3,12 @@
 #include "../../../Engine/Input.h"
 #include "../../../Engine/SceneManager.h"
 #include "../../../Engine/RigidbodyComponent.h"
+#include "../../../Engine/SaveData.h"
 #include "../Scenes/TitleScene.h"
+
+namespace {
+    constexpr const char* highScoreKey = "Sample3DHighScore";   // セーブデータのキー(Sample2Dと同じsave0.txtに書くので、サンプルごとに別の名前にする)
+}
 
 void GameManager::Init() {
     // Colliderの枠を表示する(デバッグ用。不要ならfalseに)
@@ -16,10 +21,18 @@ void GameManager::Init() {
         score += 10;
     });
 
-    // Playerが倒れたらゲームオーバー
+    // Playerが倒れたらゲームオーバー。ハイスコアを超えていたら保存する
     EventBus::Get().Subscribe("PlayerDied", [this]() {
         gameOver = true;
+        if (score > GetHighScore()) {
+            SaveData::SetInt(highScoreKey, score);
+            SaveData::Save();
+        }
     });
+}
+
+int GameManager::GetHighScore() const {
+    return SaveData::GetInt(highScoreKey);
 }
 
 void GameManager::Update(float dt) {

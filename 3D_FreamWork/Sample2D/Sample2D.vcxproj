@@ -94,6 +94,7 @@
     <ClCompile Include="Game\Objects\GameSystem.cpp" />
     <ClCompile Include="Game\Objects\HUD.cpp" />
     <ClCompile Include="Game\Objects\Player.cpp" />
+    <ClCompile Include="Game\Objects\ScorePopup.cpp" />
     <ClCompile Include="Game\Objects\Title.cpp" />
     <ClCompile Include="Game\Scenes\GameScene.cpp" />
     <ClCompile Include="Game\Scenes\TitleScene.cpp" />
@@ -117,6 +118,7 @@
     <ClInclude Include="Game\Objects\GameSystem.h" />
     <ClInclude Include="Game\Objects\HUD.h" />
     <ClInclude Include="Game\Objects\Player.h" />
+    <ClInclude Include="Game\Objects\ScorePopup.h" />
     <ClInclude Include="Game\Objects\Title.h" />
     <ClInclude Include="Game\Scenes\GameScene.h" />
     <ClInclude Include="Game\Scenes\TitleScene.h" />

@@ -1,7 +1,7 @@
 ﻿#pragma once
 #include "../../../Engine/Component.h"
 
-// スコアとゲームオーバーを管理する(敵の出現はEnemyManager、弾の発射はBulletManagerの担当)
+// スコア・ハイスコアの更新・ゲームオーバーを管理する(敵の出現はEnemyManager、弾の発射はBulletManagerの担当)
 class GameManager : public Component {
 private:
     int score = 0;            // スコア
@@ -13,5 +13,6 @@ public:
 
     // HUDなどが表示に使う
     int GetScore() const { return score; }
+    int GetHighScore() const;   // ハイスコア(値はSaveDataが持つ。ここは読むだけ)
     bool IsGameOver() const { return gameOver; }
 };

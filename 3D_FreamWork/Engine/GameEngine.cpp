@@ -11,9 +11,11 @@
 #include "CameraShake.h"
 #include "ScreenEffect.h"
 #include "SpriteTransition.h"
+#include "SaveData.h"
 
 bool GameEngine::Init(HWND hwnd, int w, int h)
 {
+    SaveData::Init();   // セーブデータを読み込む(ほかの初期化に失敗しても読み込んでおく。読めなくてもゲームは始める)
     if (!Image::Init(hwnd, w, h)) return false;
     if (!Audio::Init())           return false;
     if (!Text::Init())            return false;
@@ -61,6 +63,7 @@ void GameEngine::Run()
 void GameEngine::Uninit()
 {
     SceneManager::Get().Uninit();   // 切り替えの演出の途中なら、演出(ブラシ)もここで片付く
+    SaveData::Uninit();             // 書き換えていれば保存する(シーンのUninitで書いた値も残るように、SceneManagerの後)
     SpriteTransition::UnloadAll();  // Text::Uninitより先に(切り替えの演出の画像はTextの描画先から作っているため)
     Resources::UnloadAll();  // Image::Uninitより先に(画像の解放にImageを使うため)
     Physics::Uninit();

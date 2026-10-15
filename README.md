@@ -16,7 +16,7 @@ DirectX11製の、Unity風のコンポーネント指向ゲームフレームワ
 3D_FreamWork\
 ├── 3D_FreamWork.sln
 ├── PhysX.props        共有MSBuildプロパティシート(PhysXのinclude/lib設定を1箇所にまとめたもの)
-├── Assets\             全プロジェクト共有の画像・音声・モデル
+├── Assets\             全プロジェクト共有の画像・音声・モデル・フォント(Fonts\。§19)
 ├── Shader.hlsl / Shader3D.hlsl   全プロジェクト共有のシェーダー
 ├── Engine\             フレームワーク本体(静的ライブラリ、Engine.vcxproj)
 ├── Sample2D\           2Dのサンプルゲーム(実行ファイル、Sample2D.vcxproj)
@@ -257,7 +257,7 @@ player->AddComponent<CameraController>();
 
 ## 6. Collider(当たり判定)
 
-**当たり判定は、2D/3D問わず全てPhysX(`RigidbodyComponent`、§20参照)で計算しています。**2Dのゲームでは、2D向けに使いやすくした`SquareRigidbodyComponent`/`CircleRigidbodyComponent`を使い、`SetFreezePositionZ(true)`で奥行き方向に動かないようにします(Sample2Dが実例)。
+**当たり判定は、2D/3D問わず全てPhysX(`RigidbodyComponent`、§22参照)で計算しています。**2Dのゲームでは、2D向けに使いやすくした`SquareRigidbodyComponent`/`CircleRigidbodyComponent`を使い、`SetFreezePositionZ(true)`で奥行き方向に動かないようにします(Sample2Dが実例)。
 
 ```cpp
 // Playerの例(すり抜けない円形・半径50。Dynamic+速度指定で動かし、衝突応答はPhysXに任せる)
@@ -325,7 +325,7 @@ RigidbodyComponent::SetDebugDrawEnabled(true);
 | `SquareRigidbodyComponent` | Z軸方向で切った断面の四角 |
 | `CircleRigidbodyComponent` | Z軸方向で切った断面の丸 |
 
-2D向けのSquare/Circleは、PhysX上は奥行きのある立方体/球ですが(§20)、2Dゲームでは奥行き方向に動かないので、平面で見た時の形(断面)だけを表示しています。
+2D向けのSquare/Circleは、PhysX上は奥行きのある立方体/球ですが(§22)、2Dゲームでは奥行き方向に動かないので、平面で見た時の形(断面)だけを表示しています。
 
 **内部実装メモ**: `RigidbodyComponent::Draw()`が、`PxShape`から実際のジオメトリ(`PxBoxGeometry`/`PxSphereGeometry`)を取得し、Ownerの`Transform`の`scale`だけを一時的に差し替えて描画しています(位置・回転は普段どおりOwnerのTransformをそのまま使う)。枠は三角形ではなく線(`D3D11_PRIMITIVE_TOPOLOGY_LINELIST`)で描いていて、形ごとの輪郭データは`Mesh::CreateCubeOutline()`などで作り、全`RigidbodyComponent`で1つずつ共有しています。
 
@@ -669,7 +669,7 @@ chase->SetPlane(MovePlane::XZ);    // 3Dの地面の上を動く時(2Dなら不�
 - `ObjectPool` で使い回された時(`SetActive(true)`)は、速度・進行方向などの状態をリセットします。相手・速さなどの設定は残るので、出す度に `SetTarget` などで入れ直してください(Sampleの `EnemyManager::Spawn` が実例)。
 - Dynamicの剛体と一緒に使う時は、`RigidbodyComponent` の**後に** `AddComponent` してください(Componentは追加順に `Update` されるので、PhysXの結果が反映された位置で計算できる)。
 - `HomingComponent` の進行方向は `rotate` と同じ向きです(XYは `rotate.z` = `Math::Forward2D`、XZは `rotate.y` = `Math::Forward3D`)。最初の進行方向は、出した時の `rotate` の向きです(出す時に向きを決めておけば、その向きへ飛び出してから曲がっていく)。`SetFaceMovement(true)` をDynamicの剛体で使う時は、`SetFreezeRotation(true)` にしておきます(PhysXの回転で上書きされないように)。
-- `AccelerateChaseComponent` は、Dynamicなら `AddForce(..., ForceMode::Acceleration)`(§20)で加速します(ぶつかって跳ね返った勢いも残る)。1フレーム分の加速だけ、最高速度を少し超えることがあります。
+- `AccelerateChaseComponent` は、Dynamicなら `AddForce(..., ForceMode::Acceleration)`(§22)で加速します(ぶつかって跳ね返った勢いも残る)。1フレーム分の加速だけ、最高速度を少し超えることがあります。
 
 **実例**: 両サンプルの `EnemyManager` が、敵に `ChaseComponent` を付けて(`SetupEnemy`)、出す時に追いかける相手(Player)と速さを渡しています(`Spawn`)。Sample3Dは `SetPlane(MovePlane::XZ)` で、地面の上を重力で落ちながら追いかけます。
 
@@ -939,7 +939,155 @@ if (anim->GetCurrentClip() == "Attack" && anim->IsFinished()) anim->Play("Idle")
 
 ---
 
-## 18. 開発時の注意点
+## 18. セーブ/ロード(SaveData)
+
+ハイスコア・音量などを保存して、次に起動した時も残るようにする仕組みです。使い方はUnityの `PlayerPrefs` と同じで、`Set○○` / `Get○○` で読み書きして、`Save` でファイルに書きます。
+
+```cpp
+#include "../../../Engine/SaveData.h"
+
+// 書く・読む
+SaveData::SetInt("HighScore", 1200);
+int highScore = SaveData::GetInt("HighScore");          // 無ければ0
+float volume  = SaveData::GetFloat("MusicVolume", 0.8f); // 無ければ0.8
+SaveData::SetString("PlayerName", L"ゆうしゃ");
+
+// すぐにファイルへ書きたい時(ハイスコアを更新した時など)
+SaveData::Save();
+```
+
+| 関数 | 内容 |
+|---|---|
+| `SetInt(キー, 値)` / `GetInt(キー, 無い時の値 = 0)` | 整数を書く / 読む |
+| `SetFloat(キー, 値)` / `GetFloat(キー, 無い時の値 = 0)` | 小数を書く / 読む(無限大・NaNは書かない) |
+| `SetString(キー, 値)` / `GetString(キー, 無い時の値 = L"")` | 文字を書く / 読む(日本語・改行・`=` もそのまま使える) |
+| `HasKey(キー)` | そのキーがあるか |
+| `DeleteKey(キー)` | そのキーを消す(無ければ何もしない) |
+| `Save(スロット = 0)` | ファイルに書き出す。成功したらtrue(中身が16MBより大きい時は書かずにfalse) |
+| `Load(スロット = 0)` | ファイルから読み込む(今の値はすべてファイルの中身に置き換わる)。読めなかったらfalse(今の値はそのまま) |
+
+**自動で読み込み・保存します**:
+- 起動した時(`GameEngine::Init`)に、Engineが自動で `Load(0)` します。最初のシーンの `Init` から、もう `Get○○` で読めます
+- 終了した時(`GameEngine::Uninit`)に、**書き換えていれば**自動で `Save` します(ゲーム側で `Save` を呼び忘れても消えません)。保存先は、最後に `Load` / `Save` に成功したスロットです(普段は0。`Load(1)` した後なら `save1.txt`)
+- ただし、起動時の `Load(0)` が読めなかった時(ほかのアプリが `save0.txt` を開いている・16MBより大きいなど。出力ウィンドウに `★ SaveData: 読み込めませんでした...` と出ます)は、そのファイルを中途半端な中身で上書きしないように、**終了時の自動保存はしません**(`Load` / `Save` に1回でも成功すれば、自動保存するようになります)
+- **`Load` がfalseだった後に、ゲーム側から `Save` を呼ぶと、読めなかったファイルを今の値で上書きします**(読めなかったファイルにあった他のキーは消えます)
+- ただし、ゲームが落ちた時・Visual Studioでデバッグを止めた時は、終了時の保存は行われません。**大事な値(ハイスコアなど)は、変えた時に `Save()` を呼んでください**
+
+**保存先**: `%LOCALAPPDATA%\3D_FreamWork\save0.txt`(スロット1なら `save1.txt`)。エクスプローラーのアドレス欄に `%LOCALAPPDATA%\3D_FreamWork` と打つと開けます。exeの隣(`x64\Debug\`)にしないのは、ビルドし直したりフォルダを消したりすると消えることがあるためです。**Sample2DとSample3Dは同じファイルを使います**(ハイスコアは `"Sample2DHighScore"` / `"Sample3DHighScore"` のように**サンプルごとに別のキー**にして、別々に記録しています。同じファイルを使う別のゲームとキーの名前がぶつからないように気を付けてください)。中身を消して最初からやり直したい時は、ゲームを閉じてから `save0.txt` を消します。
+
+**ファイルの形式**(メモ帳で開いて確認・書き換えできます):
+```
+HighScore=1200
+MusicVolume=0.8
+PlayerName=ゆうしゃ
+```
+- UTF-8(BOM付きで書きます。手で書き換えた時はBOMが無くても読めます)。1行に「キー=値」で、キーの順に並びます
+- 値は、最初の `=` の後ろから行の終わりまでです(値の中の `=`、先頭・末尾の空白もそのまま残ります)。値の中の `\`・改行は、`\\`・`\n` と書かれます(CRは `\r`)
+- 空の行と `#` で始まる行は飛ばします(`#` はメモ用ですが、`Save` し直すと消えます)。「=」が無い行・キーに使えない文字がある行などの**壊れた行は飛ばして**、残りの行を読みます(Visual Studioの出力ウィンドウに、何行目かが出ます)
+- 保存する時は、いったん一時ファイル(`save0.txt.tmp`)に書いてから本物と差し替えます。保存に失敗しても・保存中に落ちても、前のセーブデータは壊れません(失敗した時は出力ウィンドウに `★ SaveData: 保存できませんでした...` と出て、`Save` がfalseを返します)
+- ファイルの大きさの上限は16MBです。16MBより大きいファイルは読まず(`Load` がfalse)、書く中身が16MBより大きくなる時は書きません(`Save` がfalse。次の起動で読めないファイルを作らないため)
+
+**キーの名前の決まり**:
+- EventBusのイベント名と同じく、**PascalCaseの英語**にします(`"HighScore"`, `"MusicVolume"`)
+- 使える文字は英字・数字・`_` だけです。それ以外(空白・日本語・`=` など)を含むキーは保存されず、`Get○○` はいつも「無い時の値」を返します(出力ウィンドウに知らせます)
+- 同じキーをいろいろな場所で書くと打ち間違いに気付きにくいので、キーの文字は1つのファイルにまとめます(Sampleの `GameManager.cpp` の `highScoreKey` のように)
+
+**型の決まり**: 値は型を覚えずに文字で持ち、`Get○○` の時に変換します。
+- 同じキーに別の型で書くと、後に書いた値で上書きされます
+- `GetInt` は、整数として読めない値(`"1.5"`、`"abc"`、intに入らない大きな数)なら「無い時の値」を返します(小数を切り捨てたりしません。出力ウィンドウに1回知らせます)
+- `GetFloat` は、数として読めない値なら「無い時の値」を返します(`SetInt` で書いた `100` は 100.0 として読めます)
+- `GetString` は、どの型で書いた値も文字のまま返します(`SetInt("A", 5)` なら `L"5"`)
+
+**実例**: 両サンプルの `GameManager`。ゲームオーバーになった時(`"PlayerDied"` を受けた時)に、スコアがハイスコアより大きければ `SetInt(highScoreKey, score)` して `Save()` します(キーはSample2Dが `"Sample2DHighScore"`、Sample3Dが `"Sample3DHighScore"`)。HUDは `GameManager::GetHighScore()`(中で `SaveData::GetInt(highScoreKey)` を読むだけ)で、スコアの下にハイスコアを出します(値の持ち主は `SaveData` で、HUDは読むだけ。§21)。
+
+---
+
+## 19. テキスト(Text / TextStyle / TextRenderer)
+
+画面に文字を描く仕組みです(`Engine/Text.h`、`Engine/TextRenderer.h`)。座標は **「画面中央が(0,0)、Y+=上、単位はゲーム画面のピクセル」** です(§14の座標の変換と同じ)。`Text::Draw` は Component の `Draw()` の中で呼びます。
+
+**今までの書き方も、そのまま使えます**(見た目も今までと同じ。文字の中心が (x, y) に来ます):
+```cpp
+#include "../../../Engine/Text.h"
+
+Text::Draw(L"GAME OVER", 0.f, 40.f, 64.f, { 1.0f, 0.2f, 0.2f, 1.0f });   // 文字, x, y, 大きさ, 色, フォント名(省略するとArial)
+```
+
+左寄せ・縁取り・太字・自分で用意したフォントを使いたい時は、`TextStyle`(文字の見た目のまとめ)を渡します:
+```cpp
+TextStyle style;
+style.size = 28.f;
+style.fontName = Text::LoadFont(L"Assets/Fonts/NotoSansJP[wght].ttf");   // L"Noto Sans JP" が返る
+style.align = TextAlign::Left;                     // x を文字の左端にする
+style.outlineColor = { 0.f, 0.f, 0.f, 1.f };       // 黒い縁取り
+Text::Draw(L"Score: 100", -560.f, 320.f, style);
+```
+
+| 関数 | 内容 |
+|---|---|
+| `Text::Draw(文字, x, y, style)` | スタイルを指定して描く |
+| `Text::Draw(文字, x, y, 大きさ = 32, 色 = 白, フォント名 = L"Arial")` | 今までの書き方(中心に合わせる。縁取り・太字なし) |
+| `Text::Measure(文字, style)` | 描いた時の幅と高さ(`XMFLOAT2`。縁取りの分は入らない)。寄せ方(align)では変わらない。`Update` の中で呼んでもよい |
+| `Text::LoadFont(ファイルのパス)` | フォントファイル(.ttf/.otf)を読み込み、`style.fontName` に入れる名前を返す。読めなかったら空の文字列(出力ウィンドウに `★ Text::LoadFont: ...` と出る) |
+
+**TextStyle の中身**(書かなかった項目は右の値になります):
+
+| 項目 | 既定 | 内容 |
+|---|---|---|
+| `size` | `32` | 文字の大きさ(ピクセル) |
+| `color` | 白 `{1,1,1,1}` | 文字の色。`w` は濃さで、下げると縁取りも一緒に薄くなる |
+| `fontName` | `L"Arial"` | フォントの名前(`LoadFont` が返した名前か、PCにインストール済みのフォント名)。空なら Arial |
+| `align` | `TextAlign::Center` | 横の寄せ方。`Left`: x が文字の**左端**、`Center`: x が**中心**、`Right`: x が**右端**。縦はいつも中心 |
+| `bold` | `false` | 太字 |
+| `outlineColor` | `{0,0,0,0}` | 縁取りの色。**`w`(濃さ)が0なら縁取り無し** |
+| `outlineWidth` | `2` | 縁取りの太さ(ピクセル) |
+
+- 縁取りは、同じ文字を8方向に `outlineWidth` ずつずらして縁の色で描いてから、上に本体を描いています(1つの文字を9回描くので、たくさん出す時は少し重くなります)
+- 右寄せ(`TextAlign::Right`)は、スコアを画面の右上にそろえる時などに使います。数字の桁が増えても右端がそろいます
+
+### フォント(LoadFont と Assets/Fonts)
+
+`fontName` にPCのフォント名(`L"Meiryo"` など)を書くこともできますが、**そのフォントをインストールしていないPCでは、別のフォントで表示されてしまいます**。`Text::LoadFont` で `Assets/Fonts/` のフォントファイルを読み込むと、チーム全員のPCで同じ見た目になります。
+
+- 今は **Noto Sans JP**(日本語と英数字が入ったフォント。太さを変えられる1つのファイル)を `Assets/Fonts/NotoSansJP[wght].ttf` に置いています。`style.bold = true` で太字になります
+- 同じファイルは2回読まないので、`LoadFont` は何回呼んでも大丈夫です(Sampleでは、使うComponentの `Init()` で呼んで、返った名前をメンバに取っておいています)
+- フォントの読み込みには Windows 10 以降の仕組み(DirectWriteのフォントセット)を使っています。古いWindowsでは読み込みに失敗し、Arialで表示されます
+- **フォントにはライセンスがあります。** Noto Sans JP は **SIL Open Font License(OFL)** で、ゲームに入れて配ってよいですが、**ライセンスの文章(`Assets/Fonts/OFL.txt`)を必ず一緒に置きます**。新しいフォントを足す時も、ライセンスを確かめて、ライセンスのファイルを一緒に置いてください
+- `Assets/` は、ビルドの時にフォルダごと(`Fonts/` も)出力先へコピーされます(§0)
+
+### TextRenderer(オブジェクトに付いて動く文字)
+
+ダメージの数字・キャラクターの名前など、**GameObjectと一緒に動く文字**を出すComponentです。オブジェクトの位置(ワールド)を画面座標に直して(§14の `Image::WorldToScreen2D`)、`Text::Draw` で描きます。
+
+```cpp
+#include "../../../Engine/TextRenderer.h"
+
+auto* text = obj->AddComponent<TextRenderer>();
+text->SetText(L"+10");                 // 表示する文字
+text->SetStyle(style);                 // 見た目(TextStyle)
+text->SetOffset({ 0.f, 60.f, 0.f });   // オブジェクトの位置から、ワールドでずらす量(頭の上など)
+```
+
+| 関数 | 内容 |
+|---|---|
+| `SetText(文字)` / `GetText()` | 表示する文字 |
+| `SetStyle(style)` / `GetStyle()` | 見た目 |
+| `SetColor(色)` | 文字の色だけ変える(`w` を下げると縁取りも一緒に薄くなる。消えていく演出に使う) |
+| `SetOffset(ずらす量)` | オブジェクトの位置からずらす量(ワールド) |
+| `SetUse3DCamera(true)` | 3Dのオブジェクトに付ける時に使う。3D用カメラで画面座標に直し(`Image::WorldToScreen3D`)、カメラの後ろにある時は描かない |
+
+- 2Dでは、`SpriteRenderer`(UIモード)と同じく2Dカメラと一緒にスクロールします
+- 文字の大きさは、カメラからの距離では変わりません(いつも `size` のピクセル)
+
+**実例**: Sample2Dで敵を倒すと、その位置に「+10」が出て、上に少し動きながら消えます。`Objects/ScorePopup.cpp` の `CreateScorePopup(scene, 位置)` が、`TextRenderer` と `TweenComponent`(§12。`MoveTo` で上へ動かし、`TweenValue` で文字の濃さを1→0にして、`SetOnComplete` で自分を `Destroy`)を付けたオブジェクトを作ります。呼んでいるのは `EnemyController::OnTriggerEnter2D`(倒された時の処理)です。
+
+### 注意
+- **文字はいつも画面の一番上に出ます**(Direct2Dで、画像や3Dの描画が全部終わった後に描かれるため)。画像の後ろに文字を隠すことはできません。画面エフェクト(§15)とシーン切り替え(§16)は、文字よりさらに上に出ます
+- フォントの設定(フォント名・大きさ・太字の組み合わせ)は、1回作ったら取っておいて使い回します(64種類を超えたら全部作り直します)。毎フレーム大きさを変えるアニメーションをしても大丈夫です
+
+---
+
+## 20. 開発時の注意点
 
 ### 文字コード(重要)
 
@@ -977,13 +1125,13 @@ Claude Code で作業する場合は、`.claude/`の設定で、メインの会�
 
 ---
 
-## 19. サンプル構成(現状)
+## 21. サンプル構成(現状)
 
 プロジェクト構成自体は`0. プロジェクト構成`を参照してください。ここでは各サンプルの中身(`Game/`)を説明します。
 
 ```
 Sample2D/Game/Objects/     Title, Button, StartButton, Background, Player, GameSystem, HUD,
-                            EnemySpawner, BulletSpawner
+                            EnemySpawner, BulletSpawner, ScorePopup
 Sample2D/Game/Components/  TitleController, ButtonController, BackgroundController, PlayerController,
                             BulletController, EnemyController, GameManager, HUDController,
                             EnemyManager, BulletManager
@@ -998,8 +1146,8 @@ Sample3D/Game/Components/  TitleController, ButtonController, GroundController, 
 Sample3D/Game/Scenes/      TitleScene, GameScene
 ```
 
-- **Sample2D**: トップダウン視点のアリーナシューター。タイトル画面のSTARTボタン(出る時に`TweenComponent`でぴょこっと大きくなる)をクリックすると、画面が暗転してからゲーム開始(ゲーム画面に入ると明転する。`FadeTransition`。§16)(ボタンは`CreateButton(scene, 文字, 位置, クリックされた時の処理)`で作れる汎用部品なので、他の画面のボタンにも使い回せる)。WASDで移動、Playerは常にマウスの方を向き、左クリックでその方向へ弾を発射。背景はタイル状に敷き詰めた床(`BackgroundController`)で、移動するとスクロールする(カメラはPlayerに付けた`CameraFollowComponent`が追いかける。§14)。敵(`EnemyManager`が一定間隔でPlayerの周囲にランダムスポーンさせる)がゆっくり追いかけてきて(`ChaseComponent`。§13)、弾を当てると倒せる(`EventBus`で`"EnemyDefeated"`イベントを発行しスコア加算)。敵に触れるとHPが減り(1秒間の無敵時間つき)、敵から離れる向きに弾かれる(ノックバック。`AddForce`で衝撃を加え、0.2秒間は移動キーが効かない。§20)、画面が少し揺れて(`CameraShake`。§14)、画面の端が赤く点滅する(`ScreenEffect::Vignette`。§15)。HPが0になるとゲームオーバー画面が出てSPACEでタイトルに戻る(黒い丸が閉じて開く`SpriteTransition`。§16)。当たり判定・物理はPhysXを使い(Player=`CircleRigidbodyComponent`、敵=`SquareRigidbodyComponent`、弾=`CircleRigidbodyComponent`)、Player・敵はDynamic(`SetVelocity()`で速度を渡して動かす。重力なし・回転なし・`SetFreezePositionZ(true)`で奥行き方向に固定)、弾はKinematicのトリガー。3Dカメラは使わない(`CameraController`なし)。
-- **Sample3D**: Sample2Dと同じアリーナシューターを3D空間で遊べるようにしたもの。タイトル画面のボタン(Sample2Dと同じく、出る時に`TweenComponent`でぴょこっと大きくなる)をクリックすると、Sample2Dと同じく暗転してからゲーム開始(Sample3Dの`CreateButton()`は、位置と大きさをまとめて`Transform`で受け取る形になっている: `CreateButton(scene, 文字, transform, クリックされた時の処理)`)。Player(立方体)は三人称カメラ(`CameraController`。マウス移動で視点回転。カーソルは画面中心に固定され、ESCで解除・左クリックで再固定。TABで一人称に切り替え)と同じ向きを向き、WASDもカメラ基準(W=カメラの前、D=カメラの右)で移動する。左クリックでPlayerの向いている方向へ、地面と水平に弾(球)を発射。敵は2Dの画像(Worldモードの`SpriteRenderer`。Y軸だけカメラの方を向く立て看板)で、地面の上をPlayerに向かって歩いてくる(`ChaseComponent`を`SetPlane(MovePlane::XZ)`で使う。§13)。歩く間は、敵に付けた`SpriteAnimationComponent`がスプライトシートのコマ(4番と5番)を0.3秒ごとに切り替えて、歩きアニメーションにしている(始まるコマはランダムなので、何体いても足踏みがそろわない。§17)。スコア・HP・無敵時間・被弾時に画面の端が赤く点滅すること・ゲームオーバー(SPACEでタイトルへ。Sample3Dは、黒い帯が左から覆って右へ抜けていく`SpriteTransition(...).SetSwitchFrame(7)`。§16)・`EventBus`のイベント名はSample2Dと同じ。Player・敵はDynamicの`BoxRigidbodyComponent`(重力あり・回転なし。Y速度は`GetVelocity().y`を維持したまま`SetVelocity()`で動かす。敵は`ChaseComponent`がこれをしている)、弾はKinematicのトリガー(`SphereRigidbodyComponent`)。地面は、1000四方のタイルを3Dカメラの描画距離(farZ)の範囲だけ敷き詰めて描く`GroundController`(見た目)と、見えない大きなStaticの板(当たり判定)の組み合わせ。遠景はスカイボックス。
+- **Sample2D**: トップダウン視点のアリーナシューター。タイトル画面のSTARTボタン(出る時に`TweenComponent`でぴょこっと大きくなる)をクリックすると、画面が暗転してからゲーム開始(ゲーム画面に入ると明転する。`FadeTransition`。§16)(ボタンは`CreateButton(scene, 文字, 位置, クリックされた時の処理)`で作れる汎用部品なので、他の画面のボタンにも使い回せる)。WASDで移動、Playerは常にマウスの方を向き、左クリックでその方向へ弾を発射。背景はタイル状に敷き詰めた床(`BackgroundController`)で、移動するとスクロールする(カメラはPlayerに付けた`CameraFollowComponent`が追いかける。§14)。敵(`EnemyManager`が一定間隔でPlayerの周囲にランダムスポーンさせる)がゆっくり追いかけてきて(`ChaseComponent`。§13)、弾を当てると倒せる(`EventBus`で`"EnemyDefeated"`イベントを発行しスコア加算。倒した位置に「+10」が出て、上に動きながら消える=`CreateScorePopup`。§19)。敵に触れるとHPが減り(1秒間の無敵時間つき)、敵から離れる向きに弾かれる(ノックバック。`AddForce`で衝撃を加え、0.2秒間は移動キーが効かない。§22)、画面が少し揺れて(`CameraShake`。§14)、画面の端が赤く点滅する(`ScreenEffect::Vignette`。§15)。HPが0になるとゲームオーバー画面が出てSPACEでタイトルに戻る(黒い丸が閉じて開く`SpriteTransition`。§16)。スコアがハイスコアを超えていたら、ゲームオーバーの時に保存され(`SaveData`。キーは`"Sample2DHighScore"`で、Sample3Dの記録とは別。§18)、画面左上のスコアの下に出る(次に起動しても残る)。当たり判定・物理はPhysXを使い(Player=`CircleRigidbodyComponent`、敵=`SquareRigidbodyComponent`、弾=`CircleRigidbodyComponent`)、Player・敵はDynamic(`SetVelocity()`で速度を渡して動かす。重力なし・回転なし・`SetFreezePositionZ(true)`で奥行き方向に固定)、弾はKinematicのトリガー。3Dカメラは使わない(`CameraController`なし)。
+- **Sample3D**: Sample2Dと同じアリーナシューターを3D空間で遊べるようにしたもの。タイトル画面のボタン(Sample2Dと同じく、出る時に`TweenComponent`でぴょこっと大きくなる)をクリックすると、Sample2Dと同じく暗転してからゲーム開始(Sample3Dの`CreateButton()`は、位置と大きさをまとめて`Transform`で受け取る形になっている: `CreateButton(scene, 文字, transform, クリックされた時の処理)`)。Player(立方体)は三人称カメラ(`CameraController`。マウス移動で視点回転。カーソルは画面中心に固定され、ESCで解除・左クリックで再固定。TABで一人称に切り替え)と同じ向きを向き、WASDもカメラ基準(W=カメラの前、D=カメラの右)で移動する。左クリックでPlayerの向いている方向へ、地面と水平に弾(球)を発射。敵は2Dの画像(Worldモードの`SpriteRenderer`。Y軸だけカメラの方を向く立て看板)で、地面の上をPlayerに向かって歩いてくる(`ChaseComponent`を`SetPlane(MovePlane::XZ)`で使う。§13)。歩く間は、敵に付けた`SpriteAnimationComponent`がスプライトシートのコマ(4番と5番)を0.3秒ごとに切り替えて、歩きアニメーションにしている(始まるコマはランダムなので、何体いても足踏みがそろわない。§17)。スコア・ハイスコア(保存先のファイルはSample2Dと同じだが、キーは`"Sample3DHighScore"`で、記録はSample2Dとは別。§18)・HP・無敵時間・被弾時に画面の端が赤く点滅すること・ゲームオーバー(SPACEでタイトルへ。Sample3Dは、黒い帯が左から覆って右へ抜けていく`SpriteTransition(...).SetSwitchFrame(7)`。§16)・`EventBus`のイベント名はSample2Dと同じ。Player・敵はDynamicの`BoxRigidbodyComponent`(重力あり・回転なし。Y速度は`GetVelocity().y`を維持したまま`SetVelocity()`で動かす。敵は`ChaseComponent`がこれをしている)、弾はKinematicのトリガー(`SphereRigidbodyComponent`)。地面は、1000四方のタイルを3Dカメラの描画距離(farZ)の範囲だけ敷き詰めて描く`GroundController`(見た目)と、見えない大きなStaticの板(当たり判定)の組み合わせ。遠景はスカイボックス。
 
 **Sample3Dの実装メモ**: 向きはすべて`transform.rotate.y`(度)で表し、`rotate.y`の時の正面(ローカルの+Z)は`(sin, 0, cos)`の方向になる(`CameraController::GetYaw()`の式と同じ。`Math::Forward3D()`で求められる)。Worldモードの`SpriteRenderer`は`rotate.y`を使わない(ビルボードの向きとZ軸回転だけを使う)ので、敵の画像の向きは`SetBillboardLock(true, false, true)`でカメラの方へ向けている。Playerは`SetFreezeRotation(true)`で、`RigidbodyComponent`は位置しか同期しないため、`PlayerController`が`rotate.y`が変わった時に`GetActor()`の`setGlobalPose`で当たり判定の箱の回転も合わせている(デバッグ表示の枠と実際の判定が同じ向きになる)。一人称の間は、カメラが立方体の内側に入るのでPlayerの`MeshRenderer`を非表示にしている。
 
@@ -1010,10 +1158,10 @@ Sample3D/Game/Scenes/      TitleScene, GameScene
 | Component | 持っている値・担当 |
 |---|---|
 | `PlayerController` | HP・無敵時間・ノックバック(HPが0になったら`EventBus`で`"PlayerDied"`を発行し、以後は移動・向き・発射を受け付けない。ポーズ中・シーン切り替え中も`Time::IsPaused()`で受け付けない) |
-| `GameManager` | スコア(`"EnemyDefeated"`で加算)・ゲームオーバー判定(`"PlayerDied"`を受けて)・タイトルへの遷移。表示は一切しない |
+| `GameManager` | スコア(`"EnemyDefeated"`で加算)・ゲームオーバー判定(`"PlayerDied"`を受けて)・ハイスコアの更新と保存(ゲームオーバーの時。ハイスコアの値そのものは`SaveData`が持ち、`GetHighScore()`はそれを読むだけ。§18)・タイトルへの遷移。表示は一切しない |
 | `EnemyManager` | 敵のプールと出現タイマー。一定間隔でPlayerの周囲に敵を出し(追いかける動きは敵に付けた`ChaseComponent`に、相手と速さを渡す)、`"PlayerDied"`を受けたら出現を止める |
 | `BulletManager` | 弾のプール。`"FireBullet"`を受けて、撃った本人の向きへ弾を出す |
-| `HUDController` | 画面表示(Score/HP/GAME OVER)だけ。値は自分で持たず、`GameManager::GetScore()`/`PlayerController::GetHp()`などで毎フレーム読む |
+| `HUDController` | 画面表示(Score/High Score/HP/GAME OVER)だけ。値は自分で持たず、`GameManager::GetScore()`/`GameManager::GetHighScore()`/`PlayerController::GetHp()`などで毎フレーム読む。文字は`Init()`で`Text::LoadFont`したNoto Sans JPで、左上の文字は左寄せ+黒い縁取り(`TextStyle`。§19) |
 
 表示用に値のコピーを別に持つと、本物の値とズレる原因になるため、HUDは読むだけにしている。新しいUI要素を足す時は`HUDController::Draw()`に追加し、表示したい値は持ち主側にゲッターを生やす形にすること。
 
@@ -1031,13 +1179,15 @@ GameManager/HUD/EnemyManager/BulletManagerのような「見た目の無い管�
 | STARTボタンをぴょこっと出す | `Objects/StartButton.cpp`(`TweenComponent`を付けて`ScaleTo`。§12) |
 | `"FireBullet"`を受けて弾を出す | `BulletManager::Init()` |
 | 一定間隔で敵を出す | `EnemyManager::Update()` |
+| 敵を倒した位置に「+10」を出す(Sample2D) | `EnemyController::OnTriggerEnter2D()`から`CreateScorePopup()`を呼ぶ(動き・消え方は`Objects/ScorePopup.cpp`で付けた`TweenComponent`。§19) |
 | 敵がPlayerを追いかける | 敵に付けた`ChaseComponent`(Engine。§13)。相手と速さは`EnemyManager::Spawn()`が渡す |
 | 敵の歩きアニメーション(Sample3D) | 敵に付けた`SpriteAnimationComponent`(Engine。§17)。クリップの登録と再生は`EnemyManager`の`SetupEnemy` |
-| 敵に当たったら弾かれる(Sample2D) | `PlayerController::OnCollisionStay2D()`(`AddForce`。§20) |
+| 敵に当たったら弾かれる(Sample2D) | `PlayerController::OnCollisionStay2D()`(`AddForce`。§22) |
 | 敵に当たったら画面が揺れる(Sample2D) | `PlayerController::OnCollisionStay2D()`(`CameraShake::Shake`。§14) |
 | 敵に当たったら画面の端が赤く点滅する | `PlayerController::OnCollisionStay2D()`(`ScreenEffect::Vignette`。§15) |
 | カメラがPlayerを追いかける(Sample2D) | `Objects/Player.cpp`で付けた`CameraFollowComponent`(Engine。§14) |
 | コライダー枠の表示ON | `GameManager::Init()` |
+| ゲームオーバーの時にハイスコアを保存する | `GameManager::Init()`の`"PlayerDied"`を受けた所(`SaveData::SetInt` + `Save`。§18) |
 
 Sceneに残してよいのは、オブジェクトの配置と、シーン全体の後片付け(`GameScene::Uninit()`の`EventBus::Get().Clear()`)くらい。新しい処理を足したくなったら、まず「どのオブジェクトの仕事か」を考えて、そのComponentに書くこと。
 
@@ -1045,7 +1195,7 @@ Sceneに残してよいのは、オブジェクトの配置と、シーン全体
 
 ---
 
-## 20. PhysX(3D物理演算)
+## 22. PhysX(3D物理演算)
 
 3D用の物理エンジンとして[NVIDIA PhysX 4.1](https://github.com/NVIDIA-Omniverse/PhysX)を導入しています。ビルド済みのライブラリ一式(ヘッダー・dll・lib)を`ThirdParty/PhysX/`にコミット済みなので、**チームメンバーは自分でビルドし直す必要はありません**(`git clone`してそのままビルドできます)。
 
