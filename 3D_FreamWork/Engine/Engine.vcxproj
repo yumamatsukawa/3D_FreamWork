@@ -109,6 +109,7 @@ xcopy /y /d "$(SolutionDir)Shader3D.hlsl" "$(OutDir)"</Command>
     <ClCompile Include="SceneTransition.cpp" />
     <ClCompile Include="ScreenEffect.cpp" />
     <ClCompile Include="Sprite.cpp" />
+    <ClCompile Include="SpriteAnimationComponent.cpp" />
     <ClCompile Include="SpriteRenderer.cpp" />
     <ClCompile Include="SpriteTransition.cpp" />
     <ClCompile Include="Text.cpp" />
@@ -149,6 +150,7 @@ xcopy /y /d "$(SolutionDir)Shader3D.hlsl" "$(OutDir)"</Command>
     <ClInclude Include="SceneTransition.h" />
     <ClInclude Include="ScreenEffect.h" />
     <ClInclude Include="Sprite.h" />
+    <ClInclude Include="SpriteAnimationComponent.h" />
     <ClInclude Include="SpriteRenderer.h" />
     <ClInclude Include="SpriteTransition.h" />
     <ClInclude Include="Text.h" />

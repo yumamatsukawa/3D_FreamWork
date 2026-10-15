@@ -6,7 +6,7 @@
 Engine(`3D_FreamWork/Engine/`)に今後追加したい17個の機能について、「どんな関数を作るか」「どの順番で作るか」「Sampleではどう使えるか(使用例)」をまとめた設計書です。チーム(C++初心者を含む)で分担して実装する時の資料として使います。
 
 ### 状態
-**ここに書いてある内容は「設計案」です。実装済みのものは、4章の表の状態が「完了」になっています(今は計算系、時間とタイマー、リソースの使い回し、イージング、移動系、物理の問い合わせと力、カメラ機能、画面エフェクト、シーン切り替え)。**
+**ここに書いてある内容は「設計案」です。実装済みのものは、4章の表の状態が「完了」になっています(今は計算系、時間とタイマー、リソースの使い回し、イージング、移動系、物理の問い合わせと力、カメラ機能、画面エフェクト、2Dアニメーション、シーン切り替え)。**
 関数名・引数は実装しながら変わってよいものです。実際に作る時は、この文書を出発点にして、下の「共通ルール」どおりに1機能ずつ、着手する時に説明してから進めてください(了承は待ちません)。実装したら、この文書の「作る順番」の表の状態を更新してください。
 
 ---
@@ -93,7 +93,7 @@ Engineを変えると Sample2D と Sample3D の**両方**に影響します(`CLA
 | 5 | [移動系](#55-移動系) + [物理の問い合わせと力](#56-物理の問い合わせと力) | 加速度で動く移動は `AddForce` を使うので、同じ段の中では物理(5.6)を先に作る | | 完了 |
 | 6 | [カメラ機能](#57-カメラ機能) | イージング・計算系を使う | | 完了 |
 | 7 | [画面エフェクト](#58-画面エフェクト) | 時間(Unscaled)・イージングを使う | | 完了 |
-| 8 | [2Dアニメーション](#59-2dアニメーション) | 3(コマ番号をSpriteRendererへ移す)が前提 | | 未着手 |
+| 8 | [2Dアニメーション](#59-2dアニメーション) | 3(コマ番号をSpriteRendererへ移す)が前提 | | 完了 |
 | 9 | [UI](#510-ui) ・ [テキスト](#511-テキスト) + [セーブ/ロード](#512-セーブロード) | スライダーの値(音量など)を保存するため、セーブ/ロードも一緒に作る | | 未着手 |
 | 10 | [音(立体音響・グループ音量)](#513-音の発生源と聞く位置立体音響) | 3(`Resources` の仕組み。音のデータ共有 `LoadSound` はここで足す)・9(音量スライダー・保存)を使う | | 未着手 |
 | 11 | [CSV](#514-csv) | ほかに依存しないので、いつでも並行して作れる | | 未着手 |
@@ -268,7 +268,7 @@ Timer spawnTimer{ 2.5f, true };   // 2.5秒ごとに出現
 // EnemyManager::Update
 if (spawnTimer.Update(dt)) Spawn(...);
 ```
-対象: 両サンプルの `EnemyManager` の `spawnTimer`、`PlayerController` の `invincibleTimer`、`BulletController` の寿命(`lifeTimer`)。Sample3D `EnemyController` の歩きアニメーション(`frameTimer`)。(すべて置き換え済み)
+対象: 両サンプルの `EnemyManager` の `spawnTimer`、`PlayerController` の `invincibleTimer`、`BulletController` の寿命(`lifeTimer`)。Sample3D `EnemyController` の歩きアニメーション(`frameTimer`)。(すべて置き換え済み。歩きアニメーションは、後から 5.9 の `SpriteAnimationComponent` に置き換えた)
 
 **依存する機能**: なし
 
@@ -480,7 +480,7 @@ chase->SetSpeed(60.f);
 
 ### 5.6 物理の問い合わせと力
 
-> **実装済み**: `Engine/Physics.h/.cpp`(`struct RaycastHit`、`enum class ForceMode`、`Physics::Raycast` / `OverlapSphere` / `OverlapBox`)と `Engine/RigidbodyComponent.h/.cpp`(`AddForce` / `AddTorque` / `SetMass` / `SetDrag`)。下の「対象」のSampleのコード(Sample2Dの被弾時のノックバック)も置き換え済み。使い方は `README.md` の「19. PhysX」の「物理の問い合わせと力」を参照。
+> **実装済み**: `Engine/Physics.h/.cpp`(`struct RaycastHit`、`enum class ForceMode`、`Physics::Raycast` / `OverlapSphere` / `OverlapBox`)と `Engine/RigidbodyComponent.h/.cpp`(`AddForce` / `AddTorque` / `SetMass` / `SetDrag`)。下の「対象」のSampleのコード(Sample2Dの被弾時のノックバック)も置き換え済み。使い方は `README.md` の「20. PhysX」の「物理の問い合わせと力」を参照。
 > 決まったこと(下の「未決定」):
 > - **トリガーを含めるか**: 既定では含めない(視線の判定が飛んでいる弾などにさえぎられないように)。含めたい時用の引数 `QueryTriggers triggers = QueryTriggers::Ignore` を、`Raycast` / `OverlapSphere` / `OverlapBox` の最後に足した。アイテムやゴールのようなトリガーそのものを探す時は `QueryTriggers::Include`(例: `Physics::OverlapSphere(pos, 200.f, "Item", QueryTriggers::Include)`)。タグを指定してもトリガーは無視のまま
 >
@@ -629,7 +629,7 @@ CameraShake::Shake(8.f, 0.2f);
 
 ### 5.8 画面エフェクト
 
-> **実装済み**: `Engine/ScreenEffect.h/.cpp`(`namespace ScreenEffect`)。`Engine/Text.h/.cpp` に Engine内部用の `Text::GetRenderTarget()` を足し、`GameEngine::Run` / `Uninit` に呼び出しを足した。下の「対象」のSampleのコード(両サンプルの被弾処理と `StartButton`)も置き換え済みで、両サンプルの `GameManager::Init()` でゲーム画面に入った時に明転する。使い方は `README.md` の「15. 画面エフェクト(ScreenEffect)」を参照。
+> **実装済み**: `Engine/ScreenEffect.h/.cpp`(`namespace ScreenEffect`)。`Engine/Text.h/.cpp` に Engine内部用の `Text::GetRenderTarget()` を足し、`GameEngine::Run` / `Uninit` に呼び出しを足した。下の「対象」のSampleのコードのうち、両サンプルの被弾処理(`Vignette`)は置き換え済み。`StartButton` の暗転・明転は、後から 5.17 の `FadeTransition` に置き換えた(この節の最後を参照)。使い方は `README.md` の「15. 画面エフェクト(ScreenEffect)」を参照。
 >
 > 決めた所(設計の「未決定」):
 > - **文字(`Text::Draw`)も含めて画面の一番上に描く**(暗転すると文字も隠れる)。`GameEngine::Run` で、`SceneManager::Draw()`(その中の `Text::Draw` も)が全部終わった後、`Text::EndDraw()` の前に `ScreenEffect::Draw()` を呼ぶ。Direct2Dは `EndDraw` でまとめて描き、後に追加した物が上になる
@@ -646,11 +646,11 @@ CameraShake::Shake(8.f, 0.2f);
 > - `duration <= 0`: `Flash` / `Vignette` は何も出さない(出ている途中なら消す)。`Fade` はすぐに `toAlpha` にして、`onComplete` もその場で呼ぶ
 > - 同じエフェクトを途中でまた呼んだ時は、新しい方に置き換える(最初から数え直す。`Fade` は今の濃さから始める)
 > - 画面の大きさは `Graphics::width/height`(`Text::Draw` と同じ。ウィンドウの大きさが変わった時の扱いも `Text` と同じ)
-> - Sample: 被弾時の Vignette は両サンプルの `PlayerController.h` の `damageVignetteColor` / `damageVignetteDuration` / `damageVignetteBlinkCount`({1,0,0,0.6}・0.5秒・2回。黄色くなる処理はそのまま)。`StartButton` は `IsFading()` の間は押しても何もしない(二重に切り替えない)。明転は Scene ではなく `GameManager::Init()`(`fadeInDuration` 0.5秒)。ゲームオーバー→タイトルは変えていない(明転は0.5秒で終わり、ゲームオーバーまでには必ず2秒以上かかるので、タイトルに暗転が残ることはない)
+> - Sample: 被弾時の Vignette は両サンプルの `PlayerController.h` の `damageVignetteColor` / `damageVignetteDuration` / `damageVignetteBlinkCount`({1,0,0,0.6}・0.5秒・2回。黄色くなる処理はそのまま)。`StartButton` の暗転・明転とゲームオーバー→タイトルの切り替えは、5.17 のシーン切り替え(`FadeTransition` / `SpriteTransition`)で行う(この節の最後を参照)
 > - 仕上げで足した所: `ScreenEffect::Stop()`(今出ている Flash と Vignette をすぐ0にする。Fade は濃さも進み具合も `onComplete` も触らない)と、Engine内部用の `ScreenEffect::OnSceneChanged()`(`Stop()` して、Fade の `onComplete` を呼ばずに捨てる。Fade の濃さと進み具合は残す)
 > - **シーン切り替え時の後片付け**: `SceneManager::Update` で「古いシーンの `Uninit` → `ScreenEffect::OnSceneChanged()` → `CameraShake::Stop()` → 新しいシーンを作る → 新しいシーンの `Init`」の順。新しいシーンの `Init` で始めた明転・Flash・Shake は消えない。前のシーンの被弾の Vignette などが次のシーンに残らず、消えたシーンの `this` を捕まえた `onComplete` が呼ばれることもない(前に README に書いていた「`onComplete` に `this` を捕まえると危ない」注意は、この動きに合わせて書き直した)
-> - `StartButton` の「暗転し終わった時の `onComplete` の中で `ChangeScene`」は今まで通り動く: `ScreenEffect::Update` は `onComplete` を取り出して空にしてから呼ぶ → 中の `ChangeScene` は予約だけ → 同じフレームの `SceneManager::Update` で切り替わり、`OnSceneChanged()` は空の `onComplete` を捨てるだけ。二重に呼ばれることはない。ただし `onComplete` の中で `onComplete` 付きの `Fade` をもう一度始めると、その新しい `onComplete` は直後の切り替えで捨てられる
-> - **後から(5.17)**: `StartButton` の暗転と `GameManager::Init()` の明転は、5.17 の `ChangeScene<GameScene>(FadeTransition())` に置き換えた。`ScreenEffect::Fade` / `IsFading` 自体は、シーン切り替え以外の演出(ポーズ画面への暗転など)用にそのまま残している
+> - 「暗転し終わった時の `onComplete` の中で `ChangeScene`」する使い方も動く(今のSampleでは使っていない): `ScreenEffect::Update` は `onComplete` を取り出して空にしてから呼ぶ → 中の `ChangeScene` は予約だけ → 同じフレームの `SceneManager::Update` で切り替わり、`OnSceneChanged()` は空の `onComplete` を捨てるだけ。二重に呼ばれることはない。ただし `onComplete` の中で `onComplete` 付きの `Fade` をもう一度始めると、その新しい `onComplete` は直後の切り替えで捨てられる
+> - **後から(5.17)**: 最初は `StartButton` で `ScreenEffect::Fade` で暗転し(`IsFading()` の間は押しても何もしない)、`GameManager::Init()` で明転していたが、両方とも 5.17 の `ChangeScene<GameScene>(FadeTransition())` に置き換えた(今は `IsFading()` のチェックも `GameManager::Init()` の明転も無い)。`ScreenEffect::Fade` / `IsFading` 自体は、シーン切り替え以外の演出(ポーズ画面への暗転など)用にそのまま残している
 
 **目的**: 被弾・回復・シーン切り替えなどで、画面全体に色の演出(ライトエフェクト)を付ける。
 
@@ -688,6 +688,26 @@ ScreenEffect::Fade({ 0.f, 0.f, 0.f, 1.f }, 1.f, 0.5f);
 ---
 
 ### 5.9 2Dアニメーション
+
+> **実装済み**: `Engine/SpriteAnimationComponent.h/.cpp`。下の「対象」のSampleのコード(Sample3D `EnemyController` の歩きアニメーション)も置き換え済みで、`EnemyManager` の `SetupEnemy` で `AddClip("Walk", { 4, 5 }, 0.3f, true)`・`SetRandomStart(true)`・`Play("Walk")` をしている。`EnemyController` は弾に当たった時の処理だけになった(`Update` は消した)。使い方は `README.md` の「17. 2Dアニメーション(SpriteAnimationComponent)」を参照。
+>
+> 決めた所(設計の「未決定」):
+> - **Engineに作る**(`Engine/SpriteAnimationComponent.h/.cpp`)
+> - **名前付きのクリップをいくつでも登録できる**(同じ名前で `AddClip` し直すと上書き。再生中のクリップを上書きしたら最初のコマから)
+> - **ループしないクリップが終わったことは `IsFinished()` で調べる**(コールバックは作らない)。最後のコマを1コマ分の時間見せ終わったら true になり、最後のコマのまま止まる。ループするクリップは常に false
+>
+> 細かい決まり:
+> - `Play`: 今と同じ名前なら何もしない。別の名前なら最初のコマから。登録されていない名前は何もせず(今のクリップのまま)、出力ウィンドウに名前ごとに1回知らせる
+> - `Stop()`: 今のクリップを忘れる(SpriteRendererのコマは今のまま)。次の `Play` は同じ名前でも最初から(ループしないクリップを同じ名前でやり直す方法)
+> - `frames` が空、`frameDuration <= 0` のクリップは登録しない(出力ウィンドウに知らせる)。止め絵はコマを1つにする
+> - `SetSpeed`: 負の値は0として扱う(逆再生はしない)
+> - `SetRandomStart(true)`: `Play` した時と再利用された時に、始まるコマ(`Math::RandomRange(int)`)と、そのコマの経過時間(`Math::RandomRange(float)`、0〜1コマ分)をランダムにする。**ループするクリップだけ**に効く(攻撃・やられなどのループしないクリップが途中から始まらないように)
+> - コマ送りは `Timer` を使わず、自分で経過時間を持つ(`Timer::Update` は何周進んでも true を1回しか返さず、1フレームで何コマ進んだかが分からないため)。dtが大きい時は進んだコマ数だけ送り、余りを持ち越す。ループしないなら最後のコマで止める
+> - `Play` / 再利用でやり直した時は、`Update` を待たずにすぐ `SetSpriteIndex` する(出た最初のフレームから正しいコマになる)
+> - 同じGameObjectに `SpriteRenderer` が無ければ何もしない(出力ウィンドウに1回知らせる)
+> - 時間は `Update` の dt(ポーズ・シーン切り替え中は止まる)。`OnActiveChanged(true)` で今のクリップをやり直す
+> - 設計に足した関数: `GetCurrentClip()`(再生中のクリップの名前。止まっていれば空)と `GetSpeed()`
+> - Sample: `SetupEnemy` の `sprite->SetSpriteIndex(5)` は消した(すぐ後の `Play("Walk")` がコマを決めるため)。`EnemyController::Spawn` は返却先を受け取るだけになった(コマを最初に戻す処理は `OnActiveChanged` に任せた)。`SetRandomStart(true)` にしたので、前と違って敵ごとに足踏みの始まりがずれる(コマ4・5を0.3秒ごとに切り替えるのは前と同じ)
 
 **目的**: スプライトシートのコマ送りを、手書きのタイマー無しで書けるようにする。
 

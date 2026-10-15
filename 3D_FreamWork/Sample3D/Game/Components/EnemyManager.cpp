@@ -2,6 +2,7 @@
 #include "../../../Engine/Scene.h"
 #include "../../../Engine/GameObject.h"
 #include "../../../Engine/SpriteRenderer.h"
+#include "../../../Engine/SpriteAnimationComponent.h"
 #include "../../../Engine/RigidbodyComponent.h"
 #include "../../../Engine/EventBus.h"
 #include "../../../Engine/MathUtil.h"
@@ -16,13 +17,19 @@ namespace {
 
         // 見た目(3D空間に立つ2Dの画像)
         auto* sprite = obj->AddComponent<SpriteRenderer>(L"Assets/player.png", 8, 2);
-        sprite->SetSpriteIndex(5);
         sprite->SetColor(1.0f, 0.0f, 1.0f, 1.0f);
         sprite->SetWorldSpace(true);
         // X/Zの傾きは固定し、水平方向(Y軸)だけカメラの方を向く「立て看板」にする。
         // ※SpriteRendererのWorldモードはtransform.rotate.yを使わないので、
         //   rotate.yで向きを変える代わりに、こちらで画像の表面を見る側に向けている
         sprite->SetBillboardLock(true, false, true);
+
+        // 歩きアニメーション: コマ4と5を0.3秒ごとに(何体いても足踏みがそろわないように、始まるコマはランダム)
+        // 再利用された時は、SpriteAnimationComponentが自分で最初からやり直す
+        auto* anim = obj->AddComponent<SpriteAnimationComponent>();
+        anim->AddClip("Walk", { 4, 5 }, 0.3f, true);
+        anim->SetRandomStart(true);
+        anim->Play("Walk");
 
         // 当たり判定+物理演算(PhysX)
         auto* rigidbody = obj->AddComponent<BoxRigidbodyComponent>(BodyType::Dynamic, obj->transform.scale, 1.0f);
@@ -34,7 +41,7 @@ namespace {
         auto* chase = obj->AddComponent<ChaseComponent>();
         chase->SetPlane(MovePlane::XZ);
 
-        // 歩きアニメーションと、弾に当たった時の処理
+        // 弾に当たった時の処理
         obj->AddComponent<EnemyController>();
     }
 }
@@ -82,7 +89,7 @@ GameObject* EnemyManager::Spawn(XMFLOAT3 position) {
         chase->SetSpeed(enemySpeed);
     }
 
-    // 倒された時の返却先を渡す(歩きアニメーションも最初のコマに戻る)
+    // 倒された時の返却先を渡す
     EnemyController* controller = enemy->GetComponent<EnemyController>();
     if (controller) controller->Spawn(&pool);
 

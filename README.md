@@ -119,7 +119,7 @@ sprite->SetSpriteIndex(1);           // スプライトシートの何コマ目�
 sprite->SetColor(1.0f, 0.0f, 0.0f, 1.0f); // r, g, b, a
 ```
 
-画像そのものは、同じ画像を使うオブジェクトみんなで共有しています(§11)。コマ番号(`SetSpriteIndex`)と色(`SetColor`)は**1体ごと**なので、同じ`player.png`を使うPlayerと敵で、色やコマが連動することはありません。
+画像そのものは、同じ画像を使うオブジェクトみんなで共有しています(§11)。コマ番号(`SetSpriteIndex`)と色(`SetColor`)は**1体ごと**なので、同じ`player.png`を使うPlayerと敵で、色やコマが連動することはありません。コマを時間に合わせて切り替える(アニメーションさせる)時は、`SpriteAnimationComponent`(§17)を一緒に付けます。
 
 **UIモード / Worldモード**を選べます:
 
@@ -257,7 +257,7 @@ player->AddComponent<CameraController>();
 
 ## 6. Collider(当たり判定)
 
-**当たり判定は、2D/3D問わず全てPhysX(`RigidbodyComponent`、§19参照)で計算しています。**2Dのゲームでは、2D向けに使いやすくした`SquareRigidbodyComponent`/`CircleRigidbodyComponent`を使い、`SetFreezePositionZ(true)`で奥行き方向に動かないようにします(Sample2Dが実例)。
+**当たり判定は、2D/3D問わず全てPhysX(`RigidbodyComponent`、§20参照)で計算しています。**2Dのゲームでは、2D向けに使いやすくした`SquareRigidbodyComponent`/`CircleRigidbodyComponent`を使い、`SetFreezePositionZ(true)`で奥行き方向に動かないようにします(Sample2Dが実例)。
 
 ```cpp
 // Playerの例(すり抜けない円形・半径50。Dynamic+速度指定で動かし、衝突応答はPhysXに任せる)
@@ -325,7 +325,7 @@ RigidbodyComponent::SetDebugDrawEnabled(true);
 | `SquareRigidbodyComponent` | Z軸方向で切った断面の四角 |
 | `CircleRigidbodyComponent` | Z軸方向で切った断面の丸 |
 
-2D向けのSquare/Circleは、PhysX上は奥行きのある立方体/球ですが(§19)、2Dゲームでは奥行き方向に動かないので、平面で見た時の形(断面)だけを表示しています。
+2D向けのSquare/Circleは、PhysX上は奥行きのある立方体/球ですが(§20)、2Dゲームでは奥行き方向に動かないので、平面で見た時の形(断面)だけを表示しています。
 
 **内部実装メモ**: `RigidbodyComponent::Draw()`が、`PxShape`から実際のジオメトリ(`PxBoxGeometry`/`PxSphereGeometry`)を取得し、Ownerの`Transform`の`scale`だけを一時的に差し替えて描画しています(位置・回転は普段どおりOwnerのTransformをそのまま使う)。枠は三角形ではなく線(`D3D11_PRIMITIVE_TOPOLOGY_LINELIST`)で描いていて、形ごとの輪郭データは`Mesh::CreateCubeOutline()`などで作り、全`RigidbodyComponent`で1つずつ共有しています。
 
@@ -490,10 +490,9 @@ invincibleTimer.Reset();                             // ダメージを受けた
 
 // 寿命(Sample2D/3D BulletController)
 if (lifeTimer.Update(dt)) pool->Return(GetOwner());  // 2秒たったらプールに返す
-
-// コマ送りのアニメーション(Sample3D EnemyController)
-if (frameTimer.Update(dt)) frameIndex = (frameIndex + 1) % walkFrameCount;   // 0.3秒ごとに次のコマへ
 ```
+
+スプライトシートのコマ送り(歩きアニメーションなど)は、Timerで手書きせずに `SpriteAnimationComponent`(§17)を使ってください。
 
 **注意**: `ObjectPool` で使い回すオブジェクトのタイマーは、借りた/発射した時に呼ぶ関数(`BulletController::Fire()` など)で `Reset()` してください(§8 と同じ理由。`Init()` は2回目以降は呼ばれません)。
 
@@ -670,7 +669,7 @@ chase->SetPlane(MovePlane::XZ);    // 3Dの地面の上を動く時(2Dなら不�
 - `ObjectPool` で使い回された時(`SetActive(true)`)は、速度・進行方向などの状態をリセットします。相手・速さなどの設定は残るので、出す度に `SetTarget` などで入れ直してください(Sampleの `EnemyManager::Spawn` が実例)。
 - Dynamicの剛体と一緒に使う時は、`RigidbodyComponent` の**後に** `AddComponent` してください(Componentは追加順に `Update` されるので、PhysXの結果が反映された位置で計算できる)。
 - `HomingComponent` の進行方向は `rotate` と同じ向きです(XYは `rotate.z` = `Math::Forward2D`、XZは `rotate.y` = `Math::Forward3D`)。最初の進行方向は、出した時の `rotate` の向きです(出す時に向きを決めておけば、その向きへ飛び出してから曲がっていく)。`SetFaceMovement(true)` をDynamicの剛体で使う時は、`SetFreezeRotation(true)` にしておきます(PhysXの回転で上書きされないように)。
-- `AccelerateChaseComponent` は、Dynamicなら `AddForce(..., ForceMode::Acceleration)`(§19)で加速します(ぶつかって跳ね返った勢いも残る)。1フレーム分の加速だけ、最高速度を少し超えることがあります。
+- `AccelerateChaseComponent` は、Dynamicなら `AddForce(..., ForceMode::Acceleration)`(§20)で加速します(ぶつかって跳ね返った勢いも残る)。1フレーム分の加速だけ、最高速度を少し超えることがあります。
 
 **実例**: 両サンプルの `EnemyManager` が、敵に `ChaseComponent` を付けて(`SetupEnemy`)、出す時に追いかける相手(Player)と速さを渡しています(`Spawn`)。Sample3Dは `SetPlane(MovePlane::XZ)` で、地面の上を重力で落ちながら追いかけます。
 
@@ -888,7 +887,59 @@ SceneManager::Get().ChangeScene<TitleScene>(SpriteTransition(L"Assets/transition
 
 ---
 
-## 17. 開発時の注意点
+## 17. 2Dアニメーション(SpriteAnimationComponent)
+
+スプライトシートのコマを、時間に合わせて切り替える(パラパラ漫画にする)Componentです。タイマーを手書きせずに、歩き・待機・攻撃などのアニメーションを作れます。同じGameObjectの`SpriteRenderer`のコマ番号(`SetSpriteIndex`)を、毎フレーム書き換えます。
+
+```cpp
+#include "../../../Engine/SpriteAnimationComponent.h"
+
+// 組み立て時(工場関数・SetupEnemyなど)。SpriteRendererを先に付けておく
+auto* anim = obj->AddComponent<SpriteAnimationComponent>();
+anim->AddClip("Walk", { 4, 5 }, 0.3f, true);    // 名前, コマ番号の並び, 1コマの秒数, 繰り返すか
+anim->AddClip("Idle", { 4 }, 1.0f, true);       // 1コマだけなら止め絵
+anim->AddClip("Attack", { 8, 9, 10 }, 0.1f, false);   // 1回だけ
+anim->Play("Walk");
+```
+
+| 関数 | 内容 |
+|---|---|
+| `AddClip(名前, コマの並び, 1コマの秒数, 繰り返すか)` | アニメーション(クリップ)を登録する。いくつでも登録できる。同じ名前で登録し直すと上書き |
+| `Play(名前)` | 再生する。**今と同じ名前なら何もしない**。別の名前なら、そのクリップの最初のコマから |
+| `Stop()` | 止める(コマは今のまま残る)。次の `Play` は、同じ名前でも最初から |
+| `IsFinished()` | 繰り返さないクリップが、最後のコマまで行って止まったか(繰り返すクリップは常にfalse) |
+| `SetSpeed(速さ)` | 再生の速さ。1=通常、2=倍速、0.5=半分、0=一時停止(負の値は0になる。逆再生はしない) |
+| `SetRandomStart(true)` | 始まるコマと経過時間をランダムにする(何体も並んだ敵の足踏みがそろわないように)。繰り返すクリップだけに効く。**`Play` の前に呼ぶ** |
+| `GetCurrentClip()` | 再生中のクリップの名前(止まっていれば空の文字列) |
+
+**役割分担**: このComponentは「コマを送る」だけです。**どのアニメーションを再生するかは、Controllerが `if` で決めます**(Unityの「Animator」のような状態遷移図は作りません。`if` の方が読みやすいため)。
+
+```cpp
+// Controller::Update(毎フレーム呼んでよい。同じ名前なら最初に戻らない)
+if (moving) anim->Play("Walk");
+else        anim->Play("Idle");
+
+// 1回だけのアニメーションが終わったら、次のアニメーションへ
+if (anim->GetCurrentClip() == "Attack" && anim->IsFinished()) anim->Play("Idle");
+```
+
+**決まり**:
+- **`Play` に今と同じ名前を渡した時は何もしません。** Controllerは毎フレーム `Play("Walk")` を呼ぶので、その度に最初のコマに戻ると、アニメーションが止まって見えるためです。繰り返さないクリップを同じ名前でもう一度最初から再生したい時は、`Stop()` してから `Play` します(別の名前のクリップを挟んだ後なら、そのまま `Play` で最初から)。
+- 登録されていない名前の `Play` は何もしません(今のクリップのまま)。Visual Studioの出力ウィンドウに、名前ごとに1回だけ `★ SpriteAnimationComponent::Play: ...` と出ます。
+- コマの並びが空のクリップと、1コマの秒数が0以下のクリップは登録されません(出力ウィンドウに知らせます)。止め絵にしたい時は、コマを1つだけにします。
+- 繰り返さないクリップは、**最後のコマを1コマ分の時間見せ終わったら**止まり(最後のコマのまま)、`IsFinished()` がtrueになります。
+- 1フレームの時間(`dt`)が大きくて何コマも進む時も、進んだコマ数だけ送ります(余った時間は次のコマへ持ち越すので、速さがずれません)。繰り返さないクリップは最後のコマで止まります。
+- 時間は `Update` の `dt` で進みます。ポーズ中(§10)・シーン切り替え中(§16)は止まります。GameObjectが非アクティブの間も止まります。
+- **`ObjectPool` で使い回された時(`SetActive(true)`)は、今のクリップを最初のコマからやり直します**(前回の続きから始まらないように)。`SetRandomStart(true)` なら、ランダムなコマからやり直します。借りる側で何かを呼ぶ必要はありません。
+- `SetRandomStart(true)` は、繰り返すクリップだけに効きます。繰り返さないクリップ(攻撃・やられなど)は、必ず最初のコマから始まります。
+- `SetRandomStart(true)` は **`Play` の前に**呼んでください。ランダムにするのは `Play` した時(と再利用された時)なので、`Play` の後に呼ぶと、最初の再生はランダムになりません(次の `Play` や再利用からランダムになります)。
+- `SpriteRenderer` の後に `AddComponent` してください(`Play` した時に、すぐそのコマにするため)。同じGameObjectに `SpriteRenderer` が無ければ何もしません(出力ウィンドウに1回知らせます)。
+
+**実例**: Sample3Dの `EnemyManager` の `SetupEnemy` で、敵に `AddClip("Walk", { 4, 5 }, 0.3f, true)`・`SetRandomStart(true)`・`Play("Walk")` をしています(コマ4と5を0.3秒ごとに切り替える歩きアニメーション)。プールで再利用された敵も、自動でアニメーションをやり直します。
+
+---
+
+## 18. 開発時の注意点
 
 ### 文字コード(重要)
 
@@ -926,7 +977,7 @@ Claude Code で作業する場合は、`.claude/`の設定で、メインの会�
 
 ---
 
-## 18. サンプル構成(現状)
+## 19. サンプル構成(現状)
 
 プロジェクト構成自体は`0. プロジェクト構成`を参照してください。ここでは各サンプルの中身(`Game/`)を説明します。
 
@@ -947,8 +998,8 @@ Sample3D/Game/Components/  TitleController, ButtonController, GroundController, 
 Sample3D/Game/Scenes/      TitleScene, GameScene
 ```
 
-- **Sample2D**: トップダウン視点のアリーナシューター。タイトル画面のSTARTボタン(出る時に`TweenComponent`でぴょこっと大きくなる)をクリックすると、画面が暗転してからゲーム開始(ゲーム画面に入ると明転する。`FadeTransition`。§16)(ボタンは`CreateButton(scene, 文字, 位置, クリックされた時の処理)`で作れる汎用部品なので、他の画面のボタンにも使い回せる)。WASDで移動、Playerは常にマウスの方を向き、左クリックでその方向へ弾を発射。背景はタイル状に敷き詰めた床(`BackgroundController`)で、移動するとスクロールする(カメラはPlayerに付けた`CameraFollowComponent`が追いかける。§14)。敵(`EnemyManager`が一定間隔でPlayerの周囲にランダムスポーンさせる)がゆっくり追いかけてきて(`ChaseComponent`。§13)、弾を当てると倒せる(`EventBus`で`"EnemyDefeated"`イベントを発行しスコア加算)。敵に触れるとHPが減り(1秒間の無敵時間つき)、敵から離れる向きに弾かれる(ノックバック。`AddForce`で衝撃を加え、0.2秒間は移動キーが効かない。§19)、画面が少し揺れて(`CameraShake`。§14)、画面の端が赤く点滅する(`ScreenEffect::Vignette`。§15)。HPが0になるとゲームオーバー画面が出てSPACEでタイトルに戻る(黒い丸が閉じて開く`SpriteTransition`。§16)。当たり判定・物理はPhysXを使い(Player=`CircleRigidbodyComponent`、敵=`SquareRigidbodyComponent`、弾=`CircleRigidbodyComponent`)、Player・敵はDynamic(`SetVelocity()`で速度を渡して動かす。重力なし・回転なし・`SetFreezePositionZ(true)`で奥行き方向に固定)、弾はKinematicのトリガー。3Dカメラは使わない(`CameraController`なし)。
-- **Sample3D**: Sample2Dと同じアリーナシューターを3D空間で遊べるようにしたもの。タイトル画面のボタン(Sample2Dと同じく、出る時に`TweenComponent`でぴょこっと大きくなる)をクリックすると、Sample2Dと同じく暗転してからゲーム開始(Sample3Dの`CreateButton()`は、位置と大きさをまとめて`Transform`で受け取る形になっている: `CreateButton(scene, 文字, transform, クリックされた時の処理)`)。Player(立方体)は三人称カメラ(`CameraController`。マウス移動で視点回転。カーソルは画面中心に固定され、ESCで解除・左クリックで再固定。TABで一人称に切り替え)と同じ向きを向き、WASDもカメラ基準(W=カメラの前、D=カメラの右)で移動する。左クリックでPlayerの向いている方向へ、地面と水平に弾(球)を発射。敵は2Dの画像(Worldモードの`SpriteRenderer`。Y軸だけカメラの方を向く立て看板)で、地面の上をPlayerに向かって歩いてくる(`ChaseComponent`を`SetPlane(MovePlane::XZ)`で使う。§13)。歩く間は、`EnemyController`がタイマーでスプライトシートのコマ(4番と5番)を0.3秒ごとに切り替えて、歩きアニメーションにしている。スコア・HP・無敵時間・被弾時に画面の端が赤く点滅すること・ゲームオーバー(SPACEでタイトルへ。Sample3Dは、黒い帯が左から覆って右へ抜けていく`SpriteTransition(...).SetSwitchFrame(7)`。§16)・`EventBus`のイベント名はSample2Dと同じ。Player・敵はDynamicの`BoxRigidbodyComponent`(重力あり・回転なし。Y速度は`GetVelocity().y`を維持したまま`SetVelocity()`で動かす。敵は`ChaseComponent`がこれをしている)、弾はKinematicのトリガー(`SphereRigidbodyComponent`)。地面は、1000四方のタイルを3Dカメラの描画距離(farZ)の範囲だけ敷き詰めて描く`GroundController`(見た目)と、見えない大きなStaticの板(当たり判定)の組み合わせ。遠景はスカイボックス。
+- **Sample2D**: トップダウン視点のアリーナシューター。タイトル画面のSTARTボタン(出る時に`TweenComponent`でぴょこっと大きくなる)をクリックすると、画面が暗転してからゲーム開始(ゲーム画面に入ると明転する。`FadeTransition`。§16)(ボタンは`CreateButton(scene, 文字, 位置, クリックされた時の処理)`で作れる汎用部品なので、他の画面のボタンにも使い回せる)。WASDで移動、Playerは常にマウスの方を向き、左クリックでその方向へ弾を発射。背景はタイル状に敷き詰めた床(`BackgroundController`)で、移動するとスクロールする(カメラはPlayerに付けた`CameraFollowComponent`が追いかける。§14)。敵(`EnemyManager`が一定間隔でPlayerの周囲にランダムスポーンさせる)がゆっくり追いかけてきて(`ChaseComponent`。§13)、弾を当てると倒せる(`EventBus`で`"EnemyDefeated"`イベントを発行しスコア加算)。敵に触れるとHPが減り(1秒間の無敵時間つき)、敵から離れる向きに弾かれる(ノックバック。`AddForce`で衝撃を加え、0.2秒間は移動キーが効かない。§20)、画面が少し揺れて(`CameraShake`。§14)、画面の端が赤く点滅する(`ScreenEffect::Vignette`。§15)。HPが0になるとゲームオーバー画面が出てSPACEでタイトルに戻る(黒い丸が閉じて開く`SpriteTransition`。§16)。当たり判定・物理はPhysXを使い(Player=`CircleRigidbodyComponent`、敵=`SquareRigidbodyComponent`、弾=`CircleRigidbodyComponent`)、Player・敵はDynamic(`SetVelocity()`で速度を渡して動かす。重力なし・回転なし・`SetFreezePositionZ(true)`で奥行き方向に固定)、弾はKinematicのトリガー。3Dカメラは使わない(`CameraController`なし)。
+- **Sample3D**: Sample2Dと同じアリーナシューターを3D空間で遊べるようにしたもの。タイトル画面のボタン(Sample2Dと同じく、出る時に`TweenComponent`でぴょこっと大きくなる)をクリックすると、Sample2Dと同じく暗転してからゲーム開始(Sample3Dの`CreateButton()`は、位置と大きさをまとめて`Transform`で受け取る形になっている: `CreateButton(scene, 文字, transform, クリックされた時の処理)`)。Player(立方体)は三人称カメラ(`CameraController`。マウス移動で視点回転。カーソルは画面中心に固定され、ESCで解除・左クリックで再固定。TABで一人称に切り替え)と同じ向きを向き、WASDもカメラ基準(W=カメラの前、D=カメラの右)で移動する。左クリックでPlayerの向いている方向へ、地面と水平に弾(球)を発射。敵は2Dの画像(Worldモードの`SpriteRenderer`。Y軸だけカメラの方を向く立て看板)で、地面の上をPlayerに向かって歩いてくる(`ChaseComponent`を`SetPlane(MovePlane::XZ)`で使う。§13)。歩く間は、敵に付けた`SpriteAnimationComponent`がスプライトシートのコマ(4番と5番)を0.3秒ごとに切り替えて、歩きアニメーションにしている(始まるコマはランダムなので、何体いても足踏みがそろわない。§17)。スコア・HP・無敵時間・被弾時に画面の端が赤く点滅すること・ゲームオーバー(SPACEでタイトルへ。Sample3Dは、黒い帯が左から覆って右へ抜けていく`SpriteTransition(...).SetSwitchFrame(7)`。§16)・`EventBus`のイベント名はSample2Dと同じ。Player・敵はDynamicの`BoxRigidbodyComponent`(重力あり・回転なし。Y速度は`GetVelocity().y`を維持したまま`SetVelocity()`で動かす。敵は`ChaseComponent`がこれをしている)、弾はKinematicのトリガー(`SphereRigidbodyComponent`)。地面は、1000四方のタイルを3Dカメラの描画距離(farZ)の範囲だけ敷き詰めて描く`GroundController`(見た目)と、見えない大きなStaticの板(当たり判定)の組み合わせ。遠景はスカイボックス。
 
 **Sample3Dの実装メモ**: 向きはすべて`transform.rotate.y`(度)で表し、`rotate.y`の時の正面(ローカルの+Z)は`(sin, 0, cos)`の方向になる(`CameraController::GetYaw()`の式と同じ。`Math::Forward3D()`で求められる)。Worldモードの`SpriteRenderer`は`rotate.y`を使わない(ビルボードの向きとZ軸回転だけを使う)ので、敵の画像の向きは`SetBillboardLock(true, false, true)`でカメラの方へ向けている。Playerは`SetFreezeRotation(true)`で、`RigidbodyComponent`は位置しか同期しないため、`PlayerController`が`rotate.y`が変わった時に`GetActor()`の`setGlobalPose`で当たり判定の箱の回転も合わせている(デバッグ表示の枠と実際の判定が同じ向きになる)。一人称の間は、カメラが立方体の内側に入るのでPlayerの`MeshRenderer`を非表示にしている。
 
@@ -981,7 +1032,8 @@ GameManager/HUD/EnemyManager/BulletManagerのような「見た目の無い管�
 | `"FireBullet"`を受けて弾を出す | `BulletManager::Init()` |
 | 一定間隔で敵を出す | `EnemyManager::Update()` |
 | 敵がPlayerを追いかける | 敵に付けた`ChaseComponent`(Engine。§13)。相手と速さは`EnemyManager::Spawn()`が渡す |
-| 敵に当たったら弾かれる(Sample2D) | `PlayerController::OnCollisionStay2D()`(`AddForce`。§19) |
+| 敵の歩きアニメーション(Sample3D) | 敵に付けた`SpriteAnimationComponent`(Engine。§17)。クリップの登録と再生は`EnemyManager`の`SetupEnemy` |
+| 敵に当たったら弾かれる(Sample2D) | `PlayerController::OnCollisionStay2D()`(`AddForce`。§20) |
 | 敵に当たったら画面が揺れる(Sample2D) | `PlayerController::OnCollisionStay2D()`(`CameraShake::Shake`。§14) |
 | 敵に当たったら画面の端が赤く点滅する | `PlayerController::OnCollisionStay2D()`(`ScreenEffect::Vignette`。§15) |
 | カメラがPlayerを追いかける(Sample2D) | `Objects/Player.cpp`で付けた`CameraFollowComponent`(Engine。§14) |
@@ -993,7 +1045,7 @@ Sceneに残してよいのは、オブジェクトの配置と、シーン全体
 
 ---
 
-## 19. PhysX(3D物理演算)
+## 20. PhysX(3D物理演算)
 
 3D用の物理エンジンとして[NVIDIA PhysX 4.1](https://github.com/NVIDIA-Omniverse/PhysX)を導入しています。ビルド済みのライブラリ一式(ヘッダー・dll・lib)を`ThirdParty/PhysX/`にコミット済みなので、**チームメンバーは自分でビルドし直す必要はありません**(`git clone`してそのままビルドできます)。
 
