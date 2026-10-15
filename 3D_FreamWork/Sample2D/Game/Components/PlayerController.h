@@ -21,6 +21,10 @@ private:
     static constexpr float damageShakeStrength = 6.0f;  // ダメージを受けた時の画面の揺れの強さ(ピクセル)
     static constexpr float damageShakeDuration = 0.2f;  // ダメージを受けた時に画面が揺れる時間(秒)
 
+    static constexpr DirectX::XMFLOAT4 damageVignetteColor = { 1.0f, 0.0f, 0.0f, 0.6f };  // ダメージを受けた時に画面の端に出す色(wは一番濃い時の濃さ)
+    static constexpr float damageVignetteDuration = 0.5f;   // 画面の端が点滅する時間(秒)
+    static constexpr int damageVignetteBlinkCount = 2;      // 画面の端が点滅する回数
+
 public:
     void Init() override;
     void Update(float dt) override;

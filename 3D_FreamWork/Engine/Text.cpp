@@ -62,6 +62,10 @@ namespace Text {
         d2dRenderTarget->EndDraw();
     }
 
+    ID2D1RenderTarget* GetRenderTarget() {
+        return d2dRenderTarget;
+    }
+
     void Draw(const std::wstring& text, float x, float y,
         float size, DirectX::XMFLOAT4 color,
         const std::wstring& fontName) {

@@ -18,6 +18,10 @@ private:
     static constexpr float invincibleDuration = 1.0f;   // ダメージを受けた後の無敵時間(秒)
     Timer invincibleTimer{ invincibleDuration };         // 無敵時間を数える(終わっていれば無敵ではない)
 
+    static constexpr DirectX::XMFLOAT4 damageVignetteColor = { 1.0f, 0.0f, 0.0f, 0.6f };  // ダメージを受けた時に画面の端に出す色(wは一番濃い時の濃さ)
+    static constexpr float damageVignetteDuration = 0.5f;   // 画面の端が点滅する時間(秒)
+    static constexpr int damageVignetteBlinkCount = 2;      // 画面の端が点滅する回数
+
 public:
     // 向き・移動の基準にするカメラを、CreatePlayer()から渡してもらう
     void Setup(CameraController* cameraController) { camera = cameraController; }

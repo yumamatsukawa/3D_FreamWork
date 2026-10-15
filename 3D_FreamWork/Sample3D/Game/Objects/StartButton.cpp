@@ -11,7 +11,9 @@ GameObject* CreateStartButton(Scene& scene) {
     tf.position = { 0.f, -150.f , 0.f};
     tf.scale = { 320.f, 96.f, 1.f };
     GameObject* startButton = CreateButton(scene, L"Start", tf, []{
-        SceneManager::Get().ChangeScene<GameScene>();
+        // 黒で0.5秒かけて暗転 → GameSceneへ切り替え → 0.5秒かけて明転
+        // (切り替え中にもう一度押されても、SceneManagerが無視するので二重に切り替わらない)
+        SceneManager::Get().ChangeScene<GameScene>(FadeTransition());
         });
 
     // 出る時の演出: 大きさ0から本来の大きさへ、0.4秒でぴょこっと大きくする

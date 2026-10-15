@@ -257,7 +257,7 @@ player->AddComponent<CameraController>();
 
 ## 6. Collider(当たり判定)
 
-**当たり判定は、2D/3D問わず全てPhysX(`RigidbodyComponent`、§17参照)で計算しています。**2Dのゲームでは、2D向けに使いやすくした`SquareRigidbodyComponent`/`CircleRigidbodyComponent`を使い、`SetFreezePositionZ(true)`で奥行き方向に動かないようにします(Sample2Dが実例)。
+**当たり判定は、2D/3D問わず全てPhysX(`RigidbodyComponent`、§19参照)で計算しています。**2Dのゲームでは、2D向けに使いやすくした`SquareRigidbodyComponent`/`CircleRigidbodyComponent`を使い、`SetFreezePositionZ(true)`で奥行き方向に動かないようにします(Sample2Dが実例)。
 
 ```cpp
 // Playerの例(すり抜けない円形・半径50。Dynamic+速度指定で動かし、衝突応答はPhysXに任せる)
@@ -325,7 +325,7 @@ RigidbodyComponent::SetDebugDrawEnabled(true);
 | `SquareRigidbodyComponent` | Z軸方向で切った断面の四角 |
 | `CircleRigidbodyComponent` | Z軸方向で切った断面の丸 |
 
-2D向けのSquare/Circleは、PhysX上は奥行きのある立方体/球ですが(§17)、2Dゲームでは奥行き方向に動かないので、平面で見た時の形(断面)だけを表示しています。
+2D向けのSquare/Circleは、PhysX上は奥行きのある立方体/球ですが(§19)、2Dゲームでは奥行き方向に動かないので、平面で見た時の形(断面)だけを表示しています。
 
 **内部実装メモ**: `RigidbodyComponent::Draw()`が、`PxShape`から実際のジオメトリ(`PxBoxGeometry`/`PxSphereGeometry`)を取得し、Ownerの`Transform`の`scale`だけを一時的に差し替えて描画しています(位置・回転は普段どおりOwnerのTransformをそのまま使う)。枠は三角形ではなく線(`D3D11_PRIMITIVE_TOPOLOGY_LINELIST`)で描いていて、形ごとの輪郭データは`Mesh::CreateCubeOutline()`などで作り、全`RigidbodyComponent`で1つずつ共有しています。
 
@@ -447,7 +447,7 @@ Time::SetTimeScale(1.0f);   // 元に戻す
 
 **決まり**:
 - **1フレームの時間には上限(0.1秒)があります。** ウィンドウをドラッグしている間などはゲームが止まっていて、その分を1フレームでまとめて進めると、物がすり抜けたりワープしたりするためです。シーンを切り替えた直後(読み込みで1フレームが長くなった時)なども、`dt` は最大0.1秒になります。上限は倍率をかける前の時間にかかるので、`GetUnscaledDeltaTime()` も0.1秒を超えません。
-- **時間の倍率はシーンをまたいで残ります。** ポーズ中(倍率0)のままシーンを切り替えると、次のシーンも止まったままになるので、切り替える前に `Time::SetTimeScale(1.0f)` で元に戻してください。
+- **時間の倍率はシーンをまたいで残ります。** ポーズ中(倍率0)のままシーンを切り替えると、次のシーンも止まったままになるので、切り替える前に `Time::SetTimeScale(1.0f)` で元に戻してください。なお、演出付きのシーン切り替え(§16)の間は時間が止まり、終わると切り替える前の倍率に戻ります。
 - **ポーズ中も、Engineは各Componentの `Update` を止めません**(`dt` が0で呼ばれ続けます。PhysXの物理演算は止まります)。そのため、何もしないとポーズ中でもキー入力で弾が出てしまいます。**入力を止めたいControllerは、`Update` の先頭(入力を読む前)で次のように書いてください。**
   ```cpp
   void PlayerController::Update(float dt) {
@@ -455,7 +455,7 @@ Time::SetTimeScale(1.0f);   // 元に戻す
       ...
   }
   ```
-  (今のサンプルにはポーズ機能が無いので、まだどのControllerにも書いていません)
+  両サンプルの`PlayerController::Update`に書いてあります(今のサンプルにポーズ機能は無いので、効くのはシーン切り替えの演出中です。§16)。Sample3Dでは、一人称の時にPlayerを隠す処理(カメラはポーズ中もTABで切り替えられるため)より後に置いています。
 
 ### Timer(○秒たったら)
 
@@ -670,7 +670,7 @@ chase->SetPlane(MovePlane::XZ);    // 3Dの地面の上を動く時(2Dなら不�
 - `ObjectPool` で使い回された時(`SetActive(true)`)は、速度・進行方向などの状態をリセットします。相手・速さなどの設定は残るので、出す度に `SetTarget` などで入れ直してください(Sampleの `EnemyManager::Spawn` が実例)。
 - Dynamicの剛体と一緒に使う時は、`RigidbodyComponent` の**後に** `AddComponent` してください(Componentは追加順に `Update` されるので、PhysXの結果が反映された位置で計算できる)。
 - `HomingComponent` の進行方向は `rotate` と同じ向きです(XYは `rotate.z` = `Math::Forward2D`、XZは `rotate.y` = `Math::Forward3D`)。最初の進行方向は、出した時の `rotate` の向きです(出す時に向きを決めておけば、その向きへ飛び出してから曲がっていく)。`SetFaceMovement(true)` をDynamicの剛体で使う時は、`SetFreezeRotation(true)` にしておきます(PhysXの回転で上書きされないように)。
-- `AccelerateChaseComponent` は、Dynamicなら `AddForce(..., ForceMode::Acceleration)`(§17)で加速します(ぶつかって跳ね返った勢いも残る)。1フレーム分の加速だけ、最高速度を少し超えることがあります。
+- `AccelerateChaseComponent` は、Dynamicなら `AddForce(..., ForceMode::Acceleration)`(§19)で加速します(ぶつかって跳ね返った勢いも残る)。1フレーム分の加速だけ、最高速度を少し超えることがあります。
 
 **実例**: 両サンプルの `EnemyManager` が、敵に `ChaseComponent` を付けて(`SetupEnemy`)、出す時に追いかける相手(Player)と速さを渡しています(`Spawn`)。Sample3Dは `SetPlane(MovePlane::XZ)` で、地面の上を重力で落ちながら追いかけます。
 
@@ -726,6 +726,8 @@ CameraShake::Shake(6.f, 0.2f);   // 強さ6で0.2秒揺らす
 - 揺れの時間はポーズ中も進みます(`Time::GetUnscaledDeltaTime()`)。
 - **揺れている途中にまた`Shake`を呼んだ時**: 今の揺れの強さ(弱まった後の値)と比べて、新しい方が強いか同じなら、新しい揺れに置き換えます(最初から数え直す)。弱ければ無視します(強い揺れが、後から来た弱い揺れで消されない)。
 - `CameraShake::IsShaking()` で揺れている途中か分かります。
+- `CameraShake::Stop()` で揺れをすぐに止められます(描画の途中で呼ばれても、カメラはちゃんと元の位置に戻ります)。
+- **シーンを切り替えると、揺れは止まります**(前のシーンの揺れが次のシーンに残らない)。止めるのは古いシーンの`Uninit`の後・新しいシーンの`Init`の前なので、新しいシーンの`Init`で`Shake`した揺れは消えません。
 
 **実例**: Sample2Dの`PlayerController::OnCollisionStay2D()`で、敵に当たってダメージを受けた時に揺らしています(強さ・時間は`PlayerController.h`の`damageShakeStrength`/`damageShakeDuration`)。
 
@@ -765,7 +767,128 @@ if (Physics::Raycast(origin, direction, 5000.f, hit, "Enemy")) { /* hit.object �
 
 ---
 
-## 15. 開発時の注意点
+## 15. 画面エフェクト(ScreenEffect)
+
+被弾・回復・シーン切り替えなどで、画面全体に色の演出を重ねます。
+
+```cpp
+#include "../../../Engine/ScreenEffect.h"
+```
+
+| 関数 | 内容 |
+|---|---|
+| `ScreenEffect::Flash(色, 秒)` | 画面全体が一瞬光る。色の`w`の濃さから始まり、指定した秒数でだんだん0になる |
+| `ScreenEffect::Vignette(色, 秒, 回数)` | 画面の**端だけ**が色付きで点滅する(中央は透明)。指定した秒数の間に、指定した回数だけ点滅して消える。色の`w`が一番濃い時の濃さ |
+| `ScreenEffect::Fade(色, 目標の濃さ, 秒, 終わった時の処理)` | 暗転・明転。**今の濃さから**目標の濃さ(0〜1)へ、指定した秒数で変える。1で塗りつぶしたまま止まり、その後0にすると消える。色は`x,y,z`だけを使う(`w`は使わない)。最後の「終わった時の処理」は省略できる |
+| `ScreenEffect::IsFading()` | `Fade`の濃さが変わっている途中なら`true`(暗転し終わって止まっている間は`false`) |
+| `ScreenEffect::Stop()` | 今出ている`Flash`と`Vignette`をすぐに消す。`Fade`は消さない(今の濃さも「終わった時の処理」もそのまま) |
+
+```cpp
+// 敵に当たった時: 画面の端を赤く、0.5秒で2回点滅させる
+ScreenEffect::Vignette({ 1.f, 0.f, 0.f, 0.6f }, 0.5f, 2);
+
+// 回復した時: 画面全体を緑っぽく光らせる
+ScreenEffect::Flash({ 0.3f, 1.f, 0.3f, 0.5f }, 0.3f);
+
+// ポーズ画面を開いた時: 0.3秒で半分くらいまで暗くする(閉じる時は目標の濃さ0で戻す)
+ScreenEffect::Fade({ 0.f, 0.f, 0.f, 1.f }, 0.5f, 0.3f);
+```
+
+**シーンを切り替える時の暗転・明転は、§16 の `FadeTransition` を使ってください**(1行で「暗転 → 切り替え → 明転」まで済み、二重押しも防げます)。STARTボタンも今はこちらを使っています:
+
+```cpp
+// STARTボタンを押した時: 0.5秒で暗転 → GameSceneへ切り替え → 0.5秒で明転
+SceneManager::Get().ChangeScene<GameScene>(FadeTransition());
+```
+
+**決まり**:
+- **文字(`Text::Draw`)も含めて、画面の一番上に描きます。** 暗転すると、HUDやボタンの文字も一緒に隠れます(`GameEngine::Run`で、シーンの描画が全部終わった後に描いている)。画像ファイルは使わず、Direct2D(文字と同じ仕組み)で描いています。
+- 3つのエフェクトは別々に動くので、同時に出せます。重なる順番は下から **Vignette → Flash → Fade**(Fadeが一番上)。
+- 同じエフェクトを途中でまた呼ぶと、新しい方に置き換わります(最初から数え直す)。
+- **シーンを切り替えると、`Flash`と`Vignette`は消えます**(被弾の赤い点滅などが次のシーンに残らない)。**`Fade`の濃さと進み具合は残ります。** 暗転したまま次のシーンへ切り替えて、次のシーンで明転する、という使い方ができます。逆に、暗転したまま明転を忘れると、次のシーンが真っ暗のままになるので注意してください。
+- 消すのは古いシーンの`Uninit`の後・新しいシーンの`Init`の前なので、新しいシーンの`Init`で始めた明転や`Flash`は消えません。
+- **時間はポーズ中も進みます**(`Time::GetUnscaledDeltaTime()`)。ポーズ画面への暗転などにも使えます。
+- 秒数が0以下の時は、すぐに目標の値になります(`Flash`/`Vignette`は何も出さない、`Fade`はすぐにその濃さになり、終わった時の処理もその場で呼ぶ)。
+- `Fade`の「終わった時の処理」は1回だけ呼ばれます。呼ばれるのは毎フレームの最初の方(`ScreenEffect::Update`。シーンの`Update`より前)なので、中で`ChangeScene`してよく、同じフレームのうちに新しいシーンに切り替わります(切り替えた瞬間に前のシーンが一瞬見えることはない)。変わり終わる前に次の`Fade`を呼ぶと、前の`Fade`の「終わった時の処理」は呼ばれません。
+- **`Fade`が変わり終わる前にシーンが切り替わると、「終わった時の処理」は呼ばれずに捨てられます**(濃さの変化は最後まで続く)。そのため、ラムダに`this`などシーンのオブジェクトのポインタを入れても、消えたシーンのオブジェクトを触ってしまうことはありません。ただし、これはシーンを切り替えた時だけの話です。**同じシーンの中で`Destroy()`されるオブジェクトの`this`は入れないでください**(`Fade`が終わる前にそのオブジェクトが消えると、終わった時の処理はそのまま呼ばれるので、消えたオブジェクトを触ってしまう)。逆に「シーンが変わっても必ず呼んでほしい処理」は、終わった時の処理には書けないので注意してください。
+- 「終わった時の処理の中で`ChangeScene`する」使い方もできます(ただしシーン切り替えの演出には、§16の方が簡単です)。終わった時の処理は呼ばれた時点で取り出されているので、その後のシーンの切り替えで捨てられることも、二重に呼ばれることもありません。ただし、その中でもう一度「終わった時の処理」付きの`Fade`を始めると、すぐ後のシーンの切り替えで捨てられます(次のシーンで続けたい演出は、次のシーンの`Init`で始めてください)。
+
+**実例**:
+- 両サンプルの`PlayerController::OnCollisionStay2D()`: ダメージを受けた時に`Vignette`(色・時間・回数は`PlayerController.h`の`damageVignetteColor`/`damageVignetteDuration`/`damageVignetteBlinkCount`)
+- STARTボタンの暗転・明転は、§16の`FadeTransition`に置き換えました(`ScreenEffect::Fade`はシーン切り替え以外の演出用に残しています)
+
+---
+
+## 16. シーン切り替え(SceneTransition)
+
+シーンを切り替える時に、暗転や画像のアニメーションで画面を隠します。どの切り替え方も「**画面を覆う → シーンを切り替える → 開く**」の順に進みます。
+
+```cpp
+#include "../../../Engine/SceneManager.h"   // これだけで3種類とも使える
+```
+
+| 書き方 | 内容 |
+|---|---|
+| `SceneManager::Get().ChangeScene<GameScene>()` | **瞬時**。今まで通り、演出なしですぐに切り替える |
+| `SceneManager::Get().ChangeScene<GameScene>(FadeTransition())` | **フェード**。黒で0.5秒かけて暗転 → 切り替え → 0.5秒かけて明転 |
+| `SceneManager::Get().ChangeScene<GameScene>(FadeTransition({ 1.f, 1.f, 1.f, 1.f }, 1.f))` | フェードの色と時間を変える(この例は白で、暗転・明転とも1秒)。色の`w`は使わない(必ず全部塗りつぶす) |
+| `SceneManager::Get().ChangeScene<TitleScene>(SpriteTransition(L"Assets/transition_circle.png", 8, 2, 0.04f))` | **スプライト**。1枚の画像に並べたコマ(この例は8列×2行=16コマ)を、1コマ0.04秒で、画面全体に引き伸ばして再生する。覆う時はコマ0→最後のコマへ順に、開く時は最後のコマ→コマ0へ逆に再生する |
+| `SpriteTransition(L"Assets/close.png", 8, 2, 0.04f).SetOpenSheet(L"Assets/open.png", 4, 2, 0.05f)` | 開く時だけ別の画像を使う(こちらも逆再生) |
+| `SpriteTransition(L"Assets/transition_wipe.png", 8, 2, 0.04f).SetSwitchFrame(7)` | **切り替えるコマを決める**。逆再生はせず、コマ0→最後のコマを順に1回だけ再生して、途中のコマ7でシーンを切り替える(下の「SetSwitchFrame」) |
+
+```cpp
+// STARTボタンを押した時(両サンプルの Objects/StartButton.cpp)
+SceneManager::Get().ChangeScene<GameScene>(FadeTransition());
+
+// ゲームオーバー中にSPACEを押した時(Sample2D の GameManager::Update): 黒い丸が閉じて、また開く
+SceneManager::Get().ChangeScene<TitleScene>(SpriteTransition(L"Assets/transition_circle.png", 8, 2, 0.04f));
+
+// ゲームオーバー中にSPACEを押した時(Sample3D の GameManager::Update): 黒い帯が左から入って覆い、右へ抜けていく
+SceneManager::Get().ChangeScene<TitleScene>(SpriteTransition(L"Assets/transition_wipe.png", 8, 2, 0.04f).SetSwitchFrame(7));
+```
+
+**SetSwitchFrame(コマ番号)**: 「左から入って右へ抜ける」のように、開く時が覆う時の逆再生にならない演出に使います。
+
+| 段階 | 出すコマ | 時間 | 例: 16コマ・1コマ0.04秒・`SetSwitchFrame(7)` |
+|---|---|---|---|
+| 覆う | コマ0 → 指定したコマ | (指定したコマ+1)コマ分 | コマ0〜7、0.32秒 |
+| シーンを切り替える | 指定したコマ(全部覆っている) | — | 切り替えた瞬間はコマ7が出ている |
+| 開く | 指定したコマの次 → 最後のコマ | (最後のコマ−指定したコマ)コマ分 | コマ8〜15、0.32秒 |
+
+- 最後のコマが終わると演出が終わります(最後のコマは全部透明にしておく)。
+- 指定できるのは **0〜(コマ数−2)** です。範囲の外(マイナスや、最後のコマ以上)を指定すると、範囲の中に収めて、出力ウィンドウに`★ SpriteTransition::SetSwitchFrame: ...`と出ます。最後のコマで切り替えると開く段階が0コマになり、新しいシーンがいきなり見えてしまうためです。
+- `SetOpenSheet`と一緒に使うと`SetSwitchFrame`が優先され、`SetOpenSheet`の画像は使われません(出力ウィンドウに1回知らせます)。
+- `SetSwitchFrame`を使わなければ、今まで通り(覆う=順再生、開く=逆再生)です。
+
+**決まり**:
+- **切り替え中(覆っている間・開いている間)は、ゲームの時間が止まります**(`Time::GetTimeScale()`が0、`Time::IsPaused()`がtrue。§10)。演出そのものは`Time::GetUnscaledDeltaTime()`で進みます。開き終わると、切り替える前の倍率に戻ります(切り替える前がスロー0.3なら0.3に戻る)。
+  - 切り替え中に`Time::SetTimeScale()`を呼ぶと、すぐには変わらず(止まったまま)、開き終わった時にその倍率になります(最後に呼んだ値)。新しいシーンの`Init`で`Time::SetTimeScale(1.0f)`と書いておけば、明転し終わってから通常の速さになります。
+  - ポーズ中と同じく、各Componentの`Update`は`dt`が0で呼ばれ続けます。キー入力で弾が出ないようにしたいControllerは、§10の`if (Time::IsPaused()) return;`を書いてください(両サンプルの`PlayerController`は書いてあるので、切り替え中は移動・向き・発射を受け付けません)。
+- **切り替え中に`ChangeScene`をもう一度呼んでも無視されます**(引数あり・なしの両方。出力ウィンドウに`★ SceneManager::ChangeScene: ...`と出ます)。ボタンを連打しても二重に切り替わりません。演出なしの`ChangeScene`も、呼んでから実際に切り替わるまで(次のフレームの最初まで)の間に呼んだ物は無視されます。新しいシーンの`Init`の中で呼んだ`ChangeScene`も無視されるので注意してください。
+- **文字(`Text::Draw`)と画面エフェクト(§15)も含めて、一番上に描きます**(暗転するとHUDの文字も隠れる)。画面エフェクトと同じく Direct2D で描いています。
+- シーンが切り替わるのは、**画面を全部覆い終わったフレーム**です。切り替えの処理は演出なしの時と同じです(古いシーンの`Uninit` → 画面エフェクト・揺れの後片付け → 新しいシーンの`Init` → 使わなくなった画像の解放)。切り替わる瞬間は覆われているので見えません。
+- 時間を0以下にすると、一瞬で切り替わります。
+
+**スプライトシートの作り方**:
+- 1枚の画像に、コマを左上から右へ、行の終わりまで行ったら次の行へ、の順に並べます(`SpriteRenderer`のコマ番号と同じ)。
+- **最後のコマで、画面全体が覆われるように描いてください**(最後のコマが出ている間にシーンを切り替えます)。コマ0は全部透明にすると、元の画面から自然につながります。透明を使うので、PNGで保存します。
+- 開く時は同じ画像を逆に再生するので、「閉じていく絵」を1つ作れば「開いていく絵」も自動でできます。`SetOpenSheet`で別の画像にする時も、同じ決まり(最後のコマで全部覆う)で作ります。
+- `SetSwitchFrame`を使う画像は決まりが違います。**指定するコマで画面全体を覆い、最後のコマは全部透明に**します(コマ0も全部透明にすると、元の画面から自然につながります)。
+- 各コマは画面全体に引き伸ばすので、1コマの縦横比を画面と同じ(16:9。例: 320×180)にするとゆがみません。
+- 画像は`Assets/`に置けば、ビルドの時に自動で出力先にコピーされます。一度読み込んだ画像は使い回し、ゲームの終了時に解放されます(`Resources`の画像とは別の仕組み)。読み込めなかった時は出力ウィンドウに知らせて、何も描かずに時間どおりに切り替えます。
+
+**見本**:
+- `Assets/transition_circle.png`(8列×2行、1コマ320×180)。コマ0は全部透明で、コマが進むほど黒が外側から広がり、真ん中の透明な丸が小さくなっていき、最後のコマで全部黒になります。
+- `Assets/transition_wipe.png`(8列×2行、1コマ320×180。`SetSwitchFrame(7)`用)。コマ0は全部透明で、黒い帯が左から入ってきてコマ7で全部黒になり、その後は黒が右へ抜けていき、最後のコマ(15)で全部透明になります。
+
+**実例**:
+- 両サンプルの`Objects/StartButton.cpp`: 押したら`FadeTransition`で`GameScene`へ
+- Sample2Dの`GameManager::Update()`: ゲームオーバー中にSPACEで、`SpriteTransition`(丸く閉じて開く)で`TitleScene`へ
+- Sample3Dの`GameManager::Update()`: ゲームオーバー中にSPACEで、`SpriteTransition(...).SetSwitchFrame(7)`(左から覆って右へ抜ける)で`TitleScene`へ
+
+---
+
+## 17. 開発時の注意点
 
 ### 文字コード(重要)
 
@@ -803,7 +926,7 @@ Claude Code で作業する場合は、`.claude/`の設定で、メインの会�
 
 ---
 
-## 16. サンプル構成(現状)
+## 18. サンプル構成(現状)
 
 プロジェクト構成自体は`0. プロジェクト構成`を参照してください。ここでは各サンプルの中身(`Game/`)を説明します。
 
@@ -824,8 +947,8 @@ Sample3D/Game/Components/  TitleController, ButtonController, GroundController, 
 Sample3D/Game/Scenes/      TitleScene, GameScene
 ```
 
-- **Sample2D**: トップダウン視点のアリーナシューター。タイトル画面のSTARTボタン(出る時に`TweenComponent`でぴょこっと大きくなる)をクリックするとゲーム開始(ボタンは`CreateButton(scene, 文字, 位置, クリックされた時の処理)`で作れる汎用部品なので、他の画面のボタンにも使い回せる)。WASDで移動、Playerは常にマウスの方を向き、左クリックでその方向へ弾を発射。背景はタイル状に敷き詰めた床(`BackgroundController`)で、移動するとスクロールする(カメラはPlayerに付けた`CameraFollowComponent`が追いかける。§14)。敵(`EnemyManager`が一定間隔でPlayerの周囲にランダムスポーンさせる)がゆっくり追いかけてきて(`ChaseComponent`。§13)、弾を当てると倒せる(`EventBus`で`"EnemyDefeated"`イベントを発行しスコア加算)。敵に触れるとHPが減り(1秒間の無敵時間つき)、敵から離れる向きに弾かれる(ノックバック。`AddForce`で衝撃を加え、0.2秒間は移動キーが効かない。§17)、画面が少し揺れる(`CameraShake`。§14)。HPが0になるとゲームオーバー画面が出てSPACEでタイトルに戻る。当たり判定・物理はPhysXを使い(Player=`CircleRigidbodyComponent`、敵=`SquareRigidbodyComponent`、弾=`CircleRigidbodyComponent`)、Player・敵はDynamic(`SetVelocity()`で速度を渡して動かす。重力なし・回転なし・`SetFreezePositionZ(true)`で奥行き方向に固定)、弾はKinematicのトリガー。3Dカメラは使わない(`CameraController`なし)。
-- **Sample3D**: Sample2Dと同じアリーナシューターを3D空間で遊べるようにしたもの。タイトル画面のボタン(Sample2Dと同じく、出る時に`TweenComponent`でぴょこっと大きくなる)をクリックするとゲーム開始(Sample3Dの`CreateButton()`は、位置と大きさをまとめて`Transform`で受け取る形になっている: `CreateButton(scene, 文字, transform, クリックされた時の処理)`)。Player(立方体)は三人称カメラ(`CameraController`。マウス移動で視点回転。カーソルは画面中心に固定され、ESCで解除・左クリックで再固定。TABで一人称に切り替え)と同じ向きを向き、WASDもカメラ基準(W=カメラの前、D=カメラの右)で移動する。左クリックでPlayerの向いている方向へ、地面と水平に弾(球)を発射。敵は2Dの画像(Worldモードの`SpriteRenderer`。Y軸だけカメラの方を向く立て看板)で、地面の上をPlayerに向かって歩いてくる(`ChaseComponent`を`SetPlane(MovePlane::XZ)`で使う。§13)。歩く間は、`EnemyController`がタイマーでスプライトシートのコマ(4番と5番)を0.3秒ごとに切り替えて、歩きアニメーションにしている。スコア・HP・無敵時間・ゲームオーバー(SPACEでタイトルへ)・`EventBus`のイベント名はSample2Dと同じ。Player・敵はDynamicの`BoxRigidbodyComponent`(重力あり・回転なし。Y速度は`GetVelocity().y`を維持したまま`SetVelocity()`で動かす。敵は`ChaseComponent`がこれをしている)、弾はKinematicのトリガー(`SphereRigidbodyComponent`)。地面は、1000四方のタイルを3Dカメラの描画距離(farZ)の範囲だけ敷き詰めて描く`GroundController`(見た目)と、見えない大きなStaticの板(当たり判定)の組み合わせ。遠景はスカイボックス。
+- **Sample2D**: トップダウン視点のアリーナシューター。タイトル画面のSTARTボタン(出る時に`TweenComponent`でぴょこっと大きくなる)をクリックすると、画面が暗転してからゲーム開始(ゲーム画面に入ると明転する。`FadeTransition`。§16)(ボタンは`CreateButton(scene, 文字, 位置, クリックされた時の処理)`で作れる汎用部品なので、他の画面のボタンにも使い回せる)。WASDで移動、Playerは常にマウスの方を向き、左クリックでその方向へ弾を発射。背景はタイル状に敷き詰めた床(`BackgroundController`)で、移動するとスクロールする(カメラはPlayerに付けた`CameraFollowComponent`が追いかける。§14)。敵(`EnemyManager`が一定間隔でPlayerの周囲にランダムスポーンさせる)がゆっくり追いかけてきて(`ChaseComponent`。§13)、弾を当てると倒せる(`EventBus`で`"EnemyDefeated"`イベントを発行しスコア加算)。敵に触れるとHPが減り(1秒間の無敵時間つき)、敵から離れる向きに弾かれる(ノックバック。`AddForce`で衝撃を加え、0.2秒間は移動キーが効かない。§19)、画面が少し揺れて(`CameraShake`。§14)、画面の端が赤く点滅する(`ScreenEffect::Vignette`。§15)。HPが0になるとゲームオーバー画面が出てSPACEでタイトルに戻る(黒い丸が閉じて開く`SpriteTransition`。§16)。当たり判定・物理はPhysXを使い(Player=`CircleRigidbodyComponent`、敵=`SquareRigidbodyComponent`、弾=`CircleRigidbodyComponent`)、Player・敵はDynamic(`SetVelocity()`で速度を渡して動かす。重力なし・回転なし・`SetFreezePositionZ(true)`で奥行き方向に固定)、弾はKinematicのトリガー。3Dカメラは使わない(`CameraController`なし)。
+- **Sample3D**: Sample2Dと同じアリーナシューターを3D空間で遊べるようにしたもの。タイトル画面のボタン(Sample2Dと同じく、出る時に`TweenComponent`でぴょこっと大きくなる)をクリックすると、Sample2Dと同じく暗転してからゲーム開始(Sample3Dの`CreateButton()`は、位置と大きさをまとめて`Transform`で受け取る形になっている: `CreateButton(scene, 文字, transform, クリックされた時の処理)`)。Player(立方体)は三人称カメラ(`CameraController`。マウス移動で視点回転。カーソルは画面中心に固定され、ESCで解除・左クリックで再固定。TABで一人称に切り替え)と同じ向きを向き、WASDもカメラ基準(W=カメラの前、D=カメラの右)で移動する。左クリックでPlayerの向いている方向へ、地面と水平に弾(球)を発射。敵は2Dの画像(Worldモードの`SpriteRenderer`。Y軸だけカメラの方を向く立て看板)で、地面の上をPlayerに向かって歩いてくる(`ChaseComponent`を`SetPlane(MovePlane::XZ)`で使う。§13)。歩く間は、`EnemyController`がタイマーでスプライトシートのコマ(4番と5番)を0.3秒ごとに切り替えて、歩きアニメーションにしている。スコア・HP・無敵時間・被弾時に画面の端が赤く点滅すること・ゲームオーバー(SPACEでタイトルへ。Sample3Dは、黒い帯が左から覆って右へ抜けていく`SpriteTransition(...).SetSwitchFrame(7)`。§16)・`EventBus`のイベント名はSample2Dと同じ。Player・敵はDynamicの`BoxRigidbodyComponent`(重力あり・回転なし。Y速度は`GetVelocity().y`を維持したまま`SetVelocity()`で動かす。敵は`ChaseComponent`がこれをしている)、弾はKinematicのトリガー(`SphereRigidbodyComponent`)。地面は、1000四方のタイルを3Dカメラの描画距離(farZ)の範囲だけ敷き詰めて描く`GroundController`(見た目)と、見えない大きなStaticの板(当たり判定)の組み合わせ。遠景はスカイボックス。
 
 **Sample3Dの実装メモ**: 向きはすべて`transform.rotate.y`(度)で表し、`rotate.y`の時の正面(ローカルの+Z)は`(sin, 0, cos)`の方向になる(`CameraController::GetYaw()`の式と同じ。`Math::Forward3D()`で求められる)。Worldモードの`SpriteRenderer`は`rotate.y`を使わない(ビルボードの向きとZ軸回転だけを使う)ので、敵の画像の向きは`SetBillboardLock(true, false, true)`でカメラの方へ向けている。Playerは`SetFreezeRotation(true)`で、`RigidbodyComponent`は位置しか同期しないため、`PlayerController`が`rotate.y`が変わった時に`GetActor()`の`setGlobalPose`で当たり判定の箱の回転も合わせている(デバッグ表示の枠と実際の判定が同じ向きになる)。一人称の間は、カメラが立方体の内側に入るのでPlayerの`MeshRenderer`を非表示にしている。
 
@@ -835,7 +958,7 @@ Sample3D/Game/Scenes/      TitleScene, GameScene
 
 | Component | 持っている値・担当 |
 |---|---|
-| `PlayerController` | HP・無敵時間・ノックバック(HPが0になったら`EventBus`で`"PlayerDied"`を発行し、以後は移動・向き・発射を受け付けない) |
+| `PlayerController` | HP・無敵時間・ノックバック(HPが0になったら`EventBus`で`"PlayerDied"`を発行し、以後は移動・向き・発射を受け付けない。ポーズ中・シーン切り替え中も`Time::IsPaused()`で受け付けない) |
 | `GameManager` | スコア(`"EnemyDefeated"`で加算)・ゲームオーバー判定(`"PlayerDied"`を受けて)・タイトルへの遷移。表示は一切しない |
 | `EnemyManager` | 敵のプールと出現タイマー。一定間隔でPlayerの周囲に敵を出し(追いかける動きは敵に付けた`ChaseComponent`に、相手と速さを渡す)、`"PlayerDied"`を受けたら出現を止める |
 | `BulletManager` | 弾のプール。`"FireBullet"`を受けて、撃った本人の向きへ弾を出す |
@@ -852,13 +975,15 @@ GameManager/HUD/EnemyManager/BulletManagerのような「見た目の無い管�
 | 処理 | 置き場所 |
 |---|---|
 | タイトルに戻った時にカメラを原点へ戻す | `TitleController::Init()` |
-| STARTを押したらGameSceneへ | `Objects/StartButton.cpp`(汎用の`CreateButton()`に「押された時の処理」を渡す) |
+| STARTを押したら暗転してGameSceneへ(入ったら明転) | `Objects/StartButton.cpp`(汎用の`CreateButton()`に「押された時の処理」を渡す。`ChangeScene<GameScene>(FadeTransition())`。§16) |
+| ゲームオーバー中にSPACEでタイトルへ(Sample2Dは丸く閉じて開く、Sample3Dは左から覆って右へ抜ける) | `GameManager::Update()`(`ChangeScene<TitleScene>(SpriteTransition(...))`。Sample3Dは`.SetSwitchFrame(7)`付き。§16) |
 | STARTボタンをぴょこっと出す | `Objects/StartButton.cpp`(`TweenComponent`を付けて`ScaleTo`。§12) |
 | `"FireBullet"`を受けて弾を出す | `BulletManager::Init()` |
 | 一定間隔で敵を出す | `EnemyManager::Update()` |
 | 敵がPlayerを追いかける | 敵に付けた`ChaseComponent`(Engine。§13)。相手と速さは`EnemyManager::Spawn()`が渡す |
-| 敵に当たったら弾かれる(Sample2D) | `PlayerController::OnCollisionStay2D()`(`AddForce`。§17) |
+| 敵に当たったら弾かれる(Sample2D) | `PlayerController::OnCollisionStay2D()`(`AddForce`。§19) |
 | 敵に当たったら画面が揺れる(Sample2D) | `PlayerController::OnCollisionStay2D()`(`CameraShake::Shake`。§14) |
+| 敵に当たったら画面の端が赤く点滅する | `PlayerController::OnCollisionStay2D()`(`ScreenEffect::Vignette`。§15) |
 | カメラがPlayerを追いかける(Sample2D) | `Objects/Player.cpp`で付けた`CameraFollowComponent`(Engine。§14) |
 | コライダー枠の表示ON | `GameManager::Init()` |
 
@@ -868,7 +993,7 @@ Sceneに残してよいのは、オブジェクトの配置と、シーン全体
 
 ---
 
-## 17. PhysX(3D物理演算)
+## 19. PhysX(3D物理演算)
 
 3D用の物理エンジンとして[NVIDIA PhysX 4.1](https://github.com/NVIDIA-Omniverse/PhysX)を導入しています。ビルド済みのライブラリ一式(ヘッダー・dll・lib)を`ThirdParty/PhysX/`にコミット済みなので、**チームメンバーは自分でビルドし直す必要はありません**(`git clone`してそのままビルドできます)。
 

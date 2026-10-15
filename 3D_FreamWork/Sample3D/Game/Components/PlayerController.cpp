@@ -6,6 +6,8 @@
 #include "../../../Engine/EventBus.h"
 #include "../../../Engine/RigidbodyComponent.h"
 #include "../../../Engine/MathUtil.h"
+#include "../../../Engine/ScreenEffect.h"
+#include "../../../Engine/Time.h"
 #include <PxPhysicsAPI.h>
 
 void PlayerController::Init() {
@@ -23,6 +25,10 @@ void PlayerController::Update(float dt) {
 
     // 一人称の間は自分の見た目を隠す(カメラが立方体の内側に入り、内側の面で画面が埋まるため)。当たり判定は残す
     renderer->SetEnabled(camera->GetMode() == CameraController::Mode::ThirdPerson);
+
+    // ポーズ中・シーン切り替え中は操作を受け付けない(dtが0なのでタイマーも進まない)
+    // ※見た目の切り替え(上)より後に置く。CameraControllerはポーズ中もTABで一人称にできるため
+    if (Time::IsPaused()) return;
 
     // 無敵時間
     invincibleTimer.Update(dt);
@@ -92,6 +98,9 @@ void PlayerController::OnCollisionStay2D(CollisionInfo info) {
         if (hp <= 0 || !invincibleTimer.IsFinished()) return;
         hp--;
         invincibleTimer.Reset();
+
+        // 画面の端を赤く点滅させる
+        ScreenEffect::Vignette(damageVignetteColor, damageVignetteDuration, damageVignetteBlinkCount);
 
         // ゲームオーバー
         if (hp <= 0) EventBus::Get().Publish("PlayerDied");

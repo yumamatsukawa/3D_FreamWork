@@ -12,9 +12,11 @@
 // - 揺れている途中にまた Shake が呼ばれた時は、「今の揺れの強さ(弱まった後の値)」と比べて、
 //   新しい方が強いか同じなら新しい揺れに置き換える(最初から数え直す)。弱ければ無視する(強い揺れが弱い揺れで消されない)
 // - 3Dカメラは、カメラから見た右・上の向きにずらす(position と target を同じだけずらすので、向きは変わらない)
+// - シーンを切り替えると、揺れは止まる(SceneManagerが Stop を呼ぶ)
 namespace CameraShake {
     void Shake(float strength, float duration);  // 画面を揺らす(強さ, 秒)。どちらかが0以下なら何もしない
     bool IsShaking();                            // 揺れている途中か
+    void Stop();                                 // 揺れをすぐに止める(描画の途中で呼ばれても、カメラはEndDrawでちゃんと元に戻る)
 
     // ─── Engine内部用(GameEngineだけが呼ぶ。ゲーム側からは呼ばない) ─────────────
     void Update(float unscaledDt);  // 毎フレーム1回、揺れを進める

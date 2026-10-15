@@ -4,9 +4,11 @@
 #include "../../../Engine/Input.h"
 #include "../../../Engine/Collider.h"
 #include "../../../Engine/CameraShake.h"
+#include "../../../Engine/ScreenEffect.h"
 #include "../../../Engine/EventBus.h"
 #include "../../../Engine/RigidbodyComponent.h"
 #include "../../../Engine/MathUtil.h"
+#include "../../../Engine/Time.h"
 
 void PlayerController::Init() {
     // 最初は無敵ではない(「終わった状態」にしておき、ダメージを受けたらResetで数え始める)
@@ -15,6 +17,9 @@ void PlayerController::Init() {
 }
 
 void PlayerController::Update(float dt) {
+
+    // ポーズ中・シーン切り替え中は操作を受け付けない(dtが0なのでタイマーも進まない)
+    if (Time::IsPaused()) return;
 
     // 必要なComponentを取得(無ければ何もしない)
     Transform& t = GetOwner()->transform;
@@ -72,8 +77,9 @@ void PlayerController::OnCollisionStay2D(CollisionInfo info) {
         hp--;
         invincibleTimer.Reset();
 
-        // 画面を揺らす
+        // 画面を揺らして、画面の端を赤く点滅させる
         CameraShake::Shake(damageShakeStrength, damageShakeDuration);
+        ScreenEffect::Vignette(damageVignetteColor, damageVignetteDuration, damageVignetteBlinkCount);
 
         // ゲームオーバー
         if (hp <= 0) EventBus::Get().Publish("PlayerDied");

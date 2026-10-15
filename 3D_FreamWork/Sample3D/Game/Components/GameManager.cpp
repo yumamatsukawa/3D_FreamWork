@@ -23,8 +23,8 @@ void GameManager::Init() {
 }
 
 void GameManager::Update(float dt) {
-    // ゲームオーバー中にSPACEでタイトルへ
+    // ゲームオーバー中にSPACEでタイトルへ(黒い帯が左から入って覆い、コマ7で切り替えて、右へ抜けていく)
     if (gameOver && Input::GetKeyDown(KEY_SPACE)) {
-        SceneManager::Get().ChangeScene<TitleScene>();
+        SceneManager::Get().ChangeScene<TitleScene>(SpriteTransition(L"Assets/transition_wipe.png", 8, 2, 0.04f).SetSwitchFrame(7));
     }
 }

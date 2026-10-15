@@ -47,6 +47,14 @@ namespace CameraShake {
         return GetCurrentStrength() > 0.f;
     }
 
+    void Stop() {
+        // 揺れの強さ・時間だけを消す。applied と覚えた値は触らない
+        // (BeginDraw〜EndDrawの間に呼ばれても、EndDrawでずらす前の値に戻せるように)
+        shakeStrength = 0.f;
+        shakeDuration = 0.f;
+        shakeElapsed = 0.f;
+    }
+
     void Update(float unscaledDt) {
         if (shakeDuration <= 0.f) return;
 

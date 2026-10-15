@@ -11,6 +11,8 @@ namespace {
     float deltaTime = 0.f;            // 1フレームの時間(倍率込み)
     double totalTime = 0.0;           // 起動してからの時間(倍率込み。長時間足し続けても誤差が出にくいようdoubleで持つ)
     float timeScale = 1.f;            // 時間の倍率
+    bool pausedForTransition = false; // シーン切り替えの演出で止めている間か
+    float resumeTimeScale = 1.f;      // 演出が終わった時に戻す倍率
 }
 
 namespace Time {
@@ -21,11 +23,31 @@ namespace Time {
     void SetTimeScale(float scale) {
         // 時間を巻き戻すことはできないので、負の値は0(ポーズ)にする(NaNもここで0になる)
         if (!(scale >= 0.f)) scale = 0.f;
+
+        // シーン切り替えの演出中は止めたままにして、終わった時に戻す倍率として覚えるだけにする
+        // (新しいシーンのInitで SetTimeScale(1) した時なども、演出が終わってから効く)
+        if (pausedForTransition) {
+            resumeTimeScale = scale;
+            return;
+        }
         timeScale = scale;
     }
 
     float GetTimeScale() { return timeScale; }
     bool IsPaused() { return timeScale == 0.f; }
+
+    void PauseForSceneTransition() {
+        if (pausedForTransition) return;
+        pausedForTransition = true;
+        resumeTimeScale = timeScale;
+        timeScale = 0.f;
+    }
+
+    void ResumeAfterSceneTransition() {
+        if (!pausedForTransition) return;
+        pausedForTransition = false;
+        timeScale = resumeTimeScale;
+    }
 
     void Init() {
         QueryPerformanceFrequency(&frequency);

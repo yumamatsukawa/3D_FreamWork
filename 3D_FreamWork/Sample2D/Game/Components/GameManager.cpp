@@ -23,8 +23,8 @@ void GameManager::Init() {
 }
 
 void GameManager::Update(float dt) {
-    // ゲームオーバー中にSPACEでタイトルへ
+    // ゲームオーバー中にSPACEでタイトルへ(黒い丸が閉じていく画像で覆って切り替え、逆再生で開く)
     if (gameOver && Input::GetKeyDown(KEY_SPACE)) {
-        SceneManager::Get().ChangeScene<TitleScene>();
+        SceneManager::Get().ChangeScene<TitleScene>(SpriteTransition(L"Assets/transition_circle.png", 8, 2, 0.04f));
     }
 }

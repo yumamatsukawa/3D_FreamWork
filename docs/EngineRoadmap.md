@@ -3,10 +3,10 @@
 ## 1. はじめに
 
 ### この文書の目的
-Engine(`3D_FreamWork/Engine/`)に今後追加したい16個の機能について、「どんな関数を作るか」「どの順番で作るか」「Sampleではどう使えるか(使用例)」をまとめた設計書です。チーム(C++初心者を含む)で分担して実装する時の資料として使います。
+Engine(`3D_FreamWork/Engine/`)に今後追加したい17個の機能について、「どんな関数を作るか」「どの順番で作るか」「Sampleではどう使えるか(使用例)」をまとめた設計書です。チーム(C++初心者を含む)で分担して実装する時の資料として使います。
 
 ### 状態
-**ここに書いてある内容は「設計案」です。実装済みのものは、4章の表の状態が「完了」になっています(今は計算系、時間とタイマー、リソースの使い回し、イージング、移動系、物理の問い合わせと力、カメラ機能)。**
+**ここに書いてある内容は「設計案」です。実装済みのものは、4章の表の状態が「完了」になっています(今は計算系、時間とタイマー、リソースの使い回し、イージング、移動系、物理の問い合わせと力、カメラ機能、画面エフェクト、シーン切り替え)。**
 関数名・引数は実装しながら変わってよいものです。実際に作る時は、この文書を出発点にして、下の「共通ルール」どおりに1機能ずつ、着手する時に説明してから進めてください(了承は待ちません)。実装したら、この文書の「作る順番」の表の状態を更新してください。
 
 ---
@@ -75,7 +75,7 @@ Engineを変えると Sample2D と Sample3D の**両方**に影響します(`CLA
 - **UIモードの `SpriteRenderer` も2Dカメラと一緒にスクロールする**。`Sprite.cpp` はUIモードでも `Image::GetCamera()` の位置を引いて描画しています(Sample2Dの敵がスクロールするのはこのため)。画面に固定したいHPバーなどには、カメラの影響を受けない描き方(→ 5.10 の `Image::DrawRect`)が要ります。
 - **画面の座標のY方向が関数によって逆**。`Text::Draw` は「画面中央が(0,0)、Y+=上」、`Input::GetMousePosition` は「画面中央が(0,0)、Y+=下」です。この文書の新しい関数は「画面中央が(0,0)、Y+=上」(`Text::Draw` と同じ)にそろえます。
 - **`Text::Draw` は指定した座標に文字の「中心」を合わせる**。左寄せにはできません(→ 5.11)。
-- **文字はいつもゲーム画面の一番上に出る**。`GameEngine::Run` は `Text::BeginDraw` 〜 `Text::EndDraw` の間でシーンを描画していて、Direct2Dの文字は `EndDraw` の時にまとめて描かれます。画面エフェクト(5.8)で暗転しても、今のままでは文字だけ見えたままになります。
+- **文字はいつもゲーム画面の一番上に出る**。`GameEngine::Run` は `Text::BeginDraw` 〜 `Text::EndDraw` の間でシーンを描画していて、Direct2Dの文字は `EndDraw` の時にまとめて描かれます。画面エフェクト(5.8)で暗転しても、今のままでは文字だけ見えたままになります。(→ 5.8 で解決済み: 画面エフェクトは文字も含めて一番上に描く)
 - **`Text::Draw` は呼ばれる度にフォントの設定(`IDWriteTextFormat`)を作り直している**(重い)。なお、`IDWriteTextLayout` を `Release` していなかったメモリリークは修正済み。
 - **`ButtonController` は Sample2D と Sample3D に、まったく同じ内容でコピーされている**。
 - **`Physics::Update` は `dt <= 0` の時は何もしない**。時間の倍率を0(ポーズ)にしてもPhysXは安全に止まります(→ 5.2)。
@@ -92,13 +92,14 @@ Engineを変えると Sample2D と Sample3D の**両方**に影響します(`CLA
 | 4 | [イージング](#54-イージング) | カメラ・UI・画面エフェクトが使う | | 完了 |
 | 5 | [移動系](#55-移動系) + [物理の問い合わせと力](#56-物理の問い合わせと力) | 加速度で動く移動は `AddForce` を使うので、同じ段の中では物理(5.6)を先に作る | | 完了 |
 | 6 | [カメラ機能](#57-カメラ機能) | イージング・計算系を使う | | 完了 |
-| 7 | [画面エフェクト](#58-画面エフェクト) | 時間(Unscaled)・イージングを使う | | 未着手 |
+| 7 | [画面エフェクト](#58-画面エフェクト) | 時間(Unscaled)・イージングを使う | | 完了 |
 | 8 | [2Dアニメーション](#59-2dアニメーション) | 3(コマ番号をSpriteRendererへ移す)が前提 | | 未着手 |
 | 9 | [UI](#510-ui) ・ [テキスト](#511-テキスト) + [セーブ/ロード](#512-セーブロード) | スライダーの値(音量など)を保存するため、セーブ/ロードも一緒に作る | | 未着手 |
 | 10 | [音(立体音響・グループ音量)](#513-音の発生源と聞く位置立体音響) | 3(`Resources` の仕組み。音のデータ共有 `LoadSound` はここで足す)・9(音量スライダー・保存)を使う | | 未着手 |
 | 11 | [CSV](#514-csv) | ほかに依存しないので、いつでも並行して作れる | | 未着手 |
 | 12 | [パーティクル](#515-パーティクル) | 時間・計算系・リソースを使う | | 未着手 |
 | 13 | [FBX読み込み → 3Dアニメーション](#516-fbx読み込みと3dアニメーション) | 一番大きい。外部ライブラリの追加とシェーダーの追加がある | | 未着手 |
+| 14 | [シーン切り替え](#517-シーン切り替え) | 画面エフェクト(7。Direct2Dで一番上に描く仕組み)と時間(2。Unscaled・倍率)を使う。後から追加した機能で、8より先に作った | | 完了 |
 
 **CSV(11)とセーブ/ロード(9)は、ほかの機能にほぼ依存しないので、学生の分担・練習に向いています。** 順番を待たずに先に始めて構いません。
 
@@ -479,7 +480,7 @@ chase->SetSpeed(60.f);
 
 ### 5.6 物理の問い合わせと力
 
-> **実装済み**: `Engine/Physics.h/.cpp`(`struct RaycastHit`、`enum class ForceMode`、`Physics::Raycast` / `OverlapSphere` / `OverlapBox`)と `Engine/RigidbodyComponent.h/.cpp`(`AddForce` / `AddTorque` / `SetMass` / `SetDrag`)。下の「対象」のSampleのコード(Sample2Dの被弾時のノックバック)も置き換え済み。使い方は `README.md` の「17. PhysX」の「物理の問い合わせと力」を参照。
+> **実装済み**: `Engine/Physics.h/.cpp`(`struct RaycastHit`、`enum class ForceMode`、`Physics::Raycast` / `OverlapSphere` / `OverlapBox`)と `Engine/RigidbodyComponent.h/.cpp`(`AddForce` / `AddTorque` / `SetMass` / `SetDrag`)。下の「対象」のSampleのコード(Sample2Dの被弾時のノックバック)も置き換え済み。使い方は `README.md` の「19. PhysX」の「物理の問い合わせと力」を参照。
 > 決まったこと(下の「未決定」):
 > - **トリガーを含めるか**: 既定では含めない(視線の判定が飛んでいる弾などにさえぎられないように)。含めたい時用の引数 `QueryTriggers triggers = QueryTriggers::Ignore` を、`Raycast` / `OverlapSphere` / `OverlapBox` の最後に足した。アイテムやゴールのようなトリガーそのものを探す時は `QueryTriggers::Include`(例: `Physics::OverlapSphere(pos, 200.f, "Item", QueryTriggers::Include)`)。タグを指定してもトリガーは無視のまま
 >
@@ -575,6 +576,7 @@ rigidbody->AddForce(away * 500.f, ForceMode::Impulse);
 > - 両サンプルの `ButtonController::Draw` の文字の位置を `Image::WorldToScreen2D` に置き換えた(作った関数を使う所を作るため。ボタンはZ=0なので結果は同じ)
 > - `WorldToScreen3D` / `ScreenPointToRay3D` は、今はSampleで使っていない(5.10 `GaugeRenderer`・5.11 `TextRenderer` で使う予定)。5.10・5.11 の「`WorldToScreen`」は、2Dなら `WorldToScreen2D`、3Dなら `WorldToScreen3D` のこと
 > - Sample3D の `CameraController`(3Dのカメラ操作)は変えていない
+> - 仕上げで足した所: `CameraShake::Stop()`(揺れをすぐ止める)。揺れの強さ・時間だけを0にし、`applied` と覚えた値は触らないので、`BeginDraw`〜`EndDraw` の間に呼ばれても `EndDraw` でカメラが元に戻る。**シーンを切り替えると揺れは止まる**(`SceneManager::Update` が、古いシーンの `Uninit` の後・新しいシーンを作って `Init` する前に `CameraShake::Stop()` を呼ぶ。新しいシーンの `Init` で始めた `Shake` は消えない)
 
 **目的**: カメラの追従・揺れ・座標の変換を、毎回手書きしなくて済むようにする。
 
@@ -626,6 +628,29 @@ CameraShake::Shake(8.f, 0.2f);
 ---
 
 ### 5.8 画面エフェクト
+
+> **実装済み**: `Engine/ScreenEffect.h/.cpp`(`namespace ScreenEffect`)。`Engine/Text.h/.cpp` に Engine内部用の `Text::GetRenderTarget()` を足し、`GameEngine::Run` / `Uninit` に呼び出しを足した。下の「対象」のSampleのコード(両サンプルの被弾処理と `StartButton`)も置き換え済みで、両サンプルの `GameManager::Init()` でゲーム画面に入った時に明転する。使い方は `README.md` の「15. 画面エフェクト(ScreenEffect)」を参照。
+>
+> 決めた所(設計の「未決定」):
+> - **文字(`Text::Draw`)も含めて画面の一番上に描く**(暗転すると文字も隠れる)。`GameEngine::Run` で、`SceneManager::Draw()`(その中の `Text::Draw` も)が全部終わった後、`Text::EndDraw()` の前に `ScreenEffect::Draw()` を呼ぶ。Direct2Dは `EndDraw` でまとめて描き、後に追加した物が上になる
+> - 3つのエフェクトは別々に動き、同時に出せる。重なる順番は下から Vignette → Flash → Fade
+> - 時間は `Time::GetUnscaledDeltaTime()`(ポーズ中も進む)。`ScreenEffect::Update` は `CameraShake::Update` の直後(シーンのUpdateの前)
+> - `Fade` の濃さはシーンをまたいで残る(暗転 → シーン切り替え → 次のシーンで明転)
+>
+> 設計から変えた・足した所:
+> - **画像ではなく Direct2D で描いた**(文字と同じ描画先を `Text::GetRenderTarget()` で借りる)。Flash/Fade は画面全体の `FillRectangle`(`ID2D1SolidColorBrush`)、Vignette は `ID2D1RadialGradientBrush`(画面の中央を中心にした楕円。半径は画面の幅・高さの半分×1.2、半径の0.5倍までは透明で、外へ向かって濃くなる。定数は `ScreenEffect.cpp` の `vignetteRadiusScale` / `vignetteInnerRatio`)。シェーダーは変えていない。5.10 の `Image::DrawRect` には依存しない
+> - ブラシは最初に要った時に作って使い回す(色は描く時に `SetColor`、ビネットの濃さは `SetOpacity`、中心・半径は `SetCenter` / `SetRadiusX/Y` で変える)。ビネットのグラデーションだけは、`Vignette` に違う色(x,y,z)が渡された時に作り直す。解放は `ScreenEffect::Uninit()`(`GameEngine::Uninit` で `Text::Uninit` の前に呼ぶ)
+> - `Fade` に省略できる引数 `std::function<void()> onComplete` を足した。変わり終わった時に1回だけ、`ScreenEffect::Update` の中(シーンのUpdateの前)で呼ぶので、中で `ChangeScene` すると同じフレームのうちに切り替わる。変わり終わる前に次の `Fade` を呼ぶと、前の `onComplete` は呼ばずに捨てる。呼ぶ前に取り出して空にしてから呼ぶので、中でまた `Fade` を呼んでもよい
+> - `Fade` の `color.w` は使わない(濃さは `toAlpha` で決める。`toAlpha` は0〜1に収める)。`Flash` / `Vignette` は `color.w` が濃さ
+> - `Flash` の弱まり方は `color.w × (1 - Ease::OutQuad(経過/時間))`。`Vignette` の濃さは `color.w × |sin(π × 回数 × 経過/時間)|`(0から濃くなって0に戻る、を回数だけくり返す。回数が1未満なら1)。`Fade` は一定の速さ(`Math::Lerp`)
+> - `duration <= 0`: `Flash` / `Vignette` は何も出さない(出ている途中なら消す)。`Fade` はすぐに `toAlpha` にして、`onComplete` もその場で呼ぶ
+> - 同じエフェクトを途中でまた呼んだ時は、新しい方に置き換える(最初から数え直す。`Fade` は今の濃さから始める)
+> - 画面の大きさは `Graphics::width/height`(`Text::Draw` と同じ。ウィンドウの大きさが変わった時の扱いも `Text` と同じ)
+> - Sample: 被弾時の Vignette は両サンプルの `PlayerController.h` の `damageVignetteColor` / `damageVignetteDuration` / `damageVignetteBlinkCount`({1,0,0,0.6}・0.5秒・2回。黄色くなる処理はそのまま)。`StartButton` は `IsFading()` の間は押しても何もしない(二重に切り替えない)。明転は Scene ではなく `GameManager::Init()`(`fadeInDuration` 0.5秒)。ゲームオーバー→タイトルは変えていない(明転は0.5秒で終わり、ゲームオーバーまでには必ず2秒以上かかるので、タイトルに暗転が残ることはない)
+> - 仕上げで足した所: `ScreenEffect::Stop()`(今出ている Flash と Vignette をすぐ0にする。Fade は濃さも進み具合も `onComplete` も触らない)と、Engine内部用の `ScreenEffect::OnSceneChanged()`(`Stop()` して、Fade の `onComplete` を呼ばずに捨てる。Fade の濃さと進み具合は残す)
+> - **シーン切り替え時の後片付け**: `SceneManager::Update` で「古いシーンの `Uninit` → `ScreenEffect::OnSceneChanged()` → `CameraShake::Stop()` → 新しいシーンを作る → 新しいシーンの `Init`」の順。新しいシーンの `Init` で始めた明転・Flash・Shake は消えない。前のシーンの被弾の Vignette などが次のシーンに残らず、消えたシーンの `this` を捕まえた `onComplete` が呼ばれることもない(前に README に書いていた「`onComplete` に `this` を捕まえると危ない」注意は、この動きに合わせて書き直した)
+> - `StartButton` の「暗転し終わった時の `onComplete` の中で `ChangeScene`」は今まで通り動く: `ScreenEffect::Update` は `onComplete` を取り出して空にしてから呼ぶ → 中の `ChangeScene` は予約だけ → 同じフレームの `SceneManager::Update` で切り替わり、`OnSceneChanged()` は空の `onComplete` を捨てるだけ。二重に呼ばれることはない。ただし `onComplete` の中で `onComplete` 付きの `Fade` をもう一度始めると、その新しい `onComplete` は直後の切り替えで捨てられる
+> - **後から(5.17)**: `StartButton` の暗転と `GameManager::Init()` の明転は、5.17 の `ChangeScene<GameScene>(FadeTransition())` に置き換えた。`ScreenEffect::Fade` / `IsFading` 自体は、シーン切り替え以外の演出(ポーズ画面への暗転など)用にそのまま残している
 
 **目的**: 被弾・回復・シーン切り替えなどで、画面全体に色の演出(ライトエフェクト)を付ける。
 
@@ -1108,3 +1133,86 @@ if (moving) anim->CrossFade("Run", 0.2f); else anim->CrossFade("Idle", 0.2f);
 対象: Sample3D の Player(立方体)、敵(今は2Dの画像)。
 
 **依存する機能**: 5.3 リソースの使い回し、5.2 時間とタイマー、5.1 計算系
+
+---
+
+### 5.17 シーン切り替え
+
+> **実装済み**: `Engine/SceneTransition.h/.cpp`(親クラス)、`Engine/FadeTransition.h/.cpp`、`Engine/SpriteTransition.h/.cpp` を足した。`Engine/SceneManager.h/.cpp` に演出付きの `ChangeScene<T>(演出)` を足し、`Engine/Time.h/.cpp` にEngine内部用の「切り替えの間だけ時間を止める」関数を足し、`Engine/GameEngine.cpp` に描画と後片付けの呼び出しを足した。見本の画像 `Assets/transition_circle.png` を作った。下の「対象」のSampleのコードも置き換え済み。使い方は `README.md` の「16. シーン切り替え(SceneTransition)」を参照。
+>
+> 決めた所:
+> - **時間を止める方法**: 演出が始まった時に `Time::PauseForSceneTransition()`(今の倍率を覚えて0にする)、開き終わった時に `Time::ResumeAfterSceneTransition()`(覚えた倍率に戻す)。どちらもEngine内部用(`SceneManager` だけが呼ぶ)。切り替え前が0.3なら0.3に戻る
+> - **演出中にゲーム側が `Time::SetTimeScale` を呼んだ時**: すぐには変えず(時間は止まったまま)、「開き終わった時に戻す倍率」として覚える(最後に呼んだ値)。新しいシーンの `Init` で `SetTimeScale(1)` した時なども、演出が終わってから効く。演出中の `GetTimeScale()` は0、`IsPaused()` は true
+> - **無視する範囲**: 切り替えを頼んでから、演出なしならシーンが切り替わるまで、演出付きなら開き終わるまでの間に呼ばれた `ChangeScene`(引数あり・なしの両方)。古いシーンの `Uninit`・新しいシーンの `Init` の中で呼んだ物も無視される。無視した時は出力ウィンドウに `★ SceneManager::ChangeScene: ...` を出す。(前は、演出なしで同じフレームに2回呼ぶと後の方が勝っていた。今は先の方が勝つ)
+> - **シーンを切り替えるタイミング**: 覆い終わったフレームの `SceneManager::Update` の中で、今までと同じ切り替え処理(古いシーンの `Uninit` → `ScreenEffect::OnSceneChanged()` → `CameraShake::Stop()` → 新しいシーンの `Init` → `Resources::UnloadUnused()`)をして、すぐに開き始める。そのフレームは新しいシーンが「全部覆った」状態で描かれるので、切り替えの瞬間が見えることはない
+> - 切り替えた直後のフレームは、新しいシーンの `Init`(読み込み)の分だけ1フレームが長くなるので、その1フレームは演出の時間を進めない(開き始めのコマが飛ばないように)
+> - **描く順番**: `GameEngine::Run` で `ScreenEffect::Draw()` の後、`Text::EndDraw()` の前に `SceneManager::DrawTransition()`。文字・ScreenEffect も含めて一番上。描画先は `Text::GetRenderTarget()`(ScreenEffect と同じ)
+> - **フェード**: `FadeTransition(色 = 黒, 秒 = 0.5)`。秒は覆う時間と開く時間(同じ)。濃さは一定の速さで変わる(今までの `ScreenEffect::Fade` と同じ見た目)。色の `w` は使わない(必ず全部塗りつぶす)。ブラシは最初に描く時に作り、演出が終わった時(デストラクタ)に解放する。コピーする時はブラシを写さない(2回解放しないように)
+> - **スプライト**: `SpriteTransition(画像, 列, 行, 1コマの秒)`。覆う時間・開く時間はどちらも「コマ数×1コマの秒」。覆う時はコマ0→最後、開く時は最後→コマ0。各コマを画面全体に引き伸ばして描く(隣のコマがにじまないように、半ピクセル内側を切り出す)。開く時だけ別の画像にするには `.SetOpenSheet(画像, 列, 行, 1コマの秒)`(こちらも逆再生する。どの画像も「最後のコマで全部覆う」の1つの決まりで作れるように)
+> - **画像の読み込み**: WIC で読んで `ID2D1Bitmap` にする(D3Dのテクスチャ・`Resources` とは別)。演出が始まった時に読み込み、同じファイルは使い回す。解放は `SpriteTransition::UnloadAll()`(`GameEngine::Uninit` で `SceneManager::Uninit` の直後、`Text::Uninit` より前)。読み込めなかった時は出力ウィンドウに知らせ、何も描かずに時間どおりに切り替える
+> - 演出の途中でアプリを閉じた時は、`SceneManager::Uninit` で演出を片付けて、時間の倍率も戻す
+> - `SceneManager.h` が `FadeTransition.h` / `SpriteTransition.h` もインクルードするので、ゲーム側は `SceneManager.h` だけで3種類とも使える
+> - `ScreenEffect::Fade` は変えていない(シーン切り替え以外の演出用に残す)
+>
+> **後から追加(切り替えるコマ)**: `SpriteTransition::SetSwitchFrame(コマ)` を足し(`Engine/SpriteTransition.h/.cpp`)、見本の画像 `Assets/transition_wipe.png`(8×2、1コマ320×180。黒い帯が左から入ってコマ7で全部覆い、右へ抜けてコマ15で全部透明)を作った。Sample3D の `GameManager` のタイトルへの切り替えを `SpriteTransition(L"Assets/transition_wipe.png", 8, 2, 0.04f).SetSwitchFrame(7)` にした(Sample2D は丸のまま)。
+> - **進み方**: 逆再生はせず、コマ0→最後のコマを順に1回だけ流す。覆う=コマ0〜frame(frame+1コマ分の時間)、開く=コマframe+1〜最後(最後−frame コマ分の時間)。1コマの時間は覆う時の画像の `frameDuration`。`SceneTransition`(親クラス)は変えず、`GetCoverDuration` / `GetOpenDuration` / `DrawCover` / `DrawOpen` の中で分けている
+> - **切り替えの瞬間**: 開く段階の progress=0(シーンを切り替えたフレームと、その次の読み込みで長くなったフレーム)は、まだ全部覆っているコマ frame を出す。開く段階のコマは切り上げで求める(0より少しでも進んだら frame+1。各コマは1コマの時間ずつ出る)
+> - **範囲外**: frame は 0〜(コマ数−2) に収めて、出力ウィンドウに `★ SpriteTransition::SetSwitchFrame: ...` を出す(最後のコマ以上だと開く段階が0コマになり、新しいシーンがいきなり見えるため)。1コマだけの画像は 0(開く段階は0コマ)
+> - **SetOpenSheet と一緒に使った時**: SetSwitchFrame を優先し、開く時の画像は使わない(読み込みもしない)。演出が始まった時(`OnBegin`)に出力ウィンドウで1回知らせる
+> - 指定しない時は今まで通り(覆う=順再生、開く=逆再生)
+> - 同じ時に、両サンプルの `PlayerController::Update` に `if (Time::IsPaused()) return;` を入れ、切り替え中は移動・向き・発射を受け付けないようにした(Sample3D は一人称の時にPlayerを隠す処理の後。カメラはポーズ中もTABで切り替えられるため)
+
+**目的**: シーンの切り替えに演出(暗転・画像のアニメーション)を付ける。今は「`ScreenEffect::Fade` の終わった時の処理で `ChangeScene` する」「次のシーンの `Init` で明転する」の2か所に分かれていて、明転を忘れると真っ暗のままになる。また二重押しを防ぐ `IsFading()` のチェックも毎回書く必要がある。1行で「覆う → 切り替える → 開く」まで済むようにする。
+
+**ファイル案**: `Engine/SceneTransition.h/.cpp`(親クラス)、`Engine/FadeTransition.h/.cpp`、`Engine/SpriteTransition.h/.cpp`、`Engine/SceneManager.h/.cpp` に引数付きの `ChangeScene` を追加
+
+**関数**:
+```cpp
+// 3種類の切り替え方(どれも「覆う → シーンを切り替える → 開く」)
+SceneManager::Get().ChangeScene<GameScene>();                                   // 瞬時(今まで通り)
+SceneManager::Get().ChangeScene<GameScene>(FadeTransition());                   // フェード(黒・0.5秒ずつ)
+SceneManager::Get().ChangeScene<GameScene>(FadeTransition({ 1, 1, 1, 1 }, 1.0f)); // 白・1秒ずつ
+SceneManager::Get().ChangeScene<TitleScene>(SpriteTransition(L"Assets/transition_circle.png", 8, 2, 0.04f));  // スプライト
+
+// 共通の親クラス(種類ごとに覆い方・開き方を override する)
+class SceneTransition {
+protected:
+    virtual float GetCoverDuration() const = 0;                              // 覆う時間
+    virtual float GetOpenDuration() const = 0;                               // 開く時間
+    virtual void OnBegin() {}                                                // 始まる時(画像の読み込みなど)
+    virtual void DrawCover(ID2D1RenderTarget* target, float progress) = 0;   // 覆っている途中(0→1で全部覆う)
+    virtual void DrawOpen(ID2D1RenderTarget* target, float progress) = 0;    // 開いている途中(0=全部覆っている→1で全部見える)
+};
+
+class FadeTransition : public SceneTransition {
+public:
+    explicit FadeTransition(XMFLOAT4 color = { 0, 0, 0, 1 }, float duration = 0.5f);
+};
+
+class SpriteTransition : public SceneTransition {
+public:
+    SpriteTransition(const std::wstring& path, int columns, int rows, float frameDuration);
+    SpriteTransition& SetOpenSheet(const std::wstring& path, int columns, int rows, float frameDuration);  // 開く時だけ別の画像
+    SpriteTransition& SetSwitchFrame(int frame);  // (後から追加)順再生だけで流し、コマframeでシーンを切り替える
+};
+```
+
+**設計のポイント**:
+- **切り替え中はゲームの時間を止めます**(`Time` の倍率0)。暗転している間に敵が動いたり、明転した瞬間に弾が当たっていたりしないようにするためです。演出の時間は `Time::GetUnscaledDeltaTime()` で進め、開き終わったら切り替える前の倍率に戻します。
+- **切り替え中に `ChangeScene` が呼ばれたら無視します**(ボタンの二重押し対策)。今の `StartButton` の `IsFading()` のチェックが要らなくなります。
+- 描く順番は、文字・`ScreenEffect` も含めて**一番上**。`ScreenEffect` と同じく Direct2D(`Text::GetRenderTarget()`)で描きます。スプライトの画像は WIC で読み込んで `ID2D1Bitmap` にします(D3Dのテクスチャとは別。D2Dの描画先で作った物しか使えないため)。
+- スプライトシートは1枚の画像を、覆う時は順再生、開く時は逆再生します。**最後のコマで画面全体が覆われている**ことが前提です(その間にシーンを切り替えるため)。
+- シーンを切り替える処理(古いシーンの `Uninit` → 後片付け → 新しいシーンの `Init` → 使わない画像の解放)は今のものをそのまま使い、呼ぶタイミングだけを「覆い終わったフレーム」にします。
+- 今の `ScreenEffect::Fade` は、シーン切り替え以外の演出用に残します。
+
+**置き換えるSampleのコード(使用例)**:
+```cpp
+// StartButton: 押されたら暗転 → GameScene → 明転(二重押しのチェックと定数は要らなくなる)
+SceneManager::Get().ChangeScene<GameScene>(FadeTransition());
+
+// GameManager::Update: ゲームオーバー中にSPACEでタイトルへ(丸く閉じて、丸く開く)
+SceneManager::Get().ChangeScene<TitleScene>(SpriteTransition(L"Assets/transition_circle.png", 8, 2, 0.04f));
+```
+対象: 両サンプルの `StartButton.cpp`(`ScreenEffect::Fade` と `IsFading()` のチェック・`fadeOutColor` / `fadeOutDuration`)、両サンプルの `GameManager`(`Init()` の明転と `fadeInColor` / `fadeInDuration`、ゲームオーバーからタイトルへの `ChangeScene`)。
+
+**依存する機能**: 5.2 時間とタイマー(Unscaled・倍率)、5.8 画面エフェクト(Direct2Dで一番上に描く仕組み・シーン切り替え時の後片付け)

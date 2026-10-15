@@ -18,4 +18,7 @@ namespace Text {
         float size = 32.f,
         DirectX::XMFLOAT4 color = { 1.f, 1.f, 1.f, 1.f },
         const std::wstring& fontName = L"Arial");
+
+    // ─── Engine内部用(ScreenEffectなどEngineの中だけで使う。ゲーム側からは呼ばない) ─────────────
+    ID2D1RenderTarget* GetRenderTarget();   // 文字を描いているDirect2Dの描画先(BeginDraw〜EndDrawの間だけ描ける。Initの前はnullptr)
 }
