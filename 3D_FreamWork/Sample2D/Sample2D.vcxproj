@@ -90,6 +90,7 @@
     <ClCompile Include="Game\Objects\EnemySpawner.cpp" />
     <ClCompile Include="Game\Objects\BulletSpawner.cpp" />
     <ClCompile Include="Game\Components\EnemyManager.cpp" />
+    <ClCompile Include="Game\Objects\Explosion.cpp" />
     <ClCompile Include="Game\Objects\GameSystem.cpp" />
     <ClCompile Include="Game\Objects\HUD.cpp" />
     <ClCompile Include="Game\Objects\Player.cpp" />
@@ -114,6 +115,7 @@
     <ClInclude Include="Game\Objects\EnemySpawner.h" />
     <ClInclude Include="Game\Objects\BulletSpawner.h" />
     <ClInclude Include="Game\Components\EnemyManager.h" />
+    <ClInclude Include="Game\Objects\Explosion.h" />
     <ClInclude Include="Game\Objects\GameSystem.h" />
     <ClInclude Include="Game\Objects\HUD.h" />
     <ClInclude Include="Game\Objects\Player.h" />

@@ -86,6 +86,7 @@
     <ClCompile Include="Game\Objects\BulletSpawner.cpp" />
     <ClCompile Include="Game\Objects\Button.cpp" />
     <ClCompile Include="Game\Objects\EnemySpawner.cpp" />
+    <ClCompile Include="Game\Objects\Explosion.cpp" />
     <ClCompile Include="Game\Objects\GameSystem.cpp" />
     <ClCompile Include="Game\Objects\HUD.cpp" />
     <ClCompile Include="Game\Objects\StartButton.cpp" />
@@ -113,6 +114,7 @@
     <ClInclude Include="Game\Objects\BulletSpawner.h" />
     <ClInclude Include="Game\Objects\Button.h" />
     <ClInclude Include="Game\Objects\EnemySpawner.h" />
+    <ClInclude Include="Game\Objects\Explosion.h" />
     <ClInclude Include="Game\Objects\GameSystem.h" />
     <ClInclude Include="Game\Objects\HUD.h" />
     <ClInclude Include="Game\Objects\StartButton.h" />

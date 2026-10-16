@@ -155,14 +155,14 @@ namespace Image
     }
 
     void Draw(Transform transform, unsigned int texID, XMFLOAT4 color, const SpriteSheet& sheet,
-        bool worldSpace, bool lockX, bool lockY, bool lockZ) {
+        bool worldSpace, bool lockX, bool lockY, bool lockZ, BlendMode blend, bool depthWrite) {
         if (texID >= textures.size()) return;
         auto& tex = textures[texID];
         if (!tex.srv) return;
 
         sprite.SetTexture(tex.srv);
         sprite.SetTextureSize(tex.width, tex.height);
-        sprite.Draw(transform, color, sheet, worldSpace, lockX, lockY, lockZ);
+        sprite.Draw(transform, color, sheet, worldSpace, lockX, lockY, lockZ, blend, depthWrite);
     }
 
     ID3D11ShaderResourceView* GetTextureView(unsigned int texID) {

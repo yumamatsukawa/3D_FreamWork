@@ -13,6 +13,15 @@ struct SpriteSheet {
     int index = 0;
 };
 
+// 画像の重ね方(パーティクルなどが使う。普通のスプライトはNormalのまま)
+enum class BlendMode {
+    Normal,     // 普通のアルファ合成(今までのスプライトと同じ)
+    Additive,   // 加算合成(重なるほど明るくなる。炎・光向け)。colorのaで明るさを変える
+    Soft,       // 画像の明るさを濃さとして重ねる、ふわっとした合成(煙向け)。colorのaで濃さを変える
+                // ※Shader.hlsl は「アルファ0.5未満は描かない」ので、アルファで半透明にする普通の方法ではふわっとしない。
+                //   そのためAdditive/Softは、画像の明るさ(RGB)で形と濃さを表す(アルファは不透明のままにする)
+};
+
 struct Vertex {
     XMFLOAT2 Position;
     XMFLOAT4 Color;
@@ -36,8 +45,11 @@ private:
     ID3D11ShaderResourceView* srv = nullptr;
     ID3D11SamplerState* sampler = nullptr;
     ID3D11BlendState* blendState = nullptr;
+    ID3D11BlendState* blendStateAdditive = nullptr;            // 加算合成(BlendMode::Additive)
+    ID3D11BlendState* blendStateSoft = nullptr;                // ふわっとした合成(BlendMode::Soft)
     ID3D11DepthStencilState* depthStencilStateUI = nullptr;    // UIモード: 深度無視、常に手前に描画される
     ID3D11DepthStencilState* depthStencilStateWorld = nullptr; // Worldモード: 深度テストあり、3Dメッシュと正しく前後する
+    ID3D11DepthStencilState* depthStencilStateWorldNoWrite = nullptr; // Worldモード: 深度テストだけ(深度は書かない。半透明の粒用)
     ID3D11RasterizerState* rasterizerStateWorld = nullptr;     // Worldモード: カリング無効(裏面も描画する)
 
     float resW = 0, resH = 0;
@@ -64,8 +76,10 @@ public:
     bool Init();
     // worldSpace = false(既定): UIのように常に手前に描画される(今までの挙動)
     // worldSpace = true        : 3Dオブジェクトのように、奥行きで前後関係が決まる
+    // blend: 画像の重ね方(BlendMode参照)。depthWrite: Worldモードで深度を書くか(半透明の粒はfalse。UIモードでは関係ない)
     void Draw(Transform transform, XMFLOAT4 color, const SpriteSheet& sheet = SpriteSheet(), bool worldSpace = false,
-        bool lockX = false, bool lockY = false, bool lockZ = false);
+        bool lockX = false, bool lockY = false, bool lockZ = false,
+        BlendMode blend = BlendMode::Normal, bool depthWrite = true);
     void Uninit();
 
     int GetTextureWidth()  const { return texWidth; }

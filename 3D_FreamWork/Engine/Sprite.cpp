@@ -116,6 +116,22 @@ bool Sprite::CreateBlendState() {
     bd.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_ADD;
     bd.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
     HRESULT hr = Graphics::device->CreateBlendState(&bd, &blendState);
+    if (FAILED(hr)) return false;
+
+    // 加算合成: 描く色をそのまま背景に足す(重なるほど明るくなる)
+    D3D11_BLEND_DESC additive = bd;
+    additive.RenderTarget[0].SrcBlend = D3D11_BLEND_ONE;
+    additive.RenderTarget[0].DestBlend = D3D11_BLEND_ONE;
+    hr = Graphics::device->CreateBlendState(&additive, &blendStateAdditive);
+    if (FAILED(hr)) return false;
+
+    // ふわっとした合成: 描く色(RGB)を「濃さ」として使う。
+    //   結果 = blendFactor(色) × 描く色 + 背景 × (1 - 描く色)
+    // Draw側で、描く色=画像の明るさ×濃さ、blendFactor=粒の色 にしておくと、普通のアルファ合成と同じ見た目になる
+    D3D11_BLEND_DESC soft = bd;
+    soft.RenderTarget[0].SrcBlend = D3D11_BLEND_BLEND_FACTOR;
+    soft.RenderTarget[0].DestBlend = D3D11_BLEND_INV_SRC_COLOR;
+    hr = Graphics::device->CreateBlendState(&soft, &blendStateSoft);
     return SUCCEEDED(hr);
 }
 
@@ -136,6 +152,12 @@ bool Sprite::CreateDepthStencilState() {
     // 単純なLESSだと「後から描く側」が同値深度で負けて見えなくなってしまうため
     dsdWorld.DepthFunc = D3D11_COMPARISON_LESS_EQUAL;
     hr = Graphics::device->CreateDepthStencilState(&dsdWorld, &depthStencilStateWorld);
+    if (FAILED(hr)) return false;
+
+    // Worldモード(深度を書かない): 手前の物には隠れるが、自分は深度を書かない(半透明の粒が後ろの粒を隠さないように)
+    D3D11_DEPTH_STENCIL_DESC dsdNoWrite = dsdWorld;
+    dsdNoWrite.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ZERO;
+    hr = Graphics::device->CreateDepthStencilState(&dsdNoWrite, &depthStencilStateWorldNoWrite);
     return SUCCEEDED(hr);
 }
 
@@ -274,7 +296,7 @@ XMMATRIX Sprite::BuildBillboardMatrix(const Transform& transform, bool lockX, bo
 // Draw
 // ---------------------------------------------------------------------------
 void Sprite::Draw(Transform transform, XMFLOAT4 color, const SpriteSheet& sheet, bool worldSpace,
-    bool lockX, bool lockY, bool lockZ) {
+    bool lockX, bool lockY, bool lockZ, BlendMode blend, bool depthWrite) {
     assert(context && "context が nullptr");
     assert(vertexBuffer && "vertexBuffer が nullptr");
     assert(constantBuffer && "constantBuffer が nullptr");
@@ -303,12 +325,27 @@ void Sprite::Draw(Transform transform, XMFLOAT4 color, const SpriteSheet& sheet,
         v0 += insetV; v1 -= insetV;
     }
 
+    // 重ね方に合わせて、頂点の色とブレンドの係数を決める
+    // (Additive/Softはアルファを1のままにして、色の明るさで濃さを表す。理由はBlendModeのコメント参照)
+    XMFLOAT4 vertexColor = color;
+    float blendFactor[4] = {};
+    ID3D11BlendState* currentBlendState = blendState;
+    if (blend == BlendMode::Additive) {
+        vertexColor = { color.x * color.w, color.y * color.w, color.z * color.w, 1.f };
+        currentBlendState = blendStateAdditive;
+    }
+    else if (blend == BlendMode::Soft) {
+        vertexColor = { color.w, color.w, color.w, 1.f };
+        blendFactor[0] = color.x; blendFactor[1] = color.y; blendFactor[2] = color.z; blendFactor[3] = 1.f;
+        currentBlendState = blendStateSoft;
+    }
+
     // ローカル頂点（単位クワッド）
     const Vertex vertices[4] = {
-        { {  0.5f, -0.5f }, color, { u1, v1 } },
-        { { -0.5f, -0.5f }, color, { u0, v1 } },
-        { {  0.5f,  0.5f }, color, { u1, v0 } },
-        { { -0.5f,  0.5f }, color, { u0, v0 } },
+        { {  0.5f, -0.5f }, vertexColor, { u1, v1 } },
+        { { -0.5f, -0.5f }, vertexColor, { u0, v1 } },
+        { {  0.5f,  0.5f }, vertexColor, { u1, v0 } },
+        { { -0.5f,  0.5f }, vertexColor, { u0, v0 } },
     };
 
     D3D11_MAPPED_SUBRESOURCE msr;
@@ -329,9 +366,9 @@ void Sprite::Draw(Transform transform, XMFLOAT4 color, const SpriteSheet& sheet,
     // ------------------------------------------------------------------
     // 3. パイプライン設定 & 描画
     // ------------------------------------------------------------------
-    float blendFactor[4] = {};
-    context->OMSetBlendState(blendState, blendFactor, 0xFFFFFFFF);
-    context->OMSetDepthStencilState(worldSpace ? depthStencilStateWorld : depthStencilStateUI, 0);
+    context->OMSetBlendState(currentBlendState, blendFactor, 0xFFFFFFFF);
+    context->OMSetDepthStencilState(
+        worldSpace ? (depthWrite ? depthStencilStateWorld : depthStencilStateWorldNoWrite) : depthStencilStateUI, 0);
     // Worldモードはカリング無効(裏面も描画)、UIモードは既定(裏面カリングあり)のまま
     context->RSSetState(worldSpace ? rasterizerStateWorld : nullptr);
 
@@ -356,6 +393,9 @@ void Sprite::Draw(Transform transform, XMFLOAT4 color, const SpriteSheet& sheet,
 void Sprite::Uninit() {
     if (constantBuffer) { constantBuffer->Release(); constantBuffer = nullptr; }
     if (blendState) { blendState->Release();     blendState = nullptr; }
+    if (blendStateAdditive) { blendStateAdditive->Release(); blendStateAdditive = nullptr; }
+    if (blendStateSoft) { blendStateSoft->Release(); blendStateSoft = nullptr; }
+    if (depthStencilStateWorldNoWrite) { depthStencilStateWorldNoWrite->Release(); depthStencilStateWorldNoWrite = nullptr; }
     if (depthStencilStateUI) { depthStencilStateUI->Release(); depthStencilStateUI = nullptr; }
     if (depthStencilStateWorld) { depthStencilStateWorld->Release(); depthStencilStateWorld = nullptr; }
     if (rasterizerStateWorld) { rasterizerStateWorld->Release(); rasterizerStateWorld = nullptr; }

@@ -58,6 +58,9 @@
     <ClCompile Include="Game\Components\EnemyManager.cpp">
       <Filter>Game\Components</Filter>
     </ClCompile>
+    <ClCompile Include="Game\Objects\Explosion.cpp">
+      <Filter>Game\Objects</Filter>
+    </ClCompile>
     <ClCompile Include="Game\Objects\GameSystem.cpp">
       <Filter>Game\Objects</Filter>
     </ClCompile>
@@ -125,6 +128,9 @@
     </ClInclude>
     <ClInclude Include="Game\Components\EnemyManager.h">
       <Filter>Game\Components</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\Objects\Explosion.h">
+      <Filter>Game\Objects</Filter>
     </ClInclude>
     <ClInclude Include="Game\Objects\GameSystem.h">
       <Filter>Game\Objects</Filter>

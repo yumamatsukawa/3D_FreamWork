@@ -81,6 +81,7 @@
     <ClCompile Include="ChaseComponent.cpp" />
     <ClCompile Include="Collider.cpp" />
     <ClCompile Include="Csv.cpp" />
+    <ClCompile Include="Effect.cpp" />
     <ClCompile Include="GameEngine.cpp" />
     <ClCompile Include="GaugeRenderer.cpp" />
     <ClCompile Include="Graphics.cpp" />
@@ -90,6 +91,7 @@
     <ClCompile Include="MathUtil.cpp" />
     <ClCompile Include="Mesh.cpp" />
     <ClCompile Include="MoveComponent.cpp" />
+    <ClCompile Include="ParticleRenderer.cpp" />
     <ClCompile Include="Physics.cpp" />
     <ClCompile Include="Resources.cpp" />
     <ClCompile Include="RigidbodyComponent.cpp" />
@@ -125,6 +127,7 @@
     <ClInclude Include="Component.h" />
     <ClInclude Include="Csv.h" />
     <ClInclude Include="Ease.h" />
+    <ClInclude Include="Effect.h" />
     <ClInclude Include="EventBus.h" />
     <ClInclude Include="FadeTransition.h" />
     <ClInclude Include="GameEngine.h" />
@@ -140,6 +143,7 @@
     <ClInclude Include="MeshRenderer.h" />
     <ClInclude Include="MoveComponent.h" />
     <ClInclude Include="ObjectPool.h" />
+    <ClInclude Include="ParticleRenderer.h" />
     <ClInclude Include="Physics.h" />
     <ClInclude Include="Resources.h" />
     <ClInclude Include="RigidbodyComponent.h" />

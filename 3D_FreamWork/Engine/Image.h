@@ -81,9 +81,12 @@ namespace Image
     // worldSpace = false(既定) : UIのように常に手前に描画される
     // worldSpace = true        : 3Dオブジェクトのように、奥行きで前後関係が決まる
     // lockX/lockY/lockZ: worldSpace時のビルボード回転を軸ごとに止める(SpriteRenderer::SetBillboardLock参照)
+    // blend: 画像の重ね方(Sprite.hのBlendMode。パーティクル(ParticleRenderer)が使う。普通はNormalのまま)
+    // depthWrite: worldSpace時に深度を書くか(半透明の粒はfalse)
     void Draw(Transform transform, unsigned int texID,
         XMFLOAT4 color = XMFLOAT4(1.f, 1.f, 1.f, 1.f), const SpriteSheet& sheet = SpriteSheet(),
-        bool worldSpace = false, bool lockX = false, bool lockY = false, bool lockZ = false);
+        bool worldSpace = false, bool lockX = false, bool lockY = false, bool lockZ = false,
+        BlendMode blend = BlendMode::Normal, bool depthWrite = true);
 
     // Mesh(3D)など、Sprite以外の描画にテクスチャを使い回したい時に、生のSRVを取り出す
     ID3D11ShaderResourceView* GetTextureView(unsigned int texID);

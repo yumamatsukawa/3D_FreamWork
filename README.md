@@ -1278,14 +1278,14 @@ Claude Code で作業する場合は、`.claude/`の設定で、メインの会�
 
 ```
 Sample2D/Game/Objects/     Title, Button, StartButton, VolumeSlider, Background, Player, GameSystem, HUD,
-                            EnemySpawner, BulletSpawner, ScorePopup
+                            EnemySpawner, BulletSpawner, ScorePopup, Explosion
 Sample2D/Game/Components/  TitleController, BackgroundController, PlayerController,
                             BulletController, EnemyController, GameManager, HUDController,
                             EnemyManager, BulletManager
 Sample2D/Game/Scenes/      TitleScene, GameScene
 
 Sample3D/Game/Objects/     Title, Button, StartButton, VolumeSlider, Skybox, Ground, Player, GameSystem, HUD,
-                            EnemySpawner, BulletSpawner, Cube(未使用), Sphere(未使用)
+                            EnemySpawner, BulletSpawner, Explosion, Cube(未使用), Sphere(未使用)
 Sample3D/Game/Components/  TitleController, GroundController, PlayerController,
                             CameraController, BulletController, EnemyController, GameManager,
                             HUDController, EnemyManager, BulletManager, SkyboxFollowComponent,
@@ -1293,8 +1293,8 @@ Sample3D/Game/Components/  TitleController, GroundController, PlayerController,
 Sample3D/Game/Scenes/      TitleScene, GameScene
 ```
 
-- **Sample2D**: トップダウン視点のアリーナシューター。タイトル画面のSTARTボタン(出る時に`TweenComponent`でぴょこっと大きくなる)をクリックすると、画面が暗転してからゲーム開始(ゲーム画面に入ると明転する。`FadeTransition`。§16)(ボタンは`CreateButton(scene, 文字, 位置, クリックされた時の処理)`で作れる汎用部品で、動きはEngineの`ButtonComponent`。他の画面のボタンにも使い回せる。§20)。WASDで移動、Playerは常にマウスの方を向き、左クリックでその方向へ弾を発射。背景はタイル状に敷き詰めた床(`BackgroundController`)で、移動するとスクロールする(カメラはPlayerに付けた`CameraFollowComponent`が追いかける。§14)。敵(`EnemyManager`が一定間隔でPlayerの周囲にランダムスポーンさせる)がゆっくり追いかけてきて(`ChaseComponent`。§13)、弾を当てると倒せる(`EventBus`で`"EnemyDefeated"`イベントを発行しスコア加算。倒した位置に「+10」が出て、上に動きながら消える=`CreateScorePopup`。§19)。敵に触れるとHPが減り(1秒間の無敵時間つき)、敵から離れる向きに弾かれる(ノックバック。`AddForce`で衝撃を加え、0.2秒間は移動キーが効かない。§23)、画面が少し揺れて(`CameraShake`。§14)、画面の端が赤く点滅する(`ScreenEffect::Vignette`。§15)。HPが0になるとゲームオーバー画面が出てSPACEでタイトルに戻る(黒い丸が閉じて開く`SpriteTransition`。§16)。スコアがハイスコアを超えていたら、ゲームオーバーの時に保存され(`SaveData`。キーは`"Sample2DHighScore"`で、Sample3Dの記録とは別。§18)、画面左上のスコアの下に出る(次に起動しても残る)。タイトル画面の下にはBGMの音量スライダー(`CreateVolumeSlider`。つまみをドラッグして0〜1で変えられ、離すと保存されて次に起動した時も残る。§20)がある。画面左上のHPの文字の下にはHPゲージ(減った分が少し遅れて縮む)、Playerの頭上にも小さなHPバーが出る(`GaugeRenderer`。§20)。当たり判定・物理はPhysXを使い(Player=`CircleRigidbodyComponent`、敵=`SquareRigidbodyComponent`、弾=`CircleRigidbodyComponent`)、Player・敵はDynamic(`SetVelocity()`で速度を渡して動かす。重力なし・回転なし・`SetFreezePositionZ(true)`で奥行き方向に固定)、弾はKinematicのトリガー。3Dカメラは使わない(`CameraController`なし)。
-- **Sample3D**: Sample2Dと同じアリーナシューターを3D空間で遊べるようにしたもの。タイトル画面のボタン(Sample2Dと同じく、出る時に`TweenComponent`でぴょこっと大きくなる)をクリックすると、Sample2Dと同じく暗転してからゲーム開始(Sample3Dの`CreateButton()`は、位置と大きさをまとめて`Transform`で受け取る形になっている: `CreateButton(scene, 文字, transform, クリックされた時の処理)`)。Player(立方体)は三人称カメラ(`CameraController`。マウス移動で視点回転。カーソルは画面中心に固定され、ESCで解除・左クリックで再固定。TABで一人称に切り替え)と同じ向きを向き、WASDもカメラ基準(W=カメラの前、D=カメラの右)で移動する。左クリックでPlayerの向いている方向へ、地面と水平に弾(球)を発射。敵は2Dの画像(Worldモードの`SpriteRenderer`。Y軸だけカメラの方を向く立て看板)で、地面の上をPlayerに向かって歩いてくる(`ChaseComponent`を`SetPlane(MovePlane::XZ)`で使う。§13)。歩く間は、敵に付けた`SpriteAnimationComponent`がスプライトシートのコマ(4番と5番)を0.3秒ごとに切り替えて、歩きアニメーションにしている(始まるコマはランダムなので、何体いても足踏みがそろわない。§17)。スコア・ハイスコア(保存先のファイルはSample2Dと同じだが、キーは`"Sample3DHighScore"`で、記録はSample2Dとは別。§18)・HP・無敵時間・被弾時に画面の端が赤く点滅すること・ゲームオーバー(SPACEでタイトルへ。Sample3Dは、黒い帯が左から覆って右へ抜けていく`SpriteTransition(...).SetSwitchFrame(7)`。§16)・`EventBus`のイベント名はSample2Dと同じ。タイトル画面の下のBGMの音量スライダーと、画面左上のHPゲージ(Sample2Dと同じ)、三人称の間だけ出るPlayerの頭上のHPバー(`SetUse3DCamera(true)`の`GaugeRenderer`)もある(§20)。Player・敵はDynamicの`BoxRigidbodyComponent`(重力あり・回転なし。Y速度は`GetVelocity().y`を維持したまま`SetVelocity()`で動かす。敵は`ChaseComponent`がこれをしている)、弾はKinematicのトリガー(`SphereRigidbodyComponent`)。地面は、1000四方のタイルを3Dカメラの描画距離(farZ)の範囲だけ敷き詰めて描く`GroundController`(見た目)と、見えない大きなStaticの板(当たり判定)の組み合わせ。遠景はスカイボックス。
+- **Sample2D**: トップダウン視点のアリーナシューター。タイトル画面のSTARTボタン(出る時に`TweenComponent`でぴょこっと大きくなる)をクリックすると、画面が暗転してからゲーム開始(ゲーム画面に入ると明転する。`FadeTransition`。§16)(ボタンは`CreateButton(scene, 文字, 位置, クリックされた時の処理)`で作れる汎用部品で、動きはEngineの`ButtonComponent`。他の画面のボタンにも使い回せる。§20)。WASDで移動、Playerは常にマウスの方を向き、左クリックでその方向へ弾を発射。背景はタイル状に敷き詰めた床(`BackgroundController`)で、移動するとスクロールする(カメラはPlayerに付けた`CameraFollowComponent`が追いかける。§14)。敵(`EnemyManager`が一定間隔でPlayerの周囲にランダムスポーンさせる)がゆっくり追いかけてきて(`ChaseComponent`。§13)、弾を当てると倒せる(`EventBus`で`"EnemyDefeated"`イベントを発行しスコア加算。倒した位置に「+10」が出て、上に動きながら消える=`CreateScorePopup`。§19。爆発のパーティクルも出る=`CreateExplosion`。§26)。敵に触れるとHPが減り(1秒間の無敵時間つき)、敵から離れる向きに弾かれる(ノックバック。`AddForce`で衝撃を加え、0.2秒間は移動キーが効かない。§23)、画面が少し揺れて(`CameraShake`。§14)、画面の端が赤く点滅する(`ScreenEffect::Vignette`。§15)。HPが0になるとゲームオーバー画面が出てSPACEでタイトルに戻る(黒い丸が閉じて開く`SpriteTransition`。§16)。スコアがハイスコアを超えていたら、ゲームオーバーの時に保存され(`SaveData`。キーは`"Sample2DHighScore"`で、Sample3Dの記録とは別。§18)、画面左上のスコアの下に出る(次に起動しても残る)。タイトル画面の下にはBGMの音量スライダー(`CreateVolumeSlider`。つまみをドラッグして0〜1で変えられ、離すと保存されて次に起動した時も残る。§20)がある。画面左上のHPの文字の下にはHPゲージ(減った分が少し遅れて縮む)、Playerの頭上にも小さなHPバーが出る(`GaugeRenderer`。§20)。当たり判定・物理はPhysXを使い(Player=`CircleRigidbodyComponent`、敵=`SquareRigidbodyComponent`、弾=`CircleRigidbodyComponent`)、Player・敵はDynamic(`SetVelocity()`で速度を渡して動かす。重力なし・回転なし・`SetFreezePositionZ(true)`で奥行き方向に固定)、弾はKinematicのトリガー。3Dカメラは使わない(`CameraController`なし)。
+- **Sample3D**: Sample2Dと同じアリーナシューターを3D空間で遊べるようにしたもの。タイトル画面のボタン(Sample2Dと同じく、出る時に`TweenComponent`でぴょこっと大きくなる)をクリックすると、Sample2Dと同じく暗転してからゲーム開始(Sample3Dの`CreateButton()`は、位置と大きさをまとめて`Transform`で受け取る形になっている: `CreateButton(scene, 文字, transform, クリックされた時の処理)`)。Player(立方体)は三人称カメラ(`CameraController`。マウス移動で視点回転。カーソルは画面中心に固定され、ESCで解除・左クリックで再固定。TABで一人称に切り替え)と同じ向きを向き、WASDもカメラ基準(W=カメラの前、D=カメラの右)で移動する。左クリックでPlayerの向いている方向へ、地面と水平に弾(球)を発射。敵を倒すと、その位置に爆発のパーティクルが出る(`CreateExplosion`。§26)。敵は2Dの画像(Worldモードの`SpriteRenderer`。Y軸だけカメラの方を向く立て看板)で、地面の上をPlayerに向かって歩いてくる(`ChaseComponent`を`SetPlane(MovePlane::XZ)`で使う。§13)。歩く間は、敵に付けた`SpriteAnimationComponent`がスプライトシートのコマ(4番と5番)を0.3秒ごとに切り替えて、歩きアニメーションにしている(始まるコマはランダムなので、何体いても足踏みがそろわない。§17)。スコア・ハイスコア(保存先のファイルはSample2Dと同じだが、キーは`"Sample3DHighScore"`で、記録はSample2Dとは別。§18)・HP・無敵時間・被弾時に画面の端が赤く点滅すること・ゲームオーバー(SPACEでタイトルへ。Sample3Dは、黒い帯が左から覆って右へ抜けていく`SpriteTransition(...).SetSwitchFrame(7)`。§16)・`EventBus`のイベント名はSample2Dと同じ。タイトル画面の下のBGMの音量スライダーと、画面左上のHPゲージ(Sample2Dと同じ)、三人称の間だけ出るPlayerの頭上のHPバー(`SetUse3DCamera(true)`の`GaugeRenderer`)もある(§20)。Player・敵はDynamicの`BoxRigidbodyComponent`(重力あり・回転なし。Y速度は`GetVelocity().y`を維持したまま`SetVelocity()`で動かす。敵は`ChaseComponent`がこれをしている)、弾はKinematicのトリガー(`SphereRigidbodyComponent`)。地面は、1000四方のタイルを3Dカメラの描画距離(farZ)の範囲だけ敷き詰めて描く`GroundController`(見た目)と、見えない大きなStaticの板(当たり判定)の組み合わせ。遠景はスカイボックス。
 
 **Sample3Dの実装メモ**: 向きはすべて`transform.rotate.y`(度)で表し、`rotate.y`の時の正面(ローカルの+Z)は`(sin, 0, cos)`の方向になる(`CameraController::GetYaw()`の式と同じ。`Math::Forward3D()`で求められる)。Worldモードの`SpriteRenderer`は`rotate.y`を使わない(ビルボードの向きとZ軸回転だけを使う)ので、敵の画像の向きは`SetBillboardLock(true, false, true)`でカメラの方へ向けている。Playerは`SetFreezeRotation(true)`で、`RigidbodyComponent`は位置しか同期しないため、`PlayerController`が`rotate.y`が変わった時に`GetActor()`の`setGlobalPose`で当たり判定の箱の回転も合わせている(デバッグ表示の枠と実際の判定が同じ向きになる)。一人称の間は、カメラが立方体の内側に入るのでPlayerの`MeshRenderer`と頭上のHPバー(`GaugeRenderer`)を非表示にしている。
 
@@ -1328,6 +1328,7 @@ GameManager/HUD/EnemyManager/BulletManagerのような「見た目の無い管�
 | `"FireBullet"`を受けて弾を出す | `BulletManager::Init()` |
 | 表(`Waves.csv`)の時間に敵を出す | `EnemyManager::Update()`(表は`Init()`で読む。§25) |
 | 敵を倒した位置に「+10」を出す(Sample2D) | `EnemyController::OnTriggerEnter2D()`から`CreateScorePopup()`を呼ぶ(動き・消え方は`Objects/ScorePopup.cpp`で付けた`TweenComponent`。§19) |
+| 敵を倒した位置に爆発を出す | `EnemyController::OnTriggerEnter2D()`から`CreateExplosion()`を呼ぶ(両サンプル。粒の設定は各サンプルの`Objects/Explosion.cpp`、粒の動き・描画はEngineの`ParticleRenderer`。§26) |
 | 敵がPlayerを追いかける | 敵に付けた`ChaseComponent`(Engine。§13)。相手と速さは`EnemyManager::Spawn()`が渡す |
 | 敵の歩きアニメーション(Sample3D) | 敵に付けた`SpriteAnimationComponent`(Engine。§17)。クリップの登録と再生は`EnemyManager`の`SetupEnemy` |
 | 敵に当たったら弾かれる(Sample2D) | `PlayerController::OnCollisionStay2D()`(`AddForce`。§23) |
@@ -1734,3 +1735,96 @@ Time,Count,Interval,Repeat
 **自分のゲームに足す時**: 表の持ち主は、それを使うComponent(Sampleでは `EnemyManager`)です。Sceneには書きません。マス目の配置図(ステージ)のように表をオブジェクトに変えたい時は、Sceneではなく工場関数 `CreateStage(scene, L"Assets/Data/Stage1.csv")` のようにして、`Game/Objects/` に置いてください(「Sceneは配置だけ」のルール。§22)。
 
 **注意**: `Assets/` はビルドの時に出力先(`x64\Debug\Assets\` など)へコピーされます。ソースの `Assets/Data/*.csv` を編集してから、実行(F5)かビルドをしてください(Engineのビルドのたびに、新しく保存した方のファイルだけがコピーされます。Assetsだけの編集でも反映されます)。出力先のファイルを直接編集しても動きますが(実行中の反映は出力先を保存します)、ソース側の方が新しいと次のビルドで上書きされるので、気に入った値はソース側にも書いてください。
+
+---
+
+## 26. パーティクル(ParticleRenderer / CreateEffect)
+
+爆発・煙・火花などを、たくさんの小さな粒で出す仕組みです。粒1つ1つはGameObjectではなく、`ParticleRenderer`の中のデータ(位置・速さ・残り時間)で、まとめて描きます(数百個出しても重くなりにくい)。使うヘッダーは `Engine/ParticleRenderer.h`(`ParticleSettings`もここ)と `Engine/Effect.h`(`CreateEffect`)です。
+
+### 使い方1: 使い捨ての爆発(`CreateEffect`)
+
+```cpp
+ParticleSettings settings;
+settings.spreadAngle = 360.f;     // 全方向に飛び散る
+settings.additive = true;         // 加算合成(重なるほど明るい)
+GameObject* effect = CreateEffect(scene, settings, position);   // 位置にエフェクトを作る
+effect->GetComponent<ParticleRenderer>()->Burst(30);           // 一度に30個出す
+```
+
+- `CreateEffect`は、`ParticleRenderer`の付いたオブジェクトを作ります。**作った直後は粒を出していない**ので、続けて`Burst(個数)`を呼びます
+- 粒がすべて消えたら(`IsPlaying()`がfalseになったら)、オブジェクトは**自動でDestroy**されます。後片付けは要りません
+- `Burst`を呼ばないと、次のフレームに粒が0のまま消えます。作ったらすぐ`Burst`してください
+- `Play()`で出し続けた場合は、**`Stop()`して粒がすべて消えるまで残ります**(`Stop()`しないと消えません)。出し続けるエフェクト(炎など)は、自分で`Stop()`するか、オブジェクトを`Destroy()`してください
+- 手前に描かれるよう、描画順(`drawPriority`)を大きくしてあります
+
+### 使い方2: オブジェクトに付ける(`ParticleRenderer`)
+
+```cpp
+auto* particles = obj->AddComponent<ParticleRenderer>(settings);
+particles->Play();      // emitRate個/秒ずつ出し続ける
+particles->Stop();      // 新しく出すのをやめる(出ている粒は寿命まで残る)
+particles->Burst(10);   // Playしているかに関係なく、一度に10個出す
+```
+
+| 関数 | 意味 |
+|---|---|
+| `Play()` | 出し始める(`emitRate`の数ずつ。`Stop()`するまで) |
+| `Stop()` | 新しく出すのをやめる(出ている粒は寿命まで残る) |
+| `Burst(count)` | 一度に`count`個出す(爆発) |
+| `IsPlaying()` | 出している、または粒が残っているか |
+| `GetParticleCount()` | 今出ている粒の数 |
+| `SetDestroyWhenFinished(true)` | `IsPlaying()`がfalseになったらオブジェクトをDestroyする(`CreateEffect`がこれを使う) |
+
+作った直後は出していません(`Play()`か`Burst()`で出し始めます)。
+
+### ParticleSettings の項目
+
+| 項目 | 意味 | 既定 |
+|---|---|---|
+| `texture` | 粒の画像。空なら`Assets/particle.png`(柔らかい白い円) | 空 |
+| `emitRate` | 1秒に出す数(`Play`中だけ。`Burst`には関係ない) | 10 |
+| `lifetimeMin` / `lifetimeMax` | 粒が消えるまでの時間(秒。この間でランダム) | 0.5 / 1.0 |
+| `speedMin` / `speedMax` | 粒の速さ(1秒に動く距離。この間でランダム) | 50 / 100 |
+| `direction` | 出る向き | (0,1,0)=上 |
+| `spreadAngle` | 向きのばらつき(度。向きを中心に全体でこの範囲。360なら全方向) | 30 |
+| `gravity` | 重力(1秒に速度が変わる量。`(0,-300,0)`なら下へ落ちていく) | (0,0,0) |
+| `startSize` / `endSize` | 出た時と消える時の大きさ(寿命に沿って変わる。0以下になった粒は描かない) | 16 / 0 |
+| `startColor` / `endColor` | 出た時と消える時の色(`w`は濃さ。寿命に沿って変わる) | 白 / 白で透明 |
+| `additive` | 加算合成(重なるほど明るくなる。炎・光向け)。falseは、ふわっと重なる合成(煙向け) | false |
+| `worldSpace` | true=出た場所に残る(煙)、false=オブジェクトと一緒に動く(オーラ) | true |
+| `use3D` | false=2D画面(Sample2D)、true=3D空間(Sample3D) | false |
+
+長さの単位は、オブジェクトの`position`・`scale`と同じです(2Dはピクセル、Sample3Dはワールド単位。Sample3Dの敵の大きさが100なので、粒も大きめにします)。
+
+### 2Dと3D
+
+**同じAPIで書けます。違いは`use3D`だけです。**
+
+| | 2D(`use3D = false`、既定) | 3D(`use3D = true`) |
+|---|---|---|
+| 描き方 | `SpriteRenderer`のUIモードと同じ(2Dカメラでスクロールする。奥行きで小さくなる) | `SpriteRenderer`のWorldモードと同じ。粒は**常にカメラの方を向く板(ビルボード)**で、手前の3Dオブジェクトに隠れる |
+| `spreadAngle` | XY平面で向きを±(角度÷2)回す | 向きを軸にした円錐(360なら全方向の球) |
+| 粒の位置 | `x, y`(`z`は奥行き) | `x, y, z` |
+
+3Dでの対応範囲: 粒は半透明なので、手前の物には隠れますが、粒どうしの前後は描いた順で決まります(加算合成なら見た目はほとんど変わりません)。回転する粒・影・ライトの影響は対応していません。
+
+### 加算合成とふわっとした合成
+
+- `additive = true`: 粒の色を背景に足します。重なるほど明るくなるので、爆発・炎・火花・光に向いています
+- `additive = false`: 粒の濃さに応じて、背景に色を重ねます(ふわっとした煙のような見た目)。重ねても明るくなりません
+- どちらも、既存のスプライトの描画(見た目・描画順)には影響しません
+
+**粒の画像の作り方(重要)**: `Shader.hlsl`は「アルファが0.5未満のピクセルは描かない」ので、アルファで柔らかさを表すことができません。そのため粒の画像は、**明るさ(RGB)で形と濃さを表す白黒の画像にします(中心が白、外側が黒、アルファは不透明)**。`Assets/particle.png`(64x64)がその例です。普通のアルファ付きの画像(外側が透明)を指定すると、縁がくっきり切れたり、背景が黒い四角で見えたりします。
+
+### 上限と時間
+
+- 1つの`ParticleRenderer`が持てる粒は最大**2000個**(`ParticleRenderer::maxParticles`)。超える分は新しく出しません(出ている粒が消えれば、また出ます)
+- 粒の動きはシーンの時間(`Time::GetDeltaTime()`)で進みます。ポーズ(`SetTimeScale(0)`)中は粒も止まり、スローなら粒もゆっくりになります
+- 画像は`Resources`で共有されるので、爆発を何十回出しても画像の読み込みは1回です
+
+### Sampleでの使われ方
+
+両サンプルの`EnemyController::OnTriggerEnter2D()`が、弾に当たって倒された位置で`CreateExplosion()`(`Game/Objects/Explosion.cpp`。Sample2DとSample3Dに、それぞれ別の設定で置いてある)を呼びます。`CreateExplosion`は、オレンジ色の加算合成の粒を全方向に出す`CreateEffect`+`Burst`です(Sample3Dは`use3D = true`で、重力で少し落ちる)。粒が消えるとエフェクトのオブジェクトは自動で消えます。Sceneには置きません(敵を倒した時に呼びます)。
+
+なお、`EnemyController`の弾に当たった処理の先頭で「もう消えている(`GetIsActive()`がfalse)なら何もしない」を確認しています。同じフレームに2発当たっても、「倒した」の知らせ(`"EnemyDefeated"`)・音・爆発が2回出ないようにするためです。
