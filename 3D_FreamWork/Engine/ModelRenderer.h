@@ -1,6 +1,7 @@
 ﻿#pragma once
 #include "Component.h"
 #include "Model.h"
+#include "Material.h"
 #include "Transform.h"
 #include <memory>
 #include <string>
@@ -15,12 +16,16 @@ private:
     std::vector<Transform> nodeTransforms;     // パーツごとの今の動き(親のパーツからの相対。サイズは作った後に変えない)
     std::vector<unsigned int> nodeTexIDs;      // パーツごとにResourcesから借りている画像(借りていなければUINT_MAX)
     unsigned int overrideTexID = UINT_MAX;     // SetTextureで全パーツに設定した画像(UINT_MAXなら各パーツの画像を使う)
-    XMFLOAT4 color{ 1.f, 1.f, 1.f, 1.f };
+    std::wstring loadedOverrideTexture;        // overrideTexID で借りている画像のパス(material.texture と違っていたら、借り直す)
+    Material material;                         // 全パーツ共通の見た目の設定(material.texture が空なら、各パーツの画像を使う)
     std::vector<XMMATRIX> modelMatrices;       // 描画用の作業場所: パーツごとの「モデル空間」の行列(毎フレーム作り直す)
     std::vector<XMMATRIX> boneMatrices;        // 描画用の作業場所: 骨で曲げるパーツのスキン行列
     bool frustumCulling = false;               // trueなら、画面の外にある時は描かない
 
     static constexpr float cullingMargin = 1.5f;   // 画面判定の球に持たせる余裕(骨・アニメーションで、止まっている姿よりはみ出すため)
+
+    // material.texture が変わっていたら、全パーツ共通の画像を借り直す
+    void SyncTexture();
 
 public:
     // 例: obj->AddComponent<ModelRenderer>(L"Assets/Models/Tank.fbx");
@@ -30,8 +35,18 @@ public:
     // 全パーツに同じ画像を貼る(呼ばなければ、FBXに書かれたパーツごとの画像を Assets/ から探して使う)
     void SetTexture(const std::wstring& path);
 
-    void SetColor(float r, float g, float b, float a) { color = { r, g, b, a }; }
-    XMFLOAT4 GetColor() const { return color; }
+    void SetColor(float r, float g, float b, float a) { material.color = { r, g, b, a }; }
+    XMFLOAT4 GetColor() const { return material.color; }
+
+    // マテリアル(色・光沢・自発光・半透明など)を全パーツ共通で設定する。
+    // material.texture が空なら各パーツの画像を使い、パスを入れると全パーツにその画像を貼る(SetTextureと同じ)
+    void SetMaterial(const Material& value) {
+        material = value;
+        SyncTexture();
+    }
+    // 手直し用: modelRenderer->GetMaterial().emissiveStrength = 0.5f;
+    Material& GetMaterial() { return material; }
+    const Material& GetMaterial() const { return material; }
 
     // trueにすると、カメラに映らない(画面の外の)時は描かなくなる(既定はfalse)。物理(当たり判定)は止まらない。
     // 大きさは「止まっている姿の一番遠い頂点」×1.5(余裕)。アニメーションで大きく動く・遠くへはみ出すモデルは、

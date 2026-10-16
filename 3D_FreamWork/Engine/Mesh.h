@@ -7,6 +7,7 @@
 #include "Transform.h"
 #include "Camera.h"
 #include "Light.h"
+#include "Material.h"
 #pragma comment(lib, "d3dcompiler.lib")
 
 struct MeshVertex {
@@ -25,6 +26,11 @@ struct MeshConstantBuffer {
     XMFLOAT4 ambient;
 };
 
+// カメラの位置(Shader3DCommon.hlsli の CameraBuffer, b3)。光沢の計算で「ピクセルからカメラへの向き」を求めるのに使う
+struct MeshCameraBuffer {
+    XMFLOAT4 eyePos;   // xyz=カメラのワールド座標
+};
+
 // カプセルの長い向き(PhysXは元々X軸だが、立って歩く形になるよう、既定はYにする)
 enum class CapsuleAxis { X, Y, Z };
 
@@ -33,10 +39,13 @@ enum class CapsuleAxis { X, Y, Z };
 // 奥行きのある立体を、深度バッファ有り(前後関係が正しい)で描画できる。
 class Mesh {
 private:
-    // インスタンスごとに違うもの(形状データ・テクスチャ)
+    // インスタンスごとに違うもの(形状データ・テクスチャ)。
+    // 頂点バッファ(とインデックスバッファ)は作る時に1回だけ作り、描く時に毎回コピーしない(変更不可)
     ID3D11Buffer* vertexBuffer = nullptr;
+    ID3D11Buffer* indexBuffer = nullptr;   // InitIndexedで作った時だけ。nullptrなら頂点を順に描く
     ID3D11ShaderResourceView* srv = nullptr;
-    std::vector<MeshVertex> vertices;
+    UINT vertexCount = 0;
+    UINT indexCount = 0;
     D3D11_PRIMITIVE_TOPOLOGY topology = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
 
     // シェーダー・各種ステート・定数バッファは、Cube/Sphere/OBJなど全てのMeshで
@@ -45,7 +54,9 @@ private:
     // refCountで「今何体のMeshが使っているか」を数え、最後の1体がUninitされた時に
     // まとめて解放する
     static ID3D11DeviceContext* context;
-    static ID3D11Buffer* constantBuffer;
+    static ID3D11Buffer* constantBuffer;     // b0: MeshConstantBuffer
+    static ID3D11Buffer* materialBuffer;     // b2: MaterialConstantBuffer
+    static ID3D11Buffer* cameraBuffer;       // b3: MeshCameraBuffer
     static ID3D11VertexShader* vertexShader;
     static ID3D11PixelShader* pixelShader;
     static ID3D11InputLayout* inputLayout;
@@ -71,20 +82,33 @@ private:
     static bool CreateRasterizerState();
     static bool CreateWhiteTexture();
 
-    bool CreateVertexBuffer();
+    bool CreateBuffers(const std::vector<MeshVertex>& verts, const std::vector<UINT>* indices);
+    bool InitInternal(const std::vector<MeshVertex>& verts, const std::vector<UINT>* indices, D3D11_PRIMITIVE_TOPOLOGY topology);
 
 public:
     // topology: 通常は三角形(TRIANGLELIST)。Create○○Outline()の線データを渡す時は
     // D3D11_PRIMITIVE_TOPOLOGY_LINELIST(2頂点ずつ1本の線)にする
+    // 頂点バッファは、ここで1回だけ作る(変更不可)。失敗したらfalse(その時はUninitを呼ばない)
     bool Init(const std::vector<MeshVertex>& verts,
         D3D11_PRIMITIVE_TOPOLOGY topology = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
-    // writeDepth = false にすると、深度バッファに書き込まない(自分より後ろのものを隠さない)。
+    // インデックス(頂点の番号)を使う版。三角形3つぶんの番号を並べる(TRIANGLELISTなら3つで1枚、LINELISTなら2つで1本)。
+    // 同じ頂点を使い回せるので、地形のように頂点が多い形は頂点の数が大きく減る
+    bool InitIndexed(const std::vector<MeshVertex>& verts, const std::vector<UINT>& indices,
+        D3D11_PRIMITIVE_TOPOLOGY topology = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+    // マテリアル(色・光沢・自発光・光を使うか・深度を書くか)を指定して描く。
+    // material.depthWrite = false にすると、深度バッファに書き込まない(自分より後ろのものを隠さない)。
     // スカイボックス用: drawPriorityで必ず最初に描画させた上でこれをfalseにすることで、
     // 「深度テストで他の3Dオブジェクトと競合する遠景」ではなく「常に一番奥にある背景」として
-    // 描画できる(深度バッファの精度に依存しない、Z-fightingが起こり得ない実装)
-    void Draw(const Transform& transform, const Camera& camera, XMFLOAT4 color, const Light& light, bool writeDepth = true);
+    // 描画できる(深度バッファの精度に依存しない、Z-fightingが起こり得ない実装)。
+    // ※material.texture(パス)はここでは使わない。画像は SetTexture で渡す(MeshRenderer / ModelRenderer が読んで渡す)
+    void Draw(const Transform& transform, const Camera& camera, const Material& material, const Light& light);
     // ワールド行列を直接渡す版(ModelRendererが、パーツごとに累積した行列で描く時に使う)
+    void Draw(const XMMATRIX& world, const Camera& camera, const Material& material, const Light& light);
+
+    // 色だけ指定する版(既定のマテリアルで描く)。writeDepth = false で深度に書き込まない
+    void Draw(const Transform& transform, const Camera& camera, XMFLOAT4 color, const Light& light, bool writeDepth = true);
     void Draw(const XMMATRIX& world, const Camera& camera, XMFLOAT4 color, const Light& light, bool writeDepth = true);
     void Uninit();
 

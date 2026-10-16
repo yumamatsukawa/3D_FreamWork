@@ -1,23 +1,13 @@
 // 骨で曲げるメッシュ(スキンメッシュ)用のシェーダー。
-// 見た目の計算(ライティング・色・テクスチャ)は Shader3D.hlsl と同じで、頂点を骨の行列で動かす所だけが違う。
-// b0 は Shader3D.hlsl と同じ構成(ワールド・ビュー・射影・光)、b1 に骨の行列と色を入れる
+// 見た目の計算(ライティング・色・テクスチャ・光沢・自発光)は Shader3D.hlsl と同じ Shader3DCommon.hlsli で、頂点を骨の行列で動かす所だけが違う。
+// b0 は Shader3D.hlsl と同じ構成(ワールド・ビュー・射影・光)、b1 に骨の行列を入れる(色は b2 のマテリアル)
+#include "Shader3DCommon.hlsli"
 
 #define MAX_BONES 64
-
-cbuffer ConstantBuffer : register(b0)
-{
-    matrix world;
-    matrix view;
-    matrix proj;
-    float4 lightDir;
-    float4 lightColor;
-    float4 ambient;
-};
 
 cbuffer SkinBuffer : register(b1)
 {
     matrix bones[MAX_BONES];   // スキン行列(逆バインド行列 × 骨のモデル空間の行列)。モデル空間 = ワールド行列を掛ける前
-    float4 tint;               // 全体にかける色(ModelRenderer::SetColor)
 };
 
 struct VSInput
@@ -28,14 +18,6 @@ struct VSInput
     float2 uv : TEXCOORD0;
     uint4 boneIndices : BLENDINDICES;
     float4 boneWeights : BLENDWEIGHT;
-};
-
-struct PSInput
-{
-    float4 pos : SV_POSITION;
-    float3 worldNormal : NORMAL;
-    float4 color : COLOR;
-    float2 uv : TEXCOORD0;
 };
 
 PSInput VS(VSInput input)
@@ -55,26 +37,13 @@ PSInput VS(VSInput input)
     float4 viewPos = mul(worldPos, view);
     output.pos = mul(viewPos, proj);
     output.worldNormal = normalize(mul(float4(skinnedNormal, 0.0f), world).xyz);
-    output.color = input.color * tint;
+    output.color = input.color;
     output.uv = input.uv;
+    output.worldPos = worldPos.xyz;
     return output;
 }
 
-Texture2D tex : register(t0);
-SamplerState smp : register(s0);
-
 float4 PS(PSInput input) : SV_TARGET
 {
-    float4 texColor = tex.Sample(smp, input.uv) * input.color;
-
-    // ほぼ透明なピクセルは描画しない(Shader3D.hlslと同じ)
-    clip(texColor.a - 0.01f);
-
-    // 平行光源(光が来る方向は-lightDir)+環境光(Shader3D.hlslと同じ)
-    float3 normal = normalize(input.worldNormal);
-    float ndotl = saturate(dot(normal, normalize(-lightDir.xyz)));
-    float3 lighting = ambient.xyz + lightColor.xyz * ndotl;
-
-    float4 finalColor = float4(texColor.rgb * lighting, texColor.a);
-    return finalColor;
+    return ShadePixel(input);
 }

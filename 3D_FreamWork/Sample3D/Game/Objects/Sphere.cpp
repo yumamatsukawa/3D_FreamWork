@@ -12,6 +12,8 @@ GameObject* CreateSphere(Scene& scene) {
     // 見た目(3Dメッシュ)
     auto* meshRenderer = sphere->AddComponent<MeshRenderer>(Mesh::CreateSphere());
     meshRenderer->SetTexture(L"Assets/grid.png");
+    meshRenderer->GetMaterial().specularStrength = 0.8f;   // つやつやにする(光が当たる所が光る)
+    meshRenderer->GetMaterial().shininess = 64.f;
 
     // 物理演算(PhysX): 重力で落ちて、Groundの上に着地する
     auto* rigidbody = sphere->AddComponent<SphereRigidbodyComponent>(BodyType::Dynamic);

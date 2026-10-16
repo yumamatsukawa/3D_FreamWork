@@ -11,7 +11,7 @@ Engine(`3D_FreamWork/Engine/`)に追加したい9個の機能(視界判定・カ
 - ロードマップ1の機能(物理の問い合わせ 5.6、カメラ機能 5.7、FBX・骨アニメーション 5.16 など)は**もう使える前提**で書いています。特に、視界判定は 5.6 の `Physics::Raycast` を使います。
 
 ### 状態
-**ここに書いてある内容は「設計案」です。6.1 視界判定と 6.2 カプセルコライダーが実装済みです(4章の表の状態を見てください。ほかは「未着手」)。** 関数名・引数は、実装しながら変わってよいものです。この設計書は「実際のEngineのコードを読んで」書いたので、既存のクラス名・関数名・ファイル名は本物です。新しく作る名前だけが案です。
+**ここに書いてある内容は「設計案」です。6.1 視界判定・6.2 カプセルコライダー・6.3 マテリアルが実装済みです(4章の表の状態を見てください。ほかは「未着手」)。** 関数名・引数は、実装しながら変わってよいものです。この設計書は「実際のEngineのコードを読んで」書いたので、既存のクラス名・関数名・ファイル名は本物です。新しく作る名前だけが案です。
 
 ### 進め方の方針(1機能ずつ)
 1機能ごとに、次の流れで進めます。
@@ -56,7 +56,7 @@ Engine(`3D_FreamWork/Engine/`)に追加したい9個の機能(視界判定・カ
 ### 描画まわり
 1. **`ColliderType` という名前のものは、今のコードにありません。** 当たり判定の形は、`RigidbodyComponent`(共通部分)の**派生クラス**で表しています(`BoxRigidbodyComponent` / `SphereRigidbodyComponent` / `CircleRigidbodyComponent`(2D) / `SquareRigidbodyComponent`(2D))。種類は `BodyType`(Dynamic / Kinematic / Static)。形ごとの違いは、派生クラスの `Init()` が `InitWithGeometry(PxGeometry)` を呼ぶ部分だけです。
 2. **`RigidbodyComponent::Draw`(当たり判定の枠線表示)は、Box と Sphere の形にしか対応していません。** それ以外の形(`switch` の `default`)では何も描きません。
-3. **`Mesh::Draw` は、描く度に頂点を全部コピーして、色を上書きしてから送っています**(`Mesh.cpp` の `coloredVerts`)。頂点バッファは `D3D11_USAGE_DYNAMIC` で、`Map` / `memcpy` / `Unmap` を毎回やります。小さな立方体・球なら問題ありませんが、**頂点が数万個ある地形や、1フレームに2回描く影の描画には向きません**。インデックスバッファ(頂点を使い回す仕組み)も未対応です。なお、今ある `Mesh` の頂点の色は**すべて白**(`CreateCube` / `CreateSphere` / `LoadOBJ` / 輪郭の線 / FBXのモデル)なので、「色を頂点にではなく定数バッファで渡す」作りに変えても見た目は変わりません。
+3. **(6.3 で直した。下は直す前の状態)** **`Mesh::Draw` は、描く度に頂点を全部コピーして、色を上書きしてから送っています**(`Mesh.cpp` の `coloredVerts`)。頂点バッファは `D3D11_USAGE_DYNAMIC` で、`Map` / `memcpy` / `Unmap` を毎回やります。小さな立方体・球なら問題ありませんが、**頂点が数万個ある地形や、1フレームに2回描く影の描画には向きません**。インデックスバッファ(頂点を使い回す仕組み)も未対応です。なお、今ある `Mesh` の頂点の色は**すべて白**(`CreateCube` / `CreateSphere` / `LoadOBJ` / 輪郭の線 / FBXのモデル)なので、「色を頂点にではなく定数バッファで渡す」作りに変えても見た目は変わりません。
 4. **`Shader3D.hlsl` は、平行光源1つ + 環境光だけです。** 鏡面反射(ハイライト)も、ワールド座標のピクセルへの受け渡しもありません。`PSInput` に位置が無いので、点光源・スポットライト・影・縁の光には**ワールド座標の受け渡しを足す**必要があります。`clip(texColor.a - 0.01f)` で、ほぼ透明なピクセルは描きません。
 5. **`Shader3DSkin.hlsl` は、ピクセルシェーダーの中身が `Shader3D.hlsl` のコピーです。** 光の計算を変える時は2つのファイルを同じように直さないとずれます。
 6. **定数バッファの割り当て**: `b0` = `MeshConstantBuffer`(world / view / proj / lightDir / lightColor / ambient。`Mesh.h` で定義)。`Shader3DSkin.hlsl` だけ `b1` = 骨の行列64個 + `tint`。テクスチャは `t0`、サンプラーは `s0`。
@@ -88,7 +88,7 @@ Engine(`3D_FreamWork/Engine/`)に追加したい9個の機能(視界判定・カ
 |---|---|---|---|---|
 | 1 | [6.1 視界判定](#61-視界判定実装済み) | 5.6(物理の問い合わせ)・5.1(計算系)を使う。単独 | | 実装済み |
 | 2 | [6.2 カプセルコライダー](#62-カプセルコライダー実装済み) | 単独(`RigidbodyComponent` に形を足す) | | 実装済み |
-| 3 | [6.3 マテリアル](#63-マテリアル) | 5.3(`Resources`)を使う。ライト・影・枠線・水面・地形の土台 | | 未着手 |
+| 3 | [6.3 マテリアル](#63-マテリアル実装済み) | 5.3(`Resources`)を使う。ライト・影・枠線・水面・地形の土台 | | 実装済み |
 | 4 | [6.4 ポイントライトとスポットライト](#64-ポイントライト点光源とスポットライト) | 6.3 | | 未着手 |
 | 5 | [6.5 影](#65-影シャドウマップ) | 6.3(段階2)・6.4 | | 未着手 |
 | 6 | [6.6 枠線を光らせる](#66-枠線を光らせるアウトラインリム発光) | 6.3・6.4 | | 未着手 |
@@ -360,7 +360,7 @@ auto* rigidbody = obj->AddComponent<CapsuleRigidbodyComponent>(BodyType::Dynamic
 
 ---
 
-### 6.3 マテリアル
+### 6.3 マテリアル(実装済み)
 
 **目的**: 色・画像・光沢(スペキュラ)・透明度・自発光(縁の光や枠線の項目を含む)を、1つの「マテリアル」にまとめる。今は `MeshRenderer::SetColor` / `SetTexture` / `SetUnlit` / `SetDepthWrite` がバラバラにある。ライト・影・枠線・水面の項目を足す入れ物になる。
 
@@ -446,10 +446,22 @@ meshRenderer->GetMaterial().emissiveStrength = 0.3f;
 
 **依存する機能**: 5.3 リソースの使い回し(画像の共有)。
 
-**未確定の点**:
-- 段階2(`Mesh` の作り直し)を、6.3 の中でやるか、独立した作業として先にやるか(後の機能の前提なので、6.3 と一緒にやることを推奨)
-- 透明な `Material`(`color.w < 1`)で、`depthWrite` と `drawPriority` を自動で変えてよいか
-- 光の計算を `Shader3DCommon.hlsli` にまとめるか(5.2)
+**実装して決めたこと(実装済み。段階1・段階2とも)**:
+- **新しいファイル**: `Engine/Material.h`(`Material` と、シェーダーへ送る `MaterialConstantBuffer`)、`Shader3DCommon.hlsli`(`Engine.vcxproj` の `CopyRuntimeFiles` と `UpToDateCheckInput` に登録)。`Mesh.cpp` / `SkinMesh.cpp` の `D3DCompileFromFile` は `D3D_COMPILE_STANDARD_FILE_INCLUDE` に変えた。
+- **`Material` の項目**: `color`・`texture`・`lit`・`depthWrite`・`specularColor`・`specularStrength`・`shininess`・`emissiveColor`・`emissiveStrength` の9個。**設計書の `receiveShadow` / `castShadow` / `rim*` / `outline*` は、まだ足していない**(使う機能 6.5・6.6 を作る時に足す。定数バッファ `params` の `y`/`z` を予約してある)。
+- **シェーダー**: `Shader3DCommon.hlsli` に `b0`(今まで通り)・`b2`(`MaterialBuffer`: `color` / `specular` / `emissive` / `params`)・`b3`(`CameraBuffer`: `eyePos` だけ)・`PSInput`(`worldPos` を追加)・`ShadePixel()` を置き、`Shader3D.hlsl` と `Shader3DSkin.hlsl` は頂点の動かし方と `ShadePixel()` の呼び出しだけにした。`b1`(骨)の `tint` は `b2` の `color` に移して削除した。
+- **鏡面**は `rgb += specularColor × lightColor × pow(saturate(dot(N, H)), shininess) × specularStrength`(設計書の式に、平行光源の色を掛けた。`lit = false` の時と、光が当たらない面(`dot(N, L) <= 0`)では出さない)。**自発光**は光の計算の後に足すだけ。
+- **持ち方**: `MeshRenderer` / `ModelRenderer` が `Material` を1体ごとに持つ。`material.texture`(パス)は、描く時(と `SetMaterial` / `SetTexture` の時)に `Resources` で借り直す。`SetColor` / `SetTexture` / `SetUnlit` / `SetDepthWrite` は残し、`Material` の項目を書き換えるだけにした。`ModelRenderer::SetTexture` は `material.texture` を書き換える。`Mesh::Draw` / `SkinMesh::Draw` に `Material` 版を足し、色指定の版は既定のマテリアルで呼ぶだけ(`RigidbodyComponent` / `VisionComponent` / `GroundController` は変更なし)。`MeshRenderer` の `unlit` は、`fullBright` の `Light` を渡すのをやめて、`material.lit = false` で伝える(結果は同じ)。
+- **段階2(`Mesh` の作り直し)**: 頂点バッファは `D3D11_USAGE_IMMUTABLE` で `Init` の時に1回だけ作る(`vertices` の保持と毎回のコピーはやめた)。色は `b2` の `color` として頂点の色に掛ける(今ある形は頂点の色がすべて白なので同じ見た目)。`Mesh::InitIndexed(頂点, インデックス, topology)` を追加(32ビットのインデックス。`Draw` は `DrawIndexed`)。`Init(頂点, topology)` の呼び方は変えていない(`RigidbodyComponent.cpp` の `static` なアウトラインメッシュもそのまま動く)。同じ `Mesh` に `Init` を2回呼んだ時は、前のバッファを解放する(参照カウントは増やさない)。
+- **透明(7章の確認事項)**: **自動では変えない**。`color.w < 1` にしても `depthWrite` と `drawPriority` は勝手に変えない(`Sample3D` の `GlassPanel` で、使う側が `SetDrawPriority` と `depthWrite = false` を書く)。半透明どうしの前後がずれる問題は、そのまま。
+- **Sample**: `Sample3D` に `GlassPanel`(半透明・光沢・自発光の板。`GameScene` に置いた)を追加し、`Sphere.cpp`(今のシーンでは未使用)に光沢を付けた。`Player` の自発光(設計書の例)は、見た目が変わるので付けていない。
+- **確認**: WARP(ソフトウェアのD3D11)で、旧実装(同じ描画を再現したコード)と新しい `Mesh` / `SkinMesh` を描き比べて、色指定の描き方・`unlit`・輪郭の線・半透明・スキンメッシュのすべてでピクセルが完全に一致することを確認した。`InitIndexed` の立方体(24頂点)も通常の立方体と一致。光沢・自発光・色・透明度・`lit` を変えると見た目が変わることも確認した。
+- **FBXに書かれたマテリアルの読み込みと、`MeshRenderer` / `ModelRenderer` を通した描画は、WARP では確かめていない**(実機で確認してもらう)。
+
+**未確定の点(決まったこと)**:
+- 段階2(`Mesh` の作り直し)を、6.3 の中でやるか → **6.3 の中でやった**
+- 透明な `Material`(`color.w < 1`)で、`depthWrite` と `drawPriority` を自動で変えてよいか → **自動では変えない**(上の「透明」)
+- 光の計算を `Shader3DCommon.hlsli` にまとめるか(5.2) → **まとめた**
 
 ---
 
@@ -945,11 +957,11 @@ if (pos.y < waterY) speed *= 0.5f;
 
 1. **了承の取り方**: この設計書の了承を、各機能の着手前の確認(①何を②なぜ③両サンプルへの影響)として扱ってよいか。それとも、機能ごとに改めて確認するか。(決まるまでは機能ごとに確認)
 2. **シェーダーの共通化(5.2)**: `Shader3DCommon.hlsli` を作って2つのシェーダーから `#include` するか、同じ関数を2か所に書き写すか。
-3. **6.3 段階2(`Mesh` の作り直し)**: 頂点バッファを一度だけ作る・色を定数バッファで渡す・インデックス対応は、地形と影の前提です。6.3 の中でやるか。
+3. **6.3 段階2(`Mesh` の作り直し)**: 頂点バッファを一度だけ作る・色を定数バッファで渡す・インデックス対応は、地形と影の前提です。6.3 の中でやるか。→ **やった(6.3 に書いた)**
 4. **6.1 カメラ判定の既定**: `SetFrustumCulling` を既定ONにするか、OFFにするか。
 5. **6.1 見張り役 `Guard` と壁 `Wall`**: Sample3D(と Sample2D)に新しく置いてよいか。壁のタグ名は `"Wall"` でよいか。相手の判定は1点か2点か。
 6. **6.2 カプセル**: 2D用のクラス名(`Capsule2DRigidbodyComponent`)でよいか。Player の見た目を立方体からカプセルに変えてよいか(それとも当たり判定だけ)。Sample2D には細長い障害物を新しく置くか。
-7. **6.3 透明**: `color.w < 1` の時、`depthWrite = false` と `drawPriority` を自動で変えてよいか。
+7. **6.3 透明**: `color.w < 1` の時、`depthWrite = false` と `drawPriority` を自動で変えてよいか。→ **自動では変えない(6.3 に書いた)**
 8. **6.4 ライト**: 最大数8でよいか。Sample3D の環境光を暗くしてよいか(見た目が変わる)。敵・弾・爆発にも光を付けるか。
 9. **6.5 影**: `Component` に `DrawShadow` を足す方式か、登録簿方式か。解像度と範囲の既定値(2048、3000)。敵(画像)の足元に丸い影を置くか。スポットの影(段階3)まで作るか。
 10. **6.6 枠線**: 「光る」にブルームは期待しない前提(リム + 法線拡大)でよいか。敵の画像にも枠線がほしいか。

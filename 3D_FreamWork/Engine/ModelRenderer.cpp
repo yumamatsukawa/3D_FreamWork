@@ -32,10 +32,18 @@ void ModelRenderer::Init() {
 }
 
 void ModelRenderer::SetTexture(const std::wstring& path) {
+    material.texture = path;
+    SyncTexture();
+}
+
+void ModelRenderer::SyncTexture() {
+    if (material.texture == loadedOverrideTexture) return;
+
     // 新しい画像を先に借りてから、前の画像を返す(同じ画像を設定し直しても読み直さないように)
-    unsigned int newTexID = Resources::LoadTexture(path);
+    unsigned int newTexID = material.texture.empty() ? UINT_MAX : Resources::LoadTexture(material.texture);
     if (overrideTexID != UINT_MAX) Resources::ReleaseTexture(overrideTexID);
     overrideTexID = newTexID;
+    loadedOverrideTexture = material.texture;
 }
 
 Transform* ModelRenderer::GetNodeTransform(const std::string& name) {
@@ -47,6 +55,9 @@ Transform* ModelRenderer::GetNodeTransform(const std::string& name) {
 
 void ModelRenderer::Draw() {
     if (!model) return;
+
+    // material.texture が手で書き換えられていたら、ここで画像を借り直す
+    SyncTexture();
 
     // 画面の外なら描かない
     if (frustumCulling &&
@@ -82,7 +93,7 @@ void ModelRenderer::Draw() {
                     boneMatrices[k] = XMLoadFloat4x4(&node.skinInverseBind[k]) * modelMatrices[node.skinBones[k]];
                 }
                 skinMesh->SetTexture(texture);
-                skinMesh->Draw(ownerWorld, boneMatrices.data(), (int)boneMatrices.size(), Image::GetCamera3D(), color, Image::GetLight());
+                skinMesh->Draw(ownerWorld, boneMatrices.data(), (int)boneMatrices.size(), Image::GetCamera3D(), material, Image::GetLight());
                 continue;
             }
             // スキンメッシュを作れなかった時は、静止のメッシュとして表示する(下へ)
@@ -91,7 +102,7 @@ void ModelRenderer::Draw() {
         Mesh* mesh = model->GetMesh(i);
         if (!mesh) continue;
         mesh->SetTexture(texture);
-        mesh->Draw(modelMatrices[i] * ownerWorld, Image::GetCamera3D(), color, Image::GetLight());
+        mesh->Draw(modelMatrices[i] * ownerWorld, Image::GetCamera3D(), material, Image::GetLight());
     }
 }
 void ModelRenderer::Uninit() {
@@ -102,4 +113,5 @@ void ModelRenderer::Uninit() {
     }
     if (overrideTexID != UINT_MAX) Resources::ReleaseTexture(overrideTexID);
     overrideTexID = UINT_MAX;
+    loadedOverrideTexture.clear();   // material.texture は残す(使い回されて描く時に、また借りる)
 }

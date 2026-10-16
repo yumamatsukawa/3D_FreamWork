@@ -161,6 +161,7 @@
     <ClInclude Include="Input.h" />
     <ClInclude Include="Light.h" />
     <ClInclude Include="MathUtil.h" />
+    <ClInclude Include="Material.h" />
     <ClInclude Include="Mesh.h" />
     <ClInclude Include="MeshRenderer.h" />
     <ClInclude Include="Model.h" />
@@ -217,6 +218,7 @@
     <UpToDateCheckInput Include="$(SolutionDir)Shader.hlsl" />
     <UpToDateCheckInput Include="$(SolutionDir)Shader3D.hlsl" />
     <UpToDateCheckInput Include="$(SolutionDir)Shader3DSkin.hlsl" />
+    <UpToDateCheckInput Include="$(SolutionDir)Shader3DCommon.hlsli" />
   </ItemGroup>
   <Target Name="CopyRuntimeFiles" AfterTargets="Build">
     <Exec Command="xcopy /y /d &quot;$(SolutionDir)..\ThirdParty\PhysX\lib\$(PhysXDllDir)\*.dll&quot; &quot;$(OutDir)&quot;" />
@@ -224,6 +226,7 @@
     <Exec Command="xcopy /y /d &quot;$(SolutionDir)Shader.hlsl&quot; &quot;$(OutDir)&quot;" />
     <Exec Command="xcopy /y /d &quot;$(SolutionDir)Shader3D.hlsl&quot; &quot;$(OutDir)&quot;" />
     <Exec Command="xcopy /y /d &quot;$(SolutionDir)Shader3DSkin.hlsl&quot; &quot;$(OutDir)&quot;" />
+    <Exec Command="xcopy /y /d &quot;$(SolutionDir)Shader3DCommon.hlsli&quot; &quot;$(OutDir)&quot;" />
   </Target>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

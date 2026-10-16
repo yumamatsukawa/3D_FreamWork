@@ -6,22 +6,24 @@
 ID3D11DeviceContext* SkinMesh::context = nullptr;
 ID3D11Buffer* SkinMesh::constantBuffer = nullptr;
 ID3D11Buffer* SkinMesh::skinBuffer = nullptr;
+ID3D11Buffer* SkinMesh::materialBuffer = nullptr;
+ID3D11Buffer* SkinMesh::cameraBuffer = nullptr;
 ID3D11VertexShader* SkinMesh::vertexShader = nullptr;
 ID3D11PixelShader* SkinMesh::pixelShader = nullptr;
 ID3D11InputLayout* SkinMesh::inputLayout = nullptr;
 ID3D11SamplerState* SkinMesh::sampler = nullptr;
 ID3D11BlendState* SkinMesh::blendState = nullptr;
 ID3D11DepthStencilState* SkinMesh::depthStencilState = nullptr;
+ID3D11DepthStencilState* SkinMesh::depthStencilStateNoWrite = nullptr;
 ID3D11RasterizerState* SkinMesh::rasterizerState = nullptr;
 ID3D11ShaderResourceView* SkinMesh::whiteTexture = nullptr;
 float SkinMesh::aspectRatio = 1.f;
 int SkinMesh::refCount = 0;
 
 namespace {
-    // 骨の行列(最大64本)と色。Shader3DSkin.hlsl の SkinBuffer と同じ並び
+    // 骨の行列(最大64本)。Shader3DSkin.hlsl の SkinBuffer と同じ並び(色は b2 のマテリアルで送る)
     struct SkinConstantBuffer {
         XMMATRIX bones[SkinMesh::maxBones];
-        XMFLOAT4 tint;
     };
 }
 
@@ -69,14 +71,21 @@ bool SkinMesh::CreateSharedResources() {
     if (FAILED(Graphics::device->CreateBuffer(&cbd, nullptr, &constantBuffer))) return false;
     cbd.ByteWidth = sizeof(SkinConstantBuffer);
     if (FAILED(Graphics::device->CreateBuffer(&cbd, nullptr, &skinBuffer))) return false;
+    cbd.ByteWidth = sizeof(MaterialConstantBuffer);
+    if (FAILED(Graphics::device->CreateBuffer(&cbd, nullptr, &materialBuffer))) return false;
+    cbd.ByteWidth = sizeof(MeshCameraBuffer);
+    if (FAILED(Graphics::device->CreateBuffer(&cbd, nullptr, &cameraBuffer))) return false;
     return true;
 }
 
 void SkinMesh::ReleaseSharedResources() {
     if (constantBuffer) { constantBuffer->Release(); constantBuffer = nullptr; }
     if (skinBuffer) { skinBuffer->Release(); skinBuffer = nullptr; }
+    if (materialBuffer) { materialBuffer->Release(); materialBuffer = nullptr; }
+    if (cameraBuffer) { cameraBuffer->Release(); cameraBuffer = nullptr; }
     if (blendState) { blendState->Release(); blendState = nullptr; }
     if (depthStencilState) { depthStencilState->Release(); depthStencilState = nullptr; }
+    if (depthStencilStateNoWrite) { depthStencilStateNoWrite->Release(); depthStencilStateNoWrite = nullptr; }
     if (rasterizerState) { rasterizerState->Release(); rasterizerState = nullptr; }
     if (whiteTexture) { whiteTexture->Release(); whiteTexture = nullptr; }
     if (sampler) { sampler->Release(); sampler = nullptr; }
@@ -90,8 +99,9 @@ bool SkinMesh::CreateShaders() {
     ID3DBlob* psBlob = nullptr;
     ID3DBlob* err = nullptr;
 
-    // Shader3D.hlsl と同じく、実行時にコンパイルする(エラーは出力ウィンドウに出る)
-    HRESULT hr = D3DCompileFromFile(L"Shader3DSkin.hlsl", nullptr, nullptr, "VS", "vs_5_0", 0, 0, &vsBlob, &err);
+    // Shader3D.hlsl と同じく、実行時にコンパイルする(エラーは出力ウィンドウに出る)。
+    // Shader3DCommon.hlsli を #include しているので、D3D_COMPILE_STANDARD_FILE_INCLUDE を渡す
+    HRESULT hr = D3DCompileFromFile(L"Shader3DSkin.hlsl", nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, "VS", "vs_5_0", 0, 0, &vsBlob, &err);
     if (FAILED(hr)) {
         if (err) { OutputDebugStringA((char*)err->GetBufferPointer()); err->Release(); }
         else { OutputDebugStringA("★ Shader3DSkin.hlsl が見つかりません\n"); }
@@ -99,7 +109,7 @@ bool SkinMesh::CreateShaders() {
     }
 
     err = nullptr;
-    hr = D3DCompileFromFile(L"Shader3DSkin.hlsl", nullptr, nullptr, "PS", "ps_5_0", 0, 0, &psBlob, &err);
+    hr = D3DCompileFromFile(L"Shader3DSkin.hlsl", nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, "PS", "ps_5_0", 0, 0, &psBlob, &err);
     if (FAILED(hr)) {
         if (err) { OutputDebugStringA((char*)err->GetBufferPointer()); err->Release(); }
         else { OutputDebugStringA("★ Shader3DSkin PS コンパイル失敗\n"); }
@@ -155,6 +165,10 @@ bool SkinMesh::CreateStates() {
     dsd.DepthFunc = D3D11_COMPARISON_LESS;
     if (FAILED(Graphics::device->CreateDepthStencilState(&dsd, &depthStencilState))) return false;
 
+    // material.depthWrite = false 用: テストはするが書き込みはしない(Mesh と同じ)
+    dsd.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ZERO;
+    if (FAILED(Graphics::device->CreateDepthStencilState(&dsd, &depthStencilStateNoWrite))) return false;
+
     D3D11_RASTERIZER_DESC rd = {};
     rd.FillMode = D3D11_FILL_SOLID;
     rd.CullMode = D3D11_CULL_NONE;
@@ -180,6 +194,14 @@ bool SkinMesh::CreateStates() {
 
 void SkinMesh::Draw(const XMMATRIX& world, const XMMATRIX* boneMatrices, int boneCount,
     const Camera& camera, XMFLOAT4 color, const Light& light) {
+    // 色だけを変えた、既定のマテリアルで描く
+    Material material;
+    material.color = color;
+    Draw(world, boneMatrices, boneCount, camera, material, light);
+}
+
+void SkinMesh::Draw(const XMMATRIX& world, const XMMATRIX* boneMatrices, int boneCount,
+    const Camera& camera, const Material& material, const Light& light) {
     assert(context && vertexBuffer && "SkinMesh が初期化されていません");
     if (boneCount > maxBones) boneCount = maxBones;
 
@@ -197,19 +219,30 @@ void SkinMesh::Draw(const XMMATRIX& world, const XMMATRIX* boneMatrices, int bon
     memcpy(msr.pData, &cb, sizeof(cb));
     context->Unmap(constantBuffer, 0);
 
-    // b1: 骨の行列(使わない分は単位行列)と色
+    // b1: 骨の行列(使わない分は単位行列)
     SkinConstantBuffer sb;
     for (int i = 0; i < maxBones; i++) {
         sb.bones[i] = (i < boneCount) ? XMMatrixTranspose(boneMatrices[i]) : XMMatrixIdentity();
     }
-    sb.tint = color;
     context->Map(skinBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &msr);
     memcpy(msr.pData, &sb, sizeof(sb));
     context->Unmap(skinBuffer, 0);
 
+    // b2: マテリアル(色・光沢・自発光・光を使うか)
+    MaterialConstantBuffer mb = MakeMaterialConstantBuffer(material);
+    context->Map(materialBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &msr);
+    memcpy(msr.pData, &mb, sizeof(mb));
+    context->Unmap(materialBuffer, 0);
+
+    // b3: カメラの位置
+    MeshCameraBuffer eye = { { camera.position.x, camera.position.y, camera.position.z, 1.f } };
+    context->Map(cameraBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &msr);
+    memcpy(msr.pData, &eye, sizeof(eye));
+    context->Unmap(cameraBuffer, 0);
+
     float blendFactor[4] = {};
     context->OMSetBlendState(blendState, blendFactor, 0xFFFFFFFF);
-    context->OMSetDepthStencilState(depthStencilState, 0);
+    context->OMSetDepthStencilState(material.depthWrite ? depthStencilState : depthStencilStateNoWrite, 0);
     context->RSSetState(rasterizerState);
 
     UINT stride = sizeof(SkinVertex), offset = 0;
@@ -222,7 +255,8 @@ void SkinMesh::Draw(const XMMATRIX& world, const XMMATRIX* boneMatrices, int bon
     context->VSSetConstantBuffers(0, 2, vsBuffers);
 
     context->PSSetShader(pixelShader, nullptr, 0);
-    context->PSSetConstantBuffers(0, 1, &constantBuffer);
+    ID3D11Buffer* psBuffers[4] = { constantBuffer, nullptr, materialBuffer, cameraBuffer };
+    context->PSSetConstantBuffers(0, 4, psBuffers);
     ID3D11ShaderResourceView* view = srv ? srv : whiteTexture;
     context->PSSetShaderResources(0, 1, &view);
     context->PSSetSamplers(0, 1, &sampler);

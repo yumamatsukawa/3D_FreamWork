@@ -7,6 +7,8 @@
 
 ID3D11DeviceContext* Mesh::context = nullptr;
 ID3D11Buffer* Mesh::constantBuffer = nullptr;
+ID3D11Buffer* Mesh::materialBuffer = nullptr;
+ID3D11Buffer* Mesh::cameraBuffer = nullptr;
 ID3D11VertexShader* Mesh::vertexShader = nullptr;
 ID3D11PixelShader* Mesh::pixelShader = nullptr;
 ID3D11InputLayout* Mesh::inputLayout = nullptr;
@@ -20,15 +22,23 @@ float Mesh::aspectRatio = 1.f;
 int Mesh::refCount = 0;
 
 bool Mesh::Init(const std::vector<MeshVertex>& verts, D3D11_PRIMITIVE_TOPOLOGY topo) {
+    return InitInternal(verts, nullptr, topo);
+}
+
+bool Mesh::InitIndexed(const std::vector<MeshVertex>& verts, const std::vector<UINT>& indices, D3D11_PRIMITIVE_TOPOLOGY topo) {
+    return InitInternal(verts, &indices, topo);
+}
+
+bool Mesh::InitInternal(const std::vector<MeshVertex>& verts, const std::vector<UINT>* indices, D3D11_PRIMITIVE_TOPOLOGY topo) {
     context = Graphics::context;
-    vertices = verts;
     topology = topo;
     aspectRatio = (Graphics::height > 0.f) ? (Graphics::width / Graphics::height) : 1.f;
 
     if (!CreateSharedResources()) { OutputDebugStringA("★ Mesh CreateSharedResources 失敗\n"); return false; }
-    if (!CreateVertexBuffer()) { OutputDebugStringA("★ Mesh CreateVertexBuffer 失敗\n"); return false; }
+    bool alreadyCounted = (vertexBuffer != nullptr);   // 同じMeshでInitを2回呼んだ時は、数え直さない
+    if (!CreateBuffers(verts, indices)) { OutputDebugStringA("★ Mesh CreateVertexBuffer 失敗\n"); return false; }
 
-    refCount++;
+    if (!alreadyCounted) refCount++;
     return true;
 }
 
@@ -48,6 +58,8 @@ bool Mesh::CreateSharedResources() {
 
 void Mesh::ReleaseSharedResources() {
     if (constantBuffer) { constantBuffer->Release(); constantBuffer = nullptr; }
+    if (materialBuffer) { materialBuffer->Release(); materialBuffer = nullptr; }
+    if (cameraBuffer) { cameraBuffer->Release(); cameraBuffer = nullptr; }
     if (blendState) { blendState->Release(); blendState = nullptr; }
     if (depthStencilState) { depthStencilState->Release(); depthStencilState = nullptr; }
     if (depthStencilStateNoWrite) { depthStencilStateNoWrite->Release(); depthStencilStateNoWrite = nullptr; }
@@ -64,7 +76,9 @@ bool Mesh::CreateShaders() {
     ID3DBlob* psBlob = nullptr;
     ID3DBlob* err = nullptr;
 
-    HRESULT hr = D3DCompileFromFile(L"Shader3D.hlsl", nullptr, nullptr,
+    // Shader3DCommon.hlsli を #include しているので、D3D_COMPILE_STANDARD_FILE_INCLUDE を渡す
+    // (.hlsli はShader3D.hlslと同じ場所に必要。Engine.vcxprojのCopyRuntimeFilesでコピーしている)
+    HRESULT hr = D3DCompileFromFile(L"Shader3D.hlsl", nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE,
         "VS", "vs_5_0", 0, 0, &vsBlob, &err);
     if (FAILED(hr)) {
         if (err) { OutputDebugStringA((char*)err->GetBufferPointer()); err->Release(); }
@@ -73,7 +87,7 @@ bool Mesh::CreateShaders() {
     }
 
     err = nullptr;
-    hr = D3DCompileFromFile(L"Shader3D.hlsl", nullptr, nullptr,
+    hr = D3DCompileFromFile(L"Shader3D.hlsl", nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE,
         "PS", "ps_5_0", 0, 0, &psBlob, &err);
     if (FAILED(hr)) {
         if (err) { OutputDebugStringA((char*)err->GetBufferPointer()); err->Release(); }
@@ -117,14 +131,42 @@ bool Mesh::CreateShaders() {
     return true;
 }
 
-bool Mesh::CreateVertexBuffer() {
+bool Mesh::CreateBuffers(const std::vector<MeshVertex>& verts, const std::vector<UINT>* indices) {
+    if (verts.empty()) return false;
+    if (indices && indices->empty()) return false;
+
+    // 頂点バッファは変更不可(IMMUTABLE)。作る時に1回だけ送り、描く度のコピーはしない
     D3D11_BUFFER_DESC bd = {};
-    bd.Usage = D3D11_USAGE_DYNAMIC;
-    bd.ByteWidth = sizeof(MeshVertex) * (UINT)vertices.size();
+    bd.Usage = D3D11_USAGE_IMMUTABLE;
+    bd.ByteWidth = sizeof(MeshVertex) * (UINT)verts.size();
     bd.BindFlags = D3D11_BIND_VERTEX_BUFFER;
-    bd.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
-    HRESULT hr = Graphics::device->CreateBuffer(&bd, nullptr, &vertexBuffer);
-    return SUCCEEDED(hr);
+    D3D11_SUBRESOURCE_DATA data = {};
+    data.pSysMem = verts.data();
+    ID3D11Buffer* newVertexBuffer = nullptr;
+    if (FAILED(Graphics::device->CreateBuffer(&bd, &data, &newVertexBuffer))) return false;
+
+    ID3D11Buffer* newIndexBuffer = nullptr;
+    if (indices) {
+        D3D11_BUFFER_DESC ibd = {};
+        ibd.Usage = D3D11_USAGE_IMMUTABLE;
+        ibd.ByteWidth = sizeof(UINT) * (UINT)indices->size();
+        ibd.BindFlags = D3D11_BIND_INDEX_BUFFER;
+        D3D11_SUBRESOURCE_DATA idata = {};
+        idata.pSysMem = indices->data();
+        if (FAILED(Graphics::device->CreateBuffer(&ibd, &idata, &newIndexBuffer))) {
+            newVertexBuffer->Release();
+            return false;
+        }
+    }
+
+    // 作り直された時(同じMeshでInitを2回呼んだ時)に前のバッファが残らないよう、先に手放す
+    if (vertexBuffer) vertexBuffer->Release();
+    if (indexBuffer) indexBuffer->Release();
+    vertexBuffer = newVertexBuffer;
+    indexBuffer = newIndexBuffer;
+    vertexCount = (UINT)verts.size();
+    indexCount = indices ? (UINT)indices->size() : 0;
+    return true;
 }
 
 bool Mesh::CreateConstantBuffer() {
@@ -133,8 +175,13 @@ bool Mesh::CreateConstantBuffer() {
     cbd.ByteWidth = sizeof(MeshConstantBuffer);
     cbd.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
     cbd.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
-    HRESULT hr = Graphics::device->CreateBuffer(&cbd, nullptr, &constantBuffer);
-    return SUCCEEDED(hr);
+    if (FAILED(Graphics::device->CreateBuffer(&cbd, nullptr, &constantBuffer))) return false;
+
+    cbd.ByteWidth = sizeof(MaterialConstantBuffer);
+    if (FAILED(Graphics::device->CreateBuffer(&cbd, nullptr, &materialBuffer))) return false;
+
+    cbd.ByteWidth = sizeof(MeshCameraBuffer);
+    return SUCCEEDED(Graphics::device->CreateBuffer(&cbd, nullptr, &cameraBuffer));
 }
 
 bool Mesh::CreateSampler() {
@@ -224,17 +271,20 @@ void Mesh::Draw(const Transform& transform, const Camera& camera, XMFLOAT4 color
 }
 
 void Mesh::Draw(const XMMATRIX& world, const Camera& camera, XMFLOAT4 color, const Light& light, bool writeDepth) {
+    // 色と深度の書き込みだけを変えた、既定のマテリアルで描く
+    Material material;
+    material.color = color;
+    material.depthWrite = writeDepth;
+    Draw(world, camera, material, light);
+}
+
+void Mesh::Draw(const Transform& transform, const Camera& camera, const Material& material, const Light& light) {
+    Draw(transform.GetWorldMatrix(), camera, material, light);
+}
+
+void Mesh::Draw(const XMMATRIX& world, const Camera& camera, const Material& material, const Light& light) {
     assert(context && "context が nullptr");
     assert(vertexBuffer && "vertexBuffer が nullptr");
-
-    // 頂点の色を指定色で上書きしてから送る(SpriteRenderer::SetColorと同じ使い勝手にするため)
-    std::vector<MeshVertex> coloredVerts = vertices;
-    for (auto& v : coloredVerts) v.Color = color;
-
-    D3D11_MAPPED_SUBRESOURCE msr;
-    context->Map(vertexBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &msr);
-    memcpy(msr.pData, coloredVerts.data(), sizeof(MeshVertex) * coloredVerts.size());
-    context->Unmap(vertexBuffer, 0);
 
     // ★ World/View/Projectionをそれぞれ個別に転置して送る。
     //   シェーダー側はmul(vector, matrix)の順で使う(2DのShader.hlslと同じ考え方)
@@ -246,30 +296,46 @@ void Mesh::Draw(const XMMATRIX& world, const Camera& camera, XMFLOAT4 color, con
     cb.lightColor = { light.color.x, light.color.y, light.color.z, 0.f };
     cb.ambient = { light.ambient.x, light.ambient.y, light.ambient.z, 0.f };
 
+    D3D11_MAPPED_SUBRESOURCE msr;
     context->Map(constantBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &msr);
     memcpy(msr.pData, &cb, sizeof(cb));
     context->Unmap(constantBuffer, 0);
 
+    // b2: マテリアル(色・光沢・自発光・光を使うか)
+    MaterialConstantBuffer mb = MakeMaterialConstantBuffer(material);
+    context->Map(materialBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &msr);
+    memcpy(msr.pData, &mb, sizeof(mb));
+    context->Unmap(materialBuffer, 0);
+
+    // b3: カメラの位置
+    MeshCameraBuffer eye = { { camera.position.x, camera.position.y, camera.position.z, 1.f } };
+    context->Map(cameraBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &msr);
+    memcpy(msr.pData, &eye, sizeof(eye));
+    context->Unmap(cameraBuffer, 0);
+
     float blendFactor[4] = {};
     context->OMSetBlendState(blendState, blendFactor, 0xFFFFFFFF);
-    context->OMSetDepthStencilState(writeDepth ? depthStencilState : depthStencilStateNoWrite, 0);
+    context->OMSetDepthStencilState(material.depthWrite ? depthStencilState : depthStencilStateNoWrite, 0);
     context->RSSetState(rasterizerState);
 
     UINT stride = sizeof(MeshVertex), offset = 0;
     context->IASetInputLayout(inputLayout);
     context->IASetVertexBuffers(0, 1, &vertexBuffer, &stride, &offset);
+    context->IASetIndexBuffer(indexBuffer, DXGI_FORMAT_R32_UINT, 0);   // nullptrなら何も設定しない扱い
     context->IASetPrimitiveTopology(topology);
 
     context->VSSetShader(vertexShader, nullptr, 0);
     context->VSSetConstantBuffers(0, 1, &constantBuffer);
 
     context->PSSetShader(pixelShader, nullptr, 0);
-    context->PSSetConstantBuffers(0, 1, &constantBuffer);
+    ID3D11Buffer* psBuffers[4] = { constantBuffer, nullptr, materialBuffer, cameraBuffer };
+    context->PSSetConstantBuffers(0, 4, psBuffers);
     ID3D11ShaderResourceView* view = srv ? srv : whiteTexture;
     context->PSSetShaderResources(0, 1, &view);
     context->PSSetSamplers(0, 1, &sampler);
 
-    context->Draw((UINT)coloredVerts.size(), 0);
+    if (indexBuffer) context->DrawIndexed(indexCount, 0, 0);
+    else context->Draw(vertexCount, 0);
 
     // 次に2D(Sprite)が描画される時のために、ラスタライザ状態を既定に戻しておく
     context->RSSetState(nullptr);
@@ -277,6 +343,9 @@ void Mesh::Draw(const XMMATRIX& world, const Camera& camera, XMFLOAT4 color, con
 
 void Mesh::Uninit() {
     if (vertexBuffer) { vertexBuffer->Release(); vertexBuffer = nullptr; }
+    if (indexBuffer) { indexBuffer->Release(); indexBuffer = nullptr; }
+    vertexCount = 0;
+    indexCount = 0;
 
     // 共有リソースは、最後の1体が使い終わった時にだけ解放する
     refCount--;

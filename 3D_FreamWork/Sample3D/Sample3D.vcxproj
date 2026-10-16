@@ -103,6 +103,7 @@
     <ClCompile Include="Game\Objects\Sphere.cpp" />
     <ClCompile Include="Game\Components\GuardController.cpp" />
     <ClCompile Include="Game\Objects\Guard.cpp" />
+    <ClCompile Include="Game\Objects\GlassPanel.cpp" />
     <ClCompile Include="Game\Objects\Wall.cpp" />
     <ClCompile Include="Game\Objects\Title.cpp" />
     <ClCompile Include="Game\Objects\VolumeSlider.cpp" />
@@ -139,6 +140,7 @@
     <ClInclude Include="Game\Objects\Sphere.h" />
     <ClInclude Include="Game\Components\GuardController.h" />
     <ClInclude Include="Game\Objects\Guard.h" />
+    <ClInclude Include="Game\Objects\GlassPanel.h" />
     <ClInclude Include="Game\Objects\Wall.h" />
     <ClInclude Include="Game\Objects\Title.h" />
     <ClInclude Include="Game\Objects\VolumeSlider.h" />

@@ -17,7 +17,7 @@ DirectX11製の、Unity風のコンポーネント指向ゲームフレームワ
 ├── 3D_FreamWork.sln
 ├── PhysX.props        共有MSBuildプロパティシート(PhysXのinclude/lib設定を1箇所にまとめたもの)
 ├── Assets\             全プロジェクト共有の画像・音声・モデル・フォント(Fonts\。§19)・表(Data\。§25)
-├── Shader.hlsl / Shader3D.hlsl / Shader3DSkin.hlsl   全プロジェクト共有のシェーダー(Shader3DSkinは骨で曲げるFBX用。§27)
+├── Shader.hlsl / Shader3D.hlsl / Shader3DSkin.hlsl / Shader3DCommon.hlsli   全プロジェクト共有のシェーダー(Shader3DSkinは骨で曲げるFBX用。§27。Shader3DCommon.hlsliは3Dの2つのシェーダーに共通の見た目の計算で、マテリアルもここ。§30)
 ├── Engine\             フレームワーク本体(静的ライブラリ、Engine.vcxproj)
 ├── Sample2D\           2Dのサンプルゲーム(実行ファイル、Sample2D.vcxproj)
 └── Sample3D\           3Dのサンプルゲーム(実行ファイル、Sample3D.vcxproj)
@@ -182,7 +182,9 @@ meshRenderer->SetDepthWrite(false);    // 深度バッファに書き込まな�
 
 一つのGameObjectには、基本的に`SpriteRenderer`か`MeshRenderer`の**どちらか片方**を付けます。
 
-**内部実装メモ**: シェーダー・サンプラー・ブレンド/深度/ラスタライザステート・定数バッファは、`Mesh`クラス全体で1つだけ作成して全インスタンスで共有しています(Cube/Sphere/Skyboxを何体作っても、シェーダーのコンパイルなどは初回の1回だけ)。頂点バッファ(形状データ)だけがインスタンスごとに別です(テクスチャは`Resources`で同じ画像どうし共有しています。§11)。特に意識する必要はありませんが、`Engine/Mesh.h/.cpp`を触る時は「インスタンスごとの値」と「共有する値(static)」を混同しないよう注意してください。
+**見た目の設定(マテリアル)**: 色・画像・光沢・自発光・半透明などは `Material` にまとめて持っています(`meshRenderer->GetMaterial()`で手直しできます。`SetColor`/`SetTexture`/`SetUnlit`/`SetDepthWrite` はその項目を書き換える短い書き方です)。詳しくは §30 を見てください。
+
+**内部実装メモ**: シェーダー・サンプラー・ブレンド/深度/ラスタライザステート・定数バッファは、`Mesh`クラス全体で1つだけ作成して全インスタンスで共有しています(Cube/Sphere/Skyboxを何体作っても、シェーダーのコンパイルなどは初回の1回だけ)。頂点バッファ(形状データ)は作る時に1回だけ送る変更不可のバッファで、インスタンスごとに別です(描く度の頂点のコピーはしません。§30)(テクスチャは`Resources`で同じ画像どうし共有しています。§11)。特に意識する必要はありませんが、`Engine/Mesh.h/.cpp`を触る時は「インスタンスごとの値」と「共有する値(static)」を混同しないよう注意してください。
 
 ### ライティング(3Dメッシュの陰影)
 
@@ -199,8 +201,10 @@ light.ambient   = { 0.25f, 0.25f, 0.25f }; // 陰になっている面の最低�
 スカイボックスなど「カメラの内側から見る巨大な球」のように、光源の影響を受けると不自然になるオブジェクトは、`SetUnlit(true)`で常に一定の明るさにできます(`Skybox.cpp`が実例)。
 
 ```cpp
-meshRenderer->SetUnlit(true);
+meshRenderer->SetUnlit(true);   // 中身は meshRenderer->GetMaterial().lit = false と同じ
 ```
+
+光る点(ハイライト)や自分で光る色は、マテリアルで付けられます(§30)。
 
 ---
 
@@ -1288,7 +1292,7 @@ Sample2D/Game/Components/  TitleController, BackgroundController, PlayerControll
 Sample2D/Game/Scenes/      TitleScene, GameScene
 
 Sample3D/Game/Objects/     Title, Button, StartButton, VolumeSlider, Skybox, Ground, Player, GameSystem, HUD,
-                            EnemySpawner, BulletSpawner, Explosion, ModelDisplay, SkinDisplay, Guard, Wall, Cube(未使用), Sphere(未使用)
+                            EnemySpawner, BulletSpawner, Explosion, ModelDisplay, SkinDisplay, Guard, Wall, GlassPanel, Cube(未使用), Sphere(未使用)
 Sample3D/Game/Components/  TitleController, GroundController, PlayerController,
                             CameraController, BulletController, EnemyController, GameManager,
                             HUDController, EnemyManager, BulletManager, SkyboxFollowComponent,
@@ -1297,7 +1301,7 @@ Sample3D/Game/Scenes/      TitleScene, GameScene
 ```
 
 - **Sample2D**: トップダウン視点のアリーナシューター。タイトル画面のSTARTボタン(出る時に`TweenComponent`でぴょこっと大きくなる)をクリックすると、画面が暗転してからゲーム開始(ゲーム画面に入ると明転する。`FadeTransition`。§16)(ボタンは`CreateButton(scene, 文字, 位置, クリックされた時の処理)`で作れる汎用部品で、動きはEngineの`ButtonComponent`。他の画面のボタンにも使い回せる。§20)。WASDで移動、Playerは常にマウスの方を向き、左クリックでその方向へ弾を発射。背景はタイル状に敷き詰めた床(`BackgroundController`)で、移動するとスクロールする(カメラはPlayerに付けた`CameraFollowComponent`が追いかける。§14)。敵(`EnemyManager`が一定間隔でPlayerの周囲にランダムスポーンさせる)がゆっくり追いかけてきて(`ChaseComponent`。§13)、弾を当てると倒せる(`EventBus`で`"EnemyDefeated"`イベントを発行しスコア加算。倒した位置に「+10」が出て、上に動きながら消える=`CreateScorePopup`。§19。爆発のパーティクルも出る=`CreateExplosion`。§26)。敵に触れるとHPが減り(1秒間の無敵時間つき)、敵から離れる向きに弾かれる(ノックバック。`AddForce`で衝撃を加え、0.2秒間は移動キーが効かない。§23)、画面が少し揺れて(`CameraShake`。§14)、画面の端が赤く点滅する(`ScreenEffect::Vignette`。§15)。HPが0になるとゲームオーバー画面が出てSPACEでタイトルに戻る(黒い丸が閉じて開く`SpriteTransition`。§16)。スコアがハイスコアを超えていたら、ゲームオーバーの時に保存され(`SaveData`。キーは`"Sample2DHighScore"`で、Sample3Dの記録とは別。§18)、画面左上のスコアの下に出る(次に起動しても残る)。タイトル画面の下にはBGMの音量スライダー(`CreateVolumeSlider`。つまみをドラッグして0〜1で変えられ、離すと保存されて次に起動した時も残る。§20)がある。画面左上のHPの文字の下にはHPゲージ(減った分が少し遅れて縮む)、Playerの頭上にも小さなHPバーが出る(`GaugeRenderer`。§20)。当たり判定・物理はPhysXを使い(Player=`CircleRigidbodyComponent`、敵=`SquareRigidbodyComponent`、弾=`CircleRigidbodyComponent`)、Player・敵はDynamic(`SetVelocity()`で速度を渡して動かす。重力なし・回転なし・`SetFreezePositionZ(true)`で奥行き方向に固定)、弾はKinematicのトリガー。3Dカメラは使わない(`CameraController`なし)。画面の左上のHPゲージの下には、画面の外なので描かずに省いた数「Culled」が出る(敵の `SpriteRenderer` は `SetFrustumCulling(true)`。§28)。マップには見張り役の `Guard`(青い `Player` 画像がゆっくり回り、扇形の視野に `Player` が入って壁にさえぎられていなければ赤くなる。視野は線で表示)と、視線をさえぎる壁 `Wall` が2枚置いてある(`VisionComponent`。§28)。
-- **Sample3D**: Sample2Dと同じアリーナシューターを3D空間で遊べるようにしたもの。タイトル画面のボタン(Sample2Dと同じく、出る時に`TweenComponent`でぴょこっと大きくなる)をクリックすると、Sample2Dと同じく暗転してからゲーム開始(Sample3Dの`CreateButton()`は、位置と大きさをまとめて`Transform`で受け取る形になっている: `CreateButton(scene, 文字, transform, クリックされた時の処理)`)。Player(立方体)は三人称カメラ(`CameraController`。マウス移動で視点回転。カーソルは画面中心に固定され、ESCで解除・左クリックで再固定。TABで一人称に切り替え)と同じ向きを向き、WASDもカメラ基準(W=カメラの前、D=カメラの右)で移動する。左クリックでPlayerの向いている方向へ、地面と水平に弾(球)を発射。敵を倒すと、その位置に爆発のパーティクルが出る(`CreateExplosion`。§26)。敵は2Dの画像(Worldモードの`SpriteRenderer`。Y軸だけカメラの方を向く立て看板)で、地面の上をPlayerに向かって歩いてくる(`ChaseComponent`を`SetPlane(MovePlane::XZ)`で使う。§13)。歩く間は、敵に付けた`SpriteAnimationComponent`がスプライトシートのコマ(4番と5番)を0.3秒ごとに切り替えて、歩きアニメーションにしている(始まるコマはランダムなので、何体いても足踏みがそろわない。§17)。スコア・ハイスコア(保存先のファイルはSample2Dと同じだが、キーは`"Sample3DHighScore"`で、記録はSample2Dとは別。§18)・HP・無敵時間・被弾時に画面の端が赤く点滅すること・ゲームオーバー(SPACEでタイトルへ。Sample3Dは、黒い帯が左から覆って右へ抜けていく`SpriteTransition(...).SetSwitchFrame(7)`。§16)・`EventBus`のイベント名はSample2Dと同じ。タイトル画面の下のBGMの音量スライダーと、画面左上のHPゲージ(Sample2Dと同じ)、三人称の間だけ出るPlayerの頭上のHPバー(`SetUse3DCamera(true)`の`GaugeRenderer`)もある(§20)。Playerは立方体の見た目とDynamicの`BoxRigidbodyComponent`、敵はDynamicの`CapsuleRigidbodyComponent`(半径40・高さ100の立ったカプセル。§29)(どちらも重力あり・回転なし。Y速度は`GetVelocity().y`を維持したまま`SetVelocity()`で動かす。敵は`ChaseComponent`がこれをしている)、弾はKinematicのトリガー(`SphereRigidbodyComponent`)。地面は、1000四方のタイルを3Dカメラの描画距離(farZ)の範囲だけ敷き詰めて描く`GroundController`(見た目)と、見えない大きなStaticの板(当たり判定)の組み合わせ。遠景はスカイボックス。地面の端(Playerから斜めに離れた所)には、FBXモデルの見本(`CreateModelDisplay`。`Assets/Models/TestAnim.fbx` の立方体2つ=親と子のパーツ。子の「Top」が、「Spin」(回る)と「Bob」(上下)のアニメーションを3秒ごとに切り替えて再生する。§27)が置いてある(FBXが無い時は何も置かない)。そのとなり(位置 `(1000, -50, 800)`)には、骨2本で曲がる細長い箱(`CreateSkinDisplay`。`Assets/Models/TestSkin.fbx` のアニメーション「Bend」を再生。§27)も置いてある。地面のタイルは、カメラに映る物だけ描く(`Visibility::IsSphereInView3D`)。敵の画像は `SetFrustumCulling(true)` で、画面の外にいる間は描かない。画面の左上のHPゲージの下には、描かずに省いた数「Culled」が出る。`Player` の近く(位置 `(-800, 0, 600)`)には見張り役 `Guard`(青い立方体がゆっくり回り、扇形の視野に `Player` が入って壁にさえぎられていなければ赤くなる。視野は線で表示)と、視線をさえぎる壁 `Wall` が2枚置いてある(`VisionComponent`。§28)。
+- **Sample3D**: Sample2Dと同じアリーナシューターを3D空間で遊べるようにしたもの。タイトル画面のボタン(Sample2Dと同じく、出る時に`TweenComponent`でぴょこっと大きくなる)をクリックすると、Sample2Dと同じく暗転してからゲーム開始(Sample3Dの`CreateButton()`は、位置と大きさをまとめて`Transform`で受け取る形になっている: `CreateButton(scene, 文字, transform, クリックされた時の処理)`)。Player(立方体)は三人称カメラ(`CameraController`。マウス移動で視点回転。カーソルは画面中心に固定され、ESCで解除・左クリックで再固定。TABで一人称に切り替え)と同じ向きを向き、WASDもカメラ基準(W=カメラの前、D=カメラの右)で移動する。左クリックでPlayerの向いている方向へ、地面と水平に弾(球)を発射。敵を倒すと、その位置に爆発のパーティクルが出る(`CreateExplosion`。§26)。敵は2Dの画像(Worldモードの`SpriteRenderer`。Y軸だけカメラの方を向く立て看板)で、地面の上をPlayerに向かって歩いてくる(`ChaseComponent`を`SetPlane(MovePlane::XZ)`で使う。§13)。歩く間は、敵に付けた`SpriteAnimationComponent`がスプライトシートのコマ(4番と5番)を0.3秒ごとに切り替えて、歩きアニメーションにしている(始まるコマはランダムなので、何体いても足踏みがそろわない。§17)。スコア・ハイスコア(保存先のファイルはSample2Dと同じだが、キーは`"Sample3DHighScore"`で、記録はSample2Dとは別。§18)・HP・無敵時間・被弾時に画面の端が赤く点滅すること・ゲームオーバー(SPACEでタイトルへ。Sample3Dは、黒い帯が左から覆って右へ抜けていく`SpriteTransition(...).SetSwitchFrame(7)`。§16)・`EventBus`のイベント名はSample2Dと同じ。タイトル画面の下のBGMの音量スライダーと、画面左上のHPゲージ(Sample2Dと同じ)、三人称の間だけ出るPlayerの頭上のHPバー(`SetUse3DCamera(true)`の`GaugeRenderer`)もある(§20)。Playerは立方体の見た目とDynamicの`BoxRigidbodyComponent`、敵はDynamicの`CapsuleRigidbodyComponent`(半径40・高さ100の立ったカプセル。§29)(どちらも重力あり・回転なし。Y速度は`GetVelocity().y`を維持したまま`SetVelocity()`で動かす。敵は`ChaseComponent`がこれをしている)、弾はKinematicのトリガー(`SphereRigidbodyComponent`)。地面は、1000四方のタイルを3Dカメラの描画距離(farZ)の範囲だけ敷き詰めて描く`GroundController`(見た目)と、見えない大きなStaticの板(当たり判定)の組み合わせ。遠景はスカイボックス。地面の端(Playerから斜めに離れた所)には、FBXモデルの見本(`CreateModelDisplay`。`Assets/Models/TestAnim.fbx` の立方体2つ=親と子のパーツ。子の「Top」が、「Spin」(回る)と「Bob」(上下)のアニメーションを3秒ごとに切り替えて再生する。§27)が置いてある(FBXが無い時は何も置かない)。そのとなり(位置 `(1000, -50, 800)`)には、骨2本で曲がる細長い箱(`CreateSkinDisplay`。`Assets/Models/TestSkin.fbx` のアニメーション「Bend」を再生。§27)も置いてある。地面のタイルは、カメラに映る物だけ描く(`Visibility::IsSphereInView3D`)。敵の画像は `SetFrustumCulling(true)` で、画面の外にいる間は描かない。画面の左上のHPゲージの下には、描かずに省いた数「Culled」が出る。`Player` の近く(位置 `(-800, 0, 600)`)には見張り役 `Guard`(青い立方体がゆっくり回り、扇形の視野に `Player` が入って壁にさえぎられていなければ赤くなる。視野は線で表示)と、視線をさえぎる壁 `Wall` が2枚置いてある(`VisionComponent`。§28)。そのとなり(位置 `(400, 50, 300)`)には、半透明で光沢のある水色の板 `GlassPanel`(マテリアルの使用例。当たり判定は無いので通り抜けられる。§30)も置いてある。
 
 **Sample3Dの実装メモ**: 向きはすべて`transform.rotate.y`(度)で表し、`rotate.y`の時の正面(ローカルの+Z)は`(sin, 0, cos)`の方向になる(`CameraController::GetYaw()`の式と同じ。`Math::Forward3D()`で求められる)。Worldモードの`SpriteRenderer`は`rotate.y`を使わない(ビルボードの向きとZ軸回転だけを使う)ので、敵の画像の向きは`SetBillboardLock(true, false, true)`でカメラの方へ向けている。Playerは`SetFreezeRotation(true)`で、`RigidbodyComponent`は位置しか同期しないため、`PlayerController`が`rotate.y`が変わった時に`GetActor()`の`setGlobalPose`で当たり判定の箱の回転も合わせている(デバッグ表示の枠と実際の判定が同じ向きになる)。一人称の間は、カメラが立方体の内側に入るのでPlayerの`MeshRenderer`と頭上のHPバー(`GaugeRenderer`)を非表示にしている。
 
@@ -1349,6 +1353,7 @@ GameManager/HUD/EnemyManager/BulletManagerのような「見た目の無い管�
 | 見張り役(Guard)を置く、ゆっくり回して視野に入ったら赤くする | `Objects/Guard.cpp`(`VisionComponent` を付ける)と `GuardController::Update()`(`CanSee(player)`。§28) |
 | 敵の当たり判定(立ったカプセル。Sample3D) | 敵の `SetupEnemy`(`CapsuleRigidbodyComponent`+`SetFreezeRotation(true)`。§29) |
 | 壁(Wall)を置く(視線をさえぎる) | `Objects/Wall.cpp`(タグ `"Wall"` + Staticの `BoxRigidbodyComponent`。§28) |
+| 半透明で光沢のある板を置く(Sample3D) | `Objects/GlassPanel.cpp`(`MeshRenderer` の `GetMaterial()` で色のα・光沢・自発光・`depthWrite = false` を設定し、`SetDrawPriority` で後に描く。§30) |
 | 地面のタイルのうち、画面に映る物だけ描く(Sample3D) | `GroundController::Draw()`(`Visibility::IsSphereInView3D`。§28) |
 | 画面の外の敵を描かない | 敵の `SetupEnemy`(`SpriteRenderer::SetFrustumCulling(true)`。両サンプル。§28) |
 | 画面の外で省いた数の表示(Culled) | `HUDController::Draw()`(`Visibility::GetCulledCount()`。§28) |
@@ -1923,7 +1928,7 @@ if (anim->IsFinished()) anim->CrossFade("Idle", 0.2f);
 人や動物のように、**骨に合わせて体が曲がる**モデルも、そのまま `ModelRenderer` + `ModelAnimationComponent` で動かせます(コードは変わりません。読み込んだFBXに骨とスキンが入っていれば、自動で曲げて描きます)。
 
 - **仕組み**: 頂点に「どの骨に・どれだけ影響されるか」を持たせ、毎フレーム、骨の今の位置(アニメーションで動いたパーツ)から「スキン行列(逆バインド行列 × 骨の行列)」を作ってGPUへ送り、頂点シェーダーで頂点を動かします。骨のパーツ自体は形が無いので描かれず、メッシュ(体)だけが曲がります。
-- **新しいシェーダー**: `Shader3DSkin.hlsl`(`Shader3D.hlsl` と同じ場所。`Engine.vcxproj` の `CopyRuntimeFiles` が出力先へコピーします)と、描画クラス `Engine/SkinMesh.h/.cpp`、頂点形式 `SkinVertex`(位置・法線・色・UV + 骨の番号4つ + 影響度4つ)です。**今の `MeshVertex` / `Shader3D.hlsl` / `Shader.hlsl` は変えていません。** ライティング・色・テクスチャの計算は `Shader3D.hlsl` と同じです。シェーダーは実行時にコンパイルされ、エラーは出力ウィンドウに出ます。
+- **新しいシェーダー**: `Shader3DSkin.hlsl`(`Shader3D.hlsl` と同じ場所。`Engine.vcxproj` の `CopyRuntimeFiles` が出力先へコピーします)と、描画クラス `Engine/SkinMesh.h/.cpp`、頂点形式 `SkinVertex`(位置・法線・色・UV + 骨の番号4つ + 影響度4つ)です。**今の `MeshVertex` / `Shader3D.hlsl` / `Shader.hlsl` は変えていません。** ライティング・色・テクスチャの計算は `Shader3D.hlsl` と同じです(今は両方が共通の `Shader3DCommon.hlsli` を使っています。§30)。シェーダーは実行時にコンパイルされ、エラーは出力ウィンドウに出ます。
 - **頂点バッファは読み込み時に1回だけ作ります**(変更不可)。毎フレームの頂点のコピーは無く、骨の行列(最大64本)だけを送ります。同じモデルを何体置いても頂点バッファは共有です。
 - **上位4つに絞られます**: 1つの頂点に影響できる骨は最大**4本**です。それより多く影響していると、影響度の大きい上位4つだけを使い、合計が1になるように直します(Mayaの Bind Skin の「Max Influences」を **4以下**にしておくと、見た目が変わりません)。
 - **骨の最大数は、1つのメッシュにつき64本**です。超えるメッシュは、出力ウィンドウに知らせて、曲げずに静止の形のまま表示します(骨の数を減らしてください)。
@@ -2093,3 +2098,113 @@ obj->AddComponent<CapsuleRigidbodyComponent>(BodyType::Dynamic, 50.f, 180.f, 100
 
 - **Sample3D の敵**: `EnemyManager` の `SetupEnemy` で、箱(`BoxRigidbodyComponent`)の代わりに `CapsuleRigidbodyComponent`(半径40・高さ100)を付けています。見た目の画像(100×100)より横が少し細い判定です。
 - Sample2D、Sample3D の Player は、今は円・箱のままです(Playerの見た目は立方体のため)。
+
+---
+
+## 30. マテリアル(Material)
+
+3Dメッシュの見た目の設定(色・画像・光沢・自発光・半透明)を、1つの `Material`(`Engine/Material.h`)にまとめました(`docs/EngineRoadmap2.md` の 6.3)。`MeshRenderer` と `ModelRenderer` が1体ごとに持ちます。**何も設定しなければ、マテリアルが無かった頃と見た目は同じです**(ハイライトなし・自発光なし)。
+
+### 使い方
+
+```cpp
+auto* meshRenderer = sphere->AddComponent<MeshRenderer>(Mesh::CreateSphere());
+meshRenderer->SetTexture(L"Assets/grid.png");
+meshRenderer->GetMaterial().specularStrength = 0.8f;   // つやつや(光が当たる所が光る)
+meshRenderer->GetMaterial().shininess = 64.f;          // ハイライトを小さく鋭く
+
+// まとめて設定したい時は、Materialを作って渡す
+Material material;
+material.color = { 0.4f, 0.7f, 1.0f, 0.4f };    // aが透明度
+material.texture = L"Assets/grid.png";           // 画像のパス(Resourcesで読む。空なら白)
+meshRenderer->SetMaterial(material);
+```
+
+`ModelRenderer`(FBXモデル。§27)にも、同じ `SetMaterial` / `GetMaterial` があります。`material.texture` が空なら、FBXに書かれたパーツごとの画像をそのまま使い、パスを入れると全パーツにその画像を貼ります(`SetTexture` と同じ)。
+
+今までの書き方も、そのまま使えます。中でマテリアルの項目を書き換えているだけです。
+
+| 今までの書き方 | マテリアルでの意味 |
+|---|---|
+| `SetColor(r, g, b, a)` / `GetColor()` | `material.color` |
+| `SetTexture(パス)`(`ModelRenderer` は全パーツに貼る) | `material.texture`(パスを入れると、`Resources` で読んで借りる) |
+| `SetUnlit(true)`(`MeshRenderer`) | `material.lit = false` |
+| `SetDepthWrite(false)`(`MeshRenderer`) | `material.depthWrite = false` |
+
+### 項目と既定値
+
+| 項目 | 意味 | 既定 |
+|---|---|---|
+| `color` | 色。**aが透明度**(1=不透明)。頂点の色とテクスチャに掛ける | `{1, 1, 1, 1}` |
+| `texture` | 画像のパス(空なら白)。`MeshRenderer`/`ModelRenderer` が読み、手で書き換えても次に描く時に切り替わる | 空 |
+| `lit` | `false` にすると光の影響を受けず、いつも一定の明るさ(スカイボックス) | `true` |
+| `depthWrite` | `false` にすると深度バッファに書き込まない(自分より後ろの物を隠さない。半透明・スカイボックス) | `true` |
+| `specularColor` | 光沢(ハイライト)の色 | 白 |
+| `specularStrength` | 光沢の強さ。**0=ハイライトなし**。0.5〜1くらいで目立つ | 0 |
+| `shininess` | 光沢の鋭さ。大きいほどハイライトが小さく鋭い(4=ぼんやり広い、64=小さくくっきり) | 32 |
+| `emissiveColor` | 自分で光る色 | 白 |
+| `emissiveStrength` | 自発光の強さ。**0=光らない**。暗い所でもその色で見える | 0 |
+
+- **光沢**は、光とカメラの真ん中の向きに法線が近いほど光る計算(ブリン・フォン)です。光の色(`Image::GetLight()` の `color`)も掛けます。`lit = false` の時は出ません。
+- **自発光**は、光の計算の後に色を足すだけです。画面全体ににじむ本物の「光る感じ」(ブルーム)ではありません。
+- ライト(ポイントライト・スポットライト)・影・縁の光・枠線の項目は、それぞれの機能(`docs/EngineRoadmap2.md` の 6.4〜6.6)を作る時に `Material` へ足します。
+
+### 半透明にする時
+
+`color.a` を1より小さくすれば半透明になります(ブレンドは前から有効です)。ただし次の点に気を付けてください。**自動では何も変えません**(`color.a` を変えるだけで `depthWrite` や `drawPriority` を勝手に変えることはしません)。
+
+```cpp
+panel->SetDrawPriority(10);          // 不透明な物より後に描く(大きいほど後)
+material.color.w = 0.4f;             // 透明度
+material.depthWrite = false;         // 自分より後ろの物を隠さない
+```
+
+- 描く順番は `drawPriority` → `z` の小さい順で、**カメラからの距離順ではありません**。半透明の物は、不透明の物より後に描くように `SetDrawPriority` を大きくしてください。
+- 半透明の物どうしの前後は、見る角度によってずれることがあります(距離で並べ替える処理が無いため)。
+- `clip` で、ほぼ透明なピクセルは今まで通り描きません。
+
+### Mesh の直接の使い方(Engineを触る人向け)
+
+`Mesh::Draw` / `SkinMesh::Draw` に、`Material` を受け取る版があります。今までの `color` を渡す版も、既定のマテリアルで新しい版を呼ぶだけなので、そのまま使えます(`RigidbodyComponent` の枠線表示や `GroundController` は変えていません)。
+
+```cpp
+mesh.Draw(transform, camera, material, light);          // マテリアル版
+mesh.Draw(transform, camera, {1, 1, 1, 1}, light);      // 今まで通り(色だけ)
+```
+
+`Material::texture` のパスは `Mesh::Draw` では使いません。画像は `Mesh::SetTexture(SRV)` で渡します(`MeshRenderer`/`ModelRenderer` が、`Resources` で読んだ画像を渡しています)。
+
+### Meshの作り直し(頂点を毎回コピーしない)
+
+マテリアルと同時に、`Mesh` を地形・影にも使える作りに直しました。
+
+- **頂点バッファは作る時に1回だけ送ります(変更不可)**。以前は描く度に頂点を全部コピーして色を上書きしていました。**色は頂点ではなく、マテリアルの色として(定数バッファ `b2` で)渡し**、頂点の色に掛けます(今ある形は頂点の色がすべて白なので、見た目は同じです)。
+- **インデックスバッファに対応**: `mesh.InitIndexed(頂点, インデックス)` で、同じ頂点を使い回せます(立方体なら36頂点が24頂点+36個の番号に)。頂点が多い形(地形)で頂点の数が大きく減ります。`Init(頂点, topology)` の呼び方は今まで通りです。
+- 輪郭の線(`LINELIST`)や `CreateCube` など、今ある作り方は変わりません。
+
+### シェーダーの共通化(Shader3DCommon.hlsli)
+
+`Shader3D.hlsl`(普通のメッシュ)と `Shader3DSkin.hlsl`(骨で曲げるFBX)で、見た目の計算(光・色・テクスチャ・光沢・自発光)は、共通の `Shader3DCommon.hlsli` の `ShadePixel()` に書いてあります。**見た目の計算を変える時は、ここだけを直せば、2つのシェーダーが同じ結果になります。**
+
+| レジスタ | 中身 |
+|---|---|
+| `b0` | ワールド・ビュー・射影・平行光源(今まで通り) |
+| `b1` | 骨の行列(`Shader3DSkin.hlsl` だけ。色は `b2` に移した) |
+| `b2` | マテリアル(色・光沢・自発光・光を使うか) |
+| `b3` | カメラの位置(光沢のため。ライトの機能を作る時にここへ足す) |
+| `t0` / `s0` | 画像 / サンプラー |
+
+- シェーダーは実行時にコンパイルされるので、`Shader3DCommon.hlsli` も実行ファイルの隣に必要です。`Engine.vcxproj` の `CopyRuntimeFiles`(コピー)と `UpToDateCheckInput` に登録済みです(**新しい `.hlsli` を足したら、この2か所にも足すこと**)。`#include` が使えるよう、`D3DCompileFromFile` には `D3D_COMPILE_STANDARD_FILE_INCLUDE` を渡しています。
+- 書き方に間違いがあると、何も描かれなくなり、出力ウィンドウにエラーが出ます。
+
+### Sampleでの使われ方
+
+- **Sample3D の `GlassPanel`**(`Objects/GlassPanel.cpp`): 半透明(`color.a = 0.4`・`depthWrite = false`・`SetDrawPriority(10)`)で、光沢と少しの自発光がある水色の板です。位置 `(400, 50, 300)`。
+- **Sample3D の `Sphere`**(`Objects/Sphere.cpp`。今のシーンでは未使用): `specularStrength = 0.8`・`shininess = 64` でつやつやの球になります。
+- **`Skybox`** は今まで通り `SetUnlit(true)` / `SetDepthWrite(false)`(中でマテリアルの項目を書き換える)。
+- 当たり判定のデバッグ表示(Sample2Dにも出る枠線)や、`GroundController` のタイルは、`Mesh::Draw` の色指定版を通ります。見た目は今まで通りです。
+
+### まだ無いもの
+
+- FBXに書かれたマテリアル(スペキュラ・自発光)の読み込みはしません(今は色と画像だけ)。
+- マテリアルをファイルにして使い回す仕組みはありません(1体ごとに持ちます)。
