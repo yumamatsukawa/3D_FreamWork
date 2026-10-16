@@ -1,6 +1,7 @@
 ﻿#include "GroundController.h"
 #include "../../../Engine/Image.h"
 #include "../../../Engine/Resources.h"
+#include "../../../Engine/Visibility.h"
 #include <cmath>
 
 void GroundController::Init() {
@@ -20,18 +21,17 @@ void GroundController::Draw() {
     int minZ = (int)floorf((camera.position.z - range) / tileSize);
     int maxZ = (int)floorf((camera.position.z + range) / tileSize);
 
-    // 範囲内のタイルを並べて描く(四角い範囲の角は描画距離の外なので、円の内側だけにして枚数を減らす)
+    // 範囲内のタイルを並べて描く(カメラに映らないタイル=後ろや横、描画距離の外は描かない)
     Transform tile;
     tile.scale = { tileSize, tileThickness, tileSize };
     for (int z = minZ; z <= maxZ; z++) {
         for (int x = minX; x <= maxX; x++) {
             float centerX = (x + 0.5f) * tileSize;
             float centerZ = (z + 0.5f) * tileSize;
-            float dx = centerX - camera.position.x;
-            float dz = centerZ - camera.position.z;
-            if (dx * dx + dz * dz > range * range) continue;
+            XMFLOAT3 center = { centerX, topY - tileThickness * 0.5f, centerZ };
+            if (!Visibility::IsSphereInView3D(center, tileSize * 0.8f)) continue;   // 0.8 = 正方形の対角線の半分(約0.71)に余裕を足した値
 
-            tile.position = { centerX, topY - tileThickness * 0.5f, centerZ };
+            tile.position = center;
             mesh.Draw(tile, camera, { 1.f, 1.f, 1.f, 1.f }, Image::GetLight());
         }
     }

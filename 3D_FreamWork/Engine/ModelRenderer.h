@@ -18,6 +18,9 @@ private:
     XMFLOAT4 color{ 1.f, 1.f, 1.f, 1.f };
     std::vector<XMMATRIX> modelMatrices;       // 描画用の作業場所: パーツごとの「モデル空間」の行列(毎フレーム作り直す)
     std::vector<XMMATRIX> boneMatrices;        // 描画用の作業場所: 骨で曲げるパーツのスキン行列
+    bool frustumCulling = false;               // trueなら、画面の外にある時は描かない
+
+    static constexpr float cullingMargin = 1.5f;   // 画面判定の球に持たせる余裕(骨・アニメーションで、止まっている姿よりはみ出すため)
 
 public:
     // 例: obj->AddComponent<ModelRenderer>(L"Assets/Models/Tank.fbx");
@@ -29,6 +32,12 @@ public:
 
     void SetColor(float r, float g, float b, float a) { color = { r, g, b, a }; }
     XMFLOAT4 GetColor() const { return color; }
+
+    // trueにすると、カメラに映らない(画面の外の)時は描かなくなる(既定はfalse)。物理(当たり判定)は止まらない。
+    // 大きさは「止まっている姿の一番遠い頂点」×1.5(余裕)。アニメーションで大きく動く・遠くへはみ出すモデルは、
+    // 画面の端で消えて見えることがあるので、その時はfalseに戻す(Visibility::GetCulledCountで確認)
+    void SetFrustumCulling(bool enabled) { frustumCulling = enabled; }
+    bool IsFrustumCulling() const { return frustumCulling; }
 
     // 名前でパーツを探して、その動き(Transform)を返す。無ければnullptr
     // position / rotate(度数) / scale を書き換えると、そのパーツと子のパーツが動く(砲台だけ回す、など)。

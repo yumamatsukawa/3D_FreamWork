@@ -2,6 +2,7 @@
 #include "GameObject.h"
 #include "Image.h"
 #include "Resources.h"
+#include "Visibility.h"
 #include <climits>
 
 ModelRenderer::ModelRenderer(const std::wstring& path) {
@@ -46,6 +47,13 @@ Transform* ModelRenderer::GetNodeTransform(const std::string& name) {
 
 void ModelRenderer::Draw() {
     if (!model) return;
+
+    // 画面の外なら描かない
+    if (frustumCulling &&
+        !Visibility::IsTransformedSphereInView3D(GetOwner()->transform.GetWorldMatrix(), model->GetBoundingRadius() * cullingMargin)) {
+        Visibility::CountCulled();
+        return;
+    }
 
     // パーツごとの「モデル空間」の行列: 自分のローカル行列 × 親の行列(親は必ず先に並んでいる)。
     // オーナーのワールド行列は、描く時に最後に掛ける(骨で曲げるメッシュは、モデル空間の骨の行列を使うため)

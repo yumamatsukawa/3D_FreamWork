@@ -31,6 +31,7 @@ namespace {
         auto* sprite = obj->AddComponent<SpriteRenderer>(L"Assets/player.png", 8, 2);
         sprite->SetSpriteIndex(5);
         sprite->SetColor(1.0f, 0.0f, 1.0f, 1.0f);
+        sprite->SetFrustumCulling(true);   // 画面の外にいる間は描かない(物理と動きは止まらない)
 
         // 当たり判定+物理演算(PhysX)
         auto* rigidbody = obj->AddComponent<SquareRigidbodyComponent>(BodyType::Dynamic, 100.0f, 1.0f);

@@ -360,7 +360,34 @@ std::shared_ptr<Model> Model::Load(const std::wstring& path) {
         OutputDebugStringW((L"★ Model::Load: パーツが1つもありません: " + path + L"\n").c_str());
         return nullptr;
     }
+    model->CalculateBoundingRadius();
     return model;
+}
+
+void Model::CalculateBoundingRadius() {
+    // パーツごとの「モデル空間」の行列(親が必ず先に並んでいる)で、全頂点の原点からの距離の最大を求める
+    std::vector<XMMATRIX> matrices(nodes.size());
+    float maxLengthSq = 0.f;
+    for (size_t i = 0; i < nodes.size(); i++) {
+        Transform local;
+        local.position = nodes[i].position;
+        local.rotate = nodes[i].rotate;
+        local.scale = nodes[i].scale;
+        matrices[i] = local.GetLocalMatrix();
+        if (nodes[i].parent >= 0) matrices[i] = matrices[i] * matrices[nodes[i].parent];
+
+        // 形が無いパーツ(骨など)も、パーツ自身の位置までは入れる
+        XMFLOAT3 origin;
+        XMStoreFloat3(&origin, matrices[i].r[3]);
+        maxLengthSq = (std::max)(maxLengthSq, origin.x * origin.x + origin.y * origin.y + origin.z * origin.z);
+
+        for (const MeshVertex& v : nodes[i].vertices) {
+            XMFLOAT3 p;
+            XMStoreFloat3(&p, XMVector3Transform(XMLoadFloat3(&v.Position), matrices[i]));
+            maxLengthSq = (std::max)(maxLengthSq, p.x * p.x + p.y * p.y + p.z * p.z);
+        }
+    }
+    boundingRadius = sqrtf(maxLengthSq);
 }
 
 int Model::FindClip(const std::string& name) const {

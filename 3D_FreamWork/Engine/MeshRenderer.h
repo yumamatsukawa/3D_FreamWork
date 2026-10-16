@@ -3,6 +3,9 @@
 #include "Mesh.h"
 #include "Image.h"
 #include "Resources.h"
+#include "Visibility.h"
+#include "GameObject.h"
+#include <cmath>
 #include <memory>
 
 // GameObjectに「3Dメッシュを描画する見た目」を持たせるComponent。
@@ -14,12 +17,22 @@ private:
     DirectX::XMFLOAT4 color{ 1.f, 1.f, 1.f, 1.f };
     bool unlit = false;
     bool depthWrite = true;
+    bool frustumCulling = false;     // trueなら、画面の外にある時は描かない
+    float boundingRadius = 0.f;      // 画面判定用: 原点から一番遠い頂点までの距離(拡大する前)
 
 public:
     // 例: obj->AddComponent<MeshRenderer>(Mesh::CreateCube());
     explicit MeshRenderer(const std::vector<MeshVertex>& vertices) {
         mesh = std::make_shared<Mesh>();
         mesh->Init(vertices);
+
+        // 画面判定の球の半径(立方体なら約0.87、球なら0.5)
+        float maxLengthSq = 0.f;
+        for (const MeshVertex& v : vertices) {
+            float lengthSq = v.Position.x * v.Position.x + v.Position.y * v.Position.y + v.Position.z * v.Position.z;
+            if (lengthSq > maxLengthSq) maxLengthSq = lengthSq;
+        }
+        boundingRadius = sqrtf(maxLengthSq);
     }
 
     void SetTexture(const std::wstring& filepath) {
@@ -40,7 +53,20 @@ public:
     // スカイボックス用: GetOwner()->SetDrawPriority()で必ず最初に描画させた上でこれをfalseにする
     void SetDepthWrite(bool value) { depthWrite = value; }
 
+    // trueにすると、カメラに映らない(画面の外の)時は描かなくなる(既定はfalse)。
+    // 物理(当たり判定)は止まらない。SetDepthWrite(false)(スカイボックスなど画面全体を覆う物)の時は、trueでも判定しない。
+    // 大きさは「頂点の一番遠い点」から求める。物が画面の端で消えて見えたら、falseに戻す(Visibility::GetCulledCountで確認)
+    void SetFrustumCulling(bool enabled) { frustumCulling = enabled; }
+    bool IsFrustumCulling() const { return frustumCulling; }
+
     void Draw() override {
+        // 画面の外なら描かない(スカイボックスのように深度を書かない物は、画面全体を覆うので判定しない)
+        if (frustumCulling && depthWrite &&
+            !Visibility::IsTransformedSphereInView3D(GetOwner()->transform.GetWorldMatrix(), boundingRadius)) {
+            Visibility::CountCulled();
+            return;
+        }
+
         // Transform::GetWorldMatrix()が親子階層を内部で処理してくれるので、
         // ここではローカルのtransformをそのまま渡せばよい。
         // カメラは2D(GetCamera)とは別の3D専用カメラ(GetCamera3D)を使う

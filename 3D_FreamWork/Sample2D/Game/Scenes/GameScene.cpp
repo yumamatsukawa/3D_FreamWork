@@ -1,6 +1,8 @@
 ﻿#include "GameScene.h"
 #include "../Objects/Background.h"
 #include "../Objects/Player.h"
+#include "../Objects/Wall.h"
+#include "../Objects/Guard.h"
 #include "../Objects/GameSystem.h"
 #include "../Objects/EnemySpawner.h"
 #include "../Objects/BulletSpawner.h"
@@ -14,6 +16,9 @@ void GameScene::Init()
     // オブジェクトを配置するだけ(動き・ルールは各Componentに書く)
     CreateBackground(*this);
     GameObject* player = CreatePlayer(*this);
+    CreateWall(*this, { -250.0f, 150.0f }, { 40.0f, 300.0f });   // 見張り役とPlayerの間の壁
+    CreateWall(*this, { 400.0f, -350.0f }, { 300.0f, 40.0f });
+    CreateGuard(*this, player);
     GameManager* gameManager = CreateGameSystem(*this);
     CreateEnemySpawner(*this, player);
     CreateBulletSpawner(*this);

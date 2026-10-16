@@ -46,6 +46,8 @@
     <ClCompile Include="Texture.cpp" />
     <ClCompile Include="Time.cpp" />
     <ClCompile Include="TweenComponent.cpp" />
+    <ClCompile Include="Visibility.cpp" />
+    <ClCompile Include="VisionComponent.cpp" />
     <ClCompile Include="WICTextureLoader11.cpp" />
     <ClCompile Include="..\..\ThirdParty\ufbx\ufbx.c" />
   </ItemGroup>
@@ -105,6 +107,8 @@
     <ClInclude Include="Timer.h" />
     <ClInclude Include="Transform.h" />
     <ClInclude Include="TweenComponent.h" />
+    <ClInclude Include="Visibility.h" />
+    <ClInclude Include="VisionComponent.h" />
     <ClInclude Include="WICTextureLoader11.h" />
   </ItemGroup>
 </Project>

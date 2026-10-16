@@ -9,6 +9,7 @@
 #include "Time.h"
 #include "Resources.h"
 #include "CameraShake.h"
+#include "Visibility.h"
 #include "ScreenEffect.h"
 #include "SpriteTransition.h"
 #include "SaveData.h"
@@ -50,6 +51,7 @@ void GameEngine::Run()
         // 描き終わったら元に戻す。Updateの中のカメラの値には揺れが入らない)
         Image::BeginFrame();
         CameraShake::BeginDraw();
+        Visibility::BeginFrame();   // 揺れが入ったカメラで視錐台を作る(画面の端で揺れた時に、一瞬描かれない物が出ないように)
         Text::BeginDraw();
         SceneManager::Get().Draw();
         ScreenEffect::Draw();   // 画面エフェクトは文字も含めて一番上に出す(Direct2Dは後に描いた物が上になるので、シーンの描画の後・EndDrawの前)

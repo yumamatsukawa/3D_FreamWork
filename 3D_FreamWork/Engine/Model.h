@@ -50,6 +50,9 @@ private:
     std::vector<std::shared_ptr<SkinMesh>> skinMeshes;   // スキンメッシュの描画用バッファ(最初に描く時に作る)
     std::vector<bool> skinFailed;
     std::vector<bool> meshFailed;                // バッファを作れなかったパーツ(毎フレーム作り直さないため)
+    float boundingRadius = 0.f;                  // モデルの原点から、止まっている姿の一番遠い頂点までの距離
+
+    void CalculateBoundingRadius();              // boundingRadiusを求める(読み込んだ後に1回)
 
 public:
     ~Model();
@@ -63,6 +66,9 @@ public:
     int FindNode(const std::string& name) const;
     const ModelNode& GetNode(int index) const { return nodes[index]; }
     const std::wstring& GetPath() const { return path; }
+    // モデルの原点から、止まっている姿の一番遠い頂点までの距離(画面判定の球の半径。ModelRendererが使う)。
+    // 骨・アニメーションで動くとはみ出すので、使う側で余裕を持たせる
+    float GetBoundingRadius() const { return boundingRadius; }
 
     // アニメーションのクリップ(ModelAnimationComponent が使う)。FindClip は無ければ-1
     int GetClipCount() const { return (int)clips.size(); }

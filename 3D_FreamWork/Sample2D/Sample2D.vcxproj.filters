@@ -73,6 +73,15 @@
     <ClCompile Include="Game\Objects\ScorePopup.cpp">
       <Filter>Game\Objects</Filter>
     </ClCompile>
+    <ClCompile Include="Game\Components\GuardController.cpp">
+      <Filter>Game\Components</Filter>
+    </ClCompile>
+    <ClCompile Include="Game\Objects\Guard.cpp">
+      <Filter>Game\Objects</Filter>
+    </ClCompile>
+    <ClCompile Include="Game\Objects\Wall.cpp">
+      <Filter>Game\Objects</Filter>
+    </ClCompile>
     <ClCompile Include="Game\Objects\Title.cpp">
       <Filter>Game\Objects</Filter>
     </ClCompile>
@@ -142,6 +151,15 @@
       <Filter>Game\Objects</Filter>
     </ClInclude>
     <ClInclude Include="Game\Objects\ScorePopup.h">
+      <Filter>Game\Objects</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\Components\GuardController.h">
+      <Filter>Game\Components</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\Objects\Guard.h">
+      <Filter>Game\Objects</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\Objects\Wall.h">
       <Filter>Game\Objects</Filter>
     </ClInclude>
     <ClInclude Include="Game\Objects\Title.h">

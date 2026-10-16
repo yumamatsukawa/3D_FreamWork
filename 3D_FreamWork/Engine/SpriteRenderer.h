@@ -23,6 +23,8 @@ private:
     bool billboardLockY = true;
     bool billboardLockZ = true;
 
+    bool frustumCulling = false;   // trueなら、画面の外にある時は描かない
+
 public:
     SpriteRenderer() = default;
     // 生成と同時にテクスチャを指定したい場合はこちら
@@ -50,6 +52,13 @@ public:
         SetBillboardLockY(lockY);
         SetBillboardLockZ(lockZ);
     }
+
+    // trueにすると、カメラに映らない(画面の外の)時は描かなくなる(既定はfalse)。物理(当たり判定)は止まらない。
+    // 2D(UIモード)は2Dカメラの画面、World空間(SetWorldSpace(true))は3Dカメラの視錐台で調べる。
+    // 大きさは transform.scale の幅・高さから求める(scaleが0以下で画像の大きさを使う時は、大きさが分からないので判定しない)。
+    // ※HPバーや文字のように画面に固定する物は、falseのままにする
+    void SetFrustumCulling(bool enabled) { frustumCulling = enabled; }
+    bool IsFrustumCulling() const { return frustumCulling; }
 
     void Draw() override;
     void Uninit() override;

@@ -33,6 +33,9 @@ namespace Image
     // false にしてこの自動追従を止める(使い終わったら忘れずtrueに戻すこと)
     void SetCamera3DAutoSync(bool enabled);
 
+    // 3D描画の画面の縦横比(幅÷高さ)。3D用カメラの投影行列(GetProjectionMatrix)に渡す値。Visibility(視界判定)が使う
+    float GetAspectRatio();
+
     // ─── 座標の変換 ─────────────────────────────
     // 画面座標は「画面中央が(0,0)、Y+=上、単位はゲーム画面のピクセル」(Text::Drawと同じ)。結果をそのままText::Drawに渡せる。
     // ※Input::GetMousePosition()はY+=下なので、ここに渡す時はYの符号を反転する(Input::GetMouseWorldPosition()は反転済み)

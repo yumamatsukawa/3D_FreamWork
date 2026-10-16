@@ -3,6 +3,7 @@
 #include "../../../Engine/Input.h"
 #include "../../../Engine/SceneManager.h"
 #include "../../../Engine/RigidbodyComponent.h"
+#include "../../../Engine/VisionComponent.h"
 #include "../../../Engine/SaveData.h"
 #include "../Scenes/TitleScene.h"
 
@@ -13,6 +14,7 @@ namespace {
 void GameManager::Init() {
     // Colliderの枠を表示する(デバッグ用。不要ならfalseに)
     RigidbodyComponent::SetDebugDrawEnabled(true);
+    VisionComponent::SetDebugDrawEnabled(true);   // 見張り役の視野(扇形)を線で表示する(デバッグ用。不要ならfalseに)
 
     // ※ラムダがthisを使うので、シーン終了時にGameScene::Uninit()で登録を消している
 

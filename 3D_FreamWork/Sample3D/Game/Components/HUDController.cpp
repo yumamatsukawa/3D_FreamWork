@@ -3,6 +3,7 @@
 #include "PlayerController.h"
 #include "../../../Engine/Text.h"
 #include "../../../Engine/Anchor.h"
+#include "../../../Engine/Visibility.h"
 #include <cstdio>
 
 namespace {
@@ -10,6 +11,7 @@ namespace {
     constexpr DirectX::XMFLOAT2 scoreOffset = { 80.f, -40.f };         // 左上から: Score
     constexpr DirectX::XMFLOAT2 highScoreOffset = { 80.f, -75.f };     // 左上から: High Score
     constexpr DirectX::XMFLOAT2 hpOffset = { 80.f, -115.f };           // 左上から: HP(この下にHPゲージが出る。Objects/HUD.cpp)
+    constexpr DirectX::XMFLOAT2 culledOffset = { 80.f, -165.f };       // 左上から: Culled(HPゲージの下)
     constexpr DirectX::XMFLOAT2 gameOverOffset = { 0.f, 40.f };        // 中央から: GAME OVER
     constexpr DirectX::XMFLOAT2 returnHintOffset = { 0.f, -30.f };     // 中央から: press SPACE ...
 }
@@ -49,6 +51,15 @@ void HUDController::Draw() {
         style.size = 28.f;
         style.color = { 1.0f, 0.4f, 0.4f, 1.0f };
         DirectX::XMFLOAT2 pos = GetAnchoredPosition(Anchor::TopLeft, hpOffset);
+        Text::Draw(buf, pos.x, pos.y, style);
+    }
+
+    // 画面の外なので描かずに省いた数(Visibility。ちゃんと省けているかの確認用)
+    swprintf_s(buf, L"Culled: %d", Visibility::GetCulledCount());
+    style.size = 20.f;
+    style.color = { 0.7f, 0.9f, 1.0f, 1.0f };
+    {
+        DirectX::XMFLOAT2 pos = GetAnchoredPosition(Anchor::TopLeft, culledOffset);
         Text::Draw(buf, pos.x, pos.y, style);
     }
 

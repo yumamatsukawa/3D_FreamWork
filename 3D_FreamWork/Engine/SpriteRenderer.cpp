@@ -1,6 +1,8 @@
 ﻿#include "SpriteRenderer.h"
 #include "GameObject.h"
 #include "Resources.h"
+#include "Visibility.h"
+#include <cmath>
 
 SpriteRenderer::SpriteRenderer(const std::wstring& filepath, int cols, int rows) {
     SetTexture(filepath, cols, rows);
@@ -30,8 +32,20 @@ DirectX::XMFLOAT4 SpriteRenderer::GetColor() const {
 
 void SpriteRenderer::Draw() {
     // 親をたどったワールド空間のTransformで描画する(親と一緒に動く/回る/拡縮する)
-    Image::Draw(GetOwner()->transform.GetWorldTransform(), texID, color, sheet, worldSpace,
-        billboardLockX, billboardLockY, billboardLockZ);
+    Transform world = GetOwner()->transform.GetWorldTransform();
+
+    // 画面の外なら描かない(板の対角線の半分を半径にした球・円で調べる。回転しても入る大きさ)
+    if (frustumCulling && world.scale.x > 0.f && world.scale.y > 0.f) {
+        float radius = 0.5f * sqrtf(world.scale.x * world.scale.x + world.scale.y * world.scale.y);
+        bool visible = worldSpace ? Visibility::IsSphereInView3D(world.position, radius)
+                                  : Visibility::IsCircleInView2D(world.position, radius);
+        if (!visible) {
+            Visibility::CountCulled();
+            return;
+        }
+    }
+
+    Image::Draw(world, texID, color, sheet, worldSpace, billboardLockX, billboardLockY, billboardLockZ);
 }
 
 void SpriteRenderer::Uninit() {

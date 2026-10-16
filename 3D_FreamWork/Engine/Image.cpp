@@ -24,10 +24,11 @@ namespace Image
             return (depth > 0.f) ? mainCamera.focalLength / depth : 1.f;
         }
 
-        // 3D描画のアスペクト比(Mesh::Init・Sprite::BuildBillboardMatrixと同じ)
-        float GetAspectRatio() {
-            return (Graphics::height > 0.f) ? (Graphics::width / Graphics::height) : 1.f;
-        }
+    }
+
+    // 3D描画のアスペクト比(Mesh::Init・Sprite::BuildBillboardMatrixと同じ)
+    float GetAspectRatio() {
+        return (Graphics::height > 0.f) ? (Graphics::width / Graphics::height) : 1.f;
     }
 
     // ワールド→画面: (ワールド - カメラ位置) × 遠近の倍率

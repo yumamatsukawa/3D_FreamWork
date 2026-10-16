@@ -1279,23 +1279,23 @@ Claude Code で作業する場合は、`.claude/`の設定で、メインの会�
 
 ```
 Sample2D/Game/Objects/     Title, Button, StartButton, VolumeSlider, Background, Player, GameSystem, HUD,
-                            EnemySpawner, BulletSpawner, ScorePopup, Explosion
+                            EnemySpawner, BulletSpawner, ScorePopup, Explosion, Guard, Wall
 Sample2D/Game/Components/  TitleController, BackgroundController, PlayerController,
                             BulletController, EnemyController, GameManager, HUDController,
-                            EnemyManager, BulletManager
+                            EnemyManager, BulletManager, GuardController
 Sample2D/Game/Scenes/      TitleScene, GameScene
 
 Sample3D/Game/Objects/     Title, Button, StartButton, VolumeSlider, Skybox, Ground, Player, GameSystem, HUD,
-                            EnemySpawner, BulletSpawner, Explosion, ModelDisplay, SkinDisplay, Cube(未使用), Sphere(未使用)
+                            EnemySpawner, BulletSpawner, Explosion, ModelDisplay, SkinDisplay, Guard, Wall, Cube(未使用), Sphere(未使用)
 Sample3D/Game/Components/  TitleController, GroundController, PlayerController,
                             CameraController, BulletController, EnemyController, GameManager,
                             HUDController, EnemyManager, BulletManager, SkyboxFollowComponent,
-                            ModelDisplayController, SpinComponent(未使用)
+                            ModelDisplayController, GuardController, SpinComponent(未使用)
 Sample3D/Game/Scenes/      TitleScene, GameScene
 ```
 
-- **Sample2D**: トップダウン視点のアリーナシューター。タイトル画面のSTARTボタン(出る時に`TweenComponent`でぴょこっと大きくなる)をクリックすると、画面が暗転してからゲーム開始(ゲーム画面に入ると明転する。`FadeTransition`。§16)(ボタンは`CreateButton(scene, 文字, 位置, クリックされた時の処理)`で作れる汎用部品で、動きはEngineの`ButtonComponent`。他の画面のボタンにも使い回せる。§20)。WASDで移動、Playerは常にマウスの方を向き、左クリックでその方向へ弾を発射。背景はタイル状に敷き詰めた床(`BackgroundController`)で、移動するとスクロールする(カメラはPlayerに付けた`CameraFollowComponent`が追いかける。§14)。敵(`EnemyManager`が一定間隔でPlayerの周囲にランダムスポーンさせる)がゆっくり追いかけてきて(`ChaseComponent`。§13)、弾を当てると倒せる(`EventBus`で`"EnemyDefeated"`イベントを発行しスコア加算。倒した位置に「+10」が出て、上に動きながら消える=`CreateScorePopup`。§19。爆発のパーティクルも出る=`CreateExplosion`。§26)。敵に触れるとHPが減り(1秒間の無敵時間つき)、敵から離れる向きに弾かれる(ノックバック。`AddForce`で衝撃を加え、0.2秒間は移動キーが効かない。§23)、画面が少し揺れて(`CameraShake`。§14)、画面の端が赤く点滅する(`ScreenEffect::Vignette`。§15)。HPが0になるとゲームオーバー画面が出てSPACEでタイトルに戻る(黒い丸が閉じて開く`SpriteTransition`。§16)。スコアがハイスコアを超えていたら、ゲームオーバーの時に保存され(`SaveData`。キーは`"Sample2DHighScore"`で、Sample3Dの記録とは別。§18)、画面左上のスコアの下に出る(次に起動しても残る)。タイトル画面の下にはBGMの音量スライダー(`CreateVolumeSlider`。つまみをドラッグして0〜1で変えられ、離すと保存されて次に起動した時も残る。§20)がある。画面左上のHPの文字の下にはHPゲージ(減った分が少し遅れて縮む)、Playerの頭上にも小さなHPバーが出る(`GaugeRenderer`。§20)。当たり判定・物理はPhysXを使い(Player=`CircleRigidbodyComponent`、敵=`SquareRigidbodyComponent`、弾=`CircleRigidbodyComponent`)、Player・敵はDynamic(`SetVelocity()`で速度を渡して動かす。重力なし・回転なし・`SetFreezePositionZ(true)`で奥行き方向に固定)、弾はKinematicのトリガー。3Dカメラは使わない(`CameraController`なし)。
-- **Sample3D**: Sample2Dと同じアリーナシューターを3D空間で遊べるようにしたもの。タイトル画面のボタン(Sample2Dと同じく、出る時に`TweenComponent`でぴょこっと大きくなる)をクリックすると、Sample2Dと同じく暗転してからゲーム開始(Sample3Dの`CreateButton()`は、位置と大きさをまとめて`Transform`で受け取る形になっている: `CreateButton(scene, 文字, transform, クリックされた時の処理)`)。Player(立方体)は三人称カメラ(`CameraController`。マウス移動で視点回転。カーソルは画面中心に固定され、ESCで解除・左クリックで再固定。TABで一人称に切り替え)と同じ向きを向き、WASDもカメラ基準(W=カメラの前、D=カメラの右)で移動する。左クリックでPlayerの向いている方向へ、地面と水平に弾(球)を発射。敵を倒すと、その位置に爆発のパーティクルが出る(`CreateExplosion`。§26)。敵は2Dの画像(Worldモードの`SpriteRenderer`。Y軸だけカメラの方を向く立て看板)で、地面の上をPlayerに向かって歩いてくる(`ChaseComponent`を`SetPlane(MovePlane::XZ)`で使う。§13)。歩く間は、敵に付けた`SpriteAnimationComponent`がスプライトシートのコマ(4番と5番)を0.3秒ごとに切り替えて、歩きアニメーションにしている(始まるコマはランダムなので、何体いても足踏みがそろわない。§17)。スコア・ハイスコア(保存先のファイルはSample2Dと同じだが、キーは`"Sample3DHighScore"`で、記録はSample2Dとは別。§18)・HP・無敵時間・被弾時に画面の端が赤く点滅すること・ゲームオーバー(SPACEでタイトルへ。Sample3Dは、黒い帯が左から覆って右へ抜けていく`SpriteTransition(...).SetSwitchFrame(7)`。§16)・`EventBus`のイベント名はSample2Dと同じ。タイトル画面の下のBGMの音量スライダーと、画面左上のHPゲージ(Sample2Dと同じ)、三人称の間だけ出るPlayerの頭上のHPバー(`SetUse3DCamera(true)`の`GaugeRenderer`)もある(§20)。Player・敵はDynamicの`BoxRigidbodyComponent`(重力あり・回転なし。Y速度は`GetVelocity().y`を維持したまま`SetVelocity()`で動かす。敵は`ChaseComponent`がこれをしている)、弾はKinematicのトリガー(`SphereRigidbodyComponent`)。地面は、1000四方のタイルを3Dカメラの描画距離(farZ)の範囲だけ敷き詰めて描く`GroundController`(見た目)と、見えない大きなStaticの板(当たり判定)の組み合わせ。遠景はスカイボックス。地面の端(Playerから斜めに離れた所)には、FBXモデルの見本(`CreateModelDisplay`。`Assets/Models/TestAnim.fbx` の立方体2つ=親と子のパーツ。子の「Top」が、「Spin」(回る)と「Bob」(上下)のアニメーションを3秒ごとに切り替えて再生する。§27)が置いてある(FBXが無い時は何も置かない)。そのとなり(位置 `(1000, -50, 800)`)には、骨2本で曲がる細長い箱(`CreateSkinDisplay`。`Assets/Models/TestSkin.fbx` のアニメーション「Bend」を再生。§27)も置いてある。
+- **Sample2D**: トップダウン視点のアリーナシューター。タイトル画面のSTARTボタン(出る時に`TweenComponent`でぴょこっと大きくなる)をクリックすると、画面が暗転してからゲーム開始(ゲーム画面に入ると明転する。`FadeTransition`。§16)(ボタンは`CreateButton(scene, 文字, 位置, クリックされた時の処理)`で作れる汎用部品で、動きはEngineの`ButtonComponent`。他の画面のボタンにも使い回せる。§20)。WASDで移動、Playerは常にマウスの方を向き、左クリックでその方向へ弾を発射。背景はタイル状に敷き詰めた床(`BackgroundController`)で、移動するとスクロールする(カメラはPlayerに付けた`CameraFollowComponent`が追いかける。§14)。敵(`EnemyManager`が一定間隔でPlayerの周囲にランダムスポーンさせる)がゆっくり追いかけてきて(`ChaseComponent`。§13)、弾を当てると倒せる(`EventBus`で`"EnemyDefeated"`イベントを発行しスコア加算。倒した位置に「+10」が出て、上に動きながら消える=`CreateScorePopup`。§19。爆発のパーティクルも出る=`CreateExplosion`。§26)。敵に触れるとHPが減り(1秒間の無敵時間つき)、敵から離れる向きに弾かれる(ノックバック。`AddForce`で衝撃を加え、0.2秒間は移動キーが効かない。§23)、画面が少し揺れて(`CameraShake`。§14)、画面の端が赤く点滅する(`ScreenEffect::Vignette`。§15)。HPが0になるとゲームオーバー画面が出てSPACEでタイトルに戻る(黒い丸が閉じて開く`SpriteTransition`。§16)。スコアがハイスコアを超えていたら、ゲームオーバーの時に保存され(`SaveData`。キーは`"Sample2DHighScore"`で、Sample3Dの記録とは別。§18)、画面左上のスコアの下に出る(次に起動しても残る)。タイトル画面の下にはBGMの音量スライダー(`CreateVolumeSlider`。つまみをドラッグして0〜1で変えられ、離すと保存されて次に起動した時も残る。§20)がある。画面左上のHPの文字の下にはHPゲージ(減った分が少し遅れて縮む)、Playerの頭上にも小さなHPバーが出る(`GaugeRenderer`。§20)。当たり判定・物理はPhysXを使い(Player=`CircleRigidbodyComponent`、敵=`SquareRigidbodyComponent`、弾=`CircleRigidbodyComponent`)、Player・敵はDynamic(`SetVelocity()`で速度を渡して動かす。重力なし・回転なし・`SetFreezePositionZ(true)`で奥行き方向に固定)、弾はKinematicのトリガー。3Dカメラは使わない(`CameraController`なし)。画面の左上のHPゲージの下には、画面の外なので描かずに省いた数「Culled」が出る(敵の `SpriteRenderer` は `SetFrustumCulling(true)`。§28)。マップには見張り役の `Guard`(青い `Player` 画像がゆっくり回り、扇形の視野に `Player` が入って壁にさえぎられていなければ赤くなる。視野は線で表示)と、視線をさえぎる壁 `Wall` が2枚置いてある(`VisionComponent`。§28)。
+- **Sample3D**: Sample2Dと同じアリーナシューターを3D空間で遊べるようにしたもの。タイトル画面のボタン(Sample2Dと同じく、出る時に`TweenComponent`でぴょこっと大きくなる)をクリックすると、Sample2Dと同じく暗転してからゲーム開始(Sample3Dの`CreateButton()`は、位置と大きさをまとめて`Transform`で受け取る形になっている: `CreateButton(scene, 文字, transform, クリックされた時の処理)`)。Player(立方体)は三人称カメラ(`CameraController`。マウス移動で視点回転。カーソルは画面中心に固定され、ESCで解除・左クリックで再固定。TABで一人称に切り替え)と同じ向きを向き、WASDもカメラ基準(W=カメラの前、D=カメラの右)で移動する。左クリックでPlayerの向いている方向へ、地面と水平に弾(球)を発射。敵を倒すと、その位置に爆発のパーティクルが出る(`CreateExplosion`。§26)。敵は2Dの画像(Worldモードの`SpriteRenderer`。Y軸だけカメラの方を向く立て看板)で、地面の上をPlayerに向かって歩いてくる(`ChaseComponent`を`SetPlane(MovePlane::XZ)`で使う。§13)。歩く間は、敵に付けた`SpriteAnimationComponent`がスプライトシートのコマ(4番と5番)を0.3秒ごとに切り替えて、歩きアニメーションにしている(始まるコマはランダムなので、何体いても足踏みがそろわない。§17)。スコア・ハイスコア(保存先のファイルはSample2Dと同じだが、キーは`"Sample3DHighScore"`で、記録はSample2Dとは別。§18)・HP・無敵時間・被弾時に画面の端が赤く点滅すること・ゲームオーバー(SPACEでタイトルへ。Sample3Dは、黒い帯が左から覆って右へ抜けていく`SpriteTransition(...).SetSwitchFrame(7)`。§16)・`EventBus`のイベント名はSample2Dと同じ。タイトル画面の下のBGMの音量スライダーと、画面左上のHPゲージ(Sample2Dと同じ)、三人称の間だけ出るPlayerの頭上のHPバー(`SetUse3DCamera(true)`の`GaugeRenderer`)もある(§20)。Player・敵はDynamicの`BoxRigidbodyComponent`(重力あり・回転なし。Y速度は`GetVelocity().y`を維持したまま`SetVelocity()`で動かす。敵は`ChaseComponent`がこれをしている)、弾はKinematicのトリガー(`SphereRigidbodyComponent`)。地面は、1000四方のタイルを3Dカメラの描画距離(farZ)の範囲だけ敷き詰めて描く`GroundController`(見た目)と、見えない大きなStaticの板(当たり判定)の組み合わせ。遠景はスカイボックス。地面の端(Playerから斜めに離れた所)には、FBXモデルの見本(`CreateModelDisplay`。`Assets/Models/TestAnim.fbx` の立方体2つ=親と子のパーツ。子の「Top」が、「Spin」(回る)と「Bob」(上下)のアニメーションを3秒ごとに切り替えて再生する。§27)が置いてある(FBXが無い時は何も置かない)。そのとなり(位置 `(1000, -50, 800)`)には、骨2本で曲がる細長い箱(`CreateSkinDisplay`。`Assets/Models/TestSkin.fbx` のアニメーション「Bend」を再生。§27)も置いてある。地面のタイルは、カメラに映る物だけ描く(`Visibility::IsSphereInView3D`)。敵の画像は `SetFrustumCulling(true)` で、画面の外にいる間は描かない。画面の左上のHPゲージの下には、描かずに省いた数「Culled」が出る。`Player` の近く(位置 `(-800, 0, 600)`)には見張り役 `Guard`(青い立方体がゆっくり回り、扇形の視野に `Player` が入って壁にさえぎられていなければ赤くなる。視野は線で表示)と、視線をさえぎる壁 `Wall` が2枚置いてある(`VisionComponent`。§28)。
 
 **Sample3Dの実装メモ**: 向きはすべて`transform.rotate.y`(度)で表し、`rotate.y`の時の正面(ローカルの+Z)は`(sin, 0, cos)`の方向になる(`CameraController::GetYaw()`の式と同じ。`Math::Forward3D()`で求められる)。Worldモードの`SpriteRenderer`は`rotate.y`を使わない(ビルボードの向きとZ軸回転だけを使う)ので、敵の画像の向きは`SetBillboardLock(true, false, true)`でカメラの方へ向けている。Playerは`SetFreezeRotation(true)`で、`RigidbodyComponent`は位置しか同期しないため、`PlayerController`が`rotate.y`が変わった時に`GetActor()`の`setGlobalPose`で当たり判定の箱の回転も合わせている(デバッグ表示の枠と実際の判定が同じ向きになる)。一人称の間は、カメラが立方体の内側に入るのでPlayerの`MeshRenderer`と頭上のHPバー(`GaugeRenderer`)を非表示にしている。
 
@@ -1343,7 +1343,12 @@ GameManager/HUD/EnemyManager/BulletManagerのような「見た目の無い管�
 | 画面左上のHPゲージ | `Objects/HUD.cpp`(`GaugeRenderer`を付け、`SetValueSource`で`PlayerController`のHPを読む。§20) |
 | Playerの頭上のHPバー | `Objects/Player.cpp`(`GaugeRenderer`の`SetFollowTarget`。Sample3Dは`SetUse3DCamera(true)`も。一人称の間は`PlayerController`が隠す。§20) |
 | カメラがPlayerを追いかける(Sample2D) | `Objects/Player.cpp`で付けた`CameraFollowComponent`(Engine。§14) |
-| コライダー枠の表示ON | `GameManager::Init()` |
+| コライダー枠・見張り役の視野(扇形)の表示ON | `GameManager::Init()`(`RigidbodyComponent::SetDebugDrawEnabled` と `VisionComponent::SetDebugDrawEnabled`) |
+| 見張り役(Guard)を置く、ゆっくり回して視野に入ったら赤くする | `Objects/Guard.cpp`(`VisionComponent` を付ける)と `GuardController::Update()`(`CanSee(player)`。§28) |
+| 壁(Wall)を置く(視線をさえぎる) | `Objects/Wall.cpp`(タグ `"Wall"` + Staticの `BoxRigidbodyComponent`。§28) |
+| 地面のタイルのうち、画面に映る物だけ描く(Sample3D) | `GroundController::Draw()`(`Visibility::IsSphereInView3D`。§28) |
+| 画面の外の敵を描かない | 敵の `SetupEnemy`(`SpriteRenderer::SetFrustumCulling(true)`。両サンプル。§28) |
+| 画面の外で省いた数の表示(Culled) | `HUDController::Draw()`(`Visibility::GetCulledCount()`。§28) |
 | ゲームオーバーの時にハイスコアを保存する | `GameManager::Init()`の`"PlayerDied"`を受けた所(`SaveData::SetInt` + `Save`。§18) |
 
 Sceneに残してよいのは、オブジェクトの配置と、シーン全体の後片付け(`GameScene::Uninit()`の`EventBus::Get().Clear()`)くらい。新しい処理を足したくなったら、まず「どのオブジェクトの仕事か」を考えて、そのComponentに書くこと。
@@ -1942,3 +1947,90 @@ if (anim->IsFinished()) anim->CrossFade("Idle", 0.2f);
 ### Sampleでの使われ方
 
 Sample3Dの `CreateModelDisplay()`(`Game/Objects/ModelDisplay.cpp`)が、`Assets/Models/TestAnim.fbx`(立方体2つ。親の「Base」と、その子の「Top」。クリップ「Spin」=Topが1回転(2秒)、「Bob」=Topが上下(1秒))を地面の端(位置 `(800, -50, 800)`)に置き、`ModelAnimationComponent` で再生します。`ModelDisplayController` が3秒ごとに `CrossFade("Spin" / "Bob", 0.3f)` で切り替えます。`TestAnim.fbx` が無い時は静止の `Assets/Models/TestParts.fbx` を置き(`ModelDisplayController` が `GetNodeTransform("Top")` の `rotate.y` を増やしてTopだけを回します)、どちらも無い時は何も置かず出力ウィンドウに知らせるだけなので、ファイルを消してもゲームは動きます。2つのFBXは、動作確認のために手で書いた最小のASCII形式のFBXです(Mayaで書き出した物ではありません)。 骨で曲げる見本は `CreateSkinDisplay()`(`Game/Objects/SkinDisplay.cpp`)が `Assets/Models/TestSkin.fbx` を `(1000, -50, 800)` に置いて再生します(上の「骨で曲げるモデル」)。
+
+---
+
+## 28. 視界判定(Visibility / VisionComponent)
+
+「カメラに映っているか」と「敵の視野(扇形)に入っているか」を調べる仕組みです(`docs/EngineRoadmap2.md` の 6.1)。2つに分かれています。
+
+| 調べたいこと | 使う物 | 例 |
+|---|---|---|
+| 画面の外にある物を描かない・処理を省く | `Visibility`(関数)と、各 Renderer の `SetFrustumCulling` | 画面の外の敵のスプライトを描かない |
+| 見張り役の視野に相手が入ったか(壁にさえぎられていないか) | `VisionComponent`(Component) | ゆっくり回る見張りが、Playerを見つけたら赤くなる |
+
+### (a) カメラに映っているか: Visibility
+
+```cpp
+// 3D: 今の3Dカメラの視錐台(カメラに映る台形の空間)に、球・箱が少しでも入っているか
+if (!Visibility::IsSphereInView3D(enemy->transform.position, 100.f)) return;   // 画面の外なら何もしない
+
+// 2D: 今の2Dカメラの画面に、円・四角が少しでも入っているか
+bool onScreen = Visibility::IsCircleInView2D(bullet->transform.position, 8.f);
+
+// Rendererに任せる(画面の外なら描かない。物理は止まらない)
+sprite->SetFrustumCulling(true);
+```
+
+| 関数 | 説明 |
+|---|---|
+| `IsSphereInView3D(中心, 半径)` | 3Dカメラ(`Image::GetCamera3D()`)の視錐台に、球が少しでも入っているか |
+| `IsBoxInView3D(中心, 半分の大きさ)` | 同じく軸に沿った箱(回転しない)。半分の大きさは、辺の長さの半分 |
+| `IsCircleInView2D(位置, 半径)` | 2Dカメラ(`Image::GetCamera()`)の画面に、円が少しでも入っているか。位置はワールド座標(`z`は遠近の倍率に使う) |
+| `IsRectInView2D(位置, 半分の大きさ)` | 同じく四角(回転しない) |
+| `GetCulledCount()` | 前のフレームに、描かずに省いた数(HUDに出して確認する) |
+| `SpriteRenderer` / `MeshRenderer` / `ModelRenderer` の `SetFrustumCulling(bool)` | 画面の外なら描かない。**既定は `false`(今までと同じ。全部描く)** |
+
+**2D と 3D の違い**
+- 3Dは「視錐台」と「球・箱」で調べます。視錐台は 1フレームに1回、`GameEngine` が `CameraShake::BeginDraw()` の後に作ります(揺れが入ったカメラで判定するので、画面の端で揺れても一瞬消えたりしません)。ゲーム側が準備を呼ぶ必要はありません。
+- 2Dは「2Dカメラの画面(画面中央が(0,0)、`Y+`=上、単位はピクセル)」と「円・四角」で調べます。`SpriteRenderer`(UIモード)と同じ遠近の倍率(奥の物は小さく中心に寄って見える)を使います。2Dカメラは毎回その場の値を読むので、準備は要りません。
+- どちらも、最初のフレーム(準備の前)は「映っている」を返します(消さない側に倒しています)。
+
+**Rendererの画面外判定(`SetFrustumCulling(true)`)の決まり**
+- `SpriteRenderer`: `transform.scale` の幅・高さの対角線の半分を半径にした円(UIモード)か球(`SetWorldSpace(true)` のビルボード)で調べます。`scale` が0以下で画像の大きさを使う時は、大きさが分からないので判定しません(必ず描く)。
+- `MeshRenderer`: 頂点の「原点から一番遠い点」×最大の拡大率の球で調べます(立方体なら約0.87×`scale`)。`SetDepthWrite(false)`(スカイボックスなど画面全体を覆う物)は、`true` でも判定しません。
+- `ModelRenderer`: 読み込み時に求めた「止まっている姿の一番遠い頂点」(`Model::GetBoundingRadius()`)×1.5(余裕)の球で調べます。骨・アニメーションで大きく動くモデルは、画面の端で消えて見えることがあるので、その時は `false` に戻します。
+- 描画を省くだけで、物理(当たり判定)は止まりません。物が突然消えて見えたら、半径が小さすぎます(`GetCulledCount()` を見ながら確認)。
+- 影の描画(将来)では、カメラの外にある物も影を落とすので、この判定は使いません。
+
+### (b) 敵の視野: VisionComponent
+
+敵などに付けて、「扇形(角度と距離)の中にいて、壁にさえぎられていないか」を調べます。見えた後の動き(追いかける・色を変える)は、付けた側のComponentが決めます。
+
+```cpp
+auto* vision = guard->AddComponent<VisionComponent>();
+vision->SetFieldOfView(90.f);               // 視野の角度(全体)。90なら左右45度ずつ
+vision->SetRange(1500.f);                   // 見える距離
+vision->SetPlane(MovePlane::XZ);            // 見る平面(3Dの地面=XZ、2D=XY)
+vision->SetEyeOffset({ 0.f, 50.f, 0.f });   // 目の位置(足元ではなく胸の高さなど)
+
+// 動き側のComponentで
+bool seen = vision->CanSee(player);         // 見えたら赤くする・追いかけ始める
+```
+
+| 関数 | 説明 |
+|---|---|
+| `SetFieldOfView(度)` | 視野の角度(全体。0〜360。既定90) |
+| `SetRange(距離)` | 見える距離(既定1000) |
+| `SetPlane(MovePlane)` | 見る平面(`MoveComponent` と同じ `MovePlane`。既定は `XY`)。角度・距離は、この平面の上だけで考える(XZなら高さ`Y`の差は無視) |
+| `SetEyeOffset(オフセット)` | 目の位置(オーナーの位置からの相対。既定は0) |
+| `SetObstacleTag(タグ)` | このタグの物は、視線をさえぎる壁(既定 `"Wall"`)。`""` にすると壁は考えない |
+| `SetFacing(向き)` | 正面を手で指定する。長さ0に戻すと `transform` の向きを使う |
+| `SetCheckInterval(秒)` | 壁の判定(Raycast)をやり直す間隔(既定0.1秒。`CanSee(GameObject*)` だけ) |
+| `IsInCone(点)` | 扇形(角度と距離)の中か。壁は考えない |
+| `CanSee(点)` | 扇形の中で、壁にさえぎられていないか。呼ぶ度にRaycastする |
+| `CanSee(GameObject*)` | 上と同じ(相手の位置を使う)。壁の判定は `SetCheckInterval` の間隔で覚えた結果を使う(角度と距離は毎回調べる) |
+| `GetFacing()` | 今の正面(長さ1) |
+| `VisionComponent::SetDebugDrawEnabled(bool)` | 扇形を線で描く(見えている時は赤、見えていない時は緑)。`RigidbodyComponent::SetDebugDrawEnabled` と同じ使い方 |
+
+**決まり(重要)**
+- **正面**: `SetFacing` で指定した向きが最優先です。指定が無ければ、`XZ` は `rotate.y`(`Math::Forward3D`)、`XY` は `rotate.z`(`Math::Forward2D`)を使います。Sample3Dの敵のように `rotate` を使わない物(ビルボード)に付ける時は、毎フレーム `SetFacing`(進む向き)を呼んでください。
+- **壁**: 目から相手へ `Physics::Raycast(…, 壁のタグ)` を飛ばして、相手より手前に壁があればさえぎられています。**壁のオブジェクトにタグ `"Wall"` を付け忘れると素通しになります。** 地面・ほかの敵・弾は壁になりません(斜め下を見る視線は地面にさえぎられません)。
+- 相手の「1点(位置)」だけを見ます。相手の中心が壁の陰なら、体が少しはみ出していても見えません。
+- Raycastは1つ前の `Physics::Update` の位置を使うので、動いたばかりの壁には1フレーム遅れて反映されます。壁の中に目があると、壁に当たらず見えてしまいます。
+- 敵が何体もいても重くならないよう、壁の判定は `SetCheckInterval`(既定0.1秒、±20%ばらす)ごとにやり直し、間は覚えた結果を返します。
+
+### Sampleでの使われ方
+
+- **見張り役 `Guard` と壁 `Wall`**(Sample2D・Sample3Dどちらにも): `GameScene::Init()` は `CreateWall(...)` と `CreateGuard(*this, player)` を並べるだけ。`Objects/Guard.cpp` が `VisionComponent`(Sample3Dは `XZ`、Sample2Dは `XY`)と見た目と `GuardController` を付け、`GuardController::Update()` が回転(1秒に40度)と、`vision->CanSee(player)` で見えた時に赤くする(見えていない時は青)処理を担当します。`Objects/Wall.cpp` はタグ `"Wall"` のStaticの箱で、見張り役とPlayerの間に1枚、離れた所に1枚置いてあります。`GameManager::Init()` で `VisionComponent::SetDebugDrawEnabled(true)` にしているので、扇形が線で見えます(不要なら `false` に)。
+- **画面外の判定**: Sample3Dの `GroundController::Draw()` は、地面のタイルを `Visibility::IsSphereInView3D` でカメラに映る物だけ描きます(以前の「描画距離の円」の手書き判定の置き換え)。両サンプルの敵(`SetupEnemy`)は `SetFrustumCulling(true)` で、画面の外にいる間は描きません。HUD(`HUDController`)の「Culled: n」が、前のフレームに描かずに省いた数です。

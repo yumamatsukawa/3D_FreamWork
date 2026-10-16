@@ -36,6 +36,7 @@ namespace {
         // ※SpriteRendererのWorldモードはtransform.rotate.yを使わないので、
         //   rotate.yで向きを変える代わりに、こちらで画像の表面を見る側に向けている
         sprite->SetBillboardLock(true, false, true);
+        sprite->SetFrustumCulling(true);   // 画面の外にいる間は描かない(物理と動きは止まらない)
 
         // 歩きアニメーション: コマ4と5を0.3秒ごとに(何体いても足踏みがそろわないように、始まるコマはランダム)
         // 再利用された時は、SpriteAnimationComponentが自分で最初からやり直す
