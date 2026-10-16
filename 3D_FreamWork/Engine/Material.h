@@ -24,6 +24,10 @@ struct Material {
     // ── 自発光 ──
     XMFLOAT3 emissiveColor{ 1.f, 1.f, 1.f };     // 自分で光る色
     float    emissiveStrength = 0.f;             // 自発光の強さ。0=光らない(既定)
+
+    // ── 影(Shadow を有効にした時だけ意味がある。既定はどちらもOFF=今までと同じ見た目) ──
+    bool     castShadow = false;                 // 影を落とすか(MeshRenderer / ModelRenderer が影のパスで描く)
+    bool     receiveShadow = false;              // 影を受けるか(平行光源の光だけが影で暗くなる)
 };
 
 // シェーダー(Shader3DCommon.hlsli の MaterialBuffer, b2)に送る形。16バイトずつ区切って並べる
@@ -31,7 +35,7 @@ struct MaterialConstantBuffer {
     XMFLOAT4 color;      // rgba
     XMFLOAT4 specular;   // rgb=色, w=強さ
     XMFLOAT4 emissive;   // rgb=色, w=強さ
-    XMFLOAT4 params;     // x=shininess, w=光を使う(1=lit, 0=unlit)。y/zは予約(縁の光・影で使う)
+    XMFLOAT4 params;     // x=shininess, z=影を受ける(1/0), w=光を使う(1=lit, 0=unlit)。yは予約(縁の光で使う)
 };
 static_assert(sizeof(MaterialConstantBuffer) % 16 == 0, "定数バッファは16バイト区切り");
 
@@ -41,6 +45,6 @@ inline MaterialConstantBuffer MakeMaterialConstantBuffer(const Material& materia
     cb.color = material.color;
     cb.specular = { material.specularColor.x, material.specularColor.y, material.specularColor.z, material.specularStrength };
     cb.emissive = { material.emissiveColor.x, material.emissiveColor.y, material.emissiveColor.z, material.emissiveStrength };
-    cb.params = { material.shininess, 0.f, 0.f, material.lit ? 1.f : 0.f };
+    cb.params = { material.shininess, 0.f, material.receiveShadow ? 1.f : 0.f, material.lit ? 1.f : 0.f };
     return cb;
 }

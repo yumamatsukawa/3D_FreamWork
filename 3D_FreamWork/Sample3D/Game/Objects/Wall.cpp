@@ -13,6 +13,8 @@ GameObject* CreateWall(Scene& scene, DirectX::XMFLOAT3 position, DirectX::XMFLOA
     // 見た目(3Dメッシュの立方体)
     auto* meshRenderer = wall->AddComponent<MeshRenderer>(Mesh::CreateCube());
     meshRenderer->SetTexture(L"Assets/debug_box.png");
+    meshRenderer->GetMaterial().castShadow = true;     // 影を落とす(地面や、懐中電灯の光をさえぎる)
+    meshRenderer->GetMaterial().receiveShadow = true;
 
     // 物理演算(PhysX): 動かない壁(大きさはtransform.scaleと同じ)
     wall->AddComponent<BoxRigidbodyComponent>(BodyType::Static);

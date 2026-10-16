@@ -14,7 +14,9 @@ GameObject* CreatePlayer(Scene& scene) {
     player->transform.scale    = { 100.0f, 100.0f, 100.0f };
 
     // 見た目(3Dメッシュの立方体)
-    player->AddComponent<MeshRenderer>(Mesh::CreateCube());
+    auto* meshRenderer = player->AddComponent<MeshRenderer>(Mesh::CreateCube());
+    meshRenderer->GetMaterial().castShadow = true;     // 影を落とす(地面に影が出る)
+    meshRenderer->GetMaterial().receiveShadow = true;  // 壁などの影を受ける
 
     // 当たり判定+物理演算(PhysX)
     auto* rigidbody = player->AddComponent<BoxRigidbodyComponent>(BodyType::Dynamic, player->transform.scale, 100.f);

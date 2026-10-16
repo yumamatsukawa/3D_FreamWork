@@ -59,6 +59,7 @@ private:
     static ID3D11Buffer* cameraBuffer;       // b3: MeshCameraBuffer(点光源・スポットライトの b4 は Lighting が持ち、Draw で Lighting::Bind() する)
     static ID3D11VertexShader* vertexShader;
     static ID3D11PixelShader* pixelShader;
+    static ID3D11VertexShader* shadowVertexShader;   // 影の深度パス用(Shader3D.hlsl の VSShadow。ピクセルシェーダー無し)
     static ID3D11InputLayout* inputLayout;
     static ID3D11SamplerState* sampler;
     static ID3D11BlendState* blendState;
@@ -110,6 +111,9 @@ public:
     // 色だけ指定する版(既定のマテリアルで描く)。writeDepth = false で深度に書き込まない
     void Draw(const Transform& transform, const Camera& camera, XMFLOAT4 color, const Light& light, bool writeDepth = true);
     void Draw(const XMMATRIX& world, const Camera& camera, XMFLOAT4 color, const Light& light, bool writeDepth = true);
+    // 影のパス用: 光から見た行列(lightView / lightProj)で、深度だけを描く(色は描かない)。
+    // 描画先・ビューポート・ステートは Shadow::Render が決めるので、ここでは頂点とシェーダーだけをセットする。三角形のメッシュだけが描かれる(線は影にならない)
+    void DrawDepth(const XMMATRIX& world, const XMMATRIX& lightView, const XMMATRIX& lightProj);
     void Uninit();
 
     void SetTexture(ID3D11ShaderResourceView* s) { srv = s; }

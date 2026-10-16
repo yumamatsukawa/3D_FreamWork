@@ -11,6 +11,7 @@
 #include "CameraShake.h"
 #include "Visibility.h"
 #include "Lighting.h"
+#include "Shadow.h"
 #include "ScreenEffect.h"
 #include "SpriteTransition.h"
 #include "SaveData.h"
@@ -54,6 +55,7 @@ void GameEngine::Run()
         CameraShake::BeginDraw();
         Visibility::BeginFrame();   // 揺れが入ったカメラで視錐台を作る(画面の端で揺れた時に、一瞬描かれない物が出ないように)
         Lighting::Update();         // 点光源・スポットライトを集める(同じ揺れ入りカメラに近い順で選ぶ)
+        Shadow::Render();           // 影のパス(有効な時だけ)。描画先を一時的に影のテクスチャにして、終わったら元に戻す。Direct2D(Text)の描画の前に終えておく
         Text::BeginDraw();
         SceneManager::Get().Draw();
         ScreenEffect::Draw();   // 画面エフェクトは文字も含めて一番上に出す(Direct2Dは後に描いた物が上になるので、シーンの描画の後・EndDrawの前)
@@ -70,6 +72,7 @@ void GameEngine::Uninit()
     SceneManager::Get().Uninit();   // 切り替えの演出の途中なら、演出(ブラシ)もここで片付く
     SaveData::Uninit();             // 書き換えていれば保存する(シーンのUninitで書いた値も残るように、SceneManagerの後)
     Lighting::Shutdown();           // 光の定数バッファの解放(Image::Uninitより先に)
+    Shadow::Shutdown();             // 影のテクスチャ・ステートの解放(同じくImage::Uninitより先に)
     SpriteTransition::UnloadAll();  // Text::Uninitより先に(切り替えの演出の画像はTextの描画先から作っているため)
     Resources::UnloadAll();  // Image::Uninitより先に(画像の解放にImageを使うため)
     Physics::Uninit();

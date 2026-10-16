@@ -1,5 +1,6 @@
 ﻿#include "GameScene.h"
 #include "../Objects/Skybox.h"
+#include "../Objects/Sun.h"
 #include "../Objects/Ground.h"
 #include "../Objects/ModelDisplay.h"
 #include "../Objects/SkinDisplay.h"
@@ -20,6 +21,7 @@ void GameScene::Init()
 {
     // オブジェクトを配置するだけ(動き・ルールは各Componentに書く)
     CreateSkybox(*this);
+    CreateSun(*this);   // 影を有効にする(影を落とす・受ける物は、各オブジェクトの Material で決める)
     CreateGround(*this);
     CreateModelDisplay(*this);
     CreateSkinDisplay(*this);

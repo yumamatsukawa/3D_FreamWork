@@ -33,6 +33,7 @@ private:
     static ID3D11Buffer* cameraBuffer;       // b3: MeshCameraBuffer(Mesh と同じ。b4 の光は Lighting::Bind())
     static ID3D11VertexShader* vertexShader;
     static ID3D11PixelShader* pixelShader;
+    static ID3D11VertexShader* shadowVertexShader;   // 影の深度パス用(Shader3DSkin.hlsl の VSShadow。ピクセルシェーダー無し)
     static ID3D11InputLayout* inputLayout;
     static ID3D11SamplerState* sampler;
     static ID3D11BlendState* blendState;
@@ -64,4 +65,9 @@ public:
     // 色だけ指定する版(既定のマテリアルで描く)
     void Draw(const XMMATRIX& world, const XMMATRIX* boneMatrices, int boneCount,
         const Camera& camera, XMFLOAT4 color, const Light& light);
+
+    // 影のパス用: 骨で曲げた後の形を、光から見た行列(lightView / lightProj)で、深度だけ描く(色は描かない)。
+    // 描画先・ビューポート・ステートは Shadow::Render が決める
+    void DrawDepth(const XMMATRIX& world, const XMMATRIX* boneMatrices, int boneCount,
+        const XMMATRIX& lightView, const XMMATRIX& lightProj);
 };

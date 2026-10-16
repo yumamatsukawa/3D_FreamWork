@@ -19,7 +19,9 @@ GameObject* CreateSkinDisplay(Scene& scene) {
     display->transform.position = { 1000.0f, -50.0f, 800.0f };
 
     // 見た目(骨で曲げるFBXモデル。骨のパーツ自体は描かれず、箱が曲がる)
-    display->AddComponent<ModelRenderer>(path);
+    auto* renderer = display->AddComponent<ModelRenderer>(path);
+    renderer->GetMaterial().castShadow = true;      // 骨で曲げた形のまま、地面に影が落ちる
+    renderer->GetMaterial().receiveShadow = true;
 
     // アニメーション "Bend"(先端の骨が曲がって戻る)をループ再生。ModelRendererの後に付ける
     auto* animation = display->AddComponent<ModelAnimationComponent>();

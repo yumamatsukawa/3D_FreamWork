@@ -103,6 +103,12 @@
     <ClCompile Include="Game\Objects\Lantern.cpp">
       <Filter>Game\Objects</Filter>
     </ClCompile>
+    <ClCompile Include="Game\Objects\Sun.cpp">
+      <Filter>Game\Objects</Filter>
+    </ClCompile>
+    <ClCompile Include="Game\Components\ShadowManager.cpp">
+      <Filter>Game\Components</Filter>
+    </ClCompile>
     <ClCompile Include="Game\Components\LanternController.cpp">
       <Filter>Game\Components</Filter>
     </ClCompile>
@@ -215,6 +221,12 @@
     </ClInclude>
     <ClInclude Include="Game\Objects\Lantern.h">
       <Filter>Game\Objects</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\Objects\Sun.h">
+      <Filter>Game\Objects</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\Components\ShadowManager.h">
+      <Filter>Game\Components</Filter>
     </ClInclude>
     <ClInclude Include="Game\Components\LanternController.h">
       <Filter>Game\Components</Filter>

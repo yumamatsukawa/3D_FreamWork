@@ -29,6 +29,8 @@ GameObject* CreateModelDisplay(Scene& scene) {
 
     // 見た目(FBXモデル。パーツの親子関係を保ったまま描く)
     auto* renderer = display->AddComponent<ModelRenderer>(animated ? animatedPath : staticPath);
+    renderer->GetMaterial().castShadow = true;
+    renderer->GetMaterial().receiveShadow = true;
 
     // アニメーションの再生役(ModelRendererの後に付ける)。最初は "Spin"
     ModelAnimationComponent* animation = nullptr;

@@ -22,6 +22,14 @@ PSInput VS(VSInput input)
     return output;
 }
 
+// 影の深度パス用(ピクセルシェーダー無し)。b0 の view / proj には、光から見た行列が入っている
+float4 VSShadow(VSInput input) : SV_POSITION
+{
+    float4 worldPos = mul(float4(input.pos, 1.0f), world);
+    float4 viewPos = mul(worldPos, view);
+    return mul(viewPos, proj);
+}
+
 float4 PS(PSInput input) : SV_TARGET
 {
     return ShadePixel(input);

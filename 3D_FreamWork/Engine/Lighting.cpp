@@ -13,6 +13,7 @@ namespace Lighting {
         std::vector<LightComponent*> registered;     // 登録された光(LightComponentのInitで追加、Uninitで削除)
         ID3D11Buffer* lightBuffer = nullptr;         // b4: LightConstantBuffer
         int activeCount = 0;                         // 今フレームに使っている光の数
+        const LightComponent* shadowSpotLight = nullptr;   // 今フレームの、影を落とすスポットライト
         bool overflowWarned = false;                 // 数が超えた警告を出したか(超えている間は1回だけ出す)
     }
 
@@ -27,7 +28,7 @@ namespace Lighting {
     }
 
     LightConstantBuffer Build(const LightComponent* const* lights, int lightCount,
-        float cameraX, float cameraY, float cameraZ, bool* overflowed) {
+        float cameraX, float cameraY, float cameraZ, bool* overflowed, const LightComponent** shadowLight) {
         // アクティブで有効な光だけを集め、カメラからの距離(の2乗)を測る
         struct Entry { const LightComponent* light; float distanceSq; };
         std::vector<Entry> entries;
@@ -48,6 +49,15 @@ namespace Lighting {
                 [](const Entry& a, const Entry& b) { return a.distanceSq < b.distanceSq; });
             entries.resize(maxLights);
         }
+
+        // 影を落とすスポットライト: 使われる光の中で、カメラに一番近い castShadow の1つ(同時に影を作れるのは1つだけ)
+        int shadowIndex = -1;
+        for (int i = 0; i < (int)entries.size(); i++) {
+            const LightComponent* light = entries[i].light;
+            if (light->GetLightType() != LightType::Spot || !light->IsCastingShadow()) continue;
+            if (shadowIndex < 0 || entries[i].distanceSq < entries[shadowIndex].distanceSq) shadowIndex = i;
+        }
+        if (shadowLight) *shadowLight = (shadowIndex >= 0) ? entries[shadowIndex].light : nullptr;
 
         LightConstantBuffer cb = {};
         cb.counts[0] = (int)entries.size();
@@ -75,6 +85,7 @@ namespace Lighting {
                 gpu.directionOuter[2] = direction.z;
                 gpu.directionOuter[3] = cosf(XMConvertToRadians(light->GetOuterAngle()));
                 gpu.innerPad[0] = cosf(XMConvertToRadians(light->GetInnerAngle()));
+                gpu.innerPad[1] = (i == shadowIndex) ? 1.f : 0.f;   // この光の影を引く
             }
         }
         return cb;
@@ -85,7 +96,7 @@ namespace Lighting {
         const Camera& camera = Image::GetCamera3D();
         bool overflowed = false;
         LightConstantBuffer cb = Build(registered.empty() ? nullptr : registered.data(), (int)registered.size(),
-            camera.position.x, camera.position.y, camera.position.z, &overflowed);
+            camera.position.x, camera.position.y, camera.position.z, &overflowed, &shadowSpotLight);
         activeCount = cb.counts[0];
 
         // 数が超えた時は、開発者が気付けるように出力ウィンドウへ1回だけ知らせる
@@ -124,10 +135,15 @@ namespace Lighting {
         if (lightBuffer) { lightBuffer->Release(); lightBuffer = nullptr; }
         registered.clear();
         activeCount = 0;
+        shadowSpotLight = nullptr;
         overflowWarned = false;
     }
 
     int GetActiveCount() {
         return activeCount;
+    }
+
+    const LightComponent* GetShadowSpotLight() {
+        return shadowSpotLight;
     }
 }

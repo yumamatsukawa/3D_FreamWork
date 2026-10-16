@@ -1,6 +1,7 @@
 ﻿#include "Mesh.h"
 #include "Graphics.h"
 #include "Lighting.h"
+#include "Shadow.h"
 #include <cassert>
 #include <fstream>
 #include <sstream>
@@ -12,6 +13,7 @@ ID3D11Buffer* Mesh::materialBuffer = nullptr;
 ID3D11Buffer* Mesh::cameraBuffer = nullptr;
 ID3D11VertexShader* Mesh::vertexShader = nullptr;
 ID3D11PixelShader* Mesh::pixelShader = nullptr;
+ID3D11VertexShader* Mesh::shadowVertexShader = nullptr;
 ID3D11InputLayout* Mesh::inputLayout = nullptr;
 ID3D11SamplerState* Mesh::sampler = nullptr;
 ID3D11BlendState* Mesh::blendState = nullptr;
@@ -69,6 +71,7 @@ void Mesh::ReleaseSharedResources() {
     if (sampler) { sampler->Release(); sampler = nullptr; }
     if (inputLayout) { inputLayout->Release(); inputLayout = nullptr; }
     if (pixelShader) { pixelShader->Release(); pixelShader = nullptr; }
+    if (shadowVertexShader) { shadowVertexShader->Release(); shadowVertexShader = nullptr; }
     if (vertexShader) { vertexShader->Release(); vertexShader = nullptr; }
 }
 
@@ -109,6 +112,26 @@ bool Mesh::CreateShaders() {
         psBlob->GetBufferSize(), nullptr, &pixelShader);
     if (FAILED(hr)) {
         OutputDebugStringA("★ Mesh CreatePixelShader 失敗\n");
+        vsBlob->Release(); psBlob->Release();
+        return false;
+    }
+
+    // 影の深度パス用の頂点シェーダー(同じファイルの VSShadow。入力は VS と同じなので、同じ入力レイアウトで使える)
+    ID3DBlob* shadowBlob = nullptr;
+    err = nullptr;
+    hr = D3DCompileFromFile(L"Shader3D.hlsl", nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE,
+        "VSShadow", "vs_5_0", 0, 0, &shadowBlob, &err);
+    if (FAILED(hr)) {
+        if (err) { OutputDebugStringA((char*)err->GetBufferPointer()); err->Release(); }
+        else { OutputDebugStringA("★ Shader3D VSShadow コンパイル失敗\n"); }
+        vsBlob->Release(); psBlob->Release();
+        return false;
+    }
+    hr = Graphics::device->CreateVertexShader(shadowBlob->GetBufferPointer(),
+        shadowBlob->GetBufferSize(), nullptr, &shadowVertexShader);
+    shadowBlob->Release();
+    if (FAILED(hr)) {
+        OutputDebugStringA("★ Mesh CreateVertexShader(影) 失敗\n");
         vsBlob->Release(); psBlob->Release();
         return false;
     }
@@ -332,6 +355,7 @@ void Mesh::Draw(const XMMATRIX& world, const Camera& camera, const Material& mat
     ID3D11Buffer* psBuffers[4] = { constantBuffer, nullptr, materialBuffer, cameraBuffer };
     context->PSSetConstantBuffers(0, 4, psBuffers);
     Lighting::Bind();   // b4: 点光源・スポットライト
+    Shadow::Bind();     // b5 / t1 / s1: 影
     ID3D11ShaderResourceView* view = srv ? srv : whiteTexture;
     context->PSSetShaderResources(0, 1, &view);
     context->PSSetSamplers(0, 1, &sampler);
@@ -341,6 +365,35 @@ void Mesh::Draw(const XMMATRIX& world, const Camera& camera, const Material& mat
 
     // 次に2D(Sprite)が描画される時のために、ラスタライザ状態を既定に戻しておく
     context->RSSetState(nullptr);
+}
+
+void Mesh::DrawDepth(const XMMATRIX& world, const XMMATRIX& lightView, const XMMATRIX& lightProj) {
+    assert(context && "context が nullptr");
+    assert(vertexBuffer && "vertexBuffer が nullptr");
+    if (topology != D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST) return;   // 線は影にならない
+
+    // b0 の view / proj に、光から見た行列を入れる(Shader3D.hlsl の VSShadow がそのまま使う)
+    MeshConstantBuffer cb = {};
+    cb.world = XMMatrixTranspose(world);
+    cb.view = XMMatrixTranspose(lightView);
+    cb.proj = XMMatrixTranspose(lightProj);
+    D3D11_MAPPED_SUBRESOURCE msr;
+    context->Map(constantBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &msr);
+    memcpy(msr.pData, &cb, sizeof(cb));
+    context->Unmap(constantBuffer, 0);
+
+    UINT stride = sizeof(MeshVertex), offset = 0;
+    context->IASetInputLayout(inputLayout);
+    context->IASetVertexBuffers(0, 1, &vertexBuffer, &stride, &offset);
+    context->IASetIndexBuffer(indexBuffer, DXGI_FORMAT_R32_UINT, 0);
+    context->IASetPrimitiveTopology(topology);
+
+    context->VSSetShader(shadowVertexShader, nullptr, 0);
+    context->VSSetConstantBuffers(0, 1, &constantBuffer);
+    context->PSSetShader(nullptr, nullptr, 0);   // 色は描かない(深度だけ)
+
+    if (indexBuffer) context->DrawIndexed(indexCount, 0, 0);
+    else context->Draw(vertexCount, 0);
 }
 
 void Mesh::Uninit() {

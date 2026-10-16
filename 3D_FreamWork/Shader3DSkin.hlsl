@@ -43,6 +43,18 @@ PSInput VS(VSInput input)
     return output;
 }
 
+// 影の深度パス用(ピクセルシェーダー無し)。骨で曲げた後の位置を、光から見た行列(b0 の view / proj)で変換する
+float4 VSShadow(VSInput input) : SV_POSITION
+{
+    matrix skin = bones[input.boneIndices.x] * input.boneWeights.x
+                + bones[input.boneIndices.y] * input.boneWeights.y
+                + bones[input.boneIndices.z] * input.boneWeights.z
+                + bones[input.boneIndices.w] * input.boneWeights.w;
+    float4 worldPos = mul(mul(float4(input.pos, 1.0f), skin), world);
+    float4 viewPos = mul(worldPos, view);
+    return mul(viewPos, proj);
+}
+
 float4 PS(PSInput input) : SV_TARGET
 {
     return ShadePixel(input);

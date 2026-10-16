@@ -3,7 +3,7 @@
 ## 1. はじめに
 
 ### この文書の目的
-Engine(`3D_FreamWork/Engine/`)に追加したい9個の機能(視界判定・カプセルコライダー・マテリアル・ライト・影・枠線・地形・地形コライダー・水面)について、「どんな関数を作るか」「どの順番で作るか」「Engineのどのファイルを変えるか」「Sampleではどう使えるか」をまとめた設計書です。チーム(C++初心者を含む)で分担して実装する時の資料として使います。
+Engine(`3D_FreamWork/Engine/`)に追加したい10個の機能(視界判定・カプセルコライダー・マテリアル・ライト・影・枠線・地形・地形コライダー・水面・ポイントライトの影)について、「どんな関数を作るか」「どの順番で作るか」「Engineのどのファイルを変えるか」「Sampleではどう使えるか」をまとめた設計書です。チーム(C++初心者を含む)で分担して実装する時の資料として使います。
 
 ### `docs/EngineRoadmap.md` との関係
 - `EngineRoadmap.md`(ロードマップ1)の17機能は**すべて完了**しています。この文書はその**続き**です。書き方(目的 / ファイル案 / 関数 / 設計のポイント / 置き換えるSampleのコード / 依存する機能)は同じにそろえました。
@@ -11,7 +11,7 @@ Engine(`3D_FreamWork/Engine/`)に追加したい9個の機能(視界判定・カ
 - ロードマップ1の機能(物理の問い合わせ 5.6、カメラ機能 5.7、FBX・骨アニメーション 5.16 など)は**もう使える前提**で書いています。特に、視界判定は 5.6 の `Physics::Raycast` を使います。
 
 ### 状態
-**ここに書いてある内容は「設計案」です。6.1 視界判定・6.2 カプセルコライダー・6.3 マテリアル・6.4 ポイントライトとスポットライトが実装済みです(4章の表の状態を見てください。ほかは「未着手」)。** 関数名・引数は、実装しながら変わってよいものです。この設計書は「実際のEngineのコードを読んで」書いたので、既存のクラス名・関数名・ファイル名は本物です。新しく作る名前だけが案です。
+**ここに書いてある内容は「設計案」です。6.1 視界判定・6.2 カプセルコライダー・6.3 マテリアル・6.4 ポイントライトとスポットライト・6.5 影が実装済みです(4章の表の状態を見てください。ほかは「未着手」)。** 関数名・引数は、実装しながら変わってよいものです。この設計書は「実際のEngineのコードを読んで」書いたので、既存のクラス名・関数名・ファイル名は本物です。新しく作る名前だけが案です。
 
 ### 進め方の方針(1機能ずつ)
 1機能ごとに、次の流れで進めます。
@@ -45,6 +45,7 @@ Engine(`3D_FreamWork/Engine/`)に追加したい9個の機能(視界判定・カ
 - **マテリアル → ライト → 影**: ライトも影も、「この面の色を、光でどう変えるか」という計算を増やす機能です。その計算を入れる場所(マテリアルの定数バッファ・カメラ位置の定数バッファ)を、最初にマテリアルで決めておくと、後の機能がシェーダーを何度も書き直さずに済みます。影は「光の向き・位置」(ライト)と「Meshを速く描ける作り」(マテリアル段階2)が前提なので、一番後ろに置きました。
 - **地形 → 地形コライダー → 水面**: 地形コライダーは、地形と**同じ高さのデータ**から作ります(見た目と当たり判定がずれないように)。水面は「地形のくぼみに水を張る」使い方が一番分かりやすいので、地形の後にしました。
 - **視界判定とカプセルは単独**: ほかの機能に依存せず、依存もされません(カプセルは地形と相性がよいだけ)。担当者が空いている時に、いつでも先に作ってよいです。
+- **ポイントライトの影は最後**: 6.5 で作った影の仕組み(`Shadow`・`VSShadow`・`DrawDepth`・`ShadowBuffer`)をそのまま使って、6面ぶん描くだけなので、6.5 の後ならいつでも作れます。ほかの機能(枠線・地形・水面)とは独立しています。
 - **枠線はマテリアルの後**: 枠線の色・太さ・縁の光り方はマテリアルの項目として持つので、マテリアルが先です。影(5)とは独立しているので、影が難しければ先に作ってもかまいません。
 
 ---
@@ -90,11 +91,12 @@ Engine(`3D_FreamWork/Engine/`)に追加したい9個の機能(視界判定・カ
 | 2 | [6.2 カプセルコライダー](#62-カプセルコライダー実装済み) | 単独(`RigidbodyComponent` に形を足す) | | 実装済み |
 | 3 | [6.3 マテリアル](#63-マテリアル実装済み) | 5.3(`Resources`)を使う。ライト・影・枠線・水面・地形の土台 | | 実装済み |
 | 4 | [6.4 ポイントライトとスポットライト](#64-ポイントライト点光源とスポットライト実装済み) | 6.3 | | 実装済み |
-| 5 | [6.5 影](#65-影シャドウマップ) | 6.3(段階2)・6.4 | | 未着手 |
+| 5 | [6.5 影](#65-影シャドウマップ実装済み) | 6.3(段階2)・6.4 | | 実装済み(段階1・2・3) |
 | 6 | [6.6 枠線を光らせる](#66-枠線を光らせるアウトラインリム発光) | 6.3・6.4 | | 未着手 |
 | 7 | [6.7 地形](#67-地形) | 6.3(段階2)。6.1は任意 | | 未着手 |
 | 8 | [6.8 地形に合わせたコライダー](#68-地形に合わせたコライダー) | 6.7 | | 未着手 |
 | 9 | [6.9 水面](#69-水面) | 6.3・6.4。6.7があると使い方が分かりやすい | | 未着手 |
+| 10 | [6.10 ポイントライトの影](#610-ポイントライトの影) | 6.4・6.5(`Shadow` の仕組みを使う。6.6〜6.9とは独立) | | 未着手 |
 
 ---
 
@@ -112,7 +114,8 @@ Engine(`3D_FreamWork/Engine/`)に追加したい9個の機能(視界判定・カ
 | `b4` | `LightBuffer`(点光源・スポットライトの配列。**6.4 で `b3` ではなく `b4` にした**。カメラ位置は描く度に変わるが光は1フレームに1回なので、分けた) | 6.4 | 1フレームに1回 |
 | `b5` | `ShadowBuffer`(光から見たview×proj・バイアスなど。6.4 が `b4` を使ったので `b5` にずらす) | 6.5 | 1フレームに1回 |
 | `t0` / `s0` | 画像 / サンプラー(今のまま) | (今ある) | |
-| `t1` / `s1` | 影の深度テクスチャ / 比較サンプラー | 6.5 | |
+| `t1` / `t2` / `s1` | 太陽の影・スポットの影の深度テクスチャ / 比較サンプラー | 6.5 | |
+| `t3` | ポイントライトの影(`TextureCube`。6面の深度)。`s1` を共用。定数は `b5` の末尾に足す | 6.10 | |
 | `b6` | `WaterBuffer`(水面だけ。6.4・6.5 で番号がずれたので `b6`) | 6.9 | 1フレームに1回 |
 
 **`b0` を変えない理由**: `MeshConstantBuffer` は `Mesh` と `SkinMesh` と2つのシェーダーが同じ形で使っていて、平行光源はここに入っています。ここを変えると全部を同時に直す必要があります。**平行光源は今のまま `b0`、増える光(点光源・スポット)は新しい `b4`**(設計時は `b3` と書いたが、6.4 で `b4` にした)にすれば、新しい光を1つも置かない限り、今のゲームの見た目は変わりません。
@@ -573,7 +576,7 @@ Image::GetLight().ambient = { 0.1f, 0.1f, 0.12f };
 
 ---
 
-### 6.5 影(シャドウマップ)
+### 6.5 影(シャドウマップ)(実装済み)
 
 **目的**: 立体のオブジェクトが地面や他のオブジェクトに落とす影を描く。まず平行光源(太陽)の影から作り、余裕があればスポットライトの影も作る。
 
@@ -631,7 +634,7 @@ virtual void DrawShadow() {}
 - **段階1**: 平行光源だけ、`Mesh`(`MeshRenderer`)が影を落とし・受ける。PCF 3x3。解像度は設定。静止した `ModelRenderer` のパーツも落とす。
 - **段階2**: スキンメッシュ(`SkinMesh`)が影を落とす。透明部分が多い画像(アルファの切り抜き)の影。
 - **段階3**: スポットライトの影(透視投影で、光の位置から見た深度。同時に影を作る光は1つだけ)。
-- **将来(今回は作らない)**: カスケード(遠近で影の解像度を変える)、点光源の影(キューブマップ)、柔らかい影(PCSS)。
+- **将来(今回は作らない)**: カスケード(遠近で影の解像度を変える)、点光源の影(キューブマップ。→ **6.10 で設計**)、柔らかい影(PCSS)。
 
 **両サンプルへの影響(変えるEngineファイル。了承が必要)**:
 - 新規: `Engine/Shadow.h/.cpp`、`Engine.vcxproj(.filters)`
@@ -645,20 +648,37 @@ virtual void DrawShadow() {}
 Shadow::GetSettings().enabled = true;
 Shadow::GetSettings().distance = 2500.f;
 
-// Sample3D Player / Sphere / Cube: 既定で影を落とす・受ける(Material::castShadow / receiveShadow が既定 true)
-// Sample3D GroundController のタイル: Mesh::Draw の既定のマテリアル(receiveShadow = true)で影を受ける
-// Skybox: meshRenderer->GetMaterial().receiveShadow = false;  castShadow = false;
+// Sample3D Player / Sphere / Cube: 影を落とす・受ける(実装では Material::castShadow / receiveShadow は既定 false。使う物に true を書く)
+// Sample3D GroundController のタイル: Mesh::Draw に receiveShadow = true のマテリアルを渡して影を受ける
+// Skybox: 何も書かない(castShadow / receiveShadow が既定の false のまま)
 // (敵は画像のビルボードなので影を落とさない。丸い影の案は7章で確認)
 ```
 対象: Sample3D の Player・Sphere・Cube・ModelDisplay・Ground・Skybox。
 
 **依存する機能**: 6.3(段階2)、6.4(光の向き・位置)。
 
-**未確定の点**:
-- 影の範囲(`distance`)と解像度の既定値でよいか(2048、3000)
-- `DrawShadow` を `Component` に足す方式にするか、登録簿の方式にするか(根幹のファイルを触るかどうか)
-- 敵(画像)の足元に丸い影を置くか
-- スポットライトの影(段階3)まで作るか、段階1〜2で止めるか
+**実装して決めたこと(実装済み。段階1・2・3とも)**:
+- **方式は「登録簿方式」にした**(`Component::DrawShadow` を足す案は選ばなかった)。`MeshRenderer` / `ModelRenderer` が `Init` で `Shadow::Register` に自分を登録し(`Uninit` とデストラクタで解除)、`Shadow::Render` が登録簿を回して、アクティブ(`SetActive`)で有効(`SetEnabled`)な物の `DrawShadow` を呼ぶ。選んだ理由: ①`Component.h` / `GameObject.h` / `Scene.h/.cpp` / `SceneManager.h/.cpp` の根幹を1行も触らずに済み、Sample2D を含む全オブジェクトへの影響が無い(`Lighting` と同じ作りで、チームも読みやすい) ②アクティブ・有効の判定は `GetOwner()->GetIsActive()` と `IsEnabled()` の2行で済み、`GameObject::Draw` と同じ決まりになる ③`DrawShadow` を実装した物だけが影のパスに出るので、`Component` を使う全部のクラスに口を増やさない。デメリット(登録の消し忘れ)は、`Uninit` とデストラクタの両方で外すことで防いだ。
+- **新しいファイル**: `Engine/Shadow.h/.cpp`(`Engine.vcxproj(.filters)` に登録)。**変えた Engine**: `Shader3DCommon.hlsli`(`ShadowBuffer` b5・`SunShadow` / `SpotShadow` / PCF。`ShadePixel` で引く)、`Shader3D.hlsl`・`Shader3DSkin.hlsl`(深度だけの頂点シェーダー `VSShadow` を足しただけ)、`Mesh.h/.cpp`・`SkinMesh.h/.cpp`(`DrawDepth` と深度用の頂点シェーダー。`Draw` が `Shadow::Bind()` を1行)、`MeshRenderer.h`・`ModelRenderer.h/.cpp`(登録と `DrawShadow`)、`Material.h`(`castShadow` / `receiveShadow`)、`GameEngine.cpp`(`Shadow::Render()` と `Shadow::Shutdown()`)。**変えていない**: `Component.h`・`GameObject.h`・`Scene.h/.cpp`・`SceneManager.h/.cpp`・`Graphics.h/.cpp`(描画先の保存と復元を `Shadow::Render` の中で `OMGet○○` / `RSGet○○` でやったので不要)・`Shader.hlsl`・`PhysX.props`。段階3のために、6.4 で「影の余地」として予約していた範囲で `LightComponent.h`(`SetCastShadow`)と `Lighting.h/.cpp`(影を落とすスポットを1つ選び、`GpuLight::innerPad[1]` に印を付ける。`GetShadowSpotLight()`)も変えた。
+- **`Material` の `castShadow` / `receiveShadow` は、既定を両方 `false` にした**(設計書は `true`)。「影を有効にしない限り既存の見た目を変えない」ことに加えて、影を有効にしても、指定した物だけが影の影響を受けるようにするため。`RigidbodyComponent` の枠線表示や、色指定の `Mesh::Draw` も、既定のマテリアル(=影を受けない)になる。
+- **既定値(`Shadow::Settings`)**: `enabled = false`、`resolution = 2048`、`distance = 3000`、`depthBias = 0.0005`(設計書は0.0015)、`normalBias = 2.0`、`strength = 0.6`、`pcfRadius = 1`、スポット用に `spotResolution = 1024`・`spotDepthBias = 3.0`(ワールド単位)・`spotStrength = 1.0`。`depthBias` を設計書より小さくしたのは、影の奥行きの範囲が `2 × distance`(既定6000)で、0.0005 がワールド単位で約3に当たり、0.0015(約9)だと影が物から浮いて見えるため。ラスタライザの傾き補正(`SlopeScaledDepthBias = 1.5`)と合わせて、WARP で床・箱・球・スキンの自己影が出ないことを確認した。Sample3D は `distance = 2500` にしている。
+- **影の範囲**: 3Dカメラの前方 `distance / 2` の点を中心に、一辺 `distance` の正方形(光に垂直な面)×奥行き `2 × distance`(中心の前後に `distance` ずつ)の箱。中心の縦横は、光から見て1テクセルの大きさの整数倍に丸める(カメラが動いても縁がちらつかない)。範囲の縁(4%)は影を弱くして、影が急に消えて見えないようにした。範囲の外・奥行きの外は影なし(明るい)。カメラが高い所から真下を見るような時は、床が奥行きの範囲(中心から光の向きに `distance` まで)の外になって影が出ないので、`distance` を大きくする。
+- **描画の流れ**: `GameEngine::Run` で `Lighting::Update()` の次、`Text::BeginDraw()` の前に `Shadow::Render()`。影が無効の時は何もしない(コスト0。深度テクスチャも作らない)。有効の時は、描画先・深度・ビューポート・ラスタライザ・ブレンド・深度ステンシル・ピクセルシェーダーを覚えて、影のパスの後に**必ず元へ戻す**。影のテクスチャを読むバインド(`t1`・`t2`)は、書く前に外す(同じ物を同時に読み書きしない)。
+- **レジスタ**: `b5` = `ShadowBuffer`(平行光源の行列とパラメーター + スポットの行列とパラメーター。`Shadow::ShadowConstantBuffer`)、`t1` = 平行光源の影、`t2` = スポットライトの影、`s1` = 比較サンプラー。影を使わないフレームも、`s1`(比較サンプラー)は常にセットする(セットしないと、デバッグレイヤーが警告する)。`b5` と `t1`・`t2` には `nullptr` をセットするので、シェーダーは0として読み、影なしになる。
+- **影が効くのは平行光源と、影を落とすスポット1つだけ**。環境光・ポイントライト・影を落とさないスポットは、影で暗くならない。unlit(`lit = false`)の物は影を受けない。平行光源の影は「平行光源の光(拡散+光沢)」だけを `strength` の分だけ暗くする。
+- **段階2(スキンメッシュ)**: `Shader3DSkin.hlsl` の `VSShadow` が、骨で曲げた後の位置を深度に書く。`ModelRenderer::DrawShadow` が、描く時と同じ行列・骨の行列で `SkinMesh::DrawDepth` を呼ぶ。骨の動きが影に反映される。
+- **段階3(スポットの影)**: 作った(影を落とせるスポットは同時に1つ)。`LightComponent::SetCastShadow(true)` にしたスポットのうち、使われる光の中で3Dカメラに一番近い1つを `Lighting` が選び、`Shadow::Render` がその光から透視投影(視野 = 外側の角度の2倍、最大120度。奥行きは `range` まで)で深度を描く。光から遠いほど深度が粗いので、`spotDepthBias`(ワールド単位)を、その場所の深度の傾きで換算して引く。外側の角度が60度を超える部分には影が出ない。ポイントライトの影は作れない(`SetCastShadow` を呼んでも無視する)。
+- **透明部分(画像のアルファ)**: 影のパスにはピクセルシェーダーが無いので、画像の透明な部分も含めて、板全体が影になる(設計書の段階2にあった「アルファの切り抜きの影」は、今回の範囲に入れていない)。半透明の物(`GlassPanel` など)は `castShadow` を `false` のままにする。
+- **敵(スプライト)の丸い影(ブロブシャドウ)は置いていない**(今後。敵は `SpriteRenderer` なので、影を落とさない)。
+- **Sample**: Sample3D に `Sun`(`Objects/Sun.cpp`。`ShadowManager` が、このシーンの間だけ影を有効にして `distance = 2500` にし、`Uninit` で既定に戻す)を置いた。地面のタイル(`GroundController` が `Material::receiveShadow = true`)が影を受け、`Player`・`Wall`・`ModelDisplay`・`SkinDisplay` が影を落とし・受け、`Guard` は影を受けるだけ(懐中電灯の光源が自分の立方体の内側にあり、落とすと自分の面が光をすべてさえぎるため)。`Guard` の懐中電灯は `SetCastShadow(true)`(壁や `Player` の後ろに光が届かない)。**影を有効にした分、Sample3D の地面に影が落ち、懐中電灯の光が壁・Playerでさえぎられる(ここは見た目が変わる)。** `GlassPanel`・`Lantern`・`Skybox`・敵・弾は影の対象にしていない。Sample2D は影を使わない(見た目は変わらない)。
+- **確認(WARP=ソフトウェアのD3D11。デバッグレイヤー有効)**: ①影を使わない絵(地面・立方体・光沢の球・unlit の空・輪郭の線・スキン)が、変更前(6.4)の絵と**1ピクセルも違わない**(`Shadow::Render` を呼んでも、影を有効にしても `castShadow` / `receiveShadow` を指定しなければ同じ) ②`Shader3D.hlsl` / `Shader3DSkin.hlsl` の `VS`・`PS`・`VSShadow` が警告なしでコンパイルできる ③上から見た床に落ちる回転した箱の影の位置と形が、光線と三角形の交差(CPUの別の計算)と一致(影の中・外とも不一致0)。影の無い所は影なしの絵と同じ ④床の自己影・球・箱の自己影が出ない(光の高さ13〜87度、斜めのカメラ。最大差は2/255以内) ⑤PCF の半径を大きくすると縁が柔らかい(中間の明るさの画素が増える) ⑥スキンメッシュの影が、骨で曲げた後の形のCPUの計算と一致。骨を変えると影が変わる ⑦`distance` を小さくして、範囲の外の箱は影を落とさず、範囲の中の箱は落とす ⑧`receiveShadow = false`・unlit・`strength = 0` で影が出ない ⑨解像度を1024・4096に変えても正しい ⑩`SetActive(false)`・`SetEnabled(false)`・`Uninit`・`delete` で影が消え、登録が残らない ⑪影のパスの後に、描画先・深度・ビューポート・ラスタライザ・ブレンド・深度ステンシルが元に戻る ⑫点光源だけで照らした絵は、影の有無で変わらない ⑬スポットの影の位置・形が、光と床を結ぶ線と箱の交差(CPU)と一致。平行光源の影とスポットの影が、それぞれの光だけを暗くする(足し算が一致)。スポットの自己影(アクネ)が、光の高さ60〜900・いろいろな向きで出ない。複数ある時はカメラに近い1つを選び、ポイントライトは無視 ⑭デバッグレイヤーに警告・エラーが出ない(読み書きのバインド競合・比較サンプラーの不足なし)。終了時に、影のテクスチャ・ステート・バッファが解放され、生存オブジェクトが残らない。
+- **WARP で確かめていない物**: `MeshRenderer` / `ModelRenderer` を通した影(`Resources` の初期化が必要なため。同じ登録・`DrawDepth` の部分は、同じ作りのテスト用 Component で確認した)、FBXモデルの影、実際の `GameScene`、実機GPUでの見た目(バイアスは GPU・解像度で見え方が変わる)。Sample3D の見え方(影の濃さ・縁・懐中電灯の影)は、実機で確認してもらう。
+
+**未確定の点(決まったこと)**:
+- 影の範囲(`distance`)と解像度の既定値でよいか(2048、3000) → **そのまま**(Sample3D は `distance = 2500`)。`depthBias` だけ 0.0005 に変えた
+- `DrawShadow` を `Component` に足す方式にするか、登録簿の方式にするか → **登録簿方式**(根幹のファイルは触っていない)
+- 敵(画像)の足元に丸い影を置くか → **置いていない**(今後)
+- スポットライトの影(段階3)まで作るか → **作った**(同時に影を落とせるスポットは1つ)
 
 ---
 
@@ -970,6 +990,113 @@ if (pos.y < waterY) speed *= 0.5f;
 
 ---
 
+### 6.10 ポイントライトの影
+
+**目的**: 全方向に光るポイントライト(`Lantern` のようなランタン・たいまつ)が、壁や `Player` の後ろに影を落とすようにする。6.5 で作った影(太陽・スポット)の続きで、**6.5 で「作れない」としていたポイントライトの影**を作る。
+
+> **6.5 との違い**: 太陽は一方向、スポットは円すいの範囲なので、光から見た絵が1枚で済みます。ポイントライトは**360度すべての向き**に光るので、光から見た絵が1枚では足りません。**上下左右前後の6方向の絵(キューブマップ)**を作ります。影のパスが6回に増えるのが、この機能の一番のコストです。
+
+**ファイル案**: 新しいファイルは作らない。`Engine/Shadow.h/.cpp`(キューブの深度テクスチャ・6面のパス・`Bind` の `t3`)、`Engine/Lighting.h/.cpp`(影を落とすポイントライトの選択)、`Shader3DCommon.hlsli`(`PointShadow`・`b5` の拡張・`t3`)、`Engine/LightComponent.h`(`SetCastShadow` の説明をポイントにも効くように直す)。
+
+**関数**:
+```cpp
+// Shadow::Settings に足す(Shadow.h)
+int   pointResolution = 512;    // キューブの1面の大きさ(正方形。256 / 512 / 1024)。6面ぶん描くので、スポットより小さめ
+float pointDepthBias = 3.0f;    // 判定のゆとり(ワールド単位。光から見た距離の方向)
+float pointStrength = 1.0f;     // 影の濃さ(0=影なし、1=そのポイントライトの光が真っ暗)。normalBias と pcfRadius は平行光源と同じ値を使う
+
+// Lighting に足す(Lighting.h)。GetShadowSpotLight と同じ形
+const LightComponent* GetShadowPointLight();   // 今フレームの、影を落とすポイントライト(無ければnullptr)
+
+// 使う側(LightComponent は今のまま。ポイントライトにも効くようになるだけ)
+light->SetCastShadow(true);   // 今は「スポットだけ」。ポイントライトにも効かせる
+```
+```hlsl
+// Shader3DCommon.hlsli
+TextureCube pointShadowMap : register(t3);    // ポイントライトの影(6面の深度)
+// ShadowBuffer(b5)の末尾に足す: pointPos(xyz=光の位置, w=1/解像度)、pointParams(x=使う, y=depthBias, z=near, w=far)、
+//                                 pointParams2(x=ぼかしの半径, y=normalBias, z=strength)
+float PointShadow(float3 worldPos, float3 normal, float3 lightPos, float lightNdotL);   // 0〜1(1=影なし)
+```
+
+**方式の比較(キューブマップの作り方)**:
+
+| 方式 | 仕組み | 長所 | 短所 |
+|---|---|---|---|
+| **A. 6面の深度 + `TextureCube` の比較サンプリング**(おすすめ) | 光の位置から、+X −X +Y −Y +Z −Z の6方向を、視野90度・縦横比1の透視投影で深度だけ描く(6.5 のスポットの影を6回やる形)。本番では「光から見たピクセルの向き」でキューブを引き、比較サンプラー(`s1`)で影かどうかを判定する | **6.5 の `VSShadow` と `DrawDepth` をそのまま使える**(ライト空間の行列を面ごとに差し替えて6回呼ぶだけ)。新しいピクセルシェーダーが要らない。比較サンプラーの2x2補間(PCF)がハードウェアで効く | 比べる深度は「その面のz(奥行き)」なので、ピクセルの向きから**どの面か(絶対値が最大の軸)とそのz**を自分で求める必要がある。透視投影の深度は遠いほど粗いので、スポットと同じく、ワールド単位のバイアスを深度に直す |
+| **B. 距離を書く方式** | 6面を `R32_FLOAT` のレンダーターゲットに、「光からの距離」をピクセルシェーダーで書く(別に深度バッファも要る)。本番では、ピクセルの向きでキューブを引いて、書かれた距離と自分の距離を比べる | 距離そのものを比べるので、軸やzの計算が要らず、バイアスも「距離の差」で単純に書ける | **新しいピクセルシェーダー**(ワールド位置を渡す頂点シェーダーと、距離を書くピクセルシェーダー)が `Shader3D.hlsl`・`Shader3DSkin.hlsl` の両方に要る。比較サンプラーが使えないので、PCFは自分で複数回読んで平均する(ハードウェアの補間が効かない)。レンダーターゲット+深度の両方が6面ぶん要る |
+
+**おすすめは A**。理由: ①既存の `VSShadow`・`Mesh::DrawDepth`・`SkinMesh::DrawDepth` が**そのまま使え**、`Shader3D.hlsl`・`Shader3DSkin.hlsl` を変えずに済む(Engineの変更が少ない) ②`Shadow::Caster::DrawShadow(const LightView&)` の形も変えずに、登録済みの物を6回呼ぶだけ ③PCFがハードウェアに任せられる。Bは、Aで面の境目の乱れが直らなかった時の代案として残す。
+
+**設計のポイント(仕組み)**:
+1. **影のパス(1フレームに最大6回)**: 光の位置 `p` から、次の6つの向きを見る行列(`XMMatrixLookToLH`)と、視野90度・縦横比1・near〜far の透視投影(`far` = 光の `range`、near は小さく。例 10)を作り、`R32_TYPELESS` の6枚の配列テクスチャ(`MiscFlags = D3D11_RESOURCE_MISC_TEXTURECUBE`、`ArraySize = 6`)の1枚ずつに深度を描く。面ごとに `D32_FLOAT` の DSV(`Texture2DArray` で `FirstArraySlice = 面の番号`、`ArraySize = 1`)を作り、読む時は `R32_FLOAT` の `TextureCube` の SRV を1つ作る。
+
+   | 面の番号 | 向き | 上 |
+   |---|---|---|
+   | 0 | +X | +Y |
+   | 1 | −X | +Y |
+   | 2 | +Y | −Z |
+   | 3 | −Y | +Z |
+   | 4 | +Z | +Y |
+   | 5 | −Z | +Y |
+2. **本番(ピクセルシェーダー)**: ライトからピクセルへのベクトル `v = worldPos(法線で少しずらした位置) − lightPos` を求める。**`v` の絶対値が最大の成分が、見るべき面**で、その成分の大きさ `z = max(|v.x|, |v.y|, |v.z|)` が、その面の透視投影の「奥行き」になる。比べる深度は `depth = (far / (far − near)) − (far × near / (far − near)) / z`(左手系・0〜1の深度)。これを `pointShadowMap.SampleCmpLevelZero(shadowSmp, v, depth − biasInDepth)` で比べる(キューブは `v` の向きで引ける)。
+3. **バイアス**: スポットの `SpotShadow` と同じ考え方。ワールド単位の `pointDepthBias` を、`z` を `z − pointDepthBias` にずらした深度の差として引く(`depth(z − bias)`)。加えて、法線方向へ `normalBias × (1 − ndotl)` だけずらす。ラスタライザの `SlopeScaledDepthBias` は、スポットの深度パスと同じ状態を使い回す。
+4. **PCF**: 向き `v` を、面の接線の方向に少しずらして複数回読む(`pcfRadius` = 平行光源と同じ値。1 = 3x3)。**ずらした向きごとに、`depth` と面を求め直す**(下の「面の境目」を参照)。
+5. **影を落とすポイントライトは1つまで**: `Lighting` が、`SetCastShadow(true)` のポイントライトのうち、使われる光(カメラに近い8個)の中で**3Dカメラに一番近い1つ**を選ぶ(スポットと同じ選び方)。スポットとは別枠なので、**影を落とすスポット1つ + ポイント1つ + 太陽**を同時に使える。選んだ光の `GpuLight::innerPad[1]` に印(1)を付けるのは今のまま(種類は `colorType.w` で分かるので、ポイントとスポットのどちらの影を引くかはシェーダーが決める)。
+6. **無効の時**: `Shadow::GetSettings().enabled = false`、または影を落とすポイントライトが無い、または `pointResolution` ぶんのテクスチャが未作成の間は、**6回のパスを実行しない**(コスト0・見た目は今と同じ)。キューブは、使う最初のフレームで作る(使わないシーンではメモリを使わない)。
+7. **描画状態の保存と復元**: 6.5 の `Shadow::Render` が、描画先・深度・ビューポート・ラスタライザ・ブレンド・深度ステンシルを覚えて戻す仕組みの中に、6面のループを足すだけにする。**`t3` も、書く前に外す**(同じ物を同時に読み書きしない)。
+8. **スキンメッシュ**: **描く**(`ModelRenderer::DrawShadow` が、呼ばれるたびに `SkinMesh::DrawDepth` を呼ぶ作りなので、6回呼ばれるだけで、`MeshRenderer`・`ModelRenderer` を変えずに済む)。骨の行列を6回送る分だけ少し重い。
+9. **範囲の絞り込み(任意)**: 光の `range` の外にある物は、どの面にも映らないので、`DrawShadow` の前に球の判定(物の位置が光から `range` + 半径以内か)で省く。`Visibility` の関数は、カメラ用なので使えない(光は別の位置から見る)。まず省かずに作って、重ければ足す。
+10. **レジスタ**: 新しいテクスチャスロットは **`t3`**(`t1` = 太陽、`t2` = スポット、`t3` = ポイント)。比較サンプラー `s1` は共用する。定数バッファは **`b5`(`ShadowBuffer`)の末尾に足す**(別の `b` を作らない)。**理由**: ①6面の行列は影のパスで `DrawDepth` に引数で渡すので、本番のシェーダーには要らない(`b5` に足すのは位置・near・far・パラメーターだけで、64バイト程度) ②1フレームに1回しか更新しないので、`b5` と更新の頻度が同じ ③末尾に足せば、今ある項目の位置(オフセット)が変わらない。`Shadow::ShadowConstantBuffer` も同じ並びで末尾に足し、`static_assert(sizeof % 16 == 0)` を守る。**落とし穴**: C++ の `ShadowConstantBuffer` と HLSL の `ShadowBuffer` の並びがずれると、全部の影が壊れる。両方を同時に直す。
+
+**難しい・大きい点(正直に)**:
+- **性能(影のパスが6回増える)**: 1フレームの描画命令は「影を落とす物の数 × 6」増える(太陽・スポットの影と合わせて、最大 1 + 1 + 6 = 8パス)。Sample3D の規模(落とす物が5〜10個)なら問題ないが、物が多いと重くなる。解像度は512(6面で 512×512×4バイト×6 = 約6MB。1024 にすると約24MB)。重ければ、解像度を下げる・`range` の外を省く(設計のポイント9)・動かない光は毎フレーム描かない、で下げる。
+- **面の境目(落とし穴)**: ピクセルの向きが2つの面の境目にある時、PCFで周りを読むと**隣の面**を読む。隣の面の深度は、別の軸のz(奥行き)なので、**中心の面のzで作った `depth` と比べると影が崩れる**(境目に線が出る)。対策: ①ずらした向きごとに、面とzを求め直して比べる(設計のポイント4) ②`pcfRadius` は1まで ③面の取り違えを避けるため、視野を90度ちょうどにし、キューブのハードウェアの継ぎ目の補間(D3D11 は標準で有効)を使う。**境目の見え方は、実機で確かめる**。
+- **面の向きの取り違え**: キューブの6面の「向き」と「上」(設計のポイント1の表)は、D3D のキューブの座標系(左手系)と合わせる。1面でもずれると、影が別の方向に出る。**確認の方法**: 光の周りの6方向に1つずつ箱を置いて、それぞれの影が正しい方向に出ることを見る。
+- **光源が自分のメッシュの内側にある問題(6.5 の `Guard` と同じ)**: `Lantern` は光る球(`MeshRenderer`)の中心にポイントライトがある。この球が `castShadow = true` だと、**光源が球の内側にあるので、球が全方向の光をすべてさえぎる**(周りが真っ暗になる)。対策: ①`Lantern` の球は `castShadow = false` のままにする(`Material` の既定が `false` なので、何も書かない) ②光源を内側に含む物に `castShadow` を付けない、を約束にする(`Lantern` の `.cpp` のコメントに書く)。将来の代案は、影のパスで表面(CCW)を描かず裏面だけ描く(光源を囲む物が影を落とさない)が、通常の物の影が崩れるので今回は採らない。
+- **光の `range` の外**: ピクセルが光から `range`(= `far`)より遠いと、キューブに映らない(深度が1.0)。ただし、その場所は `range` で光が0になる(`ShadePixel` の `dist >= lightRange` で `continue` する)ので、**影を引かない**(`PointShadow` は `dist < range` の中でしか呼ばれない)。`far` を `range` と同じにするので、`range` の端で影が途切れることはない。`near` が大きすぎると、光のすぐ近くの物が映らない。
+- **複数のポイントライト**: 影を落とせるのは1つだけ。2つ目以降は、`SetCastShadow(true)` にしても**影が出ない**(明るく光る)。選ぶ基準は「カメラに近い1つ」なので、カメラが動くと、影を落とす光が**切り替わる**(影が急に出たり消えたりする)。許容するか、優先順位(`SetShadowPriority` など)を足すかは未確定。
+- **透明部分・敵(スプライト)**: 6.5 と同じ。画像の透明部分も板全体が影になり、`SpriteRenderer`(敵)は影を落とさない。
+- **実機GPUでの見た目**: バイアスと境目は、GPU・解像度で見え方が変わる。必ずユーザーが遊んで確認する。
+
+**段階分け(提案)**:
+- **段階1**: 影を落とすポイントライト1つ、`MeshRenderer` / `ModelRenderer`(静止のパーツ)が影を落とす。PCFなし(`pcfRadius = 0` 相当)。解像度は設定。`Lantern` の `SetCastShadow(true)` で確認する。
+- **段階2**: PCF(面の境目の対策つき)、スキンメッシュ、`range` の外の物を省く。
+- **将来(今回は作らない)**: 複数のポイントライトの影、動かない光のキューブの使い回し(毎フレーム描かない)、光源を囲む物の扱い(裏面だけ描く)、柔らかい影(PCSS)。
+
+**両サンプルへの影響(変えるEngineファイル。了承が必要)**:
+- 新規: なし(`Engine.vcxproj(.filters)` も変えない)
+- 変更: `Engine/Shadow.h/.cpp`(`Settings` に `pointResolution` / `pointDepthBias` / `pointStrength`、キューブのテクスチャ・6面の DSV・SRV、`Render` に6面のパス、`Bind` に `t3`、`ShadowConstantBuffer` の末尾に項目、`GetDrawnCount` にポイントの分)、`Engine/Lighting.h/.cpp`(影を落とすポイントライトの選択。`GetShadowPointLight()`)、`Shader3DCommon.hlsli`(`b5` の末尾・`t3`・`PointShadow`・`ShadePixel` のループで、ポイントライトの影を引く)、`Engine/LightComponent.h`(`SetCastShadow` の説明と、ポイントに効くようにした注意書き)
+- **変えない**: `Shader3D.hlsl`・`Shader3DSkin.hlsl`(`VSShadow` を使い回す)、`Mesh.h/.cpp`・`SkinMesh.h/.cpp`(`DrawDepth` は行列を引数で受け取る作りのまま。`Draw` の `Shadow::Bind()` が `t3` も一緒にセットする)、`MeshRenderer.h`・`ModelRenderer.h/.cpp`(`DrawShadow` が6回呼ばれるだけ)、`GameEngine.cpp`(`Shadow::Render` / `Shutdown` を呼んでいる今のまま)、`Material.h`、`Component.h`・`GameObject.h`・`Scene`・`SceneManager`・`Graphics`、`Shader.hlsl`、`PhysX.props`
+- **場合により変える**: 影のパスの呼び出し側(`Mesh` / `SkinMesh` の `DrawDepth`)に、面ごとの引数(ビューポートの切り替えなど)が要るとわかったら、その時だけ変える(今の `DrawDepth` は、描画先・ビューポートを `Shadow::Render` が決める作りなので、要らない見込み)。
+- **`enabled = false`、または影を落とすポイントライトが無い間は、6面のパスを実行しないので、見た目は今と同じ**(既定OFF。`SetCastShadow` の既定は `false`)。Sample2D はポイントライトも影も使わない(影響なし)。ただし `Shader3DCommon.hlsli` はSample2D のデバッグ表示(枠線)も通るので、**コンパイルが通り、見た目が変わらないこと**を確認する。
+
+**置き換える・使うSampleのコード**:
+```cpp
+// Sample3D Lantern(Objects/Lantern.cpp): ポイントライトが影を落とす
+auto* light = lantern->AddComponent<LightComponent>(LightType::Point);
+light->SetRange(800.0f);
+light->SetCastShadow(true);    // 追加: ランタンの光が、壁や Player の後ろにさえぎられる
+// 球の見た目(meshRenderer)は castShadow を指定しない(false のまま)。
+// 光源が球の内側にあるので、球が影を落とすと全方向の光がさえぎられて真っ暗になる(Guard と同じ理由)
+
+// Sample3D ShadowManager: 変更なし(Shadow::GetSettings().enabled = true は6.5で済み)
+```
+対象: Sample3D の `Lantern`(1行足すだけ)。ランタンが回りながら、`Player`・`Wall`・`ModelDisplay` の影が地面に回って動く。Sample2D は使わない。
+
+**依存する機能**: 6.4(ポイントライト・`Lighting`)、6.5(`Shadow`・`VSShadow`・`DrawDepth`・`ShadowBuffer`・比較サンプラー)。
+
+**未確定の点**:
+- 方式は A(6面の深度 + `TextureCube` の比較サンプリング)でよいか(Bは、Aで境目が直らなかった時の代案)
+- 影を落とすポイントライトを1つまでに制限してよいか(カメラが動くと切り替わる点を許容するか。優先順位の指定を足すか)
+- 解像度の既定値(512)と、`pointDepthBias`(3.0)の初期値でよいか(実機で調整)
+- `LightComponent::SetCastShadow` を、ポイントにも効かせる形(今のまま。名前を変えない)でよいか
+- 光源を囲む物(`Lantern` の球)の扱いは、「`castShadow` を付けない」という約束だけでよいか(裏面だけ描く方式は将来)
+- 範囲の絞り込み(`range` の外を省く)を段階1に入れるか、重くなってから足すか
+- スキンメッシュの影を、段階1から入れるか(`DrawShadow` が6回呼ばれるだけなので、入れても手間は小さい見込み)
+
+---
+
 ## 7. 全体の未確定事項(ユーザーに決めてほしいこと)
 
 1. **了承の取り方**: この設計書の了承を、各機能の着手前の確認(①何を②なぜ③両サンプルへの影響)として扱ってよいか。それとも、機能ごとに改めて確認するか。(決まるまでは機能ごとに確認)
@@ -980,12 +1107,13 @@ if (pos.y < waterY) speed *= 0.5f;
 6. **6.2 カプセル**: 2D用のクラス名(`Capsule2DRigidbodyComponent`)でよいか。Player の見た目を立方体からカプセルに変えてよいか(それとも当たり判定だけ)。Sample2D には細長い障害物を新しく置くか。
 7. **6.3 透明**: `color.w < 1` の時、`depthWrite = false` と `drawPriority` を自動で変えてよいか。→ **自動では変えない(6.3 に書いた)**
 8. **6.4 ライト**: 最大数8でよいか。Sample3D の環境光を暗くしてよいか(見た目が変わる)。敵・弾・爆発にも光を付けるか。
-9. **6.5 影**: `Component` に `DrawShadow` を足す方式か、登録簿方式か。解像度と範囲の既定値(2048、3000)。敵(画像)の足元に丸い影を置くか。スポットの影(段階3)まで作るか。
+9. **6.5 影**: `Component` に `DrawShadow` を足す方式か、登録簿方式か。解像度と範囲の既定値(2048、3000)。敵(画像)の足元に丸い影を置くか。スポットの影(段階3)まで作るか。→ **登録簿方式・既定値はそのまま・丸い影は置かない・スポットの影まで作った(6.5 に書いた)**
 10. **6.6 枠線**: 「光る」にブルームは期待しない前提(リム + 法線拡大)でよいか。敵の画像にも枠線がほしいか。
 11. **6.7 地形**: 画像(PNG)を先、CSVを後でよいか。高さの精度(8ビット/16ビット)。大きさ・高さ・分割数の既定値。サンプルの高さ画像を作ってよいか。地形の外側の床を残すか。
 12. **6.8 地形コライダー**: 地形の下の保険の床を残すか。地形に `"Wall"` タグを付けるか。
 13. **6.9 水面**: 水に入ると遅くなる処理まで入れるか。深度を使った表現を将来やるか。
-14. **作る順番・担当者**: 4章の順番でよいか。担当者は誰か。
+14. **6.10 ポイントライトの影**: 6面の深度のキューブ方式(A)でよいか。影を落とすポイントライトは1つまででよいか。解像度512・`Lantern` に `SetCastShadow(true)` でよいか。
+15. **作る順番・担当者**: 4章の順番でよいか。担当者は誰か。
 
 ---
 
@@ -999,17 +1127,18 @@ if (pos.y < waterY) speed *= 0.5f;
 | 6.2 カプセル | (なし) | `RigidbodyComponent.h/.cpp`、`Mesh.h/.cpp` |
 | 6.3 マテリアル | `Material.h`、(任意)`Shader3DCommon.hlsli` | `Shader3D.hlsl`、`Shader3DSkin.hlsl`、`Mesh.h/.cpp`、`SkinMesh.h/.cpp`、`MeshRenderer.h`、`ModelRenderer.h/.cpp`、`Engine.vcxproj`(`.hlsli` の登録) |
 | 6.4 ライト | `LightComponent.h/.cpp`、`Lighting.h/.cpp` | `Shader3D.hlsl`、`Shader3DSkin.hlsl`、`Mesh.h/.cpp`、`SkinMesh.h/.cpp`、`GameEngine.cpp`、`Engine.vcxproj(.filters)` |
-| 6.5 影 | `Shadow.h/.cpp` | `Shader3D.hlsl`、`Shader3DSkin.hlsl`、`Mesh.h/.cpp`、`SkinMesh.h/.cpp`、`Component.h`、`GameObject.h`、`Scene.h/.cpp`、`SceneManager.h/.cpp`、`MeshRenderer.h`、`ModelRenderer.h/.cpp`、`GameEngine.cpp`、`Graphics.h/.cpp`(必要なら)、`Engine.vcxproj(.filters)` |
+| 6.5 影 | `Shadow.h/.cpp` | `Shader3DCommon.hlsli`、`Shader3D.hlsl`、`Shader3DSkin.hlsl`、`Mesh.h/.cpp`、`SkinMesh.h/.cpp`、`Material.h`、`MeshRenderer.h`、`ModelRenderer.h/.cpp`、`LightComponent.h`、`Lighting.h/.cpp`、`GameEngine.cpp`、`Engine.vcxproj(.filters)`(登録簿方式にしたので、`Component.h`・`GameObject.h`・`Scene`・`SceneManager`・`Graphics` は変えていない) |
 | 6.6 枠線 | (なし) | `Shader3D.hlsl`、`Shader3DSkin.hlsl`、`Mesh.h/.cpp`、`SkinMesh.h/.cpp`、`MeshRenderer.h`、`ModelRenderer.h/.cpp` |
 | 6.7 地形 | `Terrain.h/.cpp`、`TerrainRenderer.h/.cpp` | `Engine.vcxproj(.filters)`(6.3の段階2で `Mesh` を作り直し済みの前提) |
 | 6.8 地形コライダー | (なし) | `RigidbodyComponent.h/.cpp`、`Physics.h/.cpp` |
 | 6.9 水面 | `WaterRenderer.h/.cpp`、`Shader3DWater.hlsl` | `Engine.vcxproj(.filters)`(`UpToDateCheckInput` と `CopyRuntimeFiles`) |
+| 6.10 ポイントライトの影 | (なし) | `Shadow.h/.cpp`、`Lighting.h/.cpp`、`Shader3DCommon.hlsli`、`LightComponent.h`(`VSShadow`・`DrawDepth` を使い回すので、`Shader3D.hlsl`・`Shader3DSkin.hlsl`・`Mesh`・`SkinMesh`・`MeshRenderer`・`ModelRenderer` は変えない見込み) |
 
-**`Shader.hlsl`(スプライト用)と `PhysX.props` は、9機能のどれでも変えません**(クッキングのライブラリは既にリンク済み)。`Shader3D.hlsl` / `Shader3DSkin.hlsl` は 6.3・6.4・6.5・6.6 で変えます。
+**`Shader.hlsl`(スプライト用)と `PhysX.props` は、10機能のどれでも変えません**(クッキングのライブラリは既にリンク済み)。`Shader3D.hlsl` / `Shader3DSkin.hlsl` は 6.3・6.4・6.5・6.6 で変えます。
 
 ### 8.2 設計上の大きなリスク
 
-1. **影(6.5)が一番大きい。** 描画の流れ(`GameEngine::Run`)に影のパスが加わり、レンダーターゲット・ビューポートを切り替える。戻し忘れると画面が真っ黒になる。`Component` / `GameObject` / `Scene` / `SceneManager`(Engineの根幹)にも手が入り、Sample2D を含む全体に影響する。影のバイアス(シャドウアクネ・影の浮き)の調整は、数値の試行錯誤が必要で、GPU・解像度で見え方が変わる。段階分け(平行光源だけ → スキンメッシュ → スポット)で、一歩ずつ進める。
+1. **影(6.5)が一番大きい(実装済み。登録簿方式にして、根幹のファイルは触らずに済んだ)。** 描画の流れ(`GameEngine::Run`)に影のパスが加わり、レンダーターゲット・ビューポートを切り替える。戻し忘れると画面が真っ黒になる。`Component` / `GameObject` / `Scene` / `SceneManager`(Engineの根幹)にも手が入り、Sample2D を含む全体に影響する。影のバイアス(シャドウアクネ・影の浮き)の調整は、数値の試行錯誤が必要で、GPU・解像度で見え方が変わる。段階分け(平行光源だけ → スキンメッシュ → スポット)で、一歩ずつ進める。
 2. **`Mesh::Draw` の作り(6.3 段階2)が、地形・影の前提。** 今は描く度に頂点をコピーする。これを直さずに地形・影を作ると、重くて動かない。6.3 で必ず直す。直す時に、既存の呼び出し(デバッグ表示・`GroundController`・`ModelRenderer`)が壊れないよう、`Draw` の引数は残す。
 3. **地形コライダー(6.8)は、見た目(6.7)との「ずれ」が一番の危険。** ①三角形の対角線の向き(`tessFlag`) ②高さが `int16` の丸め ③行(X)・列(Z)の向き、のどれがずれても、物が浮いたり、地面に埋まったりする。`GetHeightAt` と `Physics::Raycast` の高さを比べる検証を必ず行う。地形の下に潜ると落ち続ける危険、Dynamic の箱が坂で引っかかる危険(→カプセル)もある。
 4. **シェーダーの変更は、実機で見ないと分からない。** `Shader3D.hlsl` は Sample2D のデバッグ表示も通る。コンパイルエラーは実行時に出力ウィンドウに出る(ビルドは通る)ため、**ビルドが通っても画面が真っ黒になりうる**。必ず起動して確認する。

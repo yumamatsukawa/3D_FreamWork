@@ -92,6 +92,7 @@
     <ClCompile Include="Input.cpp" />
     <ClCompile Include="LightComponent.cpp" />
     <ClCompile Include="Lighting.cpp" />
+    <ClCompile Include="Shadow.cpp" />
     <ClCompile Include="MathUtil.cpp" />
     <ClCompile Include="Mesh.cpp" />
     <ClCompile Include="Model.cpp" />
@@ -164,6 +165,7 @@
     <ClInclude Include="Light.h" />
     <ClInclude Include="LightComponent.h" />
     <ClInclude Include="Lighting.h" />
+    <ClInclude Include="Shadow.h" />
     <ClInclude Include="MathUtil.h" />
     <ClInclude Include="Material.h" />
     <ClInclude Include="Mesh.h" />

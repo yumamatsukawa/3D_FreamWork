@@ -105,6 +105,8 @@
     <ClCompile Include="Game\Objects\Guard.cpp" />
     <ClCompile Include="Game\Objects\GlassPanel.cpp" />
     <ClCompile Include="Game\Objects\Lantern.cpp" />
+    <ClCompile Include="Game\Objects\Sun.cpp" />
+    <ClCompile Include="Game\Components\ShadowManager.cpp" />
     <ClCompile Include="Game\Components\LanternController.cpp" />
     <ClCompile Include="Game\Objects\Wall.cpp" />
     <ClCompile Include="Game\Objects\Title.cpp" />
@@ -144,6 +146,8 @@
     <ClInclude Include="Game\Objects\Guard.h" />
     <ClInclude Include="Game\Objects\GlassPanel.h" />
     <ClInclude Include="Game\Objects\Lantern.h" />
+    <ClInclude Include="Game\Objects\Sun.h" />
+    <ClInclude Include="Game\Components\ShadowManager.h" />
     <ClInclude Include="Game\Components\LanternController.h" />
     <ClInclude Include="Game\Objects\Wall.h" />
     <ClInclude Include="Game\Objects\Title.h" />

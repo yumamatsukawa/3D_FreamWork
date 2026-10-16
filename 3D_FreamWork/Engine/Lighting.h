@@ -17,7 +17,7 @@ namespace Lighting {
         float positionRange[4];    // xyz=位置, w=届く距離
         float colorType[4];        // rgb=色×強さ, w=種類(0=無し, 1=点, 2=スポット)
         float directionOuter[4];   // xyz=向き(スポットの中心へ進む向き), w=cos(外側の角度)
-        float innerPad[4];         // x=cos(内側の角度)。残りは予約(影で使う)
+        float innerPad[4];         // x=cos(内側の角度), y=影を落とす光(1=この光の影を使う。Shadowが描いた1つだけ)。zwは予約
     };
 
     // シェーダー(Shader3DCommon.hlsli の LightBuffer, b4)に送る形。16バイトずつ区切って並べる
@@ -30,8 +30,10 @@ namespace Lighting {
 
     // 光の一覧から、送る内容を作る(アクティブで有効な光だけを数え、cameraPositionに近い順に maxLights 個を選ぶ)。
     // 超えた分を捨てた時は overflowed に true を入れる。Update が使う(確認用に公開)
+    // shadowLight には、影を落とすスポットライト(使われる光の中でカメラに一番近い、castShadow の1つ)を入れる(無ければnullptr)。
+    // その光の innerPad[1] を1にする(シェーダーが、その光の影を引く)
     LightConstantBuffer Build(const LightComponent* const* lights, int lightCount,
-        float cameraX, float cameraY, float cameraZ, bool* overflowed = nullptr);
+        float cameraX, float cameraY, float cameraZ, bool* overflowed = nullptr, const LightComponent** shadowLight = nullptr);
 
     // 登録・解除(LightComponent の Init / Uninit が呼ぶ)
     void Register(LightComponent* light);
@@ -43,4 +45,7 @@ namespace Lighting {
     void Shutdown();   // 終了時に、バッファと登録を片付ける
 
     int GetActiveCount();   // 今フレームに使っている光の数(確認用)
+
+    // 今フレームの、影を落とすスポットライト(無ければnullptr)。Shadow::Render が影のパスで使う
+    const LightComponent* GetShadowSpotLight();
 }

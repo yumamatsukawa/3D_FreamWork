@@ -5,6 +5,7 @@
 #include "Image.h"
 #include "Resources.h"
 #include "Visibility.h"
+#include "Shadow.h"
 #include "GameObject.h"
 #include <cmath>
 #include <memory>
@@ -12,8 +13,10 @@
 // GameObjectに「3Dメッシュを描画する見た目」を持たせるComponent。
 // SpriteRendererの3D版。Cameraを使ってWorld/View/Projectionで描画する。
 // 見た目(色・画像・光沢・自発光・半透明など)は Material にまとめて持つ。
-// SetColor / SetTexture / SetUnlit / SetDepthWrite は、Material の項目を書き換える短い書き方
-class MeshRenderer : public Component {
+// SetColor / SetTexture / SetUnlit / SetDepthWrite は、Material の項目を書き換える短い書き方。
+// 影: material.castShadow = true にすると、Shadow が有効な時に影を落とす(Shadow に自分を登録しておき、影のパスで深度だけ描く)。
+// 影を受けるかは material.receiveShadow
+class MeshRenderer : public Component, public Shadow::Caster {
 private:
     std::shared_ptr<Mesh> mesh;
     unsigned int texID = UINT_MAX;   // Resourcesから借りている画像(同じ画像の人みんなで共有)
@@ -47,6 +50,10 @@ public:
         boundingRadius = sqrtf(maxLengthSq);
     }
 
+    ~MeshRenderer() override {
+        Shadow::Unregister(this);   // Uninit が呼ばれずに壊されても、古いポインタが残らないように
+    }
+
     // マテリアルをまとめて設定する(画像は material.texture のパスから Resources で読む。空なら画像なし=白)
     void SetMaterial(const Material& value) {
         material = value;
@@ -78,6 +85,17 @@ public:
     void SetFrustumCulling(bool enabled) { frustumCulling = enabled; }
     bool IsFrustumCulling() const { return frustumCulling; }
 
+    // 影を落とす物として登録する(影を落とすかどうかは material.castShadow で、影のパスの度に見る)
+    void Init() override {
+        Shadow::Register(this, this);
+    }
+
+    // 影のパス: 深度だけを描く(Shadow::Render が、アクティブで有効な時だけ呼ぶ)
+    void DrawShadow(const Shadow::LightView& light) override {
+        if (!material.castShadow) return;
+        mesh->DrawDepth(GetOwner()->transform.GetWorldMatrix(), light.view, light.proj);
+    }
+
     void Draw() override {
         // 画面の外なら描かない(スカイボックスのように深度を書かない物は、画面全体を覆うので判定しない)
         if (frustumCulling && material.depthWrite &&
@@ -97,6 +115,7 @@ public:
     }
 
     void Uninit() override {
+        Shadow::Unregister(this);
         mesh->Uninit();
         // 借りた画像を返す(他に使っている人がいるかもしれないので、ここでは解放しない)
         if (texID != UINT_MAX) Resources::ReleaseTexture(texID);

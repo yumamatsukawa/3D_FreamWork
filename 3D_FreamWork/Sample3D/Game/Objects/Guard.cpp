@@ -13,7 +13,9 @@ GameObject* CreateGuard(Scene& scene, GameObject* target) {
     guard->transform.scale    = {  100.0f, 100.0f, 100.0f };
 
     // 見た目(3Dメッシュの立方体)
-    guard->AddComponent<MeshRenderer>(Mesh::CreateCube());
+    auto* meshRenderer = guard->AddComponent<MeshRenderer>(Mesh::CreateCube());
+    // 影は受けるが落とさない(懐中電灯の光源が自分の立方体の内側にあり、落とすと自分の面が光をすべてさえぎるため)
+    meshRenderer->GetMaterial().receiveShadow = true;
 
     // 視野: 地面(XZ平面)の上で、正面から左右45度ずつ(合わせて90度)・距離1500。"Wall"のタグの物が視線をさえぎる
     auto* vision = guard->AddComponent<VisionComponent>();
@@ -27,6 +29,7 @@ GameObject* CreateGuard(Scene& scene, GameObject* target) {
     torch->SetIntensity(2.0f);
     torch->SetRange(1500.0f);
     torch->SetSpotAngle(15.0f, 30.0f);
+    torch->SetCastShadow(true);   // 懐中電灯の光も影を作る(壁やPlayerの後ろは光が届かない。影を落とすスポットは1つだけ)
 
     // 動き(視野と見た目と光を使うので、それらより後に付ける)
     auto* controller = guard->AddComponent<GuardController>();

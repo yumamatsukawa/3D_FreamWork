@@ -2,6 +2,7 @@
 #include "Component.h"
 #include "Model.h"
 #include "Material.h"
+#include "Shadow.h"
 #include "Transform.h"
 #include <memory>
 #include <string>
@@ -9,8 +10,10 @@
 
 // GameObjectに「FBXモデル(複数のパーツ)を描画する見た目」を持たせるComponent。
 // モデルのデータ(形・親子関係)は Resources 経由でみんなで共有し、パーツの今の動きはこのComponentが1体ごとに持つ。
-// 描画は MeshRenderer と同じ仕組み(Shader3D.hlsl)で、パーツごとに「親→子へ累積したワールド行列」で描く
-class ModelRenderer : public Component {
+// 描画は MeshRenderer と同じ仕組み(Shader3D.hlsl)で、パーツごとに「親→子へ累積したワールド行列」で描く。
+// 影: material.castShadow = true にすると、Shadow が有効な時に影を落とす(骨で曲げるパーツも、曲げた後の形で落とす)。
+// 影を受けるかは material.receiveShadow(全パーツ共通)
+class ModelRenderer : public Component, public Shadow::Caster {
 private:
     std::shared_ptr<Model> model;              // 読み込んだモデル(共有。読み込めなかった時はnullptr)
     std::vector<Transform> nodeTransforms;     // パーツごとの今の動き(親のパーツからの相対。サイズは作った後に変えない)
@@ -27,10 +30,14 @@ private:
     // material.texture が変わっていたら、全パーツ共通の画像を借り直す
     void SyncTexture();
 
+    // パーツごとの「モデル空間」の行列を作り直す(modelMatrices。描く時と影を描く時に使う)
+    void UpdateModelMatrices();
+
 public:
     // 例: obj->AddComponent<ModelRenderer>(L"Assets/Models/Tank.fbx");
     // 読み込めなかった時は何も描かない(出力ウィンドウに理由が出る)
     explicit ModelRenderer(const std::wstring& path);
+    ~ModelRenderer() override;
 
     // 全パーツに同じ画像を貼る(呼ばなければ、FBXに書かれたパーツごとの画像を Assets/ から探して使う)
     void SetTexture(const std::wstring& path);
@@ -72,4 +79,7 @@ public:
     void Init() override;
     void Draw() override;
     void Uninit() override;
+
+    // 影のパス: 全パーツの深度だけを描く(Shadow::Render が、アクティブで有効な時だけ呼ぶ)
+    void DrawShadow(const Shadow::LightView& light) override;
 };

@@ -21,7 +21,12 @@ ModelRenderer::ModelRenderer(const std::wstring& path) {
     }
 }
 
+ModelRenderer::~ModelRenderer() {
+    Shadow::Unregister(this);   // Uninit が呼ばれずに壊されても、古いポインタが残らないように
+}
+
 void ModelRenderer::Init() {
+    Shadow::Register(this, this);   // 影を落とす物として登録する(落とすかどうかは material.castShadow)
     if (!model) return;
 
     // FBXに書かれたパーツごとの画像を借りる(同じ画像はResourcesが使い回す)
@@ -53,6 +58,17 @@ Transform* ModelRenderer::GetNodeTransform(const std::string& name) {
     return &nodeTransforms[index];
 }
 
+void ModelRenderer::UpdateModelMatrices() {
+    // パーツごとの「モデル空間」の行列: 自分のローカル行列 × 親の行列(親は必ず先に並んでいる)
+    int count = model->GetNodeCount();
+    modelMatrices.resize(count);
+    for (int i = 0; i < count; i++) {
+        int parent = model->GetNode(i).parent;
+        modelMatrices[i] = nodeTransforms[i].GetLocalMatrix();
+        if (parent >= 0) modelMatrices[i] = modelMatrices[i] * modelMatrices[parent];
+    }
+}
+
 void ModelRenderer::Draw() {
     if (!model) return;
 
@@ -66,16 +82,10 @@ void ModelRenderer::Draw() {
         return;
     }
 
-    // パーツごとの「モデル空間」の行列: 自分のローカル行列 × 親の行列(親は必ず先に並んでいる)。
     // オーナーのワールド行列は、描く時に最後に掛ける(骨で曲げるメッシュは、モデル空間の骨の行列を使うため)
     XMMATRIX ownerWorld = GetOwner()->transform.GetWorldMatrix();
+    UpdateModelMatrices();
     int count = model->GetNodeCount();
-    modelMatrices.resize(count);
-    for (int i = 0; i < count; i++) {
-        int parent = model->GetNode(i).parent;
-        modelMatrices[i] = nodeTransforms[i].GetLocalMatrix();
-        if (parent >= 0) modelMatrices[i] = modelMatrices[i] * modelMatrices[parent];
-    }
 
     // 形のあるパーツを描く。3D専用カメラ(GetCamera3D)とシーン共通の光源を使うのはMeshRendererと同じ
     for (int i = 0; i < count; i++) {
@@ -105,7 +115,37 @@ void ModelRenderer::Draw() {
         mesh->Draw(modelMatrices[i] * ownerWorld, Image::GetCamera3D(), material, Image::GetLight());
     }
 }
+
+void ModelRenderer::DrawShadow(const Shadow::LightView& light) {
+    if (!model || !material.castShadow) return;
+
+    // 描く時と同じ行列で、深度だけを描く(骨で曲げるパーツは、曲げた後の形で影になる)
+    XMMATRIX ownerWorld = GetOwner()->transform.GetWorldMatrix();
+    UpdateModelMatrices();
+    int count = model->GetNodeCount();
+    for (int i = 0; i < count; i++) {
+        const ModelNode& node = model->GetNode(i);
+        if (node.IsSkinned()) {
+            SkinMesh* skinMesh = model->GetSkinMesh(i);
+            if (skinMesh) {
+                boneMatrices.resize(node.skinBones.size());
+                for (size_t k = 0; k < node.skinBones.size(); k++) {
+                    boneMatrices[k] = XMLoadFloat4x4(&node.skinInverseBind[k]) * modelMatrices[node.skinBones[k]];
+                }
+                skinMesh->DrawDepth(ownerWorld, boneMatrices.data(), (int)boneMatrices.size(), light.view, light.proj);
+                continue;
+            }
+            // スキンメッシュを作れなかった時は、静止のメッシュとして落とす(下へ)
+        }
+
+        Mesh* mesh = model->GetMesh(i);
+        if (!mesh) continue;
+        mesh->DrawDepth(modelMatrices[i] * ownerWorld, light.view, light.proj);
+    }
+}
+
 void ModelRenderer::Uninit() {
+    Shadow::Unregister(this);
     // 借りた画像を返す(他に使っている人がいるかもしれないので、ここでは解放しない)
     for (unsigned int& texID : nodeTexIDs) {
         if (texID != UINT_MAX) Resources::ReleaseTexture(texID);

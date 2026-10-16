@@ -19,6 +19,8 @@ enum class LightType {
 //   Material::lit = false の物は光の影響を受けない
 // - スポットの向きは SetDirection で指定。指定しなければオーナーの水平の正面(Math::Forward3D)
 // - 2Dのスプライトには効かない(Shader.hlsl は光の計算をしない)
+// - 影: スポットライトだけ SetCastShadow(true) にすると、Shadow が有効な時に影を落とす(同時に影を作れるスポットは1つ。
+//   影を落とす光が複数ある時は、3Dカメラに近い1つだけ)。円すいの外側の角度が60度を超える部分には影が出ない。ポイントライトの影は作れない
 class LightComponent : public Component {
 private:
     LightType type = LightType::Point;
@@ -28,6 +30,7 @@ private:
     DirectX::XMFLOAT3 direction{ 0.f, 0.f, 0.f }; // スポットの向き(長さ0ならオーナーの正面)
     float innerAngle = 20.f;                      // スポットの内側の角度(度。中心からここまでは全開)
     float outerAngle = 35.f;                      // スポットの外側の角度(度。ここで0になる)
+    bool castShadow = false;                      // 影を落とすか(スポットライトだけ。Shadow が有効な時に意味がある)
 
 public:
     explicit LightComponent(LightType lightType = LightType::Point) : type(lightType) {}
@@ -39,6 +42,10 @@ public:
     // スポットライトだけ
     void SetDirection(DirectX::XMFLOAT3 newDirection) { direction = newDirection; }   // 向き(長さ0に戻すと、オーナーの正面を使う)
     void SetSpotAngle(float innerDegrees, float outerDegrees);                        // 内側(全開)と外側(消える)の角度。内側 <= 外側(既定 20 / 35)
+
+    // 影を落とす光にする(スポットライトだけ。既定はfalse)。Shadow::GetSettings().enabled も true の時に影が出る
+    void SetCastShadow(bool value) { castShadow = value; }
+    bool IsCastingShadow() const { return castShadow; }
 
     LightType GetLightType() const { return type; }
     DirectX::XMFLOAT3 GetColor() const { return color; }

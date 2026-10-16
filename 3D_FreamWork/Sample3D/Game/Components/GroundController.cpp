@@ -21,6 +21,12 @@ void GroundController::Draw() {
     int minZ = (int)floorf((camera.position.z - range) / tileSize);
     int maxZ = (int)floorf((camera.position.z + range) / tileSize);
 
+    // 地面は影を受ける(Shadow が有効な時、Playerや壁の影が落ちる。無効なら今まで通りの見た目)
+    Material material;
+    material.receiveShadow = true;
+    // 画像(bg_tile.png)がとても暗い(平均RGB約23,28,68)ので、色を掛けて明るい青灰色にする(1より大きくてよい。暗いままだと影が見えない)
+    material.color = { 5.0f, 4.0f, 2.0f, 1.0f };
+
     // 範囲内のタイルを並べて描く(カメラに映らないタイル=後ろや横、描画距離の外は描かない)
     Transform tile;
     tile.scale = { tileSize, tileThickness, tileSize };
@@ -32,7 +38,7 @@ void GroundController::Draw() {
             if (!Visibility::IsSphereInView3D(center, tileSize * 0.8f)) continue;   // 0.8 = 正方形の対角線の半分(約0.71)に余裕を足した値
 
             tile.position = center;
-            mesh.Draw(tile, camera, { 1.f, 1.f, 1.f, 1.f }, Image::GetLight());
+            mesh.Draw(tile, camera, material, Image::GetLight());
         }
     }
 }
