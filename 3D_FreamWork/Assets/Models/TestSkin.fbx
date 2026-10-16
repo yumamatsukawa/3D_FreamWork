@@ -1,0 +1,132 @@
+; FBX 7.4.0 project file (hand-written test: skinned box bent by two bones Root and Tip, clip Bend)
+FBXHeaderExtension:  {
+	FBXHeaderVersion: 1003
+	FBXVersion: 7400
+	Creator: "3D_FreamWork hand-written sample"
+}
+GlobalSettings:  {
+	Version: 1000
+	Properties70:  {
+		P: "UpAxis", "int", "Integer", "",1
+		P: "UpAxisSign", "int", "Integer", "",1
+		P: "FrontAxis", "int", "Integer", "",2
+		P: "FrontAxisSign", "int", "Integer", "",1
+		P: "CoordAxis", "int", "Integer", "",0
+		P: "CoordAxisSign", "int", "Integer", "",1
+		P: "UnitScaleFactor", "double", "Number", "",1
+	}
+}
+Objects:  {
+	Geometry: 1101, "Geometry::ArmGeo", "Mesh" {
+		Vertices: *36 {
+			a: -10,0,-10,10,0,-10,10,0,10,-10,0,10,-10,100,-10,10,100,-10,10,100,10,-10,100,10,-10,200,-10,10,200,-10,10,200,10,-10,200,10
+		}
+		PolygonVertexIndex: *40 {
+			a: 0,4,5,-2,1,5,6,-3,2,6,7,-4,3,7,4,-1,4,8,9,-6,5,9,10,-7,6,10,11,-8,7,11,8,-5,0,1,2,-4,11,10,9,-9
+		}
+		GeometryVersion: 124
+	}
+	Model: 2101, "Model::Arm", "Mesh" {
+		Version: 232
+		Properties70:  {
+		}
+	}
+	Model: 2102, "Model::Root", "LimbNode" {
+		Version: 232
+		Properties70:  {
+			P: "Lcl Translation", "Lcl Translation", "", "A",0,0,0
+		}
+	}
+	Model: 2103, "Model::Tip", "LimbNode" {
+		Version: 232
+		Properties70:  {
+			P: "Lcl Translation", "Lcl Translation", "", "A",0,100,0
+		}
+	}
+	Deformer: 4001, "Deformer::Skin", "Skin" {
+		Version: 101
+		Link_DeformAcuracy: 50
+	}
+	Deformer: 4002, "SubDeformer::Root", "Cluster" {
+		Version: 100
+		UserData: "", ""
+		Indexes: *8 {
+			a: 0,1,2,3,4,5,6,7
+		}
+		Weights: *8 {
+			a: 1,1,1,1,0.5,0.5,0.5,0.5
+		}
+		Transform: *16 {
+			a: 1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1
+		}
+		TransformLink: *16 {
+			a: 1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1
+		}
+	}
+	Deformer: 4003, "SubDeformer::Tip", "Cluster" {
+		Version: 100
+		UserData: "", ""
+		Indexes: *8 {
+			a: 4,5,6,7,8,9,10,11
+		}
+		Weights: *8 {
+			a: 0.5,0.5,0.5,0.5,1,1,1,1
+		}
+		Transform: *16 {
+			a: 1,0,0,0,0,1,0,0,0,0,1,0,0,-100,0,1
+		}
+		TransformLink: *16 {
+			a: 1,0,0,0,0,1,0,0,0,0,1,0,0,100,0,1
+		}
+	}
+	AnimationStack: 3001, "AnimStack::Bend", "" {
+		Properties70:  {
+			P: "LocalStart", "KTime", "Time", "",0
+			P: "LocalStop", "KTime", "Time", "",92372316000
+		}
+	}
+	AnimationLayer: 3002, "AnimLayer::BaseLayer", "" {
+	}
+	AnimationCurveNode: 3003, "AnimCurveNode::R", "" {
+		Properties70:  {
+			P: "d|X", "Number", "", "A",0
+			P: "d|Y", "Number", "", "A",0
+			P: "d|Z", "Number", "", "A",0
+		}
+	}
+	AnimationCurve: 3004, "AnimCurve::", "" {
+		Default: 0
+		KeyVer: 4008
+		KeyTime: *3 {
+			a: 0,46186158000,92372316000
+		}
+		KeyValueFloat: *3 {
+			a: 0,60,0
+		}
+		KeyAttrFlags: *1 {
+			a: 4
+		}
+		KeyAttrDataFloat: *4 {
+			a: 0,0,0,0
+		}
+		KeyAttrRefCount: *1 {
+			a: 3
+		}
+	}
+}
+Connections:  {
+	C: "OO",2101,0
+	C: "OO",2102,0
+	C: "OO",2103,2102
+	C: "OO",1101,2101
+	C: "OO",4001,1101
+	C: "OO",4002,4001
+	C: "OO",4003,4001
+	C: "OO",2102,4002
+	C: "OO",2103,4003
+	C: "OO",3001,0
+	C: "OO",3002,3001
+	C: "OO",3003,3002
+	C: "OP",3003,2103,"Lcl Rotation"
+	C: "OP",3004,3003,"d|Z"
+}

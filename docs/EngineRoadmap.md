@@ -98,7 +98,7 @@ Engineを変えると Sample2D と Sample3D の**両方**に影響します(`CLA
 | 10 | [音(立体音響・グループ音量)](#513-音の発生源と聞く位置立体音響) | 3(`Resources` の仕組み。音のデータ共有 `LoadSound` はここで足す)・9(音量スライダー・保存)を使う | | 完了 |
 | 11 | [CSV](#514-csv) | ほかに依存しないので、いつでも並行して作れる | | 完了 |
 | 12 | [パーティクル](#515-パーティクル) | 時間・計算系・リソースを使う | | 完了 |
-| 13 | [FBX読み込み → 3Dアニメーション](#516-fbx読み込みと3dアニメーション) | 一番大きい。外部ライブラリの追加とシェーダーの追加がある | | 未着手 |
+| 13 | [FBX読み込み → 3Dアニメーション](#516-fbx読み込みと3dアニメーション) | 一番大きい。外部ライブラリの追加とシェーダーの追加がある | | 完了 |
 | 14 | [シーン切り替え](#517-シーン切り替え) | 画面エフェクト(7。Direct2Dで一番上に描く仕組み)と時間(2。Unscaled・倍率)を使う。後から追加した機能で、8より先に作った | | 完了 |
 
 **CSV(11)とセーブ/ロード(9)は、ほかの機能にほぼ依存しないので、学生の分担・練習に向いています。** 順番を待たずに先に始めて構いません。
@@ -1186,11 +1186,48 @@ effect->GetComponent<ParticleRenderer>()->Burst(30);
 
 ### 5.16 FBX読み込みと3Dアニメーション
 
+> **段階1(FBXの読み込み・静止)は実装済み(段階2・3も下に続く。5.16全体は完了)**: `ThirdParty/ufbx/`(ufbx v0.23.1。`ufbx.h`/`ufbx.c`/`LICENSE`/出所の`README.txt`)、`Engine/Model.h/.cpp`、`Engine/ModelRenderer.h/.cpp` を足した。`Engine/Resources.h/.cpp` に `LoadModel` を、`Engine/Mesh.h/.cpp` にワールド行列を直接渡す `Draw` を足し、`Engine/Engine.vcxproj` に ufbx.c のCとしてのビルド設定とinclude pathを足した。`MeshVertex` と `Shader3D.hlsl` は変えていない。Sample3Dに `CreateModelDisplay`(手書きの `Assets/Models/TestParts.fbx` を地面の端に置く)を足した。使い方は `README.md` の「27. FBXモデル(Model / ModelRenderer)」を参照。
+>
+> 決めた所:
+> - **ufbxの読み込み設定**: `target_axes = left_handed_y_up`、`target_unit_meters = 0.01`(1単位=1cm)、`handedness_conversion_axis = Z`(右手系のMayaからはZを反転。三角形の頂点順・法線はufbxが直す)、`space_conversion = MODIFY_GEOMETRY`、`geometry_transform_handling = MODIFY_GEOMETRY`、`pivot_handling = ADJUST_TO_PIVOT`、`generate_missing_normals = true`。ファイルは自分でメモリに読んでから `ufbx_load_memory` に渡す(日本語のパスでも開けるように)
+> - **ノードの持ち方**: ufbxの一番上のroot(仮のノード)は含めず、その子から深さ優先で並べる(親は必ず自分より小さい番号)。各ノードは 名前・親の番号・ローカルの位置/回転(度数のオイラー角、`Transform::rotate` と同じ向き)/スケール・頂点(三角形化済みの `MeshVertex`、パーツ原点基準)・画像のパスを持つ。形の無いノード(グループ・骨・カメラなど)も親子関係のために残す
+> - **UV**: Vを反転(`LoadOBJ` と同じ)。**画像**: マテリアルの diffuse(無ければ PBR base color)の画像の、ファイル名だけを使って `Assets/ファイル名` から探す。1ノードに貼れる画像は1つ(画像のある最初のマテリアル)
+> - **共有**: `Resources::LoadModel` は `shared_ptr<Model>` を同じパスで使い回す(パスは `LoadTexture` と同じそろえ方)。返す関数は無く、使っている人が0人(`use_count()==1`)になった物を `UnloadUnused()` で解放する。描画用のバッファ(`Mesh`)は `Model` が最初に描く時に作り、同じモデルの全 `ModelRenderer` で共有する(描く度に頂点を書き込むので、色・画像は描く直前に渡す)。画像・色・パーツの動きは `ModelRenderer` が1体ごとに持つ
+> - **GetNodeTransform**: オーナーの `Transform` の子にはせず、パーツごとの `Transform`(親子関係は設定しない)を `ModelRenderer` が持ち、その値を「親のパーツからの相対のローカル値」として上書きできる形にした。ワールド行列は `ModelRenderer::Draw` が「ローカル行列 × 親のワールド行列」で累積し、一番上のパーツの親はオーナーのワールド行列。オーナーの `Transform` の子リストに触らないので、破棄の順番で壊れる心配がない
+> - **Mesh**: `Mesh::Draw` に `XMMATRIX` を直接受ける版を足し、`Transform` 版はそれを呼ぶだけにした(挙動は変わらない)
+> - **ビルド**: `ufbx.c` は Cとしてコンパイル・警告なし・SDLチェックなし・Debugでも最大の最適化(ランタイムチェックは切る)。`Engine.vcxproj` のみの変更で、PhysX.props と Sample 側のプロジェクトにはinclude pathの追加は無い(`Model.h` に `ufbx.h` を出していないため)
+> - **サンプルのFBX**: Mayaで書き出した物ではなく、手書きのASCII FBX(立方体2つ。親「Base」と子「Top」。ジオメトリは共有)。ファイルが無い時は `CreateModelDisplay` が何も置かない
+> - **未対応(5.16の範囲外・今後)**: スキン(骨)、複数マテリアルごとの画像、法線マップなどの追加の画像
+>
+> **段階2(パーツの動き=ノードアニメーション)も実装済み(段階3も下に追記)**: `Engine/ModelAnimationComponent.h/.cpp` を足し、`Engine/Model.h/.cpp` にクリップのデータ(`ModelClip`/`ModelPose`、`GetClipCount`/`GetClip`/`FindClip`、`QuaternionToEuler`)を、`Engine/ModelRenderer.h` に番号で引く `GetNodeTransform(int)` を足した。Sample3Dの `CreateModelDisplay` は手書きのアニメ付きFBX `Assets/Models/TestAnim.fbx`(クリップ「Spin」「Bob」)を再生し、`ModelDisplayController` が3秒ごとに `CrossFade` で切り替える(`TestAnim.fbx` が無ければ静止の `TestParts.fbx`)。使い方は `README.md` の27章「アニメーション」を参照。
+>
+> 決めた所(段階2):
+> - **ufbxのAPI**: `ufbx_bake_anim` ではなく `ufbx_evaluate_transform(stack->anim, node, time)` を使い、読み込み時にアニメーションスタック(クリップ)ごと・パーツごとに**1秒30個**で全部サンプリングして持つ(キーの形に依存せず確実で、単位・座標系の変換が静止モデルの `local_transform` と同じ空間で返る)。クリップの長さは `time_end - time_begin`。1クリップは最大20000個(約11分)で、超えたら途中まで。メモリは パーツ数×個数×約40バイト
+> - **補間**: 位置・スケールは線形、回転はクォータニオンのslerp。`ModelRenderer` のパーツの `Transform::rotate` へはオイラー角(度)に直して書く(`Model::QuaternionToEuler`)
+> - **時間**: `Update(dt)` の `dt` で進める(`Time` の倍率込み。ポーズ中は止まる)
+> - **Play**: 再生中の同じクリップなら何もしない(`SpriteAnimationComponent::Play` と同じ)。終わったクリップなら最初から。**CrossFade**: 今の `ModelRenderer` のポーズを覚えて、新しいクリップ(ループ)へ秒数で混ぜる。同じクリップ再生中・名前が無い時は何もしない。秒が0以下ならすぐ切り替え
+> - **名前が無い・クリップが無い時**: 出力ウィンドウに、名前ごとに1回だけ知らせて何もしない。`ModelRenderer` が無い時は `Init` で知らせ、以後何もしない
+> - **手動操作との優先順位**: 再生中はアニメーションが全パーツを毎フレーム上書きする。ループしない動きが終わった後は書き込まないので手で動かせる。止めたい時は `SetEnabled(false)`
+> - **検証**: 手書きASCII FBX(`AnimationStack`/`AnimationLayer`/`AnimationCurveNode`/`AnimationCurve`)で、クリップ2つ・値(Bobの位置が100→130→100、Spinの回転が0→-360=Z反転でY回転の向きが逆)・CrossFadeの混ざり方・非ループの終了を、スクラッチのテストプログラムで確認した
+>
+> **段階3(骨のスキンアニメーション)も実装済み。5.16 はこれで完了**: `Shader3DSkin.hlsl`(新しいシェーダー。`Shader3D.hlsl` と同じ場所)、`Engine/SkinMesh.h/.cpp`(`SkinVertex` と描画クラス)を足し、`Engine/Model.h/.cpp` にスキンのデータ(`ModelNode::skinVertices`/`skinBones`/`skinInverseBind`、`GetSkinMesh`)、`Engine/ModelRenderer.h/.cpp` に骨の行列の計算と送信、`Engine/Engine.vcxproj` に `Shader3DSkin.hlsl` のコピー(`CopyRuntimeFiles`)と `UpToDateCheckInput` を足した。`MeshVertex`・`Shader3D.hlsl`・`Shader.hlsl` は変えていない。Sample3Dに `CreateSkinDisplay`(手書きの `Assets/Models/TestSkin.fbx`、クリップ「Bend」)を足した。使い方は `README.md` の27章「骨で曲げるモデル」を参照。
+>
+> 決めた所(段階3):
+> - **頂点形式**: `SkinVertex`(位置・法線・色・UV + `uint BoneIndices[4]` + `float BoneWeights[4]`、80バイト)。入力レイアウトは `BLENDINDICES`(R32G32B32A32_UINT)・`BLENDWEIGHT`(R32G32B32A32_FLOAT)。頂点バッファは `D3D11_USAGE_IMMUTABLE` で読み込み時(最初に描く時)に1回だけ作り、毎フレームの頂点コピーはしない。色は頂点に焼かず、`b1` の `tint` で掛ける
+> - **シェーダー**: `b0` は `Shader3D.hlsl` と同じ構成(`MeshConstantBuffer`)。`b1` に `matrix bones[64]` と `float4 tint`。頂点を `bones[i0]*w0 + ... + bones[i3]*w3`(リニアブレンドスキニング)で動かしてからワールド行列を掛ける。ライティング・テクスチャ・`clip` はPSまで `Shader3D.hlsl` と同じ計算。D3DCompileFromFile で実行時にコンパイルし、エラーは出力ウィンドウに出す(Shader3D と同じ)
+> - **SkinMesh の共有物**: シェーダー・入力レイアウト・ステート・サンプラー・白テクスチャ・定数バッファ2つは全 `SkinMesh` で1組を共有し、参照カウントで最後の1体がUninitされた時に解放する(`Mesh` と同じ作り。`Mesh` の private な共有物には触らず、`SkinMesh` が自分の分を持つ)。`Model` が最初に描く時に作って共有し、デストラクタで返す
+> - **骨の影響**: `ufbx_skin_deformer`(メッシュの最初の1つ)の頂点ごとの重みから、上位4つに絞り、合計1に正規化(影響が無い頂点は最初の骨に100%)。`BoneIndices` はそのメッシュの骨リスト(クラスタの並び)の番号。**1メッシュの骨は最大64本**(`SkinMesh::maxBones`)で、超えたら警告して静止のメッシュ扱い(骨のパーツが見つからない時も同じ)
+> - **逆バインド行列**: `ufbx_skin_cluster::geometry_to_bone`(ufbxの列ベクトル3x4 → DirectXの行ベクトル4x4に転置)。ufbxの `MODIFY_GEOMETRY` 設定のまま(段階1・2の読み込みオプションは変えていない)で、単位・Z反転・ジオメトリの変換済みの値が返る。骨のパーツは既存のノード番号(`element_id` から引く)
+> - **スキン行列**: `逆バインド行列 × 骨のパーツのモデル空間の行列`(`ModelRenderer` がパーツの `Transform` を親から累積した行列。アニメーションで更新済みの値)。オーナーのワールド行列は掛けず、描く時に `world` として最後に掛ける。スキンのメッシュ自身のパーツの位置は使わない(頂点が骨に付くため)。静止のパーツは今まで通り `モデル空間の行列 × オーナーのワールド行列`
+> - **作れなかった時**: スキンメッシュ(シェーダー等)を作れなかったら、出力ウィンドウに知らせて、静止のメッシュ(`vertices`)で表示する(落ちない)
+> - **検証(スクラッチのテスト)**: 手書きASCII FBX(`Deformer(Skin)`/`SubDeformer(Cluster)`/`Indexes`/`Weights`/`Transform`/`TransformLink`、クリップ「Bend」)で、(1) 骨の影響(根元の頂点=Root 100%、中央=Root 50%・Tip 50%、先端=Tip 100%)と逆バインド行列(Tipが(0,-100,0))が読めること、(2) 静止のポーズでスキン結果が元の頂点と一致(誤差0)、(3) 先端の骨を60度曲げた時の全頂点がCPUで別に計算した期待値と一致(誤差 0.0001未満、単位cm・Z反転込み)を確認した。さらにWARP(ソフトウェアのD3D11)で `ModelRenderer::Draw` を実際に描画してピクセルを読み出し、静止=細い縦棒、曲げた時=上半分が-X方向へ曲がった形になることを確認した。`Shader3DSkin.hlsl` のVS/PSがコンパイルでき、入力レイアウトも作れることも確認した。実機のGPUでの見た目、パフォーマンス、本物のMayaのFBXは未確認
+> - **FBXの注意**: Maya が書くクラスタの `Transform` は「メッシュ → 骨」の行列(逆バインド側)で、`TransformLink` が骨のバインド時のワールド行列。手書きする時に取り違えると曲がり方がずれる
+
 **目的**: Mayaで作ったモデルとアニメーションを、ゲームで使えるようにする。
 
 **ファイル案**: `ThirdParty/ufbx/`(外部ライブラリ)、`Engine/Model.h/.cpp`、`Engine/ModelRenderer.h/.cpp`、`Engine/ModelAnimationComponent.h/.cpp`
 
-**外部ライブラリ**: **ufbx**(github.com/ufbx/ufbx、MITライセンス)を使う予定です。`ufbx.h` と `ufbx.c` の2ファイルだけなので、`ThirdParty/ufbx/` に置いてEngineと一緒にビルドできます。**ダウンロードはまだ了承をもらっていません。** 追加する前に、ライブラリの追加とライセンスファイルの扱いについて了承をもらいます。
+**外部ライブラリ**: **ufbx**(github.com/ufbx/ufbx、MITライセンス)を使う予定です。`ufbx.h` と `ufbx.c` の2ファイルだけなので、`ThirdParty/ufbx/` に置いてEngineと一緒にビルドできます。**ダウンロードはユーザーの了承済み**で、v0.23.1 を `ThirdParty/ufbx/` に置いた(MIT/Public Domain のデュアルライセンス。`LICENSE` を一緒に置いた)。
 
 **関数**:
 ```cpp

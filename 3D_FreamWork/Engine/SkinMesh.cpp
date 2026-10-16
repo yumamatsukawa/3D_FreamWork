@@ -1,0 +1,246 @@
+﻿#include "SkinMesh.h"
+#include "Graphics.h"
+#include <cassert>
+#include <cstring>
+
+ID3D11DeviceContext* SkinMesh::context = nullptr;
+ID3D11Buffer* SkinMesh::constantBuffer = nullptr;
+ID3D11Buffer* SkinMesh::skinBuffer = nullptr;
+ID3D11VertexShader* SkinMesh::vertexShader = nullptr;
+ID3D11PixelShader* SkinMesh::pixelShader = nullptr;
+ID3D11InputLayout* SkinMesh::inputLayout = nullptr;
+ID3D11SamplerState* SkinMesh::sampler = nullptr;
+ID3D11BlendState* SkinMesh::blendState = nullptr;
+ID3D11DepthStencilState* SkinMesh::depthStencilState = nullptr;
+ID3D11RasterizerState* SkinMesh::rasterizerState = nullptr;
+ID3D11ShaderResourceView* SkinMesh::whiteTexture = nullptr;
+float SkinMesh::aspectRatio = 1.f;
+int SkinMesh::refCount = 0;
+
+namespace {
+    // 骨の行列(最大64本)と色。Shader3DSkin.hlsl の SkinBuffer と同じ並び
+    struct SkinConstantBuffer {
+        XMMATRIX bones[SkinMesh::maxBones];
+        XMFLOAT4 tint;
+    };
+}
+
+bool SkinMesh::Init(const std::vector<SkinVertex>& verts) {
+    context = Graphics::context;
+    aspectRatio = (Graphics::height > 0.f) ? (Graphics::width / Graphics::height) : 1.f;
+    if (verts.empty()) return false;
+
+    bool firstUser = (refCount == 0);
+    if (!CreateSharedResources()) {
+        OutputDebugStringA("★ SkinMesh CreateSharedResources 失敗(Shader3DSkin.hlsl を確認してください)\n");
+        if (firstUser) ReleaseSharedResources();
+        return false;
+    }
+
+    // 頂点バッファは変更不可(IMMUTABLE)。読み込み時に1回作るだけで、毎フレームの書き込みはしない
+    D3D11_BUFFER_DESC bd = {};
+    bd.Usage = D3D11_USAGE_IMMUTABLE;
+    bd.ByteWidth = sizeof(SkinVertex) * (UINT)verts.size();
+    bd.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+    D3D11_SUBRESOURCE_DATA data = {};
+    data.pSysMem = verts.data();
+    if (FAILED(Graphics::device->CreateBuffer(&bd, &data, &vertexBuffer))) {
+        OutputDebugStringA("★ SkinMesh CreateVertexBuffer 失敗\n");
+        if (firstUser) ReleaseSharedResources();
+        return false;
+    }
+
+    vertexCount = (UINT)verts.size();
+    refCount++;
+    return true;
+}
+
+bool SkinMesh::CreateSharedResources() {
+    // 既に他のSkinMeshが作成済みなら、それをそのまま使い回す
+    if (vertexShader) return true;
+    if (!CreateShaders()) return false;
+    if (!CreateStates()) return false;
+
+    D3D11_BUFFER_DESC cbd = {};
+    cbd.Usage = D3D11_USAGE_DYNAMIC;
+    cbd.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+    cbd.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+    cbd.ByteWidth = sizeof(MeshConstantBuffer);
+    if (FAILED(Graphics::device->CreateBuffer(&cbd, nullptr, &constantBuffer))) return false;
+    cbd.ByteWidth = sizeof(SkinConstantBuffer);
+    if (FAILED(Graphics::device->CreateBuffer(&cbd, nullptr, &skinBuffer))) return false;
+    return true;
+}
+
+void SkinMesh::ReleaseSharedResources() {
+    if (constantBuffer) { constantBuffer->Release(); constantBuffer = nullptr; }
+    if (skinBuffer) { skinBuffer->Release(); skinBuffer = nullptr; }
+    if (blendState) { blendState->Release(); blendState = nullptr; }
+    if (depthStencilState) { depthStencilState->Release(); depthStencilState = nullptr; }
+    if (rasterizerState) { rasterizerState->Release(); rasterizerState = nullptr; }
+    if (whiteTexture) { whiteTexture->Release(); whiteTexture = nullptr; }
+    if (sampler) { sampler->Release(); sampler = nullptr; }
+    if (inputLayout) { inputLayout->Release(); inputLayout = nullptr; }
+    if (pixelShader) { pixelShader->Release(); pixelShader = nullptr; }
+    if (vertexShader) { vertexShader->Release(); vertexShader = nullptr; }
+}
+
+bool SkinMesh::CreateShaders() {
+    ID3DBlob* vsBlob = nullptr;
+    ID3DBlob* psBlob = nullptr;
+    ID3DBlob* err = nullptr;
+
+    // Shader3D.hlsl と同じく、実行時にコンパイルする(エラーは出力ウィンドウに出る)
+    HRESULT hr = D3DCompileFromFile(L"Shader3DSkin.hlsl", nullptr, nullptr, "VS", "vs_5_0", 0, 0, &vsBlob, &err);
+    if (FAILED(hr)) {
+        if (err) { OutputDebugStringA((char*)err->GetBufferPointer()); err->Release(); }
+        else { OutputDebugStringA("★ Shader3DSkin.hlsl が見つかりません\n"); }
+        return false;
+    }
+
+    err = nullptr;
+    hr = D3DCompileFromFile(L"Shader3DSkin.hlsl", nullptr, nullptr, "PS", "ps_5_0", 0, 0, &psBlob, &err);
+    if (FAILED(hr)) {
+        if (err) { OutputDebugStringA((char*)err->GetBufferPointer()); err->Release(); }
+        else { OutputDebugStringA("★ Shader3DSkin PS コンパイル失敗\n"); }
+        vsBlob->Release();
+        return false;
+    }
+
+    bool ok = SUCCEEDED(Graphics::device->CreateVertexShader(vsBlob->GetBufferPointer(), vsBlob->GetBufferSize(), nullptr, &vertexShader))
+           && SUCCEEDED(Graphics::device->CreatePixelShader(psBlob->GetBufferPointer(), psBlob->GetBufferSize(), nullptr, &pixelShader));
+
+    if (ok) {
+        D3D11_INPUT_ELEMENT_DESC layout[] = {
+            { "POSITION",     0, DXGI_FORMAT_R32G32B32_FLOAT,    0,  0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+            { "NORMAL",       0, DXGI_FORMAT_R32G32B32_FLOAT,    0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+            { "COLOR",        0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 24, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+            { "TEXCOORD",     0, DXGI_FORMAT_R32G32_FLOAT,       0, 40, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+            { "BLENDINDICES", 0, DXGI_FORMAT_R32G32B32A32_UINT,  0, 48, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+            { "BLENDWEIGHT",  0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 64, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+        };
+        ok = SUCCEEDED(Graphics::device->CreateInputLayout(layout, 6, vsBlob->GetBufferPointer(), vsBlob->GetBufferSize(), &inputLayout));
+        if (!ok) OutputDebugStringA("★ SkinMesh CreateInputLayout 失敗\n");
+    }
+    else {
+        OutputDebugStringA("★ SkinMesh シェーダーの作成に失敗\n");
+    }
+
+    vsBlob->Release();
+    psBlob->Release();
+    return ok;
+}
+
+bool SkinMesh::CreateStates() {
+    // Mesh と同じ設定(両面描画・深度テストあり・アルファブレンド)
+    D3D11_SAMPLER_DESC sd = {};
+    sd.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
+    sd.AddressU = sd.AddressV = sd.AddressW = D3D11_TEXTURE_ADDRESS_WRAP;
+    if (FAILED(Graphics::device->CreateSamplerState(&sd, &sampler))) return false;
+
+    D3D11_BLEND_DESC bd = {};
+    bd.RenderTarget[0].BlendEnable = TRUE;
+    bd.RenderTarget[0].SrcBlend = D3D11_BLEND_SRC_ALPHA;
+    bd.RenderTarget[0].DestBlend = D3D11_BLEND_INV_SRC_ALPHA;
+    bd.RenderTarget[0].BlendOp = D3D11_BLEND_OP_ADD;
+    bd.RenderTarget[0].SrcBlendAlpha = D3D11_BLEND_ONE;
+    bd.RenderTarget[0].DestBlendAlpha = D3D11_BLEND_ZERO;
+    bd.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_ADD;
+    bd.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
+    if (FAILED(Graphics::device->CreateBlendState(&bd, &blendState))) return false;
+
+    D3D11_DEPTH_STENCIL_DESC dsd = {};
+    dsd.DepthEnable = TRUE;
+    dsd.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ALL;
+    dsd.DepthFunc = D3D11_COMPARISON_LESS;
+    if (FAILED(Graphics::device->CreateDepthStencilState(&dsd, &depthStencilState))) return false;
+
+    D3D11_RASTERIZER_DESC rd = {};
+    rd.FillMode = D3D11_FILL_SOLID;
+    rd.CullMode = D3D11_CULL_NONE;
+    rd.DepthClipEnable = TRUE;
+    if (FAILED(Graphics::device->CreateRasterizerState(&rd, &rasterizerState))) return false;
+
+    const UINT32 white = 0xFFFFFFFF;
+    D3D11_TEXTURE2D_DESC td = {};
+    td.Width = 1; td.Height = 1; td.MipLevels = 1; td.ArraySize = 1;
+    td.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+    td.SampleDesc.Count = 1;
+    td.Usage = D3D11_USAGE_IMMUTABLE;
+    td.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+    D3D11_SUBRESOURCE_DATA data = {};
+    data.pSysMem = &white;
+    data.SysMemPitch = sizeof(white);
+    ID3D11Texture2D* texture = nullptr;
+    if (FAILED(Graphics::device->CreateTexture2D(&td, &data, &texture))) return false;
+    HRESULT hr = Graphics::device->CreateShaderResourceView(texture, nullptr, &whiteTexture);
+    texture->Release();
+    return SUCCEEDED(hr);
+}
+
+void SkinMesh::Draw(const XMMATRIX& world, const XMMATRIX* boneMatrices, int boneCount,
+    const Camera& camera, XMFLOAT4 color, const Light& light) {
+    assert(context && vertexBuffer && "SkinMesh が初期化されていません");
+    if (boneCount > maxBones) boneCount = maxBones;
+
+    // b0: Shader3D.hlsl と同じ(転置して送り、シェーダー側は mul(vector, matrix))
+    MeshConstantBuffer cb;
+    cb.world = XMMatrixTranspose(world);
+    cb.view = XMMatrixTranspose(camera.GetViewMatrix());
+    cb.proj = XMMatrixTranspose(camera.GetProjectionMatrix(aspectRatio));
+    cb.lightDir = { light.direction.x, light.direction.y, light.direction.z, 0.f };
+    cb.lightColor = { light.color.x, light.color.y, light.color.z, 0.f };
+    cb.ambient = { light.ambient.x, light.ambient.y, light.ambient.z, 0.f };
+
+    D3D11_MAPPED_SUBRESOURCE msr;
+    context->Map(constantBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &msr);
+    memcpy(msr.pData, &cb, sizeof(cb));
+    context->Unmap(constantBuffer, 0);
+
+    // b1: 骨の行列(使わない分は単位行列)と色
+    SkinConstantBuffer sb;
+    for (int i = 0; i < maxBones; i++) {
+        sb.bones[i] = (i < boneCount) ? XMMatrixTranspose(boneMatrices[i]) : XMMatrixIdentity();
+    }
+    sb.tint = color;
+    context->Map(skinBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &msr);
+    memcpy(msr.pData, &sb, sizeof(sb));
+    context->Unmap(skinBuffer, 0);
+
+    float blendFactor[4] = {};
+    context->OMSetBlendState(blendState, blendFactor, 0xFFFFFFFF);
+    context->OMSetDepthStencilState(depthStencilState, 0);
+    context->RSSetState(rasterizerState);
+
+    UINT stride = sizeof(SkinVertex), offset = 0;
+    context->IASetInputLayout(inputLayout);
+    context->IASetVertexBuffers(0, 1, &vertexBuffer, &stride, &offset);
+    context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+    ID3D11Buffer* vsBuffers[2] = { constantBuffer, skinBuffer };
+    context->VSSetShader(vertexShader, nullptr, 0);
+    context->VSSetConstantBuffers(0, 2, vsBuffers);
+
+    context->PSSetShader(pixelShader, nullptr, 0);
+    context->PSSetConstantBuffers(0, 1, &constantBuffer);
+    ID3D11ShaderResourceView* view = srv ? srv : whiteTexture;
+    context->PSSetShaderResources(0, 1, &view);
+    context->PSSetSamplers(0, 1, &sampler);
+
+    context->Draw(vertexCount, 0);
+
+    // 次に2D(Sprite)や普通のMeshが描画される時のために、ラスタライザ状態を既定に戻しておく
+    context->RSSetState(nullptr);
+}
+
+void SkinMesh::Uninit() {
+    if (vertexBuffer) { vertexBuffer->Release(); vertexBuffer = nullptr; }
+    vertexCount = 0;
+
+    // 共有リソースは、最後の1体が使い終わった時にだけ解放する
+    refCount--;
+    if (refCount <= 0) {
+        ReleaseSharedResources();
+        refCount = 0;
+    }
+}

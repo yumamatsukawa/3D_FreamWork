@@ -49,6 +49,7 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>true</SDLCheck>
+      <AdditionalIncludeDirectories>$(ProjectDir)..\..\ThirdParty\ufbx;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>_DEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <!-- 複数プロジェクトの並行ビルドでPDB書き込みが衝突しないようにする -->
@@ -62,6 +63,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
+      <AdditionalIncludeDirectories>$(ProjectDir)..\..\ThirdParty\ufbx;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>NDEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <AdditionalOptions>/FS %(AdditionalOptions)</AdditionalOptions>
@@ -90,6 +92,9 @@
     <ClCompile Include="Input.cpp" />
     <ClCompile Include="MathUtil.cpp" />
     <ClCompile Include="Mesh.cpp" />
+    <ClCompile Include="Model.cpp" />
+    <ClCompile Include="ModelAnimationComponent.cpp" />
+    <ClCompile Include="ModelRenderer.cpp" />
     <ClCompile Include="MoveComponent.cpp" />
     <ClCompile Include="ParticleRenderer.cpp" />
     <ClCompile Include="Physics.cpp" />
@@ -100,6 +105,7 @@
     <ClCompile Include="SceneManager.cpp" />
     <ClCompile Include="SceneTransition.cpp" />
     <ClCompile Include="ScreenEffect.cpp" />
+    <ClCompile Include="SkinMesh.cpp" />
     <ClCompile Include="SliderComponent.cpp" />
     <ClCompile Include="Sprite.cpp" />
     <ClCompile Include="SpriteAnimationComponent.cpp" />
@@ -111,6 +117,20 @@
     <ClCompile Include="Time.cpp" />
     <ClCompile Include="TweenComponent.cpp" />
     <ClCompile Include="WICTextureLoader11.cpp" />
+    <!--
+      外部ライブラリ ufbx(FBX読み込み。ThirdParty/ufbx/)。Cのファイルなので、Cとしてコンパイルする。
+      自分たちのコードではないので警告は出さず、SDLチェックも切る。
+      Debugでも最適化する(ufbxは最適化なしだと読み込みが極端に遅いため。ランタイムチェックは最適化と同時に使えないので切る)
+    -->
+    <ClCompile Include="..\..\ThirdParty\ufbx\ufbx.c">
+      <CompileAs>CompileAsC</CompileAs>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <SDLCheck>false</SDLCheck>
+      <ConformanceMode>false</ConformanceMode>
+      <Optimization>MaxSpeed</Optimization>
+      <BasicRuntimeChecks>Default</BasicRuntimeChecks>
+      <AdditionalOptions>/utf-8 /FS %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="AccelerateChaseComponent.h" />
@@ -141,6 +161,9 @@
     <ClInclude Include="MathUtil.h" />
     <ClInclude Include="Mesh.h" />
     <ClInclude Include="MeshRenderer.h" />
+    <ClInclude Include="Model.h" />
+    <ClInclude Include="ModelAnimationComponent.h" />
+    <ClInclude Include="ModelRenderer.h" />
     <ClInclude Include="MoveComponent.h" />
     <ClInclude Include="ObjectPool.h" />
     <ClInclude Include="ParticleRenderer.h" />
@@ -152,6 +175,7 @@
     <ClInclude Include="SceneManager.h" />
     <ClInclude Include="SceneTransition.h" />
     <ClInclude Include="ScreenEffect.h" />
+    <ClInclude Include="SkinMesh.h" />
     <ClInclude Include="SliderComponent.h" />
     <ClInclude Include="Sprite.h" />
     <ClInclude Include="SpriteAnimationComponent.h" />
@@ -188,12 +212,14 @@
     <UpToDateCheckInput Include="$(SolutionDir)Assets\**" />
     <UpToDateCheckInput Include="$(SolutionDir)Shader.hlsl" />
     <UpToDateCheckInput Include="$(SolutionDir)Shader3D.hlsl" />
+    <UpToDateCheckInput Include="$(SolutionDir)Shader3DSkin.hlsl" />
   </ItemGroup>
   <Target Name="CopyRuntimeFiles" AfterTargets="Build">
     <Exec Command="xcopy /y /d &quot;$(SolutionDir)..\ThirdParty\PhysX\lib\$(PhysXDllDir)\*.dll&quot; &quot;$(OutDir)&quot;" />
     <Exec Command="xcopy /y /d /e /i &quot;$(SolutionDir)Assets&quot; &quot;$(OutDir)Assets\&quot;" />
     <Exec Command="xcopy /y /d &quot;$(SolutionDir)Shader.hlsl&quot; &quot;$(OutDir)&quot;" />
     <Exec Command="xcopy /y /d &quot;$(SolutionDir)Shader3D.hlsl&quot; &quot;$(OutDir)&quot;" />
+    <Exec Command="xcopy /y /d &quot;$(SolutionDir)Shader3DSkin.hlsl&quot; &quot;$(OutDir)&quot;" />
   </Target>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

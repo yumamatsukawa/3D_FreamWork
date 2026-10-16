@@ -220,6 +220,10 @@ bool Mesh::CreateWhiteTexture() {
 }
 
 void Mesh::Draw(const Transform& transform, const Camera& camera, XMFLOAT4 color, const Light& light, bool writeDepth) {
+    Draw(transform.GetWorldMatrix(), camera, color, light, writeDepth);
+}
+
+void Mesh::Draw(const XMMATRIX& world, const Camera& camera, XMFLOAT4 color, const Light& light, bool writeDepth) {
     assert(context && "context が nullptr");
     assert(vertexBuffer && "vertexBuffer が nullptr");
 
@@ -235,7 +239,7 @@ void Mesh::Draw(const Transform& transform, const Camera& camera, XMFLOAT4 color
     // ★ World/View/Projectionをそれぞれ個別に転置して送る。
     //   シェーダー側はmul(vector, matrix)の順で使う(2DのShader.hlslと同じ考え方)
     MeshConstantBuffer cb;
-    cb.world = XMMatrixTranspose(transform.GetWorldMatrix());
+    cb.world = XMMatrixTranspose(world);
     cb.view = XMMatrixTranspose(camera.GetViewMatrix());
     cb.proj = XMMatrixTranspose(camera.GetProjectionMatrix(aspectRatio));
     cb.lightDir = { light.direction.x, light.direction.y, light.direction.z, 0.f };

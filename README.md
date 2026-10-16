@@ -17,7 +17,7 @@ DirectX11製の、Unity風のコンポーネント指向ゲームフレームワ
 ├── 3D_FreamWork.sln
 ├── PhysX.props        共有MSBuildプロパティシート(PhysXのinclude/lib設定を1箇所にまとめたもの)
 ├── Assets\             全プロジェクト共有の画像・音声・モデル・フォント(Fonts\。§19)・表(Data\。§25)
-├── Shader.hlsl / Shader3D.hlsl   全プロジェクト共有のシェーダー
+├── Shader.hlsl / Shader3D.hlsl / Shader3DSkin.hlsl   全プロジェクト共有のシェーダー(Shader3DSkinは骨で曲げるFBX用。§27)
 ├── Engine\             フレームワーク本体(静的ライブラリ、Engine.vcxproj)
 ├── Sample2D\           2Dのサンプルゲーム(実行ファイル、Sample2D.vcxproj)
 └── Sample3D\           3Dのサンプルゲーム(実行ファイル、Sample3D.vcxproj)
@@ -25,6 +25,7 @@ DirectX11製の、Unity風のコンポーネント指向ゲームフレームワ
 
 - **Engine**: `GameObject`/`Component`/`RigidbodyComponent`/描画/音声などフレームワーク本体。それ単体では実行できない静的ライブラリ(`Engine.lib`)で、基本的にみんなで触る場所ではありません。
 - **Sample2D** / **Sample3D**: それぞれ独立した実行ファイル。どちらも同じ`Engine.lib`をリンクしているので、**Engineを直した内容は、両方のサンプルを再ビルドするだけで反映されます**。中身の`Game\Objects\`/`Game\Components\`/`Game\Scenes\`は、後述の「2. オブジェクトの作り方」と同じパターンです。
+- 外部ライブラリは、リポジトリ直下(`3D_FreamWork\`の1つ上)の`ThirdParty\`にあります: `ThirdParty/PhysX/`(物理演算。§23)と `ThirdParty/ufbx/`(FBXの読み込み。§27。MITかパブリックドメインのどちらかを選べるライセンスで、条文は同じフォルダの`LICENSE`)。
 - ビルド後、`Engine.lib`/`Sample2D.exe`/`Sample3D.exe`は全て同じ`x64\Debug\`(`Release\`)フォルダに出力されます。`Assets\`とシェーダーは、Engineのビルドのたびに(`Engine.vcxproj`の`CopyRuntimeFiles`)、新しいファイルだけがそこへ自動コピーされます。Engineのコードが変わっていなくても動き、`Assets/`とシェーダーを高速最新チェックの入力に登録してあるので(`UpToDateCheckInput`)、`Assets/`だけ編集して実行(F5)しても反映されます。ビルド済みの`.exe`をダブルクリックするだけでも動きます。
 - ソリューションを開いてF5で実行する時は、実行したい方(Sample2DかSample3D)をソリューションエクスプローラーで右クリック→「スタートアッププロジェクトに設定」してから実行してください(複数のスタートアッププロジェクトを同時に起動する設定も可能です)。
 
@@ -531,7 +532,7 @@ Resources::ReleaseTexture(texID);
 - `LoadTexture` で借りたら、必ず `Uninit()` などで `ReleaseTexture` を返してください。返し忘れると、その画像はゲームを終了するまで解放されません(終了時にはまとめて解放され、Visual Studioの出力ウィンドウに「返し忘れの画像があります」と表示されます)。
 - 画像は共有されるので、**色やコマ番号は画像ではなく、描く側(`SpriteRenderer` など)が1体ごとに持ちます。** `Image::Draw` には、色とコマ(`SpriteSheet` = 横の分割数・縦の分割数・コマ番号)を毎回渡します。
 - `Image::LoadTexture` / `Image::ReleaseTexture` はEngine内部用(`Resources` だけが使う)です。ゲーム側からは呼ばないでください(呼ぶ度に同じ画像を読み直してしまいます)。
-- 音(WAV)も同じ仕組みで使い回せます(`Resources::LoadSound` / `ReleaseSound`)。ただし普段は `Audio::PlayOneShot` や `AudioSourceComponent` が中で使うので、直接呼ぶことはありません(§24)。モデルの使い回しは、まだありません(`docs/EngineRoadmap.md` の 5.16)。
+- 音(WAV)も同じ仕組みで使い回せます(`Resources::LoadSound` / `ReleaseSound`)。ただし普段は `Audio::PlayOneShot` や `AudioSourceComponent` が中で使うので、直接呼ぶことはありません(§24)。FBXモデルも同じ考え方で使い回せます(`Resources::LoadModel`。`ModelRenderer` が中で使うので、直接呼ぶことはありません。§27)。
 
 ---
 
@@ -1285,16 +1286,16 @@ Sample2D/Game/Components/  TitleController, BackgroundController, PlayerControll
 Sample2D/Game/Scenes/      TitleScene, GameScene
 
 Sample3D/Game/Objects/     Title, Button, StartButton, VolumeSlider, Skybox, Ground, Player, GameSystem, HUD,
-                            EnemySpawner, BulletSpawner, Explosion, Cube(未使用), Sphere(未使用)
+                            EnemySpawner, BulletSpawner, Explosion, ModelDisplay, SkinDisplay, Cube(未使用), Sphere(未使用)
 Sample3D/Game/Components/  TitleController, GroundController, PlayerController,
                             CameraController, BulletController, EnemyController, GameManager,
                             HUDController, EnemyManager, BulletManager, SkyboxFollowComponent,
-                            SpinComponent(未使用)
+                            ModelDisplayController, SpinComponent(未使用)
 Sample3D/Game/Scenes/      TitleScene, GameScene
 ```
 
 - **Sample2D**: トップダウン視点のアリーナシューター。タイトル画面のSTARTボタン(出る時に`TweenComponent`でぴょこっと大きくなる)をクリックすると、画面が暗転してからゲーム開始(ゲーム画面に入ると明転する。`FadeTransition`。§16)(ボタンは`CreateButton(scene, 文字, 位置, クリックされた時の処理)`で作れる汎用部品で、動きはEngineの`ButtonComponent`。他の画面のボタンにも使い回せる。§20)。WASDで移動、Playerは常にマウスの方を向き、左クリックでその方向へ弾を発射。背景はタイル状に敷き詰めた床(`BackgroundController`)で、移動するとスクロールする(カメラはPlayerに付けた`CameraFollowComponent`が追いかける。§14)。敵(`EnemyManager`が一定間隔でPlayerの周囲にランダムスポーンさせる)がゆっくり追いかけてきて(`ChaseComponent`。§13)、弾を当てると倒せる(`EventBus`で`"EnemyDefeated"`イベントを発行しスコア加算。倒した位置に「+10」が出て、上に動きながら消える=`CreateScorePopup`。§19。爆発のパーティクルも出る=`CreateExplosion`。§26)。敵に触れるとHPが減り(1秒間の無敵時間つき)、敵から離れる向きに弾かれる(ノックバック。`AddForce`で衝撃を加え、0.2秒間は移動キーが効かない。§23)、画面が少し揺れて(`CameraShake`。§14)、画面の端が赤く点滅する(`ScreenEffect::Vignette`。§15)。HPが0になるとゲームオーバー画面が出てSPACEでタイトルに戻る(黒い丸が閉じて開く`SpriteTransition`。§16)。スコアがハイスコアを超えていたら、ゲームオーバーの時に保存され(`SaveData`。キーは`"Sample2DHighScore"`で、Sample3Dの記録とは別。§18)、画面左上のスコアの下に出る(次に起動しても残る)。タイトル画面の下にはBGMの音量スライダー(`CreateVolumeSlider`。つまみをドラッグして0〜1で変えられ、離すと保存されて次に起動した時も残る。§20)がある。画面左上のHPの文字の下にはHPゲージ(減った分が少し遅れて縮む)、Playerの頭上にも小さなHPバーが出る(`GaugeRenderer`。§20)。当たり判定・物理はPhysXを使い(Player=`CircleRigidbodyComponent`、敵=`SquareRigidbodyComponent`、弾=`CircleRigidbodyComponent`)、Player・敵はDynamic(`SetVelocity()`で速度を渡して動かす。重力なし・回転なし・`SetFreezePositionZ(true)`で奥行き方向に固定)、弾はKinematicのトリガー。3Dカメラは使わない(`CameraController`なし)。
-- **Sample3D**: Sample2Dと同じアリーナシューターを3D空間で遊べるようにしたもの。タイトル画面のボタン(Sample2Dと同じく、出る時に`TweenComponent`でぴょこっと大きくなる)をクリックすると、Sample2Dと同じく暗転してからゲーム開始(Sample3Dの`CreateButton()`は、位置と大きさをまとめて`Transform`で受け取る形になっている: `CreateButton(scene, 文字, transform, クリックされた時の処理)`)。Player(立方体)は三人称カメラ(`CameraController`。マウス移動で視点回転。カーソルは画面中心に固定され、ESCで解除・左クリックで再固定。TABで一人称に切り替え)と同じ向きを向き、WASDもカメラ基準(W=カメラの前、D=カメラの右)で移動する。左クリックでPlayerの向いている方向へ、地面と水平に弾(球)を発射。敵を倒すと、その位置に爆発のパーティクルが出る(`CreateExplosion`。§26)。敵は2Dの画像(Worldモードの`SpriteRenderer`。Y軸だけカメラの方を向く立て看板)で、地面の上をPlayerに向かって歩いてくる(`ChaseComponent`を`SetPlane(MovePlane::XZ)`で使う。§13)。歩く間は、敵に付けた`SpriteAnimationComponent`がスプライトシートのコマ(4番と5番)を0.3秒ごとに切り替えて、歩きアニメーションにしている(始まるコマはランダムなので、何体いても足踏みがそろわない。§17)。スコア・ハイスコア(保存先のファイルはSample2Dと同じだが、キーは`"Sample3DHighScore"`で、記録はSample2Dとは別。§18)・HP・無敵時間・被弾時に画面の端が赤く点滅すること・ゲームオーバー(SPACEでタイトルへ。Sample3Dは、黒い帯が左から覆って右へ抜けていく`SpriteTransition(...).SetSwitchFrame(7)`。§16)・`EventBus`のイベント名はSample2Dと同じ。タイトル画面の下のBGMの音量スライダーと、画面左上のHPゲージ(Sample2Dと同じ)、三人称の間だけ出るPlayerの頭上のHPバー(`SetUse3DCamera(true)`の`GaugeRenderer`)もある(§20)。Player・敵はDynamicの`BoxRigidbodyComponent`(重力あり・回転なし。Y速度は`GetVelocity().y`を維持したまま`SetVelocity()`で動かす。敵は`ChaseComponent`がこれをしている)、弾はKinematicのトリガー(`SphereRigidbodyComponent`)。地面は、1000四方のタイルを3Dカメラの描画距離(farZ)の範囲だけ敷き詰めて描く`GroundController`(見た目)と、見えない大きなStaticの板(当たり判定)の組み合わせ。遠景はスカイボックス。
+- **Sample3D**: Sample2Dと同じアリーナシューターを3D空間で遊べるようにしたもの。タイトル画面のボタン(Sample2Dと同じく、出る時に`TweenComponent`でぴょこっと大きくなる)をクリックすると、Sample2Dと同じく暗転してからゲーム開始(Sample3Dの`CreateButton()`は、位置と大きさをまとめて`Transform`で受け取る形になっている: `CreateButton(scene, 文字, transform, クリックされた時の処理)`)。Player(立方体)は三人称カメラ(`CameraController`。マウス移動で視点回転。カーソルは画面中心に固定され、ESCで解除・左クリックで再固定。TABで一人称に切り替え)と同じ向きを向き、WASDもカメラ基準(W=カメラの前、D=カメラの右)で移動する。左クリックでPlayerの向いている方向へ、地面と水平に弾(球)を発射。敵を倒すと、その位置に爆発のパーティクルが出る(`CreateExplosion`。§26)。敵は2Dの画像(Worldモードの`SpriteRenderer`。Y軸だけカメラの方を向く立て看板)で、地面の上をPlayerに向かって歩いてくる(`ChaseComponent`を`SetPlane(MovePlane::XZ)`で使う。§13)。歩く間は、敵に付けた`SpriteAnimationComponent`がスプライトシートのコマ(4番と5番)を0.3秒ごとに切り替えて、歩きアニメーションにしている(始まるコマはランダムなので、何体いても足踏みがそろわない。§17)。スコア・ハイスコア(保存先のファイルはSample2Dと同じだが、キーは`"Sample3DHighScore"`で、記録はSample2Dとは別。§18)・HP・無敵時間・被弾時に画面の端が赤く点滅すること・ゲームオーバー(SPACEでタイトルへ。Sample3Dは、黒い帯が左から覆って右へ抜けていく`SpriteTransition(...).SetSwitchFrame(7)`。§16)・`EventBus`のイベント名はSample2Dと同じ。タイトル画面の下のBGMの音量スライダーと、画面左上のHPゲージ(Sample2Dと同じ)、三人称の間だけ出るPlayerの頭上のHPバー(`SetUse3DCamera(true)`の`GaugeRenderer`)もある(§20)。Player・敵はDynamicの`BoxRigidbodyComponent`(重力あり・回転なし。Y速度は`GetVelocity().y`を維持したまま`SetVelocity()`で動かす。敵は`ChaseComponent`がこれをしている)、弾はKinematicのトリガー(`SphereRigidbodyComponent`)。地面は、1000四方のタイルを3Dカメラの描画距離(farZ)の範囲だけ敷き詰めて描く`GroundController`(見た目)と、見えない大きなStaticの板(当たり判定)の組み合わせ。遠景はスカイボックス。地面の端(Playerから斜めに離れた所)には、FBXモデルの見本(`CreateModelDisplay`。`Assets/Models/TestAnim.fbx` の立方体2つ=親と子のパーツ。子の「Top」が、「Spin」(回る)と「Bob」(上下)のアニメーションを3秒ごとに切り替えて再生する。§27)が置いてある(FBXが無い時は何も置かない)。そのとなり(位置 `(1000, -50, 800)`)には、骨2本で曲がる細長い箱(`CreateSkinDisplay`。`Assets/Models/TestSkin.fbx` のアニメーション「Bend」を再生。§27)も置いてある。
 
 **Sample3Dの実装メモ**: 向きはすべて`transform.rotate.y`(度)で表し、`rotate.y`の時の正面(ローカルの+Z)は`(sin, 0, cos)`の方向になる(`CameraController::GetYaw()`の式と同じ。`Math::Forward3D()`で求められる)。Worldモードの`SpriteRenderer`は`rotate.y`を使わない(ビルボードの向きとZ軸回転だけを使う)ので、敵の画像の向きは`SetBillboardLock(true, false, true)`でカメラの方へ向けている。Playerは`SetFreezeRotation(true)`で、`RigidbodyComponent`は位置しか同期しないため、`PlayerController`が`rotate.y`が変わった時に`GetActor()`の`setGlobalPose`で当たり判定の箱の回転も合わせている(デバッグ表示の枠と実際の判定が同じ向きになる)。一人称の間は、カメラが立方体の内側に入るのでPlayerの`MeshRenderer`と頭上のHPバー(`GaugeRenderer`)を非表示にしている。
 
@@ -1329,6 +1330,8 @@ GameManager/HUD/EnemyManager/BulletManagerのような「見た目の無い管�
 | 表(`Waves.csv`)の時間に敵を出す | `EnemyManager::Update()`(表は`Init()`で読む。§25) |
 | 敵を倒した位置に「+10」を出す(Sample2D) | `EnemyController::OnTriggerEnter2D()`から`CreateScorePopup()`を呼ぶ(動き・消え方は`Objects/ScorePopup.cpp`で付けた`TweenComponent`。§19) |
 | 敵を倒した位置に爆発を出す | `EnemyController::OnTriggerEnter2D()`から`CreateExplosion()`を呼ぶ(両サンプル。粒の設定は各サンプルの`Objects/Explosion.cpp`、粒の動き・描画はEngineの`ParticleRenderer`。§26) |
+| FBXモデルの見本を置く、Topパーツのアニメーションを切り替える(Sample3D) | `Objects/ModelDisplay.cpp`(`ModelRenderer`と`ModelAnimationComponent`を付ける)と `ModelDisplayController::Update()`(3秒ごとに`CrossFade`。§27) |
+| 骨で曲げるFBXモデルの見本を置いて "Bend" を再生する(Sample3D) | `Objects/SkinDisplay.cpp`(`ModelRenderer`と`ModelAnimationComponent`を付け、`Play("Bend")`。§27) |
 | 敵がPlayerを追いかける | 敵に付けた`ChaseComponent`(Engine。§13)。相手と速さは`EnemyManager::Spawn()`が渡す |
 | 敵の歩きアニメーション(Sample3D) | 敵に付けた`SpriteAnimationComponent`(Engine。§17)。クリップの登録と再生は`EnemyManager`の`SetupEnemy` |
 | 敵に当たったら弾かれる(Sample2D) | `PlayerController::OnCollisionStay2D()`(`AddForce`。§23) |
@@ -1828,3 +1831,114 @@ particles->Burst(10);   // Playしているかに関係なく、一度に10個�
 両サンプルの`EnemyController::OnTriggerEnter2D()`が、弾に当たって倒された位置で`CreateExplosion()`(`Game/Objects/Explosion.cpp`。Sample2DとSample3Dに、それぞれ別の設定で置いてある)を呼びます。`CreateExplosion`は、オレンジ色の加算合成の粒を全方向に出す`CreateEffect`+`Burst`です(Sample3Dは`use3D = true`で、重力で少し落ちる)。粒が消えるとエフェクトのオブジェクトは自動で消えます。Sceneには置きません(敵を倒した時に呼びます)。
 
 なお、`EnemyController`の弾に当たった処理の先頭で「もう消えている(`GetIsActive()`がfalse)なら何もしない」を確認しています。同じフレームに2発当たっても、「倒した」の知らせ(`"EnemyDefeated"`)・音・爆発が2回出ないようにするためです。
+
+---
+
+## 27. FBXモデル(Model / ModelRenderer)
+
+Mayaなどで作ったモデル(`.fbx`)を、パーツ(ノード)の親子関係を保ったまま読み込んで表示する仕組みです。読み込みには外部ライブラリ **ufbx**(`ThirdParty/ufbx/`。バージョン0.23.1。[github.com/ufbx/ufbx](https://github.com/ufbx/ufbx)。MITかパブリックドメインのどちらかを選べるライセンスで、条文は `ThirdParty/ufbx/LICENSE`)を使っています。`ufbx.h` / `ufbx.c` は**書き換えないでください**(更新する時は、新しい版のファイルに丸ごと置き換えます)。
+
+> **今は「段階1: 読み込み(静止)」「段階2: パーツの動き(ノードアニメーション)」「段階3: 骨のスキンアニメーション」まで、すべて使えます。** 形と画像を表示し、パーツを手で動かすことも、Mayaで打ったキーフレームを再生することも、骨に合わせて体を曲げることもできます(アニメーションは下の「アニメーション」、骨は「骨で曲げるモデル」)(`docs/EngineRoadmap.md` の 5.16)。
+
+### 使い方
+
+```cpp
+// オブジェクトにFBXを付ける(モデルの読み込みは中で自動。同じファイルは1回だけ読んで使い回す)
+auto* renderer = obj->AddComponent<ModelRenderer>(L"Assets/Models/Tank.fbx");
+renderer->SetTexture(L"Assets/tank.png");        // 全パーツに同じ画像を貼る(省略すると、FBXに書かれたパーツごとの画像)
+renderer->SetColor(1.f, 0.5f, 0.5f, 1.f);        // 色(MeshRendererと同じ。白=そのまま)
+
+// パーツを名前で探して、手で動かす(砲台だけ回す)
+Transform* turret = renderer->GetNodeTransform("Turret");
+if (turret) turret->rotate.y += 90.f * dt;       // 見つからない時はnullptr
+```
+
+| 関数 | 説明 |
+|---|---|
+| `ModelRenderer(パス)` | モデルのファイル(`.fbx`。`.obj` も読めて、その場合はパーツ1つのモデルになる)。読み込めなかった時は何も描かず、出力ウィンドウに理由が出る |
+| `SetTexture(パス)` | 全パーツに同じ画像を貼る |
+| `SetColor(r, g, b, a)` | 色 |
+| `GetNodeTransform(名前)` | パーツの動き(`Transform`)を返す。無い名前は `nullptr` |
+| `Model::Load(パス)` / `GetNodeCount()` / `FindNode(名前)` | モデルのデータそのもの(`Engine/Model.h`)。普通は `ModelRenderer` が使うので、直接使うことは少ない |
+| `Resources::LoadModel(パス)` | モデルを借りる。同じパスは同じ `Model` を返す(§11)。`ModelRenderer` が中で自動で使う |
+
+### 決まり(重要)
+
+- **パーツの動きは「親のパーツからの相対」です。** `GetNodeTransform` が返す `Transform` の `position` / `rotate`(度数) / `scale` は、親のパーツから見た値で、一番上のパーツだけは「このオブジェクトの `Transform`」から見た値です。親のパーツを動かすと、子のパーツも一緒に動きます。最初の値は、FBXに入っていた値になっています。
+- **この `Transform` には親子関係(`SetParent`)を設定していません。** 値を読み書きするだけで使ってください(`GetWorldMatrix()` を呼んでも、親の動きは入りません)。オブジェクトの位置・向き・大きさは、今まで通り `obj->transform` で動かします。
+- **モデルのデータと、パーツの動きは別です。** 形や親子関係(`Model`)は同じファイルのオブジェクトみんなで共有し、パーツの今の位置・回転は `ModelRenderer` が1体ごとに持ちます。同じ戦車を3台置いて、それぞれ砲台の向きを変えられます。
+- 描画は `MeshRenderer` と同じ仕組み(`Shader3D.hlsl`、3D用カメラ、シーン共通の光源)です。パーツごとに「親→子へ累積したワールド行列」で描きます。
+- 読み込んだモデルは、画像と同じく `Resources` が管理します。誰も使わなくなったモデルは、シーン切り替えの時に解放されます。
+
+### 単位と座標系(読み込む時に変換します)
+
+- **単位**: このエンジンは1単位=1cmです。FBXの中に書かれた単位の設定を読んで変換するので、Mayaの既定(cm)ならそのままの数字、mで作った物は100倍されます。
+- **座標系**: Mayaなどの右手系・Y上を、このエンジンの左手系・Y上に変換します(Zの向きを反転し、三角形の頂点の順番や法線も直します)。Z上で作ったデータ(Blenderなど)も、向きが合うように変換されます。たとえばMayaで `Z=+100` に置いた物は、このエンジンでは `Z=-100` になります。
+- **三角形化**: 四角形以上の面は、読み込む時に三角形に分けます(Mayaで事前に Triangulate しなくてもかまいません)。
+- **UV**: 上下(V)を反転して読みます(`LoadOBJ` と同じ)。法線が無いモデルは、ufbxが自動で作ります。
+
+### アニメーション(ModelAnimationComponent)
+
+Mayaで打ったキーフレーム(パーツの位置・回転・スケール)を再生します。`ModelRenderer` を付けた**後に**、同じオブジェクトへ付けます(骨に合わせて体が曲がるスキンも、同じ使い方で動きます。次の「骨で曲げるモデル」)。
+
+```cpp
+auto* renderer = tank->AddComponent<ModelRenderer>(L"Assets/Models/Tank.fbx");
+auto* anim = tank->AddComponent<ModelAnimationComponent>();    // ModelRendererの後に付ける
+anim->Play("Idle");                                            // Mayaで付けたクリップ名
+
+// PlayerController::Update など
+if (moving) anim->CrossFade("Run", 0.2f);                      // 今のポーズから0.2秒で滑らかに切り替え
+else        anim->CrossFade("Idle", 0.2f);                     // 再生中と同じ名前なら何もしない(毎フレーム呼んでよい)
+
+anim->Play("Attack", false);                                   // ループしない。終わったら最後のポーズで止まる
+if (anim->IsFinished()) anim->CrossFade("Idle", 0.2f);
+```
+
+| 関数 | 説明 |
+|---|---|
+| `Play(クリップ名, ループ = true)` | 最初から再生する。**再生中の同じクリップなら何もしない**(毎フレーム呼んでも最初に戻らない)。終わったクリップなら、もう一度最初から |
+| `CrossFade(クリップ名, 秒)` | 今のポーズから新しいクリップへ、指定の秒数で滑らかに切り替える(新しいクリップはループ再生)。再生中と同じ名前なら何もしない。秒が0以下なら、すぐ切り替える |
+| `IsFinished()` | ループしない動きが最後まで終わったか |
+| `SetSpeed(倍率)` | 再生の速さ(1=等倍、0=止まる。0未満は0) |
+| `GetClipNames()` | 入っているクリップ名の一覧(確認用) |
+
+- **クリップ名はMayaで付けた名前**です(FBXの中の「アニメーションスタック」の名前)。名前が違う・クリップが無い時は、出力ウィンドウに知らせるだけで何も起きません(落ちません)。
+- 時間は `Update` の `dt`(`Time` の倍率が掛かった時間)で進むので、`Time::SetTimeScale(0)` のポーズ中は止まり、スローならゆっくりになります。
+- 補間は、位置・スケールは直線、回転は球面線形補間(クォータニオンのslerp)です。読み込む時に、全パーツの動きを1秒30個の細かさで読み取って持ちます(1つのクリップは最大20000個=約11分まで)。
+- 位置は1単位=1cm、座標系は静止モデルと同じ変換をしてあります(Mayaの `Z` が反転するので、Y軸まわりの回転も向きが逆になって表示されます。Mayaで見た通りの動きになります)。
+- **手で動かした時の優先順位**: アニメーションを再生している間は、毎フレームアニメーションが `GetNodeTransform` のパーツを上書きします(手で動かしても次のフレームにアニメの値に戻る)。ループしない動きが終わった後は書き込まなくなるので、そのパーツを手で動かせます。アニメーションが動かさないパーツ(キーの無いパーツ)も、最初のポーズ(キーが無ければFBXの値)を毎フレーム書き込みます。手で動かしたい場合は、そのモデルにアニメーションを付けないか、`SetEnabled(false)` で止めてください。
+- 同じモデルのオブジェクトを何体置いても、クリップのデータは共有され、再生の時刻・切り替えは1体ごとに別です。
+
+### 骨で曲げるモデル(スキンアニメーション)
+
+人や動物のように、**骨に合わせて体が曲がる**モデルも、そのまま `ModelRenderer` + `ModelAnimationComponent` で動かせます(コードは変わりません。読み込んだFBXに骨とスキンが入っていれば、自動で曲げて描きます)。
+
+- **仕組み**: 頂点に「どの骨に・どれだけ影響されるか」を持たせ、毎フレーム、骨の今の位置(アニメーションで動いたパーツ)から「スキン行列(逆バインド行列 × 骨の行列)」を作ってGPUへ送り、頂点シェーダーで頂点を動かします。骨のパーツ自体は形が無いので描かれず、メッシュ(体)だけが曲がります。
+- **新しいシェーダー**: `Shader3DSkin.hlsl`(`Shader3D.hlsl` と同じ場所。`Engine.vcxproj` の `CopyRuntimeFiles` が出力先へコピーします)と、描画クラス `Engine/SkinMesh.h/.cpp`、頂点形式 `SkinVertex`(位置・法線・色・UV + 骨の番号4つ + 影響度4つ)です。**今の `MeshVertex` / `Shader3D.hlsl` / `Shader.hlsl` は変えていません。** ライティング・色・テクスチャの計算は `Shader3D.hlsl` と同じです。シェーダーは実行時にコンパイルされ、エラーは出力ウィンドウに出ます。
+- **頂点バッファは読み込み時に1回だけ作ります**(変更不可)。毎フレームの頂点のコピーは無く、骨の行列(最大64本)だけを送ります。同じモデルを何体置いても頂点バッファは共有です。
+- **上位4つに絞られます**: 1つの頂点に影響できる骨は最大**4本**です。それより多く影響していると、影響度の大きい上位4つだけを使い、合計が1になるように直します(Mayaの Bind Skin の「Max Influences」を **4以下**にしておくと、見た目が変わりません)。
+- **骨の最大数は、1つのメッシュにつき64本**です。超えるメッシュは、出力ウィンドウに知らせて、曲げずに静止の形のまま表示します(骨の数を減らしてください)。
+- **Mayaでの手順**: ①Skeleton(Skeleton → Joint Tool)で骨を作る → ②メッシュを選んでから骨を選び、Bind Skin(Skin → Bind Skin。**Max Influences は4**、Maintain Max Influences をオン)→ ③骨にキーを打つ → ④FBXの書き出しで **Skins と Animation をオン**(Deformed Models → Skins)。Bake Animation もおすすめです。骨には名前を付けておくと、`GetNodeTransform("名前")` で手でも動かせます。
+- **パフォーマンス**: 頂点の計算はGPUで行うので、骨が動くだけなら軽いです。ただし、骨のパーツの行列計算は毎フレーム全パーツぶん、スキン行列の送信はスキンのメッシュごとに1回あります。同じモデルを大量に置くとその分増えるので、置く数は様子を見て決めてください。また、アニメーションのデータは全パーツ全フレームを持つので、骨が多く長いクリップはメモリを使います。
+- **制限**: 1つのモデル(ノード)に付くスキンは最初の1つだけです。ブレンドシェイプ(顔の表情など)・デュアルクォータニオンスキニングには対応していません(リニアブレンドスキニングです)。スキンのメッシュのパーツ自体を `GetNodeTransform` で動かしても、頂点は骨に付いて動くので見た目は変わりません(骨のパーツを動かしてください)。
+- 動作確認用に、骨2本で曲がる細長い箱 `Assets/Models/TestSkin.fbx`(手書きのASCII FBX。クリップ「Bend」=先端の骨が曲がって戻る)があります。Sample3Dの `CreateSkinDisplay()`(`Game/Objects/SkinDisplay.cpp`)が `(1000, -50, 800)` に置いて再生します(ファイルが無い時は何も置きません)。
+
+### Mayaでの書き出し設定
+
+- 形式は **FBX**(バイナリでもASCIIでも読めます)。Up Axis は **Y**、単位は **センチメートル**(違っていても変換されますが、cmが一番分かりやすい)
+- **Triangulate** はオンでもオフでもかまいません
+- **Embed Media(メディアを埋め込む)は使いません。** 画像は別に **PNG** で `Assets/` に置きます
+- 画像の貼り方: FBXに書かれた画像の**ファイル名だけ**を使い、`Assets/ファイル名` から探します(例: Mayaで `tank_body.png` を貼ったら `Assets/tank_body.png`)。フォルダ名は無視します。PNG以外(tga など)は読めないので、PNGにして `Assets/` に置いてください。パーツに画像が無ければ白で表示されます(`SetTexture` や `SetColor` で変えられます)
+- 1つのパーツ(メッシュ)に複数のマテリアルを付けても、貼れる画像は**1つだけ**です(画像のある最初のマテリアルのもの)
+- モデルのファイルは `Assets/Models/` に置くとよいです。元の `.mb` も `Assets/Source/` などに残しておくと、後で直せます
+- アニメーション(キーフレーム)の作り方と書き出し: Mayaでパーツ(グループやメッシュ)を動かしてキーを打ち、FBXの書き出しで **Animation をオン**にします。Maya側では、**Bake Animation(アニメーションのベイク)をオン**にするのがおすすめです(IK・拘束・エクスプレッションなどを使っていても、キーの値に焼き込まれて確実に再生できる)。複数の動き(歩く・走る・攻撃)は、**Game Exporter でクリップ(Take)に分けて**書き出すか、1つずつ別のクリップとして書き出します。クリップの名前がそのまま `Play("名前")` の名前になります。骨(スキン)で体を曲げる動きは、次の「骨で曲げるモデル」の手順で書き出します
+
+### 注意
+
+- パーツは名前(Mayaのオブジェクト名)で探します。Mayaで名前を変えると `GetNodeTransform("Turret")` が `nullptr` になるので、コード側も直してください。同じ名前のパーツが2つあると、最初の1つだけが見つかります
+- Mayaが作る空のグループなども、パーツとして数えられます(形が無いだけで、親子関係には使われます)
+- ufbx は大きなCのファイル(`ufbx.c`)なので、`Engine.vcxproj` で「Cとしてコンパイル・警告なし・Debugでも最適化」にしてあります(最適化しないとDebugでの読み込みが遅くなるためです)
+
+### Sampleでの使われ方
+
+Sample3Dの `CreateModelDisplay()`(`Game/Objects/ModelDisplay.cpp`)が、`Assets/Models/TestAnim.fbx`(立方体2つ。親の「Base」と、その子の「Top」。クリップ「Spin」=Topが1回転(2秒)、「Bob」=Topが上下(1秒))を地面の端(位置 `(800, -50, 800)`)に置き、`ModelAnimationComponent` で再生します。`ModelDisplayController` が3秒ごとに `CrossFade("Spin" / "Bob", 0.3f)` で切り替えます。`TestAnim.fbx` が無い時は静止の `Assets/Models/TestParts.fbx` を置き(`ModelDisplayController` が `GetNodeTransform("Top")` の `rotate.y` を増やしてTopだけを回します)、どちらも無い時は何も置かず出力ウィンドウに知らせるだけなので、ファイルを消してもゲームは動きます。2つのFBXは、動作確認のために手で書いた最小のASCII形式のFBXです(Mayaで書き出した物ではありません)。 骨で曲げる見本は `CreateSkinDisplay()`(`Game/Objects/SkinDisplay.cpp`)が `Assets/Models/TestSkin.fbx` を `(1000, -50, 800)` に置いて再生します(上の「骨で曲げるモデル」)。

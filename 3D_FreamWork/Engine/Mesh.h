@@ -81,6 +81,8 @@ public:
     // 「深度テストで他の3Dオブジェクトと競合する遠景」ではなく「常に一番奥にある背景」として
     // 描画できる(深度バッファの精度に依存しない、Z-fightingが起こり得ない実装)
     void Draw(const Transform& transform, const Camera& camera, XMFLOAT4 color, const Light& light, bool writeDepth = true);
+    // ワールド行列を直接渡す版(ModelRendererが、パーツごとに累積した行列で描く時に使う)
+    void Draw(const XMMATRIX& world, const Camera& camera, XMFLOAT4 color, const Light& light, bool writeDepth = true);
     void Uninit();
 
     void SetTexture(ID3D11ShaderResourceView* s) { srv = s; }

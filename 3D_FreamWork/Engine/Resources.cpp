@@ -1,6 +1,7 @@
 ﻿#include "Resources.h"
 #include "Image.h"
 #include "Audio.h"
+#include "Model.h"
 #include <unordered_map>
 #include <cwctype>
 #include <climits>
@@ -18,6 +19,9 @@ namespace {
     // 音も画像と同じ仕組み(読み込み・解放はAudioがする。IDはAudio::LoadWaveのID)
     std::unordered_map<std::wstring, unsigned int> soundIDs;    // そろえた後のパス → 音のID
     std::unordered_map<unsigned int, TextureEntry> sounds;      // 音のID → 管理情報
+
+    // モデルは shared_ptr で共有する。Resourcesも1人として持つので、use_count()が1なら「誰も使っていない」
+    std::unordered_map<std::wstring, std::shared_ptr<Model>> models;  // そろえた後のパス → モデル
 
     // 書き方が違うだけの同じパスを、同じ文字列にそろえる("Assets/Player.png" と "assets\player.png" を同じにする)
     std::wstring NormalizePath(const std::wstring& path) {
@@ -85,7 +89,25 @@ namespace Resources {
         if (found->second.refCount > 0) found->second.refCount--;
     }
 
+    std::shared_ptr<Model> LoadModel(const std::wstring& path) {
+        std::wstring key = NormalizePath(path);
+
+        // 読み込み済みなら、読み直さずに同じモデルを返す
+        auto found = models.find(key);
+        if (found != models.end()) return found->second;
+
+        // 初めてのモデルだけ読み込む(失敗した時は登録しないので、次に呼ばれた時にもう一度読みにいく)
+        std::shared_ptr<Model> model = Model::Load(path);
+        if (model) models[key] = model;
+        return model;
+    }
+
     void UnloadUnused() {
+        for (auto it = models.begin(); it != models.end();) {
+            if (it->second.use_count() <= 1) it = models.erase(it);
+            else ++it;
+        }
+
         for (auto it = textures.begin(); it != textures.end();) {
             if (it->second.refCount <= 0) {
                 Image::ReleaseTexture(it->first);
@@ -111,6 +133,14 @@ namespace Resources {
     }
 
     void UnloadAll() {
+        for (auto& pair : models) {
+            // 終了時にまだ使われている = どこかでModelRendererが残っている(モデルは、最後の1人が手放した時に解放される)
+            if (pair.second.use_count() > 1) {
+                OutputDebugStringW((L"★ Resources: 使われたままのモデルがあります: " + pair.first + L"\n").c_str());
+            }
+        }
+        models.clear();
+
         for (auto& pair : sounds) {
             // 終了時にまだ使われている = どこかでReleaseSoundし忘れている(鳴っている音は、解放する時にAudioが止める)
             if (pair.second.refCount > 0) {

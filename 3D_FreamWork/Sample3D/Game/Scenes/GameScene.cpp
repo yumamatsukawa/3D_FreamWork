@@ -1,6 +1,8 @@
 ﻿#include "GameScene.h"
 #include "../Objects/Skybox.h"
 #include "../Objects/Ground.h"
+#include "../Objects/ModelDisplay.h"
+#include "../Objects/SkinDisplay.h"
 #include "../Objects/Player.h"
 #include "../Objects/GameSystem.h"
 #include "../Objects/EnemySpawner.h"
@@ -15,6 +17,8 @@ void GameScene::Init()
     // オブジェクトを配置するだけ(動き・ルールは各Componentに書く)
     CreateSkybox(*this);
     CreateGround(*this);
+    CreateModelDisplay(*this);
+    CreateSkinDisplay(*this);
     GameObject* player = CreatePlayer(*this);
     GameManager* gameManager = CreateGameSystem(*this);
     CreateEnemySpawner(*this, player);
