@@ -97,6 +97,9 @@
     <ClCompile Include="Game\Objects\Guard.cpp">
       <Filter>Game\Objects</Filter>
     </ClCompile>
+    <ClCompile Include="Game\Objects\Hills.cpp">
+      <Filter>Game\Objects</Filter>
+    </ClCompile>
     <ClCompile Include="Game\Objects\GlassPanel.cpp">
       <Filter>Game\Objects</Filter>
     </ClCompile>
@@ -217,6 +220,9 @@
       <Filter>Game\Components</Filter>
     </ClInclude>
     <ClInclude Include="Game\Objects\Guard.h">
+      <Filter>Game\Objects</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\Objects\Hills.h">
       <Filter>Game\Objects</Filter>
     </ClInclude>
     <ClInclude Include="Game\Objects\GlassPanel.h">

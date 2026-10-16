@@ -103,6 +103,7 @@
     <ClCompile Include="Game\Objects\Sphere.cpp" />
     <ClCompile Include="Game\Components\GuardController.cpp" />
     <ClCompile Include="Game\Objects\Guard.cpp" />
+    <ClCompile Include="Game\Objects\Hills.cpp" />
     <ClCompile Include="Game\Objects\GlassPanel.cpp" />
     <ClCompile Include="Game\Objects\Lantern.cpp" />
     <ClCompile Include="Game\Objects\Sun.cpp" />
@@ -145,6 +146,7 @@
     <ClInclude Include="Game\Objects\Sphere.h" />
     <ClInclude Include="Game\Components\GuardController.h" />
     <ClInclude Include="Game\Objects\Guard.h" />
+    <ClInclude Include="Game\Objects\Hills.h" />
     <ClInclude Include="Game\Objects\GlassPanel.h" />
     <ClInclude Include="Game\Objects\Lantern.h" />
     <ClInclude Include="Game\Objects\Sun.h" />
