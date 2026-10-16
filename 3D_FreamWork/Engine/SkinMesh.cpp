@@ -1,5 +1,6 @@
 ﻿#include "SkinMesh.h"
 #include "Graphics.h"
+#include "Lighting.h"
 #include <cassert>
 #include <cstring>
 
@@ -257,6 +258,7 @@ void SkinMesh::Draw(const XMMATRIX& world, const XMMATRIX* boneMatrices, int bon
     context->PSSetShader(pixelShader, nullptr, 0);
     ID3D11Buffer* psBuffers[4] = { constantBuffer, nullptr, materialBuffer, cameraBuffer };
     context->PSSetConstantBuffers(0, 4, psBuffers);
+    Lighting::Bind();   // b4: 点光源・スポットライト
     ID3D11ShaderResourceView* view = srv ? srv : whiteTexture;
     context->PSSetShaderResources(0, 1, &view);
     context->PSSetSamplers(0, 1, &sampler);

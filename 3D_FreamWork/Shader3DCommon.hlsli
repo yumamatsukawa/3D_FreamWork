@@ -1,6 +1,6 @@
 // Shader3D.hlsl と Shader3DSkin.hlsl の共通部分(定数バッファ・ピクセルシェーダーの見た目の計算)。
 // 光や見た目の計算を変える時は、ここだけを直す(2つのシェーダーが同じ結果になる)。
-// レジスタ: b0=ワールド・ビュー・射影・平行光源, b1=骨の行列(Skinだけ), b2=マテリアル, b3=カメラ位置, t0/s0=画像
+// レジスタ: b0=ワールド・ビュー・射影・平行光源, b1=骨の行列(Skinだけ), b2=マテリアル, b3=カメラ位置, b4=点光源・スポットライト, t0/s0=画像
 
 cbuffer ConstantBuffer : register(b0)
 {
@@ -25,6 +25,21 @@ cbuffer MaterialBuffer : register(b2)
 cbuffer CameraBuffer : register(b3)
 {
     float4 eyePos;        // xyz=カメラのワールド座標
+};
+
+// 点光源・スポットライト(Lighting.h の LightConstantBuffer と同じ並び)
+#define MAX_LIGHTS 8
+struct GpuLight
+{
+    float4 positionRange;    // xyz=位置, w=届く距離
+    float4 colorType;        // rgb=色×強さ, w=種類(0=無し, 1=点, 2=スポット)
+    float4 directionOuter;   // xyz=向き(スポットの中心へ進む向き), w=cos(外側の角度)
+    float4 innerPad;         // x=cos(内側の角度)。残りは予約(影で使う)
+};
+cbuffer LightBuffer : register(b4)
+{
+    int4 lightCounts;        // x=光の数(0なら今までと同じ見た目)
+    GpuLight lights[MAX_LIGHTS];
 };
 
 struct PSInput
@@ -58,6 +73,51 @@ float4 ShadePixel(PSInput input)
     bool useLight = matParams.w > 0.5f;
     if (!useLight) lighting = float3(1.0f, 1.0f, 1.0f);
 
+    // 点光源・スポットライト: 光の数が0なら何もしない(今までと同じ見た目)。unlit の物は光の影響を受けない
+    float3 extraSpecular = float3(0.0f, 0.0f, 0.0f);
+    if (useLight && lightCounts.x > 0)
+    {
+        float3 toEye = normalize(eyePos.xyz - input.worldPos);
+        float shininess = max(matParams.x, 1.0f);
+        float3 extraDiffuse = float3(0.0f, 0.0f, 0.0f);
+
+        [loop]
+        for (int i = 0; i < lightCounts.x && i < MAX_LIGHTS; i++)
+        {
+            GpuLight l = lights[i];
+            float3 toLightVec = l.positionRange.xyz - input.worldPos;
+            float dist = length(toLightVec);
+            float lightRange = l.positionRange.w;
+            if (dist >= lightRange) continue;   // 届かない距離
+
+            // 減衰: 距離が届く距離(range)でちょうど0になる
+            float3 lightDirToPixel = toLightVec / max(dist, 0.0001f);
+            float t = saturate(1.0f - (dist / lightRange) * (dist / lightRange));
+            float atten = t * t;
+
+            // スポットライト: 向きとの角度が、内側なら全開、外側で0、間は滑らかにつなぐ
+            if (l.colorType.w > 1.5f)
+            {
+                float cosAngle = dot(-lightDirToPixel, l.directionOuter.xyz);
+                float s = saturate((cosAngle - l.directionOuter.w) / max(l.innerPad.x - l.directionOuter.w, 0.0001f));
+                atten *= s * s * (3.0f - 2.0f * s);
+            }
+
+            float3 radiance = l.colorType.rgb * atten;
+            float lightNdotL = saturate(dot(normal, lightDirToPixel));
+            extraDiffuse += radiance * lightNdotL;
+
+            // 光沢も同じ光で光らせる
+            if (matSpecular.w > 0.0f && lightNdotL > 0.0f)
+            {
+                float3 lightHalf = normalize(lightDirToPixel + toEye);
+                float lightSpec = pow(saturate(dot(normal, lightHalf)), shininess) * matSpecular.w;
+                extraSpecular += matSpecular.rgb * radiance * lightSpec;
+            }
+        }
+        lighting += extraDiffuse;
+    }
+
     float3 rgb = texColor.rgb * lighting;
 
     // 光沢(ブリン・フォン): 光とカメラの真ん中の向きと法線が近いほど光る
@@ -68,6 +128,7 @@ float4 ShadePixel(PSInput input)
         float spec = pow(saturate(dot(normal, halfDir)), max(matParams.x, 1.0f)) * matSpecular.w;
         rgb += matSpecular.rgb * lightColor.xyz * spec;
     }
+    rgb += extraSpecular;
 
     // 自発光: 光の計算の後に足す(暗い所でもその色で見える)
     if (matEmissive.w > 0.0f)

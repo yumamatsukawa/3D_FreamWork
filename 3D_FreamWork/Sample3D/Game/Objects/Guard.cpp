@@ -3,6 +3,7 @@
 #include "../../../Engine/GameObject.h"
 #include "../../../Engine/MeshRenderer.h"
 #include "../../../Engine/VisionComponent.h"
+#include "../../../Engine/LightComponent.h"
 #include "../Components/GuardController.h"
 
 GameObject* CreateGuard(Scene& scene, GameObject* target) {
@@ -20,7 +21,14 @@ GameObject* CreateGuard(Scene& scene, GameObject* target) {
     vision->SetRange(1500.0f);
     vision->SetPlane(MovePlane::XZ);
 
-    // 動き(視野と見た目を使うので、それらより後に付ける)
+    // 懐中電灯(スポットライト。向きはGuardControllerが毎フレーム、視野の正面から少し下に向けて渡す)
+    auto* torch = guard->AddComponent<LightComponent>(LightType::Spot);
+    torch->SetColor(1.0f, 0.95f, 0.8f);
+    torch->SetIntensity(2.0f);
+    torch->SetRange(1500.0f);
+    torch->SetSpotAngle(15.0f, 30.0f);
+
+    // 動き(視野と見た目と光を使うので、それらより後に付ける)
     auto* controller = guard->AddComponent<GuardController>();
     controller->Setup(target);
 

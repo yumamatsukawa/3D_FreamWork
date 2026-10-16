@@ -56,7 +56,7 @@ private:
     static ID3D11DeviceContext* context;
     static ID3D11Buffer* constantBuffer;     // b0: MeshConstantBuffer
     static ID3D11Buffer* materialBuffer;     // b2: MaterialConstantBuffer
-    static ID3D11Buffer* cameraBuffer;       // b3: MeshCameraBuffer
+    static ID3D11Buffer* cameraBuffer;       // b3: MeshCameraBuffer(点光源・スポットライトの b4 は Lighting が持ち、Draw で Lighting::Bind() する)
     static ID3D11VertexShader* vertexShader;
     static ID3D11PixelShader* pixelShader;
     static ID3D11InputLayout* inputLayout;

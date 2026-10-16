@@ -7,6 +7,7 @@
 #include "../Objects/Wall.h"
 #include "../Objects/Guard.h"
 #include "../Objects/GlassPanel.h"
+#include "../Objects/Lantern.h"
 #include "../Objects/GameSystem.h"
 #include "../Objects/EnemySpawner.h"
 #include "../Objects/BulletSpawner.h"
@@ -27,6 +28,7 @@ void GameScene::Init()
     CreateWall(*this, { 500.0f, 50.0f, -500.0f }, { 300.0f, 200.0f, 40.0f });
     CreateGuard(*this, player);
     CreateGlassPanel(*this, { 400.0f, 50.0f, 300.0f }, { 300.0f, 200.0f, 10.0f });   // 半透明で光沢のある板
+    CreateLantern(*this, { 0.0f, 0.0f, 0.0f });   // 周りを照らしながら回るランタン(点光源)
     GameManager* gameManager = CreateGameSystem(*this);
     CreateEnemySpawner(*this, player);
     CreateBulletSpawner(*this);

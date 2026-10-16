@@ -100,6 +100,12 @@
     <ClCompile Include="Game\Objects\GlassPanel.cpp">
       <Filter>Game\Objects</Filter>
     </ClCompile>
+    <ClCompile Include="Game\Objects\Lantern.cpp">
+      <Filter>Game\Objects</Filter>
+    </ClCompile>
+    <ClCompile Include="Game\Components\LanternController.cpp">
+      <Filter>Game\Components</Filter>
+    </ClCompile>
     <ClCompile Include="Game\Objects\Wall.cpp">
       <Filter>Game\Objects</Filter>
     </ClCompile>
@@ -206,6 +212,12 @@
     </ClInclude>
     <ClInclude Include="Game\Objects\GlassPanel.h">
       <Filter>Game\Objects</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\Objects\Lantern.h">
+      <Filter>Game\Objects</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\Components\LanternController.h">
+      <Filter>Game\Components</Filter>
     </ClInclude>
     <ClInclude Include="Game\Objects\Wall.h">
       <Filter>Game\Objects</Filter>

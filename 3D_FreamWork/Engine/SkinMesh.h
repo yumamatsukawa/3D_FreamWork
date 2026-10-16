@@ -30,7 +30,7 @@ private:
     static ID3D11Buffer* constantBuffer;     // b0: Shader3D.hlsl と同じ(MeshConstantBuffer)
     static ID3D11Buffer* skinBuffer;         // b1: 骨の行列
     static ID3D11Buffer* materialBuffer;     // b2: MaterialConstantBuffer(Mesh と同じ)
-    static ID3D11Buffer* cameraBuffer;       // b3: MeshCameraBuffer(Mesh と同じ)
+    static ID3D11Buffer* cameraBuffer;       // b3: MeshCameraBuffer(Mesh と同じ。b4 の光は Lighting::Bind())
     static ID3D11VertexShader* vertexShader;
     static ID3D11PixelShader* pixelShader;
     static ID3D11InputLayout* inputLayout;
