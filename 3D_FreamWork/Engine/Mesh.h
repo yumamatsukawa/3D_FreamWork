@@ -25,6 +25,9 @@ struct MeshConstantBuffer {
     XMFLOAT4 ambient;
 };
 
+// カプセルの長い向き(PhysXは元々X軸だが、立って歩く形になるよう、既定はYにする)
+enum class CapsuleAxis { X, Y, Z };
+
 // 3Dの頂点データ(立体)を持ち、World/View/Projection行列を使って描画するクラス。
 // SpriteがZ軸回転のみ・奥行き無しの2D専用だったのに対し、こちらはXYZ全軸の回転や
 // 奥行きのある立体を、深度バッファ有り(前後関係が正しい)で描画できる。
@@ -94,6 +97,13 @@ public:
     // rings: 緯度方向の分割数、segments: 経度方向の分割数(大きいほど滑らかで頂点数が増える)
     static std::vector<MeshVertex> CreateSphere(int rings = 16, int segments = 24);
 
+    // カプセル(円柱の両端が半球)の頂点データを作る。長い向きはY軸。
+    // 立方体や球と違って「大きさ1の形をscaleで伸ばす」と両端の半球が潰れてしまうので、
+    // 実際の大きさで作る(使う時のtransform.scaleは1のままにする)。
+    // radius: 半径、height: 全体の高さ(両端の半球を含む。2×radiusより小さい時は球になる)
+    // rings: 半球1つの緯度方向の分割数、segments: 経度方向の分割数
+    static std::vector<MeshVertex> CreateCapsule(float radius, float height, int rings = 8, int segments = 24);
+
     // Wavefront OBJ(.obj)ファイルを読み込んで頂点データを作る。
     // v(頂点座標)/vt(UV座標)/vn(法線)/f(面)に対応。四角形以上の面は三角形に自動分割する。
     // vnが無いファイルは、三角形ごとに面法線を自動計算する。
@@ -111,4 +121,8 @@ public:
     static std::vector<MeshVertex> CreateCircleOutline(int segments = 32);
     // 直径1の球を表す3つの円(XY/XZ/YZ平面)
     static std::vector<MeshVertex> CreateSphereOutline(int segments = 32);
+    // カプセルの輪郭。ここだけは大きさ1ではなく、実際の大きさ(radius=半径、halfHeight=円柱部分の長さの半分)で作る。
+    // axis: 長い向き。crossSectionOnly=trueなら、XY平面で切った断面(角の丸い四角=スタジアム形)だけを作る(2D用)
+    static std::vector<MeshVertex> CreateCapsuleOutline(float radius, float halfHeight,
+        CapsuleAxis axis = CapsuleAxis::Y, int segments = 24, bool crossSectionOnly = false);
 };

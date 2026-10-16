@@ -350,6 +350,49 @@ std::vector<MeshVertex> Mesh::CreateSphere(int rings, int segments) {
     return verts;
 }
 
+std::vector<MeshVertex> Mesh::CreateCapsule(float radius, float height, int rings, int segments) {
+    XMFLOAT4 c = { 1.f, 1.f, 1.f, 1.f };
+    if (rings < 1) rings = 1;
+    if (segments < 3) segments = 3;
+    // 円柱部分の長さの半分(全体の高さから両端の半球を引く。負なら球)
+    float halfCylinder = height * 0.5f - radius;
+    if (halfCylinder < 0.f) halfCylinder = 0.f;
+
+    // 上の半球(rings+1段)と下の半球(rings+1段)を、緯度の段として並べる。
+    // 上の最後の段と下の最初の段の間が円柱部分になる
+    struct Row { float theta; float offsetY; };
+    std::vector<Row> rows;
+    for (int i = 0; i <= rings; i++) rows.push_back({ XM_PIDIV2 * (float)i / rings, halfCylinder });
+    for (int i = 0; i <= rings; i++) rows.push_back({ XM_PIDIV2 + XM_PIDIV2 * (float)i / rings, -halfCylinder });
+    const float rowCount = (float)(rows.size() - 1);
+
+    auto MakeVertex = [&](int row, float phi) {
+        float theta = rows[row].theta;
+        float x = sinf(theta) * cosf(phi);
+        float y = cosf(theta);
+        float z = sinf(theta) * sinf(phi);
+        float u = phi / XM_2PI;
+        float v = (float)row / rowCount;
+        return MeshVertex{ { x * radius, y * radius + rows[row].offsetY, z * radius }, { x, y, z }, c, { u, v } };
+    };
+
+    std::vector<MeshVertex> verts;
+    for (size_t row = 0; row + 1 < rows.size(); row++) {
+        for (int lon = 0; lon < segments; lon++) {
+            float phi0 = XM_2PI * (float)lon / segments;
+            float phi1 = XM_2PI * (float)(lon + 1) / segments;
+            MeshVertex v00 = MakeVertex((int)row, phi0);
+            MeshVertex v01 = MakeVertex((int)row, phi1);
+            MeshVertex v10 = MakeVertex((int)row + 1, phi0);
+            MeshVertex v11 = MakeVertex((int)row + 1, phi1);
+            // CreateSphereと同じ巻き方
+            verts.push_back(v00); verts.push_back(v11); verts.push_back(v01);
+            verts.push_back(v00); verts.push_back(v10); verts.push_back(v11);
+        }
+    }
+    return verts;
+}
+
 // ─── 輪郭(線)データ ─────────────────────────────
 namespace {
     // 線で使う頂点。光源の影響を受けない描き方(全方向から光)で使う前提なので法線は何でもよいが、
@@ -415,6 +458,60 @@ std::vector<MeshVertex> Mesh::CreateSphereOutline(int segments) {
     AppendCircle(verts, segments, 0);
     AppendCircle(verts, segments, 1);
     AppendCircle(verts, segments, 2);
+    return verts;
+}
+
+std::vector<MeshVertex> Mesh::CreateCapsuleOutline(float radius, float halfHeight,
+    CapsuleAxis axis, int segments, bool crossSectionOnly) {
+    std::vector<MeshVertex> verts;
+    if (segments < 4) segments = 4;
+
+    // 断面だけ(2D用)で、長い向きがZの時は、XY平面で見ると円になる
+    if (crossSectionOnly && axis == CapsuleAxis::Z) {
+        for (int i = 0; i < segments; i++) {
+            float a0 = XM_2PI * (float)i / segments, a1 = XM_2PI * (float)(i + 1) / segments;
+            verts.push_back(LineVertex(cosf(a0) * radius, sinf(a0) * radius, 0.f));
+            verts.push_back(LineVertex(cosf(a1) * radius, sinf(a1) * radius, 0.f));
+        }
+        return verts;
+    }
+
+    // まずY向きのカプセルとして線を作り、axisに合わせて座標を入れ替える
+    auto Add = [&](float x, float y, float z) {
+        if (axis == CapsuleAxis::X) verts.push_back(LineVertex(y, x, z));        // Y→X
+        else if (axis == CapsuleAxis::Z) verts.push_back(LineVertex(x, z, y));   // Y→Z
+        else verts.push_back(LineVertex(x, y, z));
+    };
+    auto AddLine = [&](float x0, float y0, float z0, float x1, float y1, float z1) {
+        Add(x0, y0, z0);
+        Add(x1, y1, z1);
+    };
+
+    // 両端の半円(XY平面と、3Dの時はZY平面)
+    for (int i = 0; i < segments / 2; i++) {
+        float a0 = XM_PI * (float)i / (segments / 2), a1 = XM_PI * (float)(i + 1) / (segments / 2);
+        float c0 = cosf(a0) * radius, s0 = sinf(a0) * radius;
+        float c1 = cosf(a1) * radius, s1 = sinf(a1) * radius;
+        AddLine(c0, halfHeight + s0, 0.f, c1, halfHeight + s1, 0.f);     // 上(XY)
+        AddLine(c0, -halfHeight - s0, 0.f, c1, -halfHeight - s1, 0.f);   // 下(XY)
+        if (!crossSectionOnly) {
+            AddLine(0.f, halfHeight + s0, c0, 0.f, halfHeight + s1, c1);     // 上(ZY)
+            AddLine(0.f, -halfHeight - s0, c0, 0.f, -halfHeight - s1, c1);   // 下(ZY)
+        }
+    }
+    // 側面の線
+    AddLine(radius, -halfHeight, 0.f, radius, halfHeight, 0.f);
+    AddLine(-radius, -halfHeight, 0.f, -radius, halfHeight, 0.f);
+    if (!crossSectionOnly) {
+        AddLine(0.f, -halfHeight, radius, 0.f, halfHeight, radius);
+        AddLine(0.f, -halfHeight, -radius, 0.f, halfHeight, -radius);
+        // 円柱の上下の輪(水平な円)
+        for (int i = 0; i < segments; i++) {
+            float a0 = XM_2PI * (float)i / segments, a1 = XM_2PI * (float)(i + 1) / segments;
+            AddLine(cosf(a0) * radius, halfHeight, sinf(a0) * radius, cosf(a1) * radius, halfHeight, sinf(a1) * radius);
+            AddLine(cosf(a0) * radius, -halfHeight, sinf(a0) * radius, cosf(a1) * radius, -halfHeight, sinf(a1) * radius);
+        }
+    }
     return verts;
 }
 

@@ -3,6 +3,7 @@
 #include "GameObject.h"
 #include "Collider.h"
 #include "Physics.h"
+#include "Mesh.h"
 
 namespace physx {
     class PxRigidActor;
@@ -35,7 +36,10 @@ protected:
     bool rotationFrozen = false; // SetFreezeRotation(true)の状態。trueの間はPhysXの回転をTransformへ反映しない
     bool inScene = false;
     bool justActivated = false;  // ObjectPoolで再利用された直後、次のUpdate()でスイープを避けて直接テレポートする
-    bool flat2D = false;         // 2D向け(Square/Circle)かどうか。デバッグ表示で断面だけを描くのに使う
+    bool flat2D = false;         // 2D向け(Square/Circle/Capsule2D)かどうか。デバッグ表示で断面だけを描くのに使う
+    CapsuleAxis capsuleAxis = CapsuleAxis::X;  // カプセルの長い向き(Capsule系のみ。X=PhysXの元の向き=回転なし)
+    Mesh capsuleOutline;         // カプセルのデバッグ表示用の輪郭(大きさで形が変わるので、各自で持つ。初めて描く時に作る)
+    bool capsuleOutlineReady = false;
     bool warnedNotDynamic = false;  // 「Dynamicではないので効きません」を出力したか(毎フレーム出さないように1回だけ)
 
     // Dynamicなら、PhysXのPxRigidDynamicを返す。違えば1回だけ出力ウィンドウに知らせてnullptrを返す
@@ -45,8 +49,9 @@ protected:
         bool isTrigger, bool isStaticForPush);
 
     // 派生クラス(Box/Sphere)がInit()の中で、自分の形状を渡して呼ぶ。
-    // アクター作成・シーンへの追加など、形状によらない共通処理をまとめて行う
-    void InitWithGeometry(const physx::PxGeometry& geometry);
+    // アクター作成・シーンへの追加など、形状によらない共通処理をまとめて行う。
+    // axis: カプセルだけ指定する。PhysXのカプセルはX軸に伸びるので、Y/Zを指定すると形を回して向きを変える
+    void InitWithGeometry(const physx::PxGeometry& geometry, CapsuleAxis axis = CapsuleAxis::X);
 
 public:
     void Update(float dt) override;
@@ -56,7 +61,8 @@ public:
 
     // trueにすると、全てのRigidbodyComponentの当たり判定の形・大きさを、
     // 枠線(緑=通常の当たり判定、黄=すり抜けるトリガー)で描画する。
-    // Box=立方体の12辺、Sphere=3方向の円、Square/Circle=Z軸方向で切った断面(四角/丸)。
+    // Box=立方体の12辺、Sphere=3方向の円、Square/Circle=Z軸方向で切った断面(四角/丸)、
+    // Capsule=両端の半円+輪+側面の線、Capsule2D=断面(角の丸い四角)。
     // 実際にPhysXが使っている形状(size/radius)をそのまま表示するので、
     // 見た目(SpriteRenderer/MeshRenderer)とズレていないか確認する時に使う
     static void SetDebugDrawEnabled(bool enabled) { debugDrawEnabled = enabled; }
@@ -184,6 +190,50 @@ public:
     explicit SquareRigidbodyComponent(BodyType bodyType = BodyType::Dynamic,
         float size = 0.f, float density = 1.0f,
         bool isTrigger = false, bool isStaticForPush = false);
+
+    void Init() override;
+};
+
+// Capsule形状(円柱の両端が半球)の3D剛体。立った人や敵に向いていて、箱と違い角で段差に引っかからず、坂道も滑らかに登れる。
+// 詳しい説明はRigidbodyComponentのコメントを参照。
+// ※立てたまま回転ロック無しのDynamicにすると、ぶつかった時に倒れて転がる。人・敵には SetFreezeRotation(true) を付けること
+// --------------------------- 引数 ----------------------------------
+// radius          : 半径。既定(0)ならOwnerのtransform.scale.xの半分を使う
+// height          : 全体の高さ(両端の半球を含む。Unityと同じ)。既定(0)ならOwnerのtransform.scale.yを使う。
+//                   2×半径より小さい時は、(PhysXは円柱部分が0だと無効な形のため)ほぼ球になる値にする
+// density         : 密度(質量 = 密度×体積として自動計算される)。1.0fが規定。Dynamic以外では無視される
+// isTrigger       : trueだと、すり抜ける当たり判定(OnTriggerEnter2D等)になる
+// isStaticForPush : trueだと、Kinematic同士がぶつかった時に「押し戻されない」側になる
+// axis            : 長い向き(X/Y/Z)。既定はY(立った形)
+class CapsuleRigidbodyComponent : public RigidbodyComponent {
+private:
+    float radius;
+    float height;
+    CapsuleAxis axis;
+
+public:
+    explicit CapsuleRigidbodyComponent(BodyType bodyType = BodyType::Dynamic,
+        float radius = 0.f, float height = 0.f, float density = 1.0f,
+        bool isTrigger = false, bool isStaticForPush = false,
+        CapsuleAxis axis = CapsuleAxis::Y);
+
+    void Init() override;
+};
+
+// 2D用のカプセルコライダー。中身はCapsuleRigidbodyComponentと同じだが、デバッグ表示は断面(角の丸い四角)だけを描く。
+// Circle/Squareと同じく、2Dゲームで使う時は SetFreezePositionZ(true) と SetFreezeRotation(true) を付けること。
+// 引数の意味もCapsuleRigidbodyComponentと同じ(axisは Y=縦長、X=横長。Zは2Dでは使わない)
+class Capsule2DRigidbodyComponent : public RigidbodyComponent {
+private:
+    float radius;
+    float height;
+    CapsuleAxis axis;
+
+public:
+    explicit Capsule2DRigidbodyComponent(BodyType bodyType = BodyType::Dynamic,
+        float radius = 0.f, float height = 0.f, float density = 1.0f,
+        bool isTrigger = false, bool isStaticForPush = false,
+        CapsuleAxis axis = CapsuleAxis::Y);
 
     void Init() override;
 };

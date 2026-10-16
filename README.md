@@ -325,6 +325,8 @@ RigidbodyComponent::SetDebugDrawEnabled(true);
 | `SphereRigidbodyComponent` | 3方向(XY/XZ/YZ)の円 |
 | `SquareRigidbodyComponent` | Z軸方向で切った断面の四角 |
 | `CircleRigidbodyComponent` | Z軸方向で切った断面の丸 |
+| `CapsuleRigidbodyComponent` | 両端の半円2組 + 上下の輪 + 側面の4本の線(§29) |
+| `Capsule2DRigidbodyComponent` | XY平面で切った断面(角の丸い四角=スタジアム形。§29) |
 
 2D向けのSquare/Circleは、PhysX上は奥行きのある立方体/球ですが(§23)、2Dゲームでは奥行き方向に動かないので、平面で見た時の形(断面)だけを表示しています。
 
@@ -1295,7 +1297,7 @@ Sample3D/Game/Scenes/      TitleScene, GameScene
 ```
 
 - **Sample2D**: トップダウン視点のアリーナシューター。タイトル画面のSTARTボタン(出る時に`TweenComponent`でぴょこっと大きくなる)をクリックすると、画面が暗転してからゲーム開始(ゲーム画面に入ると明転する。`FadeTransition`。§16)(ボタンは`CreateButton(scene, 文字, 位置, クリックされた時の処理)`で作れる汎用部品で、動きはEngineの`ButtonComponent`。他の画面のボタンにも使い回せる。§20)。WASDで移動、Playerは常にマウスの方を向き、左クリックでその方向へ弾を発射。背景はタイル状に敷き詰めた床(`BackgroundController`)で、移動するとスクロールする(カメラはPlayerに付けた`CameraFollowComponent`が追いかける。§14)。敵(`EnemyManager`が一定間隔でPlayerの周囲にランダムスポーンさせる)がゆっくり追いかけてきて(`ChaseComponent`。§13)、弾を当てると倒せる(`EventBus`で`"EnemyDefeated"`イベントを発行しスコア加算。倒した位置に「+10」が出て、上に動きながら消える=`CreateScorePopup`。§19。爆発のパーティクルも出る=`CreateExplosion`。§26)。敵に触れるとHPが減り(1秒間の無敵時間つき)、敵から離れる向きに弾かれる(ノックバック。`AddForce`で衝撃を加え、0.2秒間は移動キーが効かない。§23)、画面が少し揺れて(`CameraShake`。§14)、画面の端が赤く点滅する(`ScreenEffect::Vignette`。§15)。HPが0になるとゲームオーバー画面が出てSPACEでタイトルに戻る(黒い丸が閉じて開く`SpriteTransition`。§16)。スコアがハイスコアを超えていたら、ゲームオーバーの時に保存され(`SaveData`。キーは`"Sample2DHighScore"`で、Sample3Dの記録とは別。§18)、画面左上のスコアの下に出る(次に起動しても残る)。タイトル画面の下にはBGMの音量スライダー(`CreateVolumeSlider`。つまみをドラッグして0〜1で変えられ、離すと保存されて次に起動した時も残る。§20)がある。画面左上のHPの文字の下にはHPゲージ(減った分が少し遅れて縮む)、Playerの頭上にも小さなHPバーが出る(`GaugeRenderer`。§20)。当たり判定・物理はPhysXを使い(Player=`CircleRigidbodyComponent`、敵=`SquareRigidbodyComponent`、弾=`CircleRigidbodyComponent`)、Player・敵はDynamic(`SetVelocity()`で速度を渡して動かす。重力なし・回転なし・`SetFreezePositionZ(true)`で奥行き方向に固定)、弾はKinematicのトリガー。3Dカメラは使わない(`CameraController`なし)。画面の左上のHPゲージの下には、画面の外なので描かずに省いた数「Culled」が出る(敵の `SpriteRenderer` は `SetFrustumCulling(true)`。§28)。マップには見張り役の `Guard`(青い `Player` 画像がゆっくり回り、扇形の視野に `Player` が入って壁にさえぎられていなければ赤くなる。視野は線で表示)と、視線をさえぎる壁 `Wall` が2枚置いてある(`VisionComponent`。§28)。
-- **Sample3D**: Sample2Dと同じアリーナシューターを3D空間で遊べるようにしたもの。タイトル画面のボタン(Sample2Dと同じく、出る時に`TweenComponent`でぴょこっと大きくなる)をクリックすると、Sample2Dと同じく暗転してからゲーム開始(Sample3Dの`CreateButton()`は、位置と大きさをまとめて`Transform`で受け取る形になっている: `CreateButton(scene, 文字, transform, クリックされた時の処理)`)。Player(立方体)は三人称カメラ(`CameraController`。マウス移動で視点回転。カーソルは画面中心に固定され、ESCで解除・左クリックで再固定。TABで一人称に切り替え)と同じ向きを向き、WASDもカメラ基準(W=カメラの前、D=カメラの右)で移動する。左クリックでPlayerの向いている方向へ、地面と水平に弾(球)を発射。敵を倒すと、その位置に爆発のパーティクルが出る(`CreateExplosion`。§26)。敵は2Dの画像(Worldモードの`SpriteRenderer`。Y軸だけカメラの方を向く立て看板)で、地面の上をPlayerに向かって歩いてくる(`ChaseComponent`を`SetPlane(MovePlane::XZ)`で使う。§13)。歩く間は、敵に付けた`SpriteAnimationComponent`がスプライトシートのコマ(4番と5番)を0.3秒ごとに切り替えて、歩きアニメーションにしている(始まるコマはランダムなので、何体いても足踏みがそろわない。§17)。スコア・ハイスコア(保存先のファイルはSample2Dと同じだが、キーは`"Sample3DHighScore"`で、記録はSample2Dとは別。§18)・HP・無敵時間・被弾時に画面の端が赤く点滅すること・ゲームオーバー(SPACEでタイトルへ。Sample3Dは、黒い帯が左から覆って右へ抜けていく`SpriteTransition(...).SetSwitchFrame(7)`。§16)・`EventBus`のイベント名はSample2Dと同じ。タイトル画面の下のBGMの音量スライダーと、画面左上のHPゲージ(Sample2Dと同じ)、三人称の間だけ出るPlayerの頭上のHPバー(`SetUse3DCamera(true)`の`GaugeRenderer`)もある(§20)。Player・敵はDynamicの`BoxRigidbodyComponent`(重力あり・回転なし。Y速度は`GetVelocity().y`を維持したまま`SetVelocity()`で動かす。敵は`ChaseComponent`がこれをしている)、弾はKinematicのトリガー(`SphereRigidbodyComponent`)。地面は、1000四方のタイルを3Dカメラの描画距離(farZ)の範囲だけ敷き詰めて描く`GroundController`(見た目)と、見えない大きなStaticの板(当たり判定)の組み合わせ。遠景はスカイボックス。地面の端(Playerから斜めに離れた所)には、FBXモデルの見本(`CreateModelDisplay`。`Assets/Models/TestAnim.fbx` の立方体2つ=親と子のパーツ。子の「Top」が、「Spin」(回る)と「Bob」(上下)のアニメーションを3秒ごとに切り替えて再生する。§27)が置いてある(FBXが無い時は何も置かない)。そのとなり(位置 `(1000, -50, 800)`)には、骨2本で曲がる細長い箱(`CreateSkinDisplay`。`Assets/Models/TestSkin.fbx` のアニメーション「Bend」を再生。§27)も置いてある。地面のタイルは、カメラに映る物だけ描く(`Visibility::IsSphereInView3D`)。敵の画像は `SetFrustumCulling(true)` で、画面の外にいる間は描かない。画面の左上のHPゲージの下には、描かずに省いた数「Culled」が出る。`Player` の近く(位置 `(-800, 0, 600)`)には見張り役 `Guard`(青い立方体がゆっくり回り、扇形の視野に `Player` が入って壁にさえぎられていなければ赤くなる。視野は線で表示)と、視線をさえぎる壁 `Wall` が2枚置いてある(`VisionComponent`。§28)。
+- **Sample3D**: Sample2Dと同じアリーナシューターを3D空間で遊べるようにしたもの。タイトル画面のボタン(Sample2Dと同じく、出る時に`TweenComponent`でぴょこっと大きくなる)をクリックすると、Sample2Dと同じく暗転してからゲーム開始(Sample3Dの`CreateButton()`は、位置と大きさをまとめて`Transform`で受け取る形になっている: `CreateButton(scene, 文字, transform, クリックされた時の処理)`)。Player(立方体)は三人称カメラ(`CameraController`。マウス移動で視点回転。カーソルは画面中心に固定され、ESCで解除・左クリックで再固定。TABで一人称に切り替え)と同じ向きを向き、WASDもカメラ基準(W=カメラの前、D=カメラの右)で移動する。左クリックでPlayerの向いている方向へ、地面と水平に弾(球)を発射。敵を倒すと、その位置に爆発のパーティクルが出る(`CreateExplosion`。§26)。敵は2Dの画像(Worldモードの`SpriteRenderer`。Y軸だけカメラの方を向く立て看板)で、地面の上をPlayerに向かって歩いてくる(`ChaseComponent`を`SetPlane(MovePlane::XZ)`で使う。§13)。歩く間は、敵に付けた`SpriteAnimationComponent`がスプライトシートのコマ(4番と5番)を0.3秒ごとに切り替えて、歩きアニメーションにしている(始まるコマはランダムなので、何体いても足踏みがそろわない。§17)。スコア・ハイスコア(保存先のファイルはSample2Dと同じだが、キーは`"Sample3DHighScore"`で、記録はSample2Dとは別。§18)・HP・無敵時間・被弾時に画面の端が赤く点滅すること・ゲームオーバー(SPACEでタイトルへ。Sample3Dは、黒い帯が左から覆って右へ抜けていく`SpriteTransition(...).SetSwitchFrame(7)`。§16)・`EventBus`のイベント名はSample2Dと同じ。タイトル画面の下のBGMの音量スライダーと、画面左上のHPゲージ(Sample2Dと同じ)、三人称の間だけ出るPlayerの頭上のHPバー(`SetUse3DCamera(true)`の`GaugeRenderer`)もある(§20)。Playerは立方体の見た目とDynamicの`BoxRigidbodyComponent`、敵はDynamicの`CapsuleRigidbodyComponent`(半径40・高さ100の立ったカプセル。§29)(どちらも重力あり・回転なし。Y速度は`GetVelocity().y`を維持したまま`SetVelocity()`で動かす。敵は`ChaseComponent`がこれをしている)、弾はKinematicのトリガー(`SphereRigidbodyComponent`)。地面は、1000四方のタイルを3Dカメラの描画距離(farZ)の範囲だけ敷き詰めて描く`GroundController`(見た目)と、見えない大きなStaticの板(当たり判定)の組み合わせ。遠景はスカイボックス。地面の端(Playerから斜めに離れた所)には、FBXモデルの見本(`CreateModelDisplay`。`Assets/Models/TestAnim.fbx` の立方体2つ=親と子のパーツ。子の「Top」が、「Spin」(回る)と「Bob」(上下)のアニメーションを3秒ごとに切り替えて再生する。§27)が置いてある(FBXが無い時は何も置かない)。そのとなり(位置 `(1000, -50, 800)`)には、骨2本で曲がる細長い箱(`CreateSkinDisplay`。`Assets/Models/TestSkin.fbx` のアニメーション「Bend」を再生。§27)も置いてある。地面のタイルは、カメラに映る物だけ描く(`Visibility::IsSphereInView3D`)。敵の画像は `SetFrustumCulling(true)` で、画面の外にいる間は描かない。画面の左上のHPゲージの下には、描かずに省いた数「Culled」が出る。`Player` の近く(位置 `(-800, 0, 600)`)には見張り役 `Guard`(青い立方体がゆっくり回り、扇形の視野に `Player` が入って壁にさえぎられていなければ赤くなる。視野は線で表示)と、視線をさえぎる壁 `Wall` が2枚置いてある(`VisionComponent`。§28)。
 
 **Sample3Dの実装メモ**: 向きはすべて`transform.rotate.y`(度)で表し、`rotate.y`の時の正面(ローカルの+Z)は`(sin, 0, cos)`の方向になる(`CameraController::GetYaw()`の式と同じ。`Math::Forward3D()`で求められる)。Worldモードの`SpriteRenderer`は`rotate.y`を使わない(ビルボードの向きとZ軸回転だけを使う)ので、敵の画像の向きは`SetBillboardLock(true, false, true)`でカメラの方へ向けている。Playerは`SetFreezeRotation(true)`で、`RigidbodyComponent`は位置しか同期しないため、`PlayerController`が`rotate.y`が変わった時に`GetActor()`の`setGlobalPose`で当たり判定の箱の回転も合わせている(デバッグ表示の枠と実際の判定が同じ向きになる)。一人称の間は、カメラが立方体の内側に入るのでPlayerの`MeshRenderer`と頭上のHPバー(`GaugeRenderer`)を非表示にしている。
 
@@ -1345,6 +1347,7 @@ GameManager/HUD/EnemyManager/BulletManagerのような「見た目の無い管�
 | カメラがPlayerを追いかける(Sample2D) | `Objects/Player.cpp`で付けた`CameraFollowComponent`(Engine。§14) |
 | コライダー枠・見張り役の視野(扇形)の表示ON | `GameManager::Init()`(`RigidbodyComponent::SetDebugDrawEnabled` と `VisionComponent::SetDebugDrawEnabled`) |
 | 見張り役(Guard)を置く、ゆっくり回して視野に入ったら赤くする | `Objects/Guard.cpp`(`VisionComponent` を付ける)と `GuardController::Update()`(`CanSee(player)`。§28) |
+| 敵の当たり判定(立ったカプセル。Sample3D) | 敵の `SetupEnemy`(`CapsuleRigidbodyComponent`+`SetFreezeRotation(true)`。§29) |
 | 壁(Wall)を置く(視線をさえぎる) | `Objects/Wall.cpp`(タグ `"Wall"` + Staticの `BoxRigidbodyComponent`。§28) |
 | 地面のタイルのうち、画面に映る物だけ描く(Sample3D) | `GroundController::Draw()`(`Visibility::IsSphereInView3D`。§28) |
 | 画面の外の敵を描かない | 敵の `SetupEnemy`(`SpriteRenderer::SetFrustumCulling(true)`。両サンプル。§28) |
@@ -1379,6 +1382,7 @@ namespace Physics {
 
 `Engine/RigidbodyComponent.h/.cpp`に、`BoxRigidbodyComponent`/`SphereRigidbodyComponent`(3D向け)と`SquareRigidbodyComponent`/`CircleRigidbodyComponent`(2D向け)があります。見た目(`MeshRenderer`/`SpriteRenderer`)とは別に、動き方だけを担当するComponentです。4つとも共通の基底クラス`RigidbodyComponent`を継承しているので、他のComponentから形状を意識せず`GetComponent<RigidbodyComponent>()`で探せます(`PlayerController`が実例。これにより、Playerの形状を変えても`Player.cpp`の1行を変えるだけで済みます)。
 
+- 立った人・敵向けの`CapsuleRigidbodyComponent`(3D)/`Capsule2DRigidbodyComponent`(2D)もあります(§29)
 - `Square`/`CircleRigidbodyComponent`は、中身は`Box`/`SphereRigidbodyComponent`と全く同じ(PhysXに2D専用の形状は無いため、奥行きの薄い箱・普通の球で代用している)。トップダウン2Dゲームで使う時に、`XMFLOAT3`のサイズではなく一辺の長さ/半径を1つ渡すだけで済む、より簡単なAPIになっている
 - `SquareRigidbodyComponent`の奥行き(Z)は一辺と同じ長さです(薄すぎるとPhysXですり抜けが起きやすいため)。2Dゲームでは`SetFreezePositionZ(true)`を一緒に呼んで、奥行き方向に動かないようにしてください。厚みを自分で決めたい場合は`BoxRigidbodyComponent`を使ってください
 
@@ -2034,3 +2038,58 @@ bool seen = vision->CanSee(player);         // 見えたら赤くする・追い
 
 - **見張り役 `Guard` と壁 `Wall`**(Sample2D・Sample3Dどちらにも): `GameScene::Init()` は `CreateWall(...)` と `CreateGuard(*this, player)` を並べるだけ。`Objects/Guard.cpp` が `VisionComponent`(Sample3Dは `XZ`、Sample2Dは `XY`)と見た目と `GuardController` を付け、`GuardController::Update()` が回転(1秒に40度)と、`vision->CanSee(player)` で見えた時に赤くする(見えていない時は青)処理を担当します。`Objects/Wall.cpp` はタグ `"Wall"` のStaticの箱で、見張り役とPlayerの間に1枚、離れた所に1枚置いてあります。`GameManager::Init()` で `VisionComponent::SetDebugDrawEnabled(true)` にしているので、扇形が線で見えます(不要なら `false` に)。
 - **画面外の判定**: Sample3Dの `GroundController::Draw()` は、地面のタイルを `Visibility::IsSphereInView3D` でカメラに映る物だけ描きます(以前の「描画距離の円」の手書き判定の置き換え)。両サンプルの敵(`SetupEnemy`)は `SetFrustumCulling(true)` で、画面の外にいる間は描きません。HUD(`HUDController`)の「Culled: n」が、前のフレームに描かずに省いた数です。
+
+---
+
+## 29. カプセルコライダー(CapsuleRigidbodyComponent / Capsule2DRigidbodyComponent)
+
+円柱の両端が半球になった形の当たり判定です(`docs/EngineRoadmap2.md` の 6.2)。立った人や敵に向いています。箱と違って角が無いので、段差や坂道で引っかからず、滑らかに歩けます。
+
+| 使う Component | 使う場面 |
+|---|---|
+| `CapsuleRigidbodyComponent` | 3Dのゲーム |
+| `Capsule2DRigidbodyComponent` | 2Dのゲーム。中身は同じで、`Circle`/`Square` と同じく `SetFreezePositionZ(true)` で使い、枠線表示は断面だけ |
+
+```cpp
+// 3D: 立って歩く敵(半径40・高さ100)
+auto* rigidbody = obj->AddComponent<CapsuleRigidbodyComponent>(BodyType::Dynamic, 40.0f, 100.0f, 1.0f);
+rigidbody->SetFreezeRotation(true);   // 人・敵には必須(付けないと、ぶつかった時に倒れて転がる)
+
+// 2D: 横長のカプセル(半径20・全体の長さ100)
+auto* rb = obj->AddComponent<Capsule2DRigidbodyComponent>(BodyType::Dynamic, 20.0f, 100.0f, 1.0f,
+    false, false, CapsuleAxis::X);
+rb->SetFreezePositionZ(true);
+rb->SetFreezeRotation(true);
+```
+
+引数の並びは `(BodyType, radius, height, density, isTrigger, isStaticForPush, axis)` です。
+
+| 引数 | 意味 |
+|---|---|
+| `radius` | 半径。既定(0)ならOwnerの `transform.scale.x` の半分 |
+| `height` | **全体の高さ**(両端の半球を含む。Unityと同じ)。既定(0)なら `transform.scale.y`。`2×radius` より小さい時は、ほぼ球になる |
+| `axis` | 長い向き。`CapsuleAxis::Y`(既定=立つ)/ `X` / `Z`。2Dでは `Y`(縦長)か `X`(横長)を使う |
+| `density` など | 他の形(`Box`/`Sphere`)と同じ |
+
+見た目用のメッシュは `Mesh::CreateCapsule(radius, height)` で作れます(`MeshRenderer` に渡す)。立方体・球と違って、両端の半球が潰れないよう **実際の大きさで作る** ので、`transform.scale` は `{1, 1, 1}` のままにします。
+
+```cpp
+obj->transform.scale = { 1.f, 1.f, 1.f };
+obj->AddComponent<MeshRenderer>(Mesh::CreateCapsule(50.f, 180.f));
+obj->AddComponent<CapsuleRigidbodyComponent>(BodyType::Dynamic, 50.f, 180.f, 100.f);
+```
+
+### 気を付けること
+
+- PhysXのカプセルは元々 **X軸方向に伸びる** ので、`axis` が `Y`/`Z` の時は、Engineが形(shape)だけを回して向きを変えています(Y: Z軸まわりに+90度、Z: Y軸まわりに−90度)。Ownerの `transform.rotate` や、アクターの回転とは別です。`PlayerController` のように `setGlobalPose` で `rotate.y` に合わせて回す使い方は、立ったカプセルがY軸まわりに回るだけなので、そのまま使えます。
+- カプセルは `radius > 0` かつ円柱部分の長さ(`height − 2×radius`)が 0 より大きくないとPhysXで無効な形になるため、足りない時は円柱部分に小さな長さを足しています。
+- `Physics::OverlapSphere` / `OverlapBox` は、カプセルの形にも当たります。カプセルで調べる関数は、まだありません。
+
+### 枠線表示(デバッグ表示)
+
+`RigidbodyComponent::SetDebugDrawEnabled(true)` のとき(§6)、カプセルも緑/黄の枠で表示されます。大きさで形が変わるので、立方体・球のように「大きさ1の枠をscaleで伸ばす」ことができず、`Mesh::CreateCapsuleOutline(radius, halfHeight, axis, segments, crossSectionOnly)` で実際の大きさの枠を作って、各 `RigidbodyComponent` が自分用に持っています(初めて描く時に作り、`Uninit` で解放)。`Capsule2D` は断面(角の丸い四角)だけです。
+
+### Sampleでの使われ方
+
+- **Sample3D の敵**: `EnemyManager` の `SetupEnemy` で、箱(`BoxRigidbodyComponent`)の代わりに `CapsuleRigidbodyComponent`(半径40・高さ100)を付けています。見た目の画像(100×100)より横が少し細い判定です。
+- Sample2D、Sample3D の Player は、今は円・箱のままです(Playerの見た目は立方体のため)。

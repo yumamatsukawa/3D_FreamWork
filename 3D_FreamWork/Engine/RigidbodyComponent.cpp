@@ -145,12 +145,29 @@ RigidbodyComponent::RigidbodyComponent(BodyType bodyType, float density,
     collider.isStatic = isStaticForPush;
 }
 
-void RigidbodyComponent::InitWithGeometry(const PxGeometry& geometry) {
+void RigidbodyComponent::InitWithGeometry(const PxGeometry& geometry, CapsuleAxis axis) {
     Transform& t = GetOwner()->transform;
     PxTransform pose(ToPxPos(t), ToPxQuat(t.rotate));
 
     collider.owner = GetOwner();
+    capsuleAxis = axis;
     actor = CreateActor(bodyType, pose, geometry, Physics::GetDefaultMaterial(), density, collider.isTrigger);
+    if (actor && axis != CapsuleAxis::X) {
+        // PhysXのカプセルはX軸に伸びるので、形(shape)だけを回して向きを変える(アクター自身の回転は変えない)。
+        // X→Y: Z軸まわりに+90度、X→Z: Y軸まわりに-90度
+        PxShape* shape = nullptr;
+        actor->getShapes(&shape, 1);
+        if (shape) {
+            PxQuat shapeRotation = (axis == CapsuleAxis::Y)
+                ? PxQuat(PxHalfPi, PxVec3(0.f, 0.f, 1.f))
+                : PxQuat(-PxHalfPi, PxVec3(0.f, 1.f, 0.f));
+            shape->setLocalPose(PxTransform(shapeRotation));
+            // 形を回したので、質量の中心・回りにくさ(慣性)を計算し直す
+            if (PxRigidDynamic* dynamic = actor->is<PxRigidDynamic>()) {
+                PxRigidBodyExt::updateMassAndInertia(*dynamic, density);
+            }
+        }
+    }
     if (actor) {
         actor->userData = &collider;
         Physics::GetScene()->addActor(*actor);
@@ -225,6 +242,20 @@ void RigidbodyComponent::Draw() {
         gizmoMesh = GetOutlineMesh(flat2D ? Outline::Circle : Outline::Sphere);
         break;
     }
+    case PxGeometryType::eCAPSULE: {
+        // カプセルは大きさで形が変わるので、大きさ1の輪郭をscaleで伸ばせない。実際の大きさの輪郭を自分で持つ
+        PxCapsuleGeometry capsule;
+        shape->getCapsuleGeometry(capsule);
+        if (!capsuleOutlineReady) {
+            capsuleOutlineReady = capsuleOutline.Init(
+                Mesh::CreateCapsuleOutline(capsule.radius, capsule.halfHeight, capsuleAxis, 24, flat2D),
+                D3D11_PRIMITIVE_TOPOLOGY_LINELIST);
+        }
+        if (!capsuleOutlineReady) return;
+        gizmoSize = { 1.f, 1.f, 1.f };
+        gizmoMesh = &capsuleOutline;
+        break;
+    }
     default:
         return;
     }
@@ -243,6 +274,10 @@ void RigidbodyComponent::Draw() {
 }
 
 void RigidbodyComponent::Uninit() {
+    if (capsuleOutlineReady) {
+        capsuleOutline.Uninit();
+        capsuleOutlineReady = false;
+    }
     if (actor) {
         // ★ SetActive(false)でプールに戻った直後にシーンが切り替わる、といった場合、
         //   「シーンから削除して」という予約(QueueSceneChange)がまだ消化されずに
@@ -442,4 +477,48 @@ void SquareRigidbodyComponent::Init() {
     //   2Dゲームでは SetFreezePositionZ(true) で奥行き方向に動かないようにしておけば、
     //   厚みがあっても見た目や動きには影響しない
     InitWithGeometry(PxBoxGeometry(s * 0.5f, s * 0.5f, s * 0.5f));
+}
+
+// ─────────────────────────── CapsuleRigidbodyComponent ───────────────────────────
+
+namespace {
+    // 半径と全体の高さから、PhysXのカプセルの形を作る。
+    // PhysXは radius > 0 かつ halfHeight(円柱部分の長さの半分) > 0 でないと無効な形なので、
+    // 高さが足りない時は、ほぼ球になるよう円柱部分に小さな長さを足す
+    PxCapsuleGeometry MakeCapsuleGeometry(float radius, float height) {
+        if (radius < 0.001f) radius = 0.001f;
+        float halfHeight = height * 0.5f - radius;
+        float minHalfHeight = radius * 0.01f;
+        if (halfHeight < minHalfHeight) halfHeight = minHalfHeight;
+        return PxCapsuleGeometry(radius, halfHeight);
+    }
+}
+
+CapsuleRigidbodyComponent::CapsuleRigidbodyComponent(BodyType bodyType, float radius, float height,
+    float density, bool isTrigger, bool isStaticForPush, CapsuleAxis axis)
+    : RigidbodyComponent(bodyType, density, isTrigger, isStaticForPush),
+      radius(radius), height(height), axis(axis) {
+}
+
+void CapsuleRigidbodyComponent::Init() {
+    const Transform& t = GetOwner()->transform;
+    float r = (radius > 0.f) ? radius : (t.scale.x * 0.5f);
+    float h = (height > 0.f) ? height : t.scale.y;
+    InitWithGeometry(MakeCapsuleGeometry(r, h), axis);
+}
+
+// ─────────────────────────── Capsule2DRigidbodyComponent(2D用) ───────────────────────────
+
+Capsule2DRigidbodyComponent::Capsule2DRigidbodyComponent(BodyType bodyType, float radius, float height,
+    float density, bool isTrigger, bool isStaticForPush, CapsuleAxis axis)
+    : RigidbodyComponent(bodyType, density, isTrigger, isStaticForPush),
+      radius(radius), height(height), axis(axis) {
+    flat2D = true;
+}
+
+void Capsule2DRigidbodyComponent::Init() {
+    const Transform& t = GetOwner()->transform;
+    float r = (radius > 0.f) ? radius : (t.scale.x * 0.5f);
+    float h = (height > 0.f) ? height : t.scale.y;
+    InitWithGeometry(MakeCapsuleGeometry(r, h), axis);
 }

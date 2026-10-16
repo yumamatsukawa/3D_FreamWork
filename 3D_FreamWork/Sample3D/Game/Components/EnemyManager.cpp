@@ -45,8 +45,8 @@ namespace {
         anim->SetRandomStart(true);
         anim->Play("Walk");
 
-        // 当たり判定+物理演算(PhysX)
-        auto* rigidbody = obj->AddComponent<BoxRigidbodyComponent>(BodyType::Dynamic, obj->transform.scale, 1.0f);
+        // 当たり判定+物理演算(PhysX): 立った形のカプセル(半径40・高さ100)。箱と違い、角が段差に引っかからない
+        auto* rigidbody = obj->AddComponent<CapsuleRigidbodyComponent>(BodyType::Dynamic, 40.0f, 100.0f, 1.0f);
         rigidbody->SetUseGravity(true);
         rigidbody->SetFreezeRotation(true);
 
