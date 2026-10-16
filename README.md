@@ -16,7 +16,7 @@ DirectX11製の、Unity風のコンポーネント指向ゲームフレームワ
 3D_FreamWork\
 ├── 3D_FreamWork.sln
 ├── PhysX.props        共有MSBuildプロパティシート(PhysXのinclude/lib設定を1箇所にまとめたもの)
-├── Assets\             全プロジェクト共有の画像・音声・モデル・フォント(Fonts\。§19)
+├── Assets\             全プロジェクト共有の画像・音声・モデル・フォント(Fonts\。§19)・表(Data\。§25)
 ├── Shader.hlsl / Shader3D.hlsl   全プロジェクト共有のシェーダー
 ├── Engine\             フレームワーク本体(静的ライブラリ、Engine.vcxproj)
 ├── Sample2D\           2Dのサンプルゲーム(実行ファイル、Sample2D.vcxproj)
@@ -25,7 +25,7 @@ DirectX11製の、Unity風のコンポーネント指向ゲームフレームワ
 
 - **Engine**: `GameObject`/`Component`/`RigidbodyComponent`/描画/音声などフレームワーク本体。それ単体では実行できない静的ライブラリ(`Engine.lib`)で、基本的にみんなで触る場所ではありません。
 - **Sample2D** / **Sample3D**: それぞれ独立した実行ファイル。どちらも同じ`Engine.lib`をリンクしているので、**Engineを直した内容は、両方のサンプルを再ビルドするだけで反映されます**。中身の`Game\Objects\`/`Game\Components\`/`Game\Scenes\`は、後述の「2. オブジェクトの作り方」と同じパターンです。
-- ビルド後、`Engine.lib`/`Sample2D.exe`/`Sample3D.exe`は全て同じ`x64\Debug\`(`Release\`)フォルダに出力されます。`Assets\`とシェーダーは、Engineのビルド後処理(PostBuildEvent)でそこに自動コピーされるので、`.exe`をダブルクリックするだけでも動きます。
+- ビルド後、`Engine.lib`/`Sample2D.exe`/`Sample3D.exe`は全て同じ`x64\Debug\`(`Release\`)フォルダに出力されます。`Assets\`とシェーダーは、Engineのビルドのたびに(`Engine.vcxproj`の`CopyRuntimeFiles`)、新しいファイルだけがそこへ自動コピーされます。Engineのコードが変わっていなくても動き、`Assets/`とシェーダーを高速最新チェックの入力に登録してあるので(`UpToDateCheckInput`)、`Assets/`だけ編集して実行(F5)しても反映されます。ビルド済みの`.exe`をダブルクリックするだけでも動きます。
 - ソリューションを開いてF5で実行する時は、実行したい方(Sample2DかSample3D)をソリューションエクスプローラーで右クリック→「スタートアッププロジェクトに設定」してから実行してください(複数のスタートアッププロジェクトを同時に起動する設定も可能です)。
 
 新しい3つ目のサンプルを作りたい時は、`Sample2D`か`Sample3D`のフォルダ構成をコピーして名前を変え、`.sln`に登録し、`Engine.vcxproj`への`ProjectReference`と`PhysX.props`のImportを忘れずに設定してください。
@@ -476,10 +476,11 @@ Componentのメンバに持って、`Update` で毎フレーム `dt` を渡し�
 | `elapsed` | 経過時間(秒)。直接書き換えてもよい(最初の1回だけ早くしたい時など) |
 
 ```cpp
-// 一定間隔でくり返す(Sample2D/3D EnemyManager)
+// 一定間隔でくり返す
 Timer spawnTimer{ 2.5f, true };                      // 2.5秒ごと
 spawnTimer.elapsed = 2.5f - 1.0f;                    // 最初の1回だけ1.0秒で来るようにする(Initで)
 if (spawnTimer.Update(dt)) Spawn(...);               // 時間が来たフレームだけ出す
+// ※Sample2D/3Dの敵の出現(EnemyManager)は、時間と数を表で調整できるように、Timerではなく表(§25)の時間で出している
 
 // きっかけがあってから○秒の間(Sample2D/3D PlayerControllerの無敵時間)
 Timer invincibleTimer{ 1.0f };
@@ -1305,7 +1306,7 @@ Sample3D/Game/Scenes/      TitleScene, GameScene
 |---|---|
 | `PlayerController` | HP・無敵時間・ノックバック(HPが0になったら`EventBus`で`"PlayerDied"`を発行し、以後は移動・向き・発射を受け付けない。ポーズ中・シーン切り替え中も`Time::IsPaused()`で受け付けない) |
 | `GameManager` | スコア(`"EnemyDefeated"`で加算)・ゲームオーバー判定(`"PlayerDied"`を受けて)・ハイスコアの更新と保存(ゲームオーバーの時。ハイスコアの値そのものは`SaveData`が持ち、`GetHighScore()`はそれを読むだけ。§18)・タイトルへの遷移。表示は一切しない |
-| `EnemyManager` | 敵のプールと出現タイマー。一定間隔でPlayerの周囲に敵を出し(追いかける動きは敵に付けた`ChaseComponent`に、相手と速さを渡す)、`"PlayerDied"`を受けたら出現を止める |
+| `EnemyManager` | 敵のプールと出現の予定。`Init()`で`Assets/Data/Enemies.csv`(敵の速さ)と`Assets/Data/Waves.csv`(出現ウェーブ)を読み(§25)、表の時間にPlayerの周囲に敵を出し(追いかける動きは敵に付けた`ChaseComponent`に、相手と速さを渡す)、`"PlayerDied"`を受けたら出現を止める |
 | `BulletManager` | 弾のプール。`"FireBullet"`を受けて、撃った本人の向きへ弾を出す(出す時に発射音`shot.wav`を`Audio::PlayOneShotAt`で鳴らす。§24) |
 | `HUDController` | 画面表示(Score/High Score/HP/GAME OVER)だけ。値は自分で持たず、`GameManager::GetScore()`/`GameManager::GetHighScore()`/`PlayerController::GetHp()`などで毎フレーム読む。文字は`Init()`で`Text::LoadFont`したNoto Sans JPで、左上の文字は左寄せ+黒い縁取り(`TextStyle`。§19)。位置は`GetAnchoredPosition`で画面の隅・中央から決める(§20)。HUDオブジェクトに付けた`GaugeRenderer`のHPゲージも、`SetValueSource`で`PlayerController`のHPを読んで描くだけ(§20) |
 | `TitleController` | タイトルの表示とBGMの再生。起動時に、BGMグループの音量(`"MusicVolume"`)と効果音(SE)グループの音量(`"SoundEffectVolume"`。変えるUIはまだ無い)を`SaveData`から読んで適用する(§24)。BGMの音量の持ち主(`GetVolume()`/`SetVolume()`。`SaveData`の`"MusicVolume"`に書く)。音量スライダー(`SliderComponent`)は、`CreateVolumeSlider`でここへつないで、動かしてもらうだけ(§20) |
@@ -1325,7 +1326,7 @@ GameManager/HUD/EnemyManager/BulletManagerのような「見た目の無い管�
 | ゲームオーバー中にSPACEでタイトルへ(Sample2Dは丸く閉じて開く、Sample3Dは左から覆って右へ抜ける) | `GameManager::Update()`(`ChangeScene<TitleScene>(SpriteTransition(...))`。Sample3Dは`.SetSwitchFrame(7)`付き。§16) |
 | STARTボタンをぴょこっと出す | `Objects/StartButton.cpp`(`TweenComponent`を付けて`ScaleTo`。§12) |
 | `"FireBullet"`を受けて弾を出す | `BulletManager::Init()` |
-| 一定間隔で敵を出す | `EnemyManager::Update()` |
+| 表(`Waves.csv`)の時間に敵を出す | `EnemyManager::Update()`(表は`Init()`で読む。§25) |
 | 敵を倒した位置に「+10」を出す(Sample2D) | `EnemyController::OnTriggerEnter2D()`から`CreateScorePopup()`を呼ぶ(動き・消え方は`Objects/ScorePopup.cpp`で付けた`TweenComponent`。§19) |
 | 敵がPlayerを追いかける | 敵に付けた`ChaseComponent`(Engine。§13)。相手と速さは`EnemyManager::Spawn()`が渡す |
 | 敵の歩きアニメーション(Sample3D) | 敵に付けた`SpriteAnimationComponent`(Engine。§17)。クリップの登録と再生は`EnemyManager`の`SetupEnemy` |
@@ -1614,3 +1615,122 @@ Audio::SetGroupVolume(AudioGroup::SE, 1.0f);
 
 - 位置の単位はワールド座標です(2Dはピクセル、3Dのサンプルは1000で地面のタイル1枚)。ゲームの広さに合わせて `SetDistance` で調整してください。`PlayOneShotAt` は既定の 300 / 2500 です。
 - WAV は 16bit PCM(または8bit)を使ってください。フォーマットが違う音は同じ再生口を使い回せないので、種類が増えると再生口を作り直します(動きはしますが、1つのフォーマットにそろえたほうが軽いです)。
+
+---
+
+## 25. CSV(Csv)
+
+敵の強さや出現の順番などを、コードではなく表(Excel)で調整するための仕組みです。表のファイル(`.csv`)を読んで、**列の名前**で値を取り出します。
+
+```cpp
+#include "../../../Engine/Csv.h"
+
+// Assets/Data/Enemies.csv
+// Name,Speed
+// Slime,60
+
+Csv table = Csv::Load(L"Assets/Data/Enemies.csv");     // ComponentのInitで1回だけ読む
+int row = table.FindRow("Name", L"Slime");              // Nameが Slime の行(無ければ-1)
+float speed = table.GetFloat(row, "Speed", 60.f);       // 無い・読めなければ 60
+```
+
+| 関数 | 内容 |
+|---|---|
+| `Csv::Load(パス)` | 読み込む。1行目は列の名前として扱う。**呼ぶ度にファイルを読み直す**(キャッシュはしない) |
+| `IsValid()` | 読み込めたか(ファイルが無い・16MBより大きい・中身が空だとfalse。falseの表の `Get○○` は、いつも無い時の値を返す) |
+| `GetRowCount()` | 行の数(1行目の列の名前は数えない) |
+| `GetColumnCount()` / `HasColumn(列)` | 列の数 / その名前の列があるか |
+| `GetString(行, 列)` | 文字として読む(無ければ `L""`) |
+| `GetInt(行, 列, 無い時の値 = 0)` | 整数として読む(`"1.5"` や `"abc"` は無い時の値。`SaveData` と同じ厳しさ) |
+| `GetFloat(行, 列, 無い時の値 = 0)` | 小数として読む(無限大・NaNは読まない。PCの地域設定に関係なく小数点は `.`) |
+| `FindRow(列, 値)` | その列の値が同じ最初の行を探す(無ければ-1。前後の空白や大文字小文字が違うと別の値) |
+| `IsFileUpdated()` | 読み込んだ後にファイルが変わったか(更新日時か大きさが違えばtrue)。ファイルが今は無い時はfalse。**軽いが、毎フレームは呼ばない**(0.5秒ごとなど) |
+| `Reload()` | 同じパスを読み直す。成功したら中身を入れ替えてtrue。**失敗したら今の中身のまま**falseを返す |
+
+**使い方の決まり**:
+- **ComponentのInitで読みます**(毎フレーム `Load` しない)。Sampleの `EnemyManager::Init()` のように、`Csv` と読んだ値はComponentのメンバに入れて使います。CSVのパスの文字は、1か所(`EnemyManager.cpp` の先頭)にだけ書きます。実行中の反映は、下の「実行中の反映」を見てください
+- 行の番号は0から数えます(表の2行目が `row = 0`)。`FindRow` が返した番号をそのまま `Get○○` に渡せます(-1だった時は無い時の値になり、出力ウィンドウに知らせます)
+- **列の名前で取り出す**ので、Excelで列の順番を入れ替えても壊れません。列の名前は半角英数字(`Name`, `Speed`)にします。**大文字小文字は区別します**(`"name"` と `"Name"` は別の列)。列の名前の前後の空白は無視し、同じ名前の列が2つあれば最初のものを使います
+- 列が無い・行が範囲外・値が空・数に読めない時は、無い時の値を返して、Visual Studioの出力ウィンドウに `★ Csv: ...` と知らせます(列ごと・ファイルごとに1回だけ)
+- `Csv` は値として持てます(コピーしても表の中身は共有するので軽いです)
+
+**ファイルの形式**:
+- 1行目が列の名前、2行目からが値で、値はカンマで区切ります
+- `"` で囲んだ値の中には、カンマ・改行・`""`(`"` 1文字)も書けます(Excelが書き出す形式です)
+- 改行はCRLF・LF・CRのどれでも読めます。最後の行に改行が無くても読めます。全部の値が空の行(空行や `,,`)は飛ばします
+- 行ごとに値の数が違っていても読めます(足りない分は空、列の名前より多い分は無視。出力ウィンドウに知らせます)
+
+### Excelで編集する時の注意(文字コード)
+
+日本語版のExcelは、普通に保存すると **Shift-JIS** という文字コードになり、日本語が文字化けします。**「名前を付けて保存」で、ファイルの種類を「CSV UTF-8(コンマ区切り)」にして保存してください**。
+
+- UTF-8(BOMがあってもなくてもよい)を既定で読みます。UTF-8として読めないバイトがあるファイルは、Shift-JISとして読み直して、出力ウィンドウに `★ Csv: ... Shift-JIS のようです。Excel では『CSV UTF-8(コンマ区切り)』で保存してください` と警告します(動きはします)
+- 列の名前や数だけで日本語を含まないファイルは、どちらで保存しても同じ内容なので警告は出ません
+- UTF-16のファイル(Excelの「Unicodeテキスト」)は読めません
+- Excelで開いたままでも読めるようにしてあります。それでも読めない時は(出力ウィンドウに `読み込めませんでした` と出ます)、保存の途中かもしれないので少し待ってください。ずっと読めなければExcelを閉じてください
+- 反映のしかたは、次の「実行中の反映」を見てください(ゲームを動かしたまま、保存するだけで反映されます)
+
+### 実行中の反映(ホットリロード)
+
+ゲームを動かしたまま表を保存すると、起動し直さずにゲームに反映されます(Sampleでは `EnemyManager` がやっています)。
+
+```cpp
+// メンバ: Csv table;  Timer reloadTimer{ 0.5f, true };
+
+// Init
+table = Csv::Load(L"Assets/Data/Enemies.csv");
+
+// Update(0.5秒ごとに確かめる)
+if (reloadTimer.Update(dt) && table.IsFileUpdated()) {
+    if (table.Reload()) { /* 値を取り出し直す */ }
+}
+```
+
+- **どのファイルを編集するか**: 実行中は、**出力先**(`x64\Debug\Assets\Data\Waves.csv` など。実行ファイルの隣)を保存してください。ソース側(`3D_FreamWork\Assets\Data`)を編集した時は、ビルド(F5)の時に出力先へコピーされるだけで、実行中には自動でコピーされません
+- **確認は0.5秒ごと**: `IsFileUpdated()` はファイルの更新日時と大きさを見るだけなので軽いですが、毎フレーム呼ぶ必要はありません。`Timer` などで0.5秒ごとなどにしてください
+- **保存の途中で読めなくても大丈夫**: Excelの保存の途中でファイルが空だったり、ロックされていたりして `Reload()` が失敗しても、今の値のままゲームは動き続けます。読み込み済みの日時は変えないので、次の確認でまた試します(同じ状態の失敗は出力ウィンドウに1回だけ知らせます)。壊れたファイルを保存した時も同じで、直して保存し直せば反映されます
+- **ファイルが消えた時**: `IsFileUpdated()` はfalseのままで、今の値で動きます
+- **`Reload()` は呼んだ `Csv` の中身だけ入れ替えます**。先にコピーした `Csv` は古い中身のままなので、`Csv` を持つComponentが自分で `Reload` してください
+- Excelでは「CSV UTF-8(コンマ区切り)」で保存してください(Shift-JISのままだと、日本語が文字化けします)
+- Sampleの `EnemyManager` の場合:
+  - `Enemies.csv`: 敵の速さを取り直し、**すでに出ている敵にも新しい速さを渡します**(`ChaseComponent::SetSpeed`。出ている敵は `ObjectPool::GetObjects()` で調べます)
+  - `Waves.csv`: 経過時間はそのままにして、新しい表で「今の経過時間より前に出るはずだった回」を**出した扱い**にし、次に出す時間だけを決め直します。そのため、すでに出した分を二重に出さず、これから出す分も飛ばしません(例: 12.3秒の時に表を変えると、12.3秒より後の回から新しい表になります)。先に出ている敵はそのままです
+
+### 実例: 敵の速さと出現ウェーブ(両サンプルの `EnemyManager`)
+
+`Assets/Data/Enemies.csv`(敵の速さ):
+```
+Name,Speed
+Slime,60
+```
+`EnemyManager::Init()` が `Name` が `Slime` の行の `Speed` を読み、敵に付けた `ChaseComponent` に渡します。
+
+`Assets/Data/Waves.csv`(出現ウェーブ。1行が1ウェーブ):
+```
+Time,Count,Interval,Repeat
+1.0,1,2.5,0
+```
+
+| 列 | 意味 |
+|---|---|
+| `Time` | そのウェーブが始まる時間(秒。シーンが始まってから) |
+| `Count` | 1回に出す敵の数 |
+| `Interval` | 出す間隔(秒)。0なら1回だけ |
+| `Repeat` | 出す回数。**0なら、次のウェーブが始まるまで出し続ける**(最後のウェーブなら、ずっと) |
+
+上の1行は「1秒後から、2.5秒ごとに1体、ずっと」で、今までの動き(最初の1体が1秒後、その後2.5秒ごと)と同じです。行を足すと、後のウェーブが始まった時に前のウェーブは終わります。たとえば、
+
+```
+Time,Count,Interval,Repeat
+1.0,1,2.5,0
+30,2,2.0,0
+60,5,5.0,3
+```
+
+は「30秒までは2.5秒ごとに1体 → 30秒から2秒ごとに2体ずつ → 60秒から5秒ごとに5体ずつ、3回だけ」になります。行は時間の順でなくても動きます(始まる時間の順に並べ直します)。`Count` が1以上でない行は飛ばします。
+
+読み込めなかった時(ファイルが無い・使える行が無い)は、今までの値(1秒後から2.5秒ごとに1体、速さ60)にして、出力ウィンドウに知らせます。
+
+**自分のゲームに足す時**: 表の持ち主は、それを使うComponent(Sampleでは `EnemyManager`)です。Sceneには書きません。マス目の配置図(ステージ)のように表をオブジェクトに変えたい時は、Sceneではなく工場関数 `CreateStage(scene, L"Assets/Data/Stage1.csv")` のようにして、`Game/Objects/` に置いてください(「Sceneは配置だけ」のルール。§22)。
+
+**注意**: `Assets/` はビルドの時に出力先(`x64\Debug\Assets\` など)へコピーされます。ソースの `Assets/Data/*.csv` を編集してから、実行(F5)かビルドをしてください(Engineのビルドのたびに、新しく保存した方のファイルだけがコピーされます。Assetsだけの編集でも反映されます)。出力先のファイルを直接編集しても動きますが(実行中の反映は出力先を保存します)、ソース側の方が新しいと次のビルドで上書きされるので、気に入った値はソース側にも書いてください。

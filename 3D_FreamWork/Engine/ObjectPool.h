@@ -65,6 +65,10 @@ public:
 
     int GetPoolSize() const { return (int)pool.size(); }
 
+    // プールの全オブジェクト(使っていないものも含む。使っているかは GetIsActive() で調べる)。読むだけの一覧
+    // 例: 出ている敵すべてに、新しい速さを渡す
+    const std::vector<GameObject*>& GetObjects() const { return pool; }
+
 private:
     std::vector<GameObject*> pool;
 };

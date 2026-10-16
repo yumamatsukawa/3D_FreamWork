@@ -55,19 +55,6 @@
       <AdditionalOptions>/FS %(AdditionalOptions)</AdditionalOptions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
     </ClCompile>
-    <!--
-      Assets/シェーダー/PhysX DLLは、EngineとSample2D/Sample3Dの共有出力先($(OutDir))へ
-      ここでまとめてコピーする。Sample2D/Sample3DはどちらもEngineへのProjectReferenceを
-      持ち、必ずEngineが先にビルドされるため、コピーは設定ごとに1回・確実にサンプルより
-      前に完了する(サンプル側に同じ処理を重複させると、共有OutDirへ複数のビルドが並行して
-      書き込み合い、まれにファイル共有違反でビルドが失敗することがあるため、ここに一本化する)。
-    -->
-    <PostBuildEvent>
-      <Command>xcopy /y /d "$(SolutionDir)..\ThirdParty\PhysX\lib\x64-debug\*.dll" "$(OutDir)"
-xcopy /y /d /e /i "$(SolutionDir)Assets" "$(OutDir)Assets\"
-xcopy /y /d "$(SolutionDir)Shader.hlsl" "$(OutDir)"
-xcopy /y /d "$(SolutionDir)Shader3D.hlsl" "$(OutDir)"</Command>
-    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
@@ -80,12 +67,6 @@ xcopy /y /d "$(SolutionDir)Shader3D.hlsl" "$(OutDir)"</Command>
       <AdditionalOptions>/FS %(AdditionalOptions)</AdditionalOptions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
     </ClCompile>
-    <PostBuildEvent>
-      <Command>xcopy /y /d "$(SolutionDir)..\ThirdParty\PhysX\lib\x64-release\*.dll" "$(OutDir)"
-xcopy /y /d /e /i "$(SolutionDir)Assets" "$(OutDir)Assets\"
-xcopy /y /d "$(SolutionDir)Shader.hlsl" "$(OutDir)"
-xcopy /y /d "$(SolutionDir)Shader3D.hlsl" "$(OutDir)"</Command>
-    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="AccelerateChaseComponent.cpp" />
@@ -99,6 +80,7 @@ xcopy /y /d "$(SolutionDir)Shader3D.hlsl" "$(OutDir)"</Command>
     <ClCompile Include="FadeTransition.cpp" />
     <ClCompile Include="ChaseComponent.cpp" />
     <ClCompile Include="Collider.cpp" />
+    <ClCompile Include="Csv.cpp" />
     <ClCompile Include="GameEngine.cpp" />
     <ClCompile Include="GaugeRenderer.cpp" />
     <ClCompile Include="Graphics.cpp" />
@@ -141,6 +123,7 @@ xcopy /y /d "$(SolutionDir)Shader3D.hlsl" "$(OutDir)"</Command>
     <ClInclude Include="ChaseComponent.h" />
     <ClInclude Include="Collider.h" />
     <ClInclude Include="Component.h" />
+    <ClInclude Include="Csv.h" />
     <ClInclude Include="Ease.h" />
     <ClInclude Include="EventBus.h" />
     <ClInclude Include="FadeTransition.h" />
@@ -179,6 +162,35 @@ xcopy /y /d "$(SolutionDir)Shader3D.hlsl" "$(OutDir)"</Command>
     <ClInclude Include="TweenComponent.h" />
     <ClInclude Include="WICTextureLoader11.h" />
   </ItemGroup>
+  <!--
+    Assets/シェーダー/PhysX DLLは、EngineとSample2D/Sample3Dの共有出力先($(OutDir))へ
+    ここでまとめてコピーする。Engine.libが最新で再リンクされない時でも、Engineのビルドのたびに
+    必ず動く(PostBuildEventだとEngineのコードが変わった時しか動かない)。Sample2D/Sample3Dは
+    どちらもEngineへのProjectReferenceを持ち、必ずEngineが先にビルドされるため、コピーは
+    設定ごとに1回・確実にサンプルより前に完了する(サンプル側に同じ処理を重複させると、
+    共有OutDirへ複数のビルドが並行して書き込み合い、まれにファイル共有違反で失敗するため、
+    ここに一本化する)。xcopyの /d は新しいファイルだけコピー、/i はコピー先フォルダを作る。
+  -->
+  <PropertyGroup>
+    <PhysXDllDir Condition="'$(Configuration)'=='Debug'">x64-debug</PhysXDllDir>
+    <PhysXDllDir Condition="'$(Configuration)'=='Release'">x64-release</PhysXDllDir>
+  </PropertyGroup>
+  <!--
+    VisualStudioのF5は「高速最新チェック」で、ソースが変わっていないEngineのビルドを丸ごと飛ばす
+    (飛ばされるとCopyRuntimeFilesも動かない)。Assets/シェーダーを入力に登録しておくと、
+    これらを編集した時にEngineが「古い」と判定されてビルドされ、コピーが走る。
+  -->
+  <ItemGroup>
+    <UpToDateCheckInput Include="$(SolutionDir)Assets\**" />
+    <UpToDateCheckInput Include="$(SolutionDir)Shader.hlsl" />
+    <UpToDateCheckInput Include="$(SolutionDir)Shader3D.hlsl" />
+  </ItemGroup>
+  <Target Name="CopyRuntimeFiles" AfterTargets="Build">
+    <Exec Command="xcopy /y /d &quot;$(SolutionDir)..\ThirdParty\PhysX\lib\$(PhysXDllDir)\*.dll&quot; &quot;$(OutDir)&quot;" />
+    <Exec Command="xcopy /y /d /e /i &quot;$(SolutionDir)Assets&quot; &quot;$(OutDir)Assets\&quot;" />
+    <Exec Command="xcopy /y /d &quot;$(SolutionDir)Shader.hlsl&quot; &quot;$(OutDir)&quot;" />
+    <Exec Command="xcopy /y /d &quot;$(SolutionDir)Shader3D.hlsl&quot; &quot;$(OutDir)&quot;" />
+  </Target>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

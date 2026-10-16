@@ -141,7 +141,7 @@
   </ImportGroup>
   <!--
     デバッグ実行の設定はMicrosoft.Cpp.targetsの後に書く(先に書くと既定値で上書きされて
-    消えてしまう)。Assets/シェーダーはEngineのPostBuildEventで共有OutDirへコピーされる
+    消えてしまう)。Assets/シェーダーはEngineのCopyRuntimeFilesで共有OutDirへコピーされる
     (Engineが先にビルドされるため)ので、F5デバッグ実行時の作業ディレクトリもそこに合わせる。
   -->
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">

@@ -12,6 +12,7 @@
     <ClCompile Include="FadeTransition.cpp" />
     <ClCompile Include="ChaseComponent.cpp" />
     <ClCompile Include="Collider.cpp" />
+    <ClCompile Include="Csv.cpp" />
     <ClCompile Include="GameEngine.cpp" />
     <ClCompile Include="GaugeRenderer.cpp" />
     <ClCompile Include="Graphics.cpp" />
@@ -54,6 +55,7 @@
     <ClInclude Include="ChaseComponent.h" />
     <ClInclude Include="Collider.h" />
     <ClInclude Include="Component.h" />
+    <ClInclude Include="Csv.h" />
     <ClInclude Include="Ease.h" />
     <ClInclude Include="EventBus.h" />
     <ClInclude Include="FadeTransition.h" />
