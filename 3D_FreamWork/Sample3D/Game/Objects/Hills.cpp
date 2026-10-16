@@ -3,6 +3,7 @@
 #include "../../../Engine/GameObject.h"
 #include "../../../Engine/Terrain.h"
 #include "../../../Engine/TerrainRenderer.h"
+#include "../../../Engine/RigidbodyComponent.h"
 #include <climits>
 
 GameObject* CreateHills(Scene& scene, DirectX::XMFLOAT3 corner) {
@@ -28,6 +29,9 @@ GameObject* CreateHills(Scene& scene, DirectX::XMFLOAT3 corner) {
     auto* renderer = hills->AddComponent<TerrainRenderer>(terrain);
     renderer->GetMaterial().color = { 5.0f, 4.0f, 2.0f, 1.0f };
     renderer->GetMaterial().receiveShadow = true;
+
+    // 当たり判定(PhysX): 見た目と同じ地形のデータから作るので、丘の起伏の上を歩ける。動かない
+    hills->AddComponent<TerrainRigidbodyComponent>(terrain);
 
     return hills;
 }

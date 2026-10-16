@@ -327,6 +327,7 @@ namespace Physics {
     static PxDefaultCpuDispatcher* gDispatcher = nullptr;
     static PxScene* gScene = nullptr;
     static PxMaterial* gDefaultMaterial = nullptr;
+    static PxCooking* gCooking = nullptr;   // 初めてGetCooking()が呼ばれた時に作る
     static SimulationEventCallback gEventCallback;
     static std::vector<std::pair<PxRigidActor*, bool>> gPendingSceneChanges;  // {アクター, true=追加/false=削除}
     static std::vector<PendingForce> gPendingForces;  // コールバックの中で呼ばれたApplyForce(fetchResultsの後で加える)
@@ -407,6 +408,7 @@ namespace Physics {
         gPendingForces.clear();
         gTriggerPairs.clear();
         if (gDefaultMaterial) { gDefaultMaterial->release(); gDefaultMaterial = nullptr; }
+        if (gCooking) { gCooking->release(); gCooking = nullptr; }
         if (gScene) { gScene->release(); gScene = nullptr; }
         if (gDispatcher) { gDispatcher->release(); gDispatcher = nullptr; }
         if (gPhysics) { gPhysics->release(); gPhysics = nullptr; }
@@ -416,6 +418,14 @@ namespace Physics {
     PxPhysics* GetPhysics() { return gPhysics; }
     PxScene* GetScene() { return gScene; }
     PxMaterial* GetDefaultMaterial() { return gDefaultMaterial; }
+
+    PxCooking* GetCooking() {
+        if (!gCooking && gFoundation && gPhysics) {
+            gCooking = PxCreateCooking(PX_PHYSICS_VERSION, *gFoundation, PxCookingParams(gPhysics->getTolerancesScale()));
+            if (!gCooking) OutputDebugStringA("★ Physics: PxCreateCooking 失敗\n");
+        }
+        return gCooking;
+    }
 
     void QueueSceneChange(PxRigidActor* actor, bool add) {
         gPendingSceneChanges.push_back({ actor, add });

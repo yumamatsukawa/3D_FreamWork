@@ -4,12 +4,16 @@
 #include "Collider.h"
 #include "Physics.h"
 #include "Mesh.h"
+#include <memory>
 
 namespace physx {
     class PxRigidActor;
     class PxRigidDynamic;
     class PxGeometry;
+    class PxHeightField;
 }
+
+class Terrain;
 
 // 剛体の種類
 enum class BodyType {
@@ -236,4 +240,28 @@ public:
         CapsuleAxis axis = CapsuleAxis::Y);
 
     void Init() override;
+};
+
+// 地形(Terrain)の起伏に合わせた3Dの当たり判定(PhysXの高さフィールド)。いつもStatic(動かない)。
+// TerrainRendererと同じTerrainを渡すこと(見た目と当たり判定が同じ高さのデータから作られ、ずれない)。
+// Physics::Raycast / OverlapSphere / OverlapBox も地形に当たる。
+// 決まり:
+// - オーナーのtransform.positionが、地形の左手前の角(X・Zが最小の角)で、Yが高さ0。TerrainRendererと同じ
+// - 位置は作った時に決まる(Staticなので、後でオーナーを動かしても当たり判定は動かない)。回転・拡大縮小は使えない
+// - 高さは16ビット整数に丸めて持つ(誤差は最大の高さ÷65534以下)
+// - 地形の下側からは通り抜けることがある(面は上向きの1枚)。地形の外は何もない
+// - デバッグ表示(SetDebugDrawEnabled)は、地形には線を描かない
+// --------------------------- 引数 ----------------------------------
+// terrain   : 高さのデータ(TerrainRendererに渡した物と同じ)
+// isTrigger : PhysXの高さフィールドはトリガーにできないため、trueにしても効かない(出力ウィンドウに知らせて通常の当たり判定にする)
+class TerrainRigidbodyComponent : public RigidbodyComponent {
+private:
+    std::shared_ptr<Terrain> terrain;       // 高さのデータ
+    physx::PxHeightField* heightField = nullptr;   // PhysXの高さフィールド(アクターより後に解放する)
+
+public:
+    explicit TerrainRigidbodyComponent(const std::shared_ptr<Terrain>& terrain, bool isTrigger = false);
+
+    void Init() override;
+    void Uninit() override;
 };

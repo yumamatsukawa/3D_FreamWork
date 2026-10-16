@@ -24,7 +24,7 @@ void GameScene::Init()
     CreateSkybox(*this);
     CreateSun(*this);   // 影を有効にする(影を落とす・受ける物は、各オブジェクトの Material で決める)
     CreateGround(*this);
-    CreateHills(*this, { 1500.0f, -50.0f, -2000.0f });   // 遠くの起伏のある地形(東の方。当たり判定は6.8で付ける)
+    CreateHills(*this, { 1500.0f, -50.0f, -2000.0f });   // 遠くの起伏のある地形(東の方。歩ける)
     CreateModelDisplay(*this);
     CreateSkinDisplay(*this);
     GameObject* player = CreatePlayer(*this);

@@ -2,7 +2,9 @@
 #include "Physics.h"
 #include "Mesh.h"
 #include "Image.h"
+#include "Terrain.h"
 #include <windows.h>
+#include <cmath>
 #include <cstdio>
 #include <PxPhysicsAPI.h>
 
@@ -521,4 +523,58 @@ void Capsule2DRigidbodyComponent::Init() {
     float r = (radius > 0.f) ? radius : (t.scale.x * 0.5f);
     float h = (height > 0.f) ? height : t.scale.y;
     InitWithGeometry(MakeCapsuleGeometry(r, h), axis);
+}
+
+// ─────────────────────────── TerrainRigidbodyComponent ───────────────────────────
+
+TerrainRigidbodyComponent::TerrainRigidbodyComponent(const std::shared_ptr<Terrain>& terrain, bool isTrigger)
+    : RigidbodyComponent(BodyType::Static, 1.0f, false, false), terrain(terrain) {
+    if (isTrigger) OutputDebugStringA("★ TerrainRigidbodyComponent: 高さフィールドはトリガーにできません(通常の当たり判定にしました)\n");
+}
+
+void TerrainRigidbodyComponent::Init() {
+    if (!terrain) { OutputDebugStringA("★ TerrainRigidbodyComponent: terrain が nullptr です\n"); return; }
+    PxCooking* cooking = Physics::GetCooking();
+    if (!cooking) return;
+
+    // 高さを16ビットの整数にする: 実際の高さ = 整数 x heightScale。いちばん高い所が32767になる大きさにする
+    const std::vector<float>& heights = terrain->GetHeights();
+    float maxHeight = 0.f;
+    for (float h : heights) if (h > maxHeight) maxHeight = h;
+    float heightScale = maxHeight / 32767.f;
+    if (heightScale < 0.001f) heightScale = 0.001f;   // 平らな地形でも、PhysXが受け付ける大きさにする
+
+    // サンプルの並び = 行(X) x 列の数 + 列(Z)。Terrain::GetHeights() と同じ並び。tessFlag を立てると、
+    // サンプル (x, z) のマスは (x, z) → (x+1, z+1) に対角線が走る(Terrainの三角形と同じ)
+    PxU32 rows = (PxU32)terrain->GetVertexCountX();
+    PxU32 columns = (PxU32)terrain->GetVertexCountZ();
+    std::vector<PxHeightFieldSample> samples((size_t)rows * columns);
+    for (size_t i = 0; i < samples.size(); i++) {
+        PxHeightFieldSample& sample = samples[i];
+        sample.height = (PxI16)lroundf(heights[i] / heightScale);
+        sample.materialIndex0 = PxBitAndByte(0, true);   // 材質0 + tessFlag
+        sample.materialIndex1 = PxBitAndByte(0, false);
+    }
+
+    PxHeightFieldDesc desc;
+    desc.nbRows = rows;
+    desc.nbColumns = columns;
+    desc.format = PxHeightFieldFormat::eS16_TM;
+    desc.samples.data = samples.data();
+    desc.samples.stride = sizeof(PxHeightFieldSample);
+    heightField = cooking->createHeightField(desc, Physics::GetPhysics()->getPhysicsInsertionCallback());
+    if (!heightField) { OutputDebugStringA("★ TerrainRigidbodyComponent: 高さフィールドの作成失敗\n"); return; }
+
+    // 行=X方向のマスの長さ、列=Z方向のマスの長さ
+    PxHeightFieldGeometry geometry(heightField, PxMeshGeometryFlags(), heightScale,
+        terrain->GetCellSizeX(), terrain->GetCellSizeZ());
+    InitWithGeometry(geometry);
+}
+
+void TerrainRigidbodyComponent::Uninit() {
+    RigidbodyComponent::Uninit();   // アクターを先に解放してから、高さフィールドを解放する
+    if (heightField) {
+        heightField->release();
+        heightField = nullptr;
+    }
 }

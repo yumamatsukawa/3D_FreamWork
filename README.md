@@ -1,4 +1,4 @@
-﻿# 3D_FreamWork
+# 3D_FreamWork
 
 DirectX11製の、Unity風のコンポーネント指向ゲームフレームワーク。2D(スプライト)と3D(メッシュ)の両方に対応しています。
 
@@ -1301,7 +1301,7 @@ Sample3D/Game/Scenes/      TitleScene, GameScene
 ```
 
 - **Sample2D**: トップダウン視点のアリーナシューター。タイトル画面のSTARTボタン(出る時に`TweenComponent`でぴょこっと大きくなる)をクリックすると、画面が暗転してからゲーム開始(ゲーム画面に入ると明転する。`FadeTransition`。§16)(ボタンは`CreateButton(scene, 文字, 位置, クリックされた時の処理)`で作れる汎用部品で、動きはEngineの`ButtonComponent`。他の画面のボタンにも使い回せる。§20)。WASDで移動、Playerは常にマウスの方を向き、左クリックでその方向へ弾を発射。背景はタイル状に敷き詰めた床(`BackgroundController`)で、移動するとスクロールする(カメラはPlayerに付けた`CameraFollowComponent`が追いかける。§14)。敵(`EnemyManager`が一定間隔でPlayerの周囲にランダムスポーンさせる)がゆっくり追いかけてきて(`ChaseComponent`。§13)、弾を当てると倒せる(`EventBus`で`"EnemyDefeated"`イベントを発行しスコア加算。倒した位置に「+10」が出て、上に動きながら消える=`CreateScorePopup`。§19。爆発のパーティクルも出る=`CreateExplosion`。§26)。敵に触れるとHPが減り(1秒間の無敵時間つき)、敵から離れる向きに弾かれる(ノックバック。`AddForce`で衝撃を加え、0.2秒間は移動キーが効かない。§23)、画面が少し揺れて(`CameraShake`。§14)、画面の端が赤く点滅する(`ScreenEffect::Vignette`。§15)。HPが0になるとゲームオーバー画面が出てSPACEでタイトルに戻る(黒い丸が閉じて開く`SpriteTransition`。§16)。スコアがハイスコアを超えていたら、ゲームオーバーの時に保存され(`SaveData`。キーは`"Sample2DHighScore"`で、Sample3Dの記録とは別。§18)、画面左上のスコアの下に出る(次に起動しても残る)。タイトル画面の下にはBGMの音量スライダー(`CreateVolumeSlider`。つまみをドラッグして0〜1で変えられ、離すと保存されて次に起動した時も残る。§20)がある。画面左上のHPの文字の下にはHPゲージ(減った分が少し遅れて縮む)、Playerの頭上にも小さなHPバーが出る(`GaugeRenderer`。§20)。当たり判定・物理はPhysXを使い(Player=`CircleRigidbodyComponent`、敵=`SquareRigidbodyComponent`、弾=`CircleRigidbodyComponent`)、Player・敵はDynamic(`SetVelocity()`で速度を渡して動かす。重力なし・回転なし・`SetFreezePositionZ(true)`で奥行き方向に固定)、弾はKinematicのトリガー。3Dカメラは使わない(`CameraController`なし)。画面の左上のHPゲージの下には、画面の外なので描かずに省いた数「Culled」が出る(敵の `SpriteRenderer` は `SetFrustumCulling(true)`。§28)。マップには見張り役の `Guard`(青い `Player` 画像がゆっくり回り、扇形の視野に `Player` が入って壁にさえぎられていなければ赤くなる。視野は線で表示)と、視線をさえぎる壁 `Wall` が2枚置いてある(`VisionComponent`。§28)。
-- **Sample3D**: Sample2Dと同じアリーナシューターを3D空間で遊べるようにしたもの。タイトル画面のボタン(Sample2Dと同じく、出る時に`TweenComponent`でぴょこっと大きくなる)をクリックすると、Sample2Dと同じく暗転してからゲーム開始(Sample3Dの`CreateButton()`は、位置と大きさをまとめて`Transform`で受け取る形になっている: `CreateButton(scene, 文字, transform, クリックされた時の処理)`)。Player(立方体)は三人称カメラ(`CameraController`。マウス移動で視点回転。カーソルは画面中心に固定され、ESCで解除・左クリックで再固定。TABで一人称に切り替え)と同じ向きを向き、WASDもカメラ基準(W=カメラの前、D=カメラの右)で移動する。左クリックでPlayerの向いている方向へ、地面と水平に弾(球)を発射。敵を倒すと、その位置に爆発のパーティクルが出る(`CreateExplosion`。§26)。敵は2Dの画像(Worldモードの`SpriteRenderer`。Y軸だけカメラの方を向く立て看板)で、地面の上をPlayerに向かって歩いてくる(`ChaseComponent`を`SetPlane(MovePlane::XZ)`で使う。§13)。歩く間は、敵に付けた`SpriteAnimationComponent`がスプライトシートのコマ(4番と5番)を0.3秒ごとに切り替えて、歩きアニメーションにしている(始まるコマはランダムなので、何体いても足踏みがそろわない。§17)。スコア・ハイスコア(保存先のファイルはSample2Dと同じだが、キーは`"Sample3DHighScore"`で、記録はSample2Dとは別。§18)・HP・無敵時間・被弾時に画面の端が赤く点滅すること・ゲームオーバー(SPACEでタイトルへ。Sample3Dは、黒い帯が左から覆って右へ抜けていく`SpriteTransition(...).SetSwitchFrame(7)`。§16)・`EventBus`のイベント名はSample2Dと同じ。タイトル画面の下のBGMの音量スライダーと、画面左上のHPゲージ(Sample2Dと同じ)、三人称の間だけ出るPlayerの頭上のHPバー(`SetUse3DCamera(true)`の`GaugeRenderer`)もある(§20)。Playerは立方体の見た目とDynamicの`BoxRigidbodyComponent`、敵はDynamicの`CapsuleRigidbodyComponent`(半径40・高さ100の立ったカプセル。§29)(どちらも重力あり・回転なし。Y速度は`GetVelocity().y`を維持したまま`SetVelocity()`で動かす。敵は`ChaseComponent`がこれをしている)、弾はKinematicのトリガー(`SphereRigidbodyComponent`)。地面は、1000四方のタイルを3Dカメラの描画距離(farZ)の範囲だけ敷き詰めて描く`GroundController`(見た目)と、見えない大きなStaticの板(当たり判定)の組み合わせ。遠景はスカイボックス。地面の端(Playerから斜めに離れた所)には、FBXモデルの見本(`CreateModelDisplay`。`Assets/Models/TestAnim.fbx` の立方体2つ=親と子のパーツ。子の「Top」が、「Spin」(回る)と「Bob」(上下)のアニメーションを3秒ごとに切り替えて再生する。§27)が置いてある(FBXが無い時は何も置かない)。そのとなり(位置 `(1000, -50, 800)`)には、骨2本で曲がる細長い箱(`CreateSkinDisplay`。`Assets/Models/TestSkin.fbx` のアニメーション「Bend」を再生。§27)も置いてある。地面のタイルは、カメラに映る物だけ描く(`Visibility::IsSphereInView3D`)。敵の画像は `SetFrustumCulling(true)` で、画面の外にいる間は描かない。画面の左上のHPゲージの下には、描かずに省いた数「Culled」が出る。`Player` の近く(位置 `(-800, 0, 600)`)には見張り役 `Guard`(青い立方体がゆっくり回り、扇形の視野に `Player` が入って壁にさえぎられていなければ赤くなる。視野は線で表示)と、視線をさえぎる壁 `Wall` が2枚置いてある(`VisionComponent`。§28)。そのとなり(位置 `(400, 50, 300)`)には、半透明で光沢のある水色の板 `GlassPanel`(マテリアルの使用例。当たり判定は無いので通り抜けられる。§30)も置いてある。原点の周りでは、オレンジ色の光(ポイントライト)を持った小さな光る球 `Lantern` が、ふわふわ上下しながらゆっくり回っていて、近くの地面や壁を照らす。`Guard` は、視線の向きに懐中電灯(スポットライト)を持っていて、回ると地面の光の輪が一緒に動く(`LightComponent`。§31)。さらに、太陽の影が有効で(`CreateSun`。`ShadowManager`)、地面に `Player`・壁・FBXモデルの影が落ち、`Guard` の懐中電灯の光は壁や `Player` でさえぎられる(§32)。Playerの東の遠く(位置 `(1500, -50, -2000)` から4000四方)には、高さの画像(`Assets/Terrain/heightmap.png`)から作った、なだらかな丘と谷の地形 `Hills`(`CreateHills`)が置いてある(`TerrainRenderer`。影を受ける。**今は見た目だけで当たり判定が無く、丘の上を歩いても突き抜ける**。地形の当たり判定は次の機能(6.8)で付ける。§34)。
+- **Sample3D**: Sample2Dと同じアリーナシューターを3D空間で遊べるようにしたもの。タイトル画面のボタン(Sample2Dと同じく、出る時に`TweenComponent`でぴょこっと大きくなる)をクリックすると、Sample2Dと同じく暗転してからゲーム開始(Sample3Dの`CreateButton()`は、位置と大きさをまとめて`Transform`で受け取る形になっている: `CreateButton(scene, 文字, transform, クリックされた時の処理)`)。Player(立方体)は三人称カメラ(`CameraController`。マウス移動で視点回転。カーソルは画面中心に固定され、ESCで解除・左クリックで再固定。TABで一人称に切り替え)と同じ向きを向き、WASDもカメラ基準(W=カメラの前、D=カメラの右)で移動する。左クリックでPlayerの向いている方向へ、地面と水平に弾(球)を発射。敵を倒すと、その位置に爆発のパーティクルが出る(`CreateExplosion`。§26)。敵は2Dの画像(Worldモードの`SpriteRenderer`。Y軸だけカメラの方を向く立て看板)で、地面の上をPlayerに向かって歩いてくる(`ChaseComponent`を`SetPlane(MovePlane::XZ)`で使う。§13)。歩く間は、敵に付けた`SpriteAnimationComponent`がスプライトシートのコマ(4番と5番)を0.3秒ごとに切り替えて、歩きアニメーションにしている(始まるコマはランダムなので、何体いても足踏みがそろわない。§17)。スコア・ハイスコア(保存先のファイルはSample2Dと同じだが、キーは`"Sample3DHighScore"`で、記録はSample2Dとは別。§18)・HP・無敵時間・被弾時に画面の端が赤く点滅すること・ゲームオーバー(SPACEでタイトルへ。Sample3Dは、黒い帯が左から覆って右へ抜けていく`SpriteTransition(...).SetSwitchFrame(7)`。§16)・`EventBus`のイベント名はSample2Dと同じ。タイトル画面の下のBGMの音量スライダーと、画面左上のHPゲージ(Sample2Dと同じ)、三人称の間だけ出るPlayerの頭上のHPバー(`SetUse3DCamera(true)`の`GaugeRenderer`)もある(§20)。Playerは立方体の見た目とDynamicの`BoxRigidbodyComponent`、敵はDynamicの`CapsuleRigidbodyComponent`(半径40・高さ100の立ったカプセル。§29)(どちらも重力あり・回転なし。Y速度は`GetVelocity().y`を維持したまま`SetVelocity()`で動かす。敵は`ChaseComponent`がこれをしている)、弾はKinematicのトリガー(`SphereRigidbodyComponent`)。地面は、1000四方のタイルを3Dカメラの描画距離(farZ)の範囲だけ敷き詰めて描く`GroundController`(見た目)と、見えない大きなStaticの板(当たり判定)の組み合わせ。遠景はスカイボックス。地面の端(Playerから斜めに離れた所)には、FBXモデルの見本(`CreateModelDisplay`。`Assets/Models/TestAnim.fbx` の立方体2つ=親と子のパーツ。子の「Top」が、「Spin」(回る)と「Bob」(上下)のアニメーションを3秒ごとに切り替えて再生する。§27)が置いてある(FBXが無い時は何も置かない)。そのとなり(位置 `(1000, -50, 800)`)には、骨2本で曲がる細長い箱(`CreateSkinDisplay`。`Assets/Models/TestSkin.fbx` のアニメーション「Bend」を再生。§27)も置いてある。地面のタイルは、カメラに映る物だけ描く(`Visibility::IsSphereInView3D`)。敵の画像は `SetFrustumCulling(true)` で、画面の外にいる間は描かない。画面の左上のHPゲージの下には、描かずに省いた数「Culled」が出る。`Player` の近く(位置 `(-800, 0, 600)`)には見張り役 `Guard`(青い立方体がゆっくり回り、扇形の視野に `Player` が入って壁にさえぎられていなければ赤くなる。視野は線で表示)と、視線をさえぎる壁 `Wall` が2枚置いてある(`VisionComponent`。§28)。そのとなり(位置 `(400, 50, 300)`)には、半透明で光沢のある水色の板 `GlassPanel`(マテリアルの使用例。当たり判定は無いので通り抜けられる。§30)も置いてある。原点の周りでは、オレンジ色の光(ポイントライト)を持った小さな光る球 `Lantern` が、ふわふわ上下しながらゆっくり回っていて、近くの地面や壁を照らす。`Guard` は、視線の向きに懐中電灯(スポットライト)を持っていて、回ると地面の光の輪が一緒に動く(`LightComponent`。§31)。さらに、太陽の影が有効で(`CreateSun`。`ShadowManager`)、地面に `Player`・壁・FBXモデルの影が落ち、`Guard` の懐中電灯の光は壁や `Player` でさえぎられる(§32)。Playerの東の遠く(位置 `(1500, -50, -2000)` から4000四方)には、高さの画像(`Assets/Terrain/heightmap.png`)から作った、なだらかな丘と谷の地形 `Hills`(`CreateHills`)が置いてある(`TerrainRenderer`。影を受ける。当たり判定の`TerrainRigidbodyComponent`も付いていて、丘の起伏の上を歩ける。Playerの歩く速さ(200)で、丘の最大の傾き(約37度)も越えられる。丘の端はなだらかなスロープなので、地面から歩いて丘に登れる。§34)。
 
 **Sample3Dの実装メモ**: 向きはすべて`transform.rotate.y`(度)で表し、`rotate.y`の時の正面(ローカルの+Z)は`(sin, 0, cos)`の方向になる(`CameraController::GetYaw()`の式と同じ。`Math::Forward3D()`で求められる)。Worldモードの`SpriteRenderer`は`rotate.y`を使わない(ビルボードの向きとZ軸回転だけを使う)ので、敵の画像の向きは`SetBillboardLock(true, false, true)`でカメラの方へ向けている。Playerは`SetFreezeRotation(true)`で、`RigidbodyComponent`は位置しか同期しないため、`PlayerController`が`rotate.y`が変わった時に`GetActor()`の`setGlobalPose`で当たり判定の箱の回転も合わせている(デバッグ表示の枠と実際の判定が同じ向きになる)。一人称の間は、カメラが立方体の内側に入るのでPlayerの`MeshRenderer`と頭上のHPバー(`GaugeRenderer`)を非表示にしている。
 
@@ -1361,7 +1361,8 @@ GameManager/HUD/EnemyManager/BulletManagerのような「見た目の無い管�
 | Playerが近づいたら、モデルの枠線を光らせる(Sample3D) | `Components/HighlightController.cpp`(`Physics::OverlapSphere` で近くの "Player" を調べ、`ModelRenderer::SetOutline` の太さを切り替える)。`Objects/ModelDisplay.cpp`(黄色)と `Objects/SkinDisplay.cpp`(緑。骨で曲げたモデル)が付ける。§33 |
 | 影を有効にする(Sample3D) | `Objects/Sun.cpp`(見た目の無い管理役)と `ShadowManager::Init()`(`Shadow::GetSettings().enabled = true`)、`Uninit()`(既定に戻す)。影を落とす・受ける物は、各オブジェクトの `Material` の `castShadow` / `receiveShadow`(Player・Wall・ModelDisplay・SkinDisplayは落とす+受ける、Guardは受けるだけ)と、`GroundController::Draw()`(地面は `receiveShadow = true` で描く)。Guardの懐中電灯は `SetCastShadow(true)`。§32 |
 | 地面のタイルのうち、画面に映る物だけ描く(Sample3D) | `GroundController::Draw()`(`Visibility::IsSphereInView3D`。§28) |
-| 起伏のある地形を置く(丘と谷。Sample3D) | `Objects/Hills.cpp`(`Terrain::LoadFromImage` で高さの画像から地形のデータを作り、`TerrainRenderer` で描く。影を受ける。当たり判定は無い。§34) |
+| 起伏のある地形を置く(丘と谷。Sample3D) | `Objects/Hills.cpp`(`Terrain::LoadFromImage` で高さの画像から地形のデータを作り、`TerrainRenderer` で描く。影を受ける。同じデータから `TerrainRigidbodyComponent` で歩ける当たり判定も付ける。§34) |
+| 丘の起伏の上を歩く・物が乗る(Sample3D) | `Objects/Hills.cpp` で付けた `TerrainRigidbodyComponent`(Engine。PhysXの高さフィールド。Playerは今までどおり `SetVelocity` で動くだけ。§34) |
 | 画面の外の敵を描かない | 敵の `SetupEnemy`(`SpriteRenderer::SetFrustumCulling(true)`。両サンプル。§28) |
 | 画面の外で省いた数の表示(Culled) | `HUDController::Draw()`(`Visibility::GetCulledCount()`。§28) |
 | ゲームオーバーの時にハイスコアを保存する | `GameManager::Init()`の`"PlayerDied"`を受けた所(`SaveData::SetInt` + `Save`。§18) |
@@ -1395,6 +1396,7 @@ namespace Physics {
 `Engine/RigidbodyComponent.h/.cpp`に、`BoxRigidbodyComponent`/`SphereRigidbodyComponent`(3D向け)と`SquareRigidbodyComponent`/`CircleRigidbodyComponent`(2D向け)があります。見た目(`MeshRenderer`/`SpriteRenderer`)とは別に、動き方だけを担当するComponentです。4つとも共通の基底クラス`RigidbodyComponent`を継承しているので、他のComponentから形状を意識せず`GetComponent<RigidbodyComponent>()`で探せます(`PlayerController`が実例。これにより、Playerの形状を変えても`Player.cpp`の1行を変えるだけで済みます)。
 
 - 立った人・敵向けの`CapsuleRigidbodyComponent`(3D)/`Capsule2DRigidbodyComponent`(2D)もあります(§29)
+- 地形(§34)の起伏に合わせた、動かない当たり判定の`TerrainRigidbodyComponent`もあります(§34)。`Physics::GetCooking()`(PhysXの「クッキング」。形のデータをPhysXが使える形に変える窓口。Engine内部用)を使います
 - `Square`/`CircleRigidbodyComponent`は、中身は`Box`/`SphereRigidbodyComponent`と全く同じ(PhysXに2D専用の形状は無いため、奥行きの薄い箱・普通の球で代用している)。トップダウン2Dゲームで使う時に、`XMFLOAT3`のサイズではなく一辺の長さ/半径を1つ渡すだけで済む、より簡単なAPIになっている
 - `SquareRigidbodyComponent`の奥行き(Z)は一辺と同じ長さです(薄すぎるとPhysXですり抜けが起きやすいため)。2Dゲームでは`SetFreezePositionZ(true)`を一緒に呼んで、奥行き方向に動かないようにしてください。厚みを自分で決めたい場合は`BoxRigidbodyComponent`を使ってください
 
@@ -2540,7 +2542,7 @@ meshRenderer->GetMaterial().outlineWidth = 3.0f;
 
 高さの画像(白=高い、黒=低い)から、起伏のある地面を作れます(`docs/EngineRoadmap2.md` の 6.7)。今の `GroundController` は平らなタイルを並べているだけですが、地形を使うと丘や谷のある地面が作れます。
 
-**今は見た目だけです。物理の当たり判定(PhysX)は付かないので、地形の上に乗せた物は突き抜けます**(地形に合わせたコライダーは、次の機能 6.8 で作ります)。その代わり、**その場所の地形の高さを調べる `GetHeightAt`** は使えるので、敵や物を地形の上に置くことはできます。
+見た目は `TerrainRenderer`、**物理の当たり判定(PhysX)は `TerrainRigidbodyComponent`**(`docs/EngineRoadmap2.md` の 6.8。下の「地形の当たり判定」)が担当します。同じ `Terrain` を2つに渡すので、見た目と当たり判定は同じ高さのデータから作られ、ずれません。**その場所の地形の高さを調べる `GetHeightAt`** も使えるので、敵や物を地形の上に置くこともできます。
 
 ### 使い方
 
@@ -2561,6 +2563,7 @@ GameObject* hills = scene.CreateObject("Hills");
 hills->transform.position = { 1500.0f, -50.0f, -2000.0f };
 auto* renderer = hills->AddComponent<TerrainRenderer>(terrain);
 renderer->GetMaterial().receiveShadow = true;   // 影を受ける(§32)
+hills->AddComponent<TerrainRigidbodyComponent>(terrain);   // 当たり判定(物が乗れる。下の「地形の当たり判定」)
 
 // 3. その場所の地面の高さ(ワールド座標)を調べる
 float groundY = renderer->GetHeightAt(enemyX, enemyZ);
@@ -2575,7 +2578,7 @@ enemy->transform.position.y = groundY + 50.0f;
 - **向き**: **画像の左が X=0、画像の上が Z=最大**(上から地図を見た時と同じ向き)です。画像の左下が地形の「左手前の角」になります。
 - **精度**: 普通の画像(8ビット)は 256 段階です。`maxHeight` が大きいと段々になりますが、見た目は滑らかに補間されます(法線を高さの差から計算するので、段差は目立ちません)。**もっとなめらかにしたい時は、16ビットのグレースケールPNG**(65536段階)を使えます(サンプルの `heightmap.png` は16ビットです)。
 - **大きさ**: 画像の大きさと `cellsX` / `cellsZ` は同じでなくても使えます(画像を引き伸ばして読みます)。ただし、**画像より細かい分割にしても、細かさは増えません**。ちょうど「画像の幅 = `cellsX` + 1」にすると、頂点が画素の位置にぴったり合います(サンプルは 129 x 129 で `cellsX = 128`)。
-- 画像は GIMP などで描いたり、ゲームに使う地形の高さを塗って作ったりできます。サンプルの `Assets/Terrain/heightmap.png` は、数式で自動的に作った小さな画像(129 x 129)です。
+- 画像は GIMP などで描いたり、ゲームに使う地形の高さを塗って作ったりできます。サンプルの `Assets/Terrain/heightmap.png` は、数式で作った小さな画像(129 x 129、16ビット)です。**外周の25%の幅(約1000)は、smoothstep で端に向かって下がり、端の高さは周りの地面より1.5だけ高い(ほぼ0)スロープ**にしてあるので、地面から歩いて登れ、地面とチラつきません(最大の傾きは約33度)。
 
 ### 表(CSV)から作る
 
@@ -2619,7 +2622,7 @@ auto terrain = Terrain::CreateFromSamples(samples, 2, 2, settings);
 - **地形の座標**: オブジェクトの位置が、地形の**左手前の角**(X・Zが最小の角)で、**Yがそのまま高さ0**です。地形の中心ではないので注意してください(中心を原点にしたい時は、`position = { -width/2, 高さ, -depth/2 }`)。
 - `renderer->GetHeightAt(worldX, worldZ)`: その場所の**地面のワールドのY**(オブジェクトのYを足した値)。地形の範囲の外は、一番近い端の高さを返します。範囲内かは `renderer->Contains(worldX, worldZ)` で調べられます。
 - `renderer->GetNormalAt(worldX, worldZ)`: その場所の**面の向き**(長さ1)。真上なら `(0,1,0)`、坂道は傾きます。坂が急かどうかの判定に使えます。
-- 地形のデータ自体(`Terrain`)にも同じ関数があります(`terrain->GetHeightAt(localX, localZ)`)。こちらは「角を原点にした座標」で、ワールドへの変換はしません。`GetHeights()`(頂点の高さの配列)・`GetVertexCountX/Z()`・`GetCellSizeX/Z()` で、元のデータを取り出せます(地形コライダー(6.8)が同じデータを使います)。
+- 地形のデータ自体(`Terrain`)にも同じ関数があります(`terrain->GetHeightAt(localX, localZ)`)。こちらは「角を原点にした座標」で、ワールドへの変換はしません。`GetHeights()`(頂点の高さの配列)・`GetVertexCountX/Z()`・`GetCellSizeX/Z()` で、元のデータを取り出せます(`TerrainRigidbodyComponent` が同じデータを使います)。
 
 ### 描画・UV・法線
 
@@ -2638,19 +2641,44 @@ auto terrain = Terrain::CreateFromSamples(samples, 2, 2, settings);
 - **縁の光(リム)**: `Material` の `rimStrength` で付けられます。**枠線(`SetOutline`)は付けません**(地形全体の枠線に意味が無いため)。
 - **画面外の判定**(§28): `renderer->SetFrustumCulling(true)` にすると、地形全体を囲む球がカメラに映らない時は描きません。**既定は `false`** です(1枚の大きな地形は、たいてい一部が映っているため)。地形を小さなかたまり(チャンク)に分けて、映る所だけ描くことはしていません。
 
+### 地形の当たり判定(TerrainRigidbodyComponent)
+
+地形に `TerrainRigidbodyComponent` を付けると、**Dynamic の箱・球・カプセルが起伏の上に乗り、坂道を転がり、歩けます**。PhysX の「高さフィールド」で作る、いつも **Static**(動かない)の当たり判定です。`Physics::Raycast` / `OverlapSphere` / `OverlapBox`(§23)も地形に当たります(視線をさえぎる地形にしたい時は `SetTag("Wall")` を付けます。§28)。
+
+```cpp
+auto terrain = Terrain::LoadFromImage(L"Assets/Terrain/heightmap.png", settings);
+GameObject* hills = scene.CreateObject("Hills");
+hills->transform.position = { 1500.0f, -50.0f, -2000.0f };
+hills->AddComponent<TerrainRenderer>(terrain);               // 見た目
+hills->AddComponent<TerrainRigidbodyComponent>(terrain);     // 当たり判定(同じ terrain を渡す)
+```
+
+- **同じ `terrain` を渡す**: 見た目と当たり判定が同じ高さのデータ(`GetHeights()`)から作られるので、ずれません。
+- **原点と向き**: オブジェクトの位置が地形の**左手前の角**(`TerrainRenderer` と同じ)で、Yが高さ0です。PhysX の高さフィールドは「行 = X方向、列 = Z方向」で、`Terrain::GetHeights()` の並びと同じです。1マスの対角線も `TerrainRenderer` と同じ `(x,z)→(x+1,z+1)` です(PhysX の `tessFlag` を全サンプルに立てて作ります)。
+- **精度**: PhysX は高さを16ビットの整数で持つので、(いちばん高い所 ÷ 32767)の刻みに丸まります。サンプル(最大高さ600)で**約 0.015 刻み(誤差は最大でもその半分の約 0.008)**。ゲームの1単位(1cm)より十分に小さいです。
+- **制限**:
+  - **動きません**。作った時の位置で固定で、後から `transform.position` を動かしても当たり判定は動きません。回転・拡大縮小も使えません(`TerrainRenderer` と同じ)。
+  - **実行中に高さを変えられません**(作り直しになります)。穴や洞窟(地形の下に空間がある形)は作れません。
+  - **トリガーにできません**(`isTrigger = true` を渡しても、出力ウィンドウに知らせて普通の当たり判定になります)。
+  - **地形の下側からは通り抜けます**(面は上向きの1枚です)。**地形の横(端)には壁が無い**ので、端が周りの地面より高いと、地面から歩き込んだ物は地形の下にもぐってしまいます。**サンプルの高さ画像は端が(ほぼ)0のスロープなので、地面から歩いて登れます。自分の画像でも、端を0(周りの地面と同じ高さ)に下げると、もぐりません。**
+  - 地形の外には何もありません(落ちます)。
+  - **デバッグ表示(`SetDebugDrawEnabled`)は、地形には枠線を描きません**(大きすぎて意味が無いため)。
+- **歩ける傾き**: 箱の Player(`SetVelocity` で水平だけ与える)でも、サンプルの丘の傾き(最大約37度)は越えられます。ただし箱は坂の途中で角が引っかかりやすいので、急な坂を滑らかに歩かせたい時は `CapsuleRigidbodyComponent`(§29)にしてください。
+- **解放**: アクターを解放してから高さフィールドを解放します(`Uninit` で自動)。シーン切り替えで確実に解放されます。
+
 ### 制限・気を付けること
 
-- **当たり判定(PhysX)は付きません**。地形の上に乗せた `Dynamic` の物は、そのまま落ちます。次の機能(6.8)で、同じ高さのデータから地形のコライダーを作ります。それまでは `GetHeightAt` で高さを調べて置いてください。
+- **`TerrainRenderer` だけでは当たり判定は付きません**。物を乗せたい時は `TerrainRigidbodyComponent` も付けてください(下の「地形の当たり判定」)。
 - **オブジェクトの `scale` は `{1,1,1}`、回転なしのまま**にしてください(大きさは `TerrainSettings` で決めます)。拡大縮小や回転があると、`GetHeightAt` と見た目がずれ、法線もずれます。位置(と親)だけが使われます。
-- **地形の外は何もありません**(落ちます)。Sample3D は、今の見えない大きな床を残してあるので落ちません。
+- **地形の外は何もありません**(落ちます)。Sample3D は、見えない大きな床(`Ground`)を残してあるので落ちません。
 - **画像・CSVが読めなかった時は `nullptr`** が返ります(出力ウィンドウに理由が出ます)。`TerrainRenderer` に `nullptr` を渡すと何も描かないので、`Hills.cpp` のように `nullptr` を確かめてから使ってください。
 - **画像の貼り方は1枚をくり返すだけ**です。高さで画像を混ぜる(低い所は草、高い所は岩、など)ことは、まだできません。
 - 分割数は最大 256 x 256 です(頂点66049個)。それ以上の広い地形は、地形を複数に分けて並べてください。
 
 ### Sampleでの使われ方
 
-- **Sample3D の `Hills`**(`Objects/Hills.cpp`): `Assets/Terrain/heightmap.png`(なだらかな丘と谷)から、4000 x 4000 の地形(最大高さ600、分割128)を作り、Playerの東の遠く、位置 `(1500, -50, -2000)` を角にして置いています。地面と同じ画像(`bg_tile.png`)と色で貼り、影を受けます。Playerが東へ歩いていくと見えます(**当たり判定が無いので、丘の中を突き抜けます**)。
-- **今ある地面は残しています**。`GroundController` のタイルと見えない大きな床は、そのままです(地形コライダー(6.8)ができるまでは、置き換えると物の乗り方が変わってしまうため)。地形コライダーを作った後で、地面を地形に置き換えます。
+- **Sample3D の `Hills`**(`Objects/Hills.cpp`): `Assets/Terrain/heightmap.png`(なだらかな丘と谷)から、4000 x 4000 の地形(最大高さ600、分割128)を作り、Playerの東の遠く、位置 `(1500, -50, -2000)` を角にして置いています。地面と同じ画像(`bg_tile.png`)と色で貼り、影を受けます。`TerrainRigidbodyComponent` も付けてあり、Playerが東へ歩いていくと丘が見えて、**丘の起伏の上を歩けます**(丘の端はスロープで、地面から歩いて登れます)。
+- **今ある地面は残しています**。`GroundController` のタイルと見えない大きな床(`Ground`)は、そのままです(床の上面は Y=-50 で、丘の底と同じ高さ。丘の端は床の1.5上までなだらかに下がって、床につながります。丘の内側では床は丘の下に隠れるだけで、見た目も動きも変わりません。丘の外に落ちない保険にもなります)。
 - Sample2D は使いません。
 
 ### 仕組み(Engineを触る人向け)
@@ -2658,11 +2686,10 @@ auto terrain = Terrain::CreateFromSamples(samples, 2, 2, settings);
 - **ファイル**: 新しく `Engine/Terrain.h/.cpp`(高さのデータ・高さと法線の計算・メッシュの元データ作り)と `Engine/TerrainRenderer.h/.cpp`(描く Component)を足しました。既存のEngineファイル・シェーダーは変えていません(`Mesh::InitIndexed` と `Material` と `Shadow::Caster` を、そのまま使っています)。
 - **画像の読み込み**: `Texture::Load` は GPU 用のテクスチャしか作らず、画素を CPU で読めないため、`Terrain` が自分でWIC(`IWICImagingFactory`。`SpriteTransition` と同じ)を使って読みます。16ビットのグレースケール(`GUID_WICPixelFormat16bppGray`)はそのまま、他の形式は `GUID_WICPixelFormat32bppRGBA` に変換して赤(R)を使います。
 - **高さの配列**: `GetHeights()[x * GetVertexCountZ() + z]`(行=X方向、列=Z方向。PhysX の高さフィールドと同じ並び)。`maxHeight` を掛けた後のワールドの高さです。
-- **6.8 との関係**: PhysX の `PxHeightFieldSample::tessFlag` を立てると、対角線は「そのサンプルから反対側の頂点」へ走ります。この地形の対角線 `(x,z)→(x+1,z+1)` に当たるので、**地形コライダーは全サンプルに `setTessFlag()` を立てて作る想定**です(見た目とコライダーがずれないよう、6.8 で `GetHeightAt` と `Physics::Raycast` の高さを比べて確かめます)。
+- **当たり判定(6.8)**: `RigidbodyComponent.h/.cpp` に `TerrainRigidbodyComponent` を、`Physics.h/.cpp` に `GetCooking()`(`PxCreateCooking`。最初に呼ばれた時に作り、`Physics::Uninit()` で解放)を足しました。`GetHeights()` を `PxHeightFieldSample`(16ビット整数 + `tessFlag`)に直し、`PxCooking::createHeightField` で `PxHeightField` を作って、`PxHeightFieldGeometry`(`rowScale = GetCellSizeX()`、`columnScale = GetCellSizeZ()`)で Static のアクターにします。`PhysX.props` には `PhysXCooking_64.lib` が元から入っていたので変えていません。**`tessFlag` を立てた向きが `Terrain` の対角線と同じ**ことは、`GetHeightAt` と `Physics::Raycast` の高さを24万点以上で比べて確かめました(`docs/EngineRoadmap2.md` の 6.8)。
 
 ### まだ無いもの
 
-- 地形に合わせた当たり判定(6.8)
 - 高さで画像を混ぜる(草・岩・雪など)貼り方
 - 地形を小さく分けて、映る所だけ描くこと(チャンク)
 - 地形の編集(実行中に高さを変える)

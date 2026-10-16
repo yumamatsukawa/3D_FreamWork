@@ -9,6 +9,7 @@ namespace physx {
     class PxScene;
     class PxMaterial;
     class PxRigidActor;
+    class PxCooking;
 }
 
 class GameObject;
@@ -46,6 +47,10 @@ namespace Physics {
     physx::PxPhysics* GetPhysics();
     physx::PxScene* GetScene();
     physx::PxMaterial* GetDefaultMaterial();
+
+    // 形のデータ(高さフィールドなど)をPhysXが使える形に変換する「クッキング」の窓口(TerrainRigidbodyComponentが使う)。
+    // 最初に呼ばれた時に作り、Uninit()で解放する。失敗したらnullptr
+    physx::PxCooking* GetCooking();
 
     // アクターをシーンに追加/削除したいことを予約する。
     // OnTriggerEnter2D/OnCollisionEnter2Dなど、PhysXのシミュレーションコールバックの中(または
