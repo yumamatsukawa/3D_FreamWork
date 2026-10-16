@@ -112,6 +112,9 @@
     <ClCompile Include="Game\Components\LanternController.cpp">
       <Filter>Game\Components</Filter>
     </ClCompile>
+    <ClCompile Include="Game\Components\HighlightController.cpp">
+      <Filter>Game\Components</Filter>
+    </ClCompile>
     <ClCompile Include="Game\Objects\Wall.cpp">
       <Filter>Game\Objects</Filter>
     </ClCompile>
@@ -229,6 +232,9 @@
       <Filter>Game\Components</Filter>
     </ClInclude>
     <ClInclude Include="Game\Components\LanternController.h">
+      <Filter>Game\Components</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\Components\HighlightController.h">
       <Filter>Game\Components</Filter>
     </ClInclude>
     <ClInclude Include="Game\Objects\Wall.h">

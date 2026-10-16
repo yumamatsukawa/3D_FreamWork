@@ -108,6 +108,7 @@
     <ClCompile Include="Game\Objects\Sun.cpp" />
     <ClCompile Include="Game\Components\ShadowManager.cpp" />
     <ClCompile Include="Game\Components\LanternController.cpp" />
+    <ClCompile Include="Game\Components\HighlightController.cpp" />
     <ClCompile Include="Game\Objects\Wall.cpp" />
     <ClCompile Include="Game\Objects\Title.cpp" />
     <ClCompile Include="Game\Objects\VolumeSlider.cpp" />
@@ -149,6 +150,7 @@
     <ClInclude Include="Game\Objects\Sun.h" />
     <ClInclude Include="Game\Components\ShadowManager.h" />
     <ClInclude Include="Game\Components\LanternController.h" />
+    <ClInclude Include="Game\Components\HighlightController.h" />
     <ClInclude Include="Game\Objects\Wall.h" />
     <ClInclude Include="Game\Objects\Title.h" />
     <ClInclude Include="Game\Objects\VolumeSlider.h" />

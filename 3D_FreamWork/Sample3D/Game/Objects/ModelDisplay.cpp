@@ -4,6 +4,7 @@
 #include "../../../Engine/ModelRenderer.h"
 #include "../../../Engine/ModelAnimationComponent.h"
 #include "../Components/ModelDisplayController.h"
+#include "../Components/HighlightController.h"
 #include <Windows.h>
 
 namespace {
@@ -41,6 +42,9 @@ GameObject* CreateModelDisplay(Scene& scene) {
 
     // クリップの切り替え(アニメ無しの時は、Topパーツを手で回す)
     display->AddComponent<ModelDisplayController>(renderer, animation);
+
+    // Playerが近づくと、枠線が光る(取れる物・調べられる物の合図)
+    display->AddComponent<HighlightController>()->Setup({ 1.0f, 0.9f, 0.2f, 1.0f }, 3.0f, 700.0f);
 
     return display;
 }

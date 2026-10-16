@@ -17,7 +17,7 @@ DirectX11製の、Unity風のコンポーネント指向ゲームフレームワ
 ├── 3D_FreamWork.sln
 ├── PhysX.props        共有MSBuildプロパティシート(PhysXのinclude/lib設定を1箇所にまとめたもの)
 ├── Assets\             全プロジェクト共有の画像・音声・モデル・フォント(Fonts\。§19)・表(Data\。§25)
-├── Shader.hlsl / Shader3D.hlsl / Shader3DSkin.hlsl / Shader3DCommon.hlsli   全プロジェクト共有のシェーダー(Shader3DSkinは骨で曲げるFBX用。§27。Shader3DCommon.hlsliは3Dの2つのシェーダーに共通の見た目の計算で、マテリアルもライトもここ。§30・§31)
+├── Shader.hlsl / Shader3D.hlsl / Shader3DSkin.hlsl / Shader3DCommon.hlsli   全プロジェクト共有のシェーダー(Shader3DSkinは骨で曲げるFBX用。§27。Shader3DCommon.hlsliは3Dの2つのシェーダーに共通の見た目の計算で、マテリアルもライトも縁の光・枠線もここ。§30・§31・§33)
 ├── Engine\             フレームワーク本体(静的ライブラリ、Engine.vcxproj)
 ├── Sample2D\           2Dのサンプルゲーム(実行ファイル、Sample2D.vcxproj)
 └── Sample3D\           3Dのサンプルゲーム(実行ファイル、Sample3D.vcxproj)
@@ -1296,7 +1296,7 @@ Sample3D/Game/Objects/     Title, Button, StartButton, VolumeSlider, Skybox, Gro
 Sample3D/Game/Components/  TitleController, GroundController, PlayerController,
                             CameraController, BulletController, EnemyController, GameManager,
                             HUDController, EnemyManager, BulletManager, SkyboxFollowComponent,
-                            ModelDisplayController, GuardController, LanternController, ShadowManager, SpinComponent(未使用)
+                            ModelDisplayController, HighlightController, GuardController, LanternController, ShadowManager, SpinComponent(未使用)
 Sample3D/Game/Scenes/      TitleScene, GameScene
 ```
 
@@ -1356,6 +1356,9 @@ GameManager/HUD/EnemyManager/BulletManagerのような「見た目の無い管�
 | 半透明で光沢のある板を置く(Sample3D) | `Objects/GlassPanel.cpp`(`MeshRenderer` の `GetMaterial()` で色のα・光沢・自発光・`depthWrite = false` を設定し、`SetDrawPriority` で後に描く。§30) |
 | 周りを照らしながら回るランタンを置く(Sample3D) | `Objects/Lantern.cpp`(光る球の見た目に `LightComponent`(ポイントライト)を付ける)と `LanternController::Update()`(中心の周りを回って上下に揺れる。§31) |
 | Guardの懐中電灯(スポットライト)を視線の向きに向ける(Sample3D) | `Objects/Guard.cpp`(`LightComponent`(スポット)を付ける)と `GuardController::Update()`(`SetDirection` に、正面を少し下へ傾けた向きを毎フレーム渡す。§31) |
+| 縁が青く光るPlayer(リム発光。Sample3D) | `Objects/Player.cpp`(`MeshRenderer::SetRimLight`。§33) |
+| 見張り役(Guard)が相手を見つけたら赤い枠線を光らせる(Sample3D) | `GuardController::Update()`(見えた時は太さ4の赤、見えていない時は太さ2の青の枠線を、壁越し(`SetOutline` の3つ目の引数 `true`)で出す。§33) |
+| Playerが近づいたら、モデルの枠線を光らせる(Sample3D) | `Components/HighlightController.cpp`(`Physics::OverlapSphere` で近くの "Player" を調べ、`ModelRenderer::SetOutline` の太さを切り替える)。`Objects/ModelDisplay.cpp`(黄色)と `Objects/SkinDisplay.cpp`(緑。骨で曲げたモデル)が付ける。§33 |
 | 影を有効にする(Sample3D) | `Objects/Sun.cpp`(見た目の無い管理役)と `ShadowManager::Init()`(`Shadow::GetSettings().enabled = true`)、`Uninit()`(既定に戻す)。影を落とす・受ける物は、各オブジェクトの `Material` の `castShadow` / `receiveShadow`(Player・Wall・ModelDisplay・SkinDisplayは落とす+受ける、Guardは受けるだけ)と、`GroundController::Draw()`(地面は `receiveShadow = true` で描く)。Guardの懐中電灯は `SetCastShadow(true)`。§32 |
 | 地面のタイルのうち、画面に映る物だけ描く(Sample3D) | `GroundController::Draw()`(`Visibility::IsSphereInView3D`。§28) |
 | 画面の外の敵を描かない | 敵の `SetupEnemy`(`SpriteRenderer::SetFrustumCulling(true)`。両サンプル。§28) |
@@ -2149,12 +2152,17 @@ meshRenderer->SetMaterial(material);
 | `emissiveStrength` | 自発光の強さ。**0=光らない**。暗い所でもその色で見える | 0 |
 | `castShadow` | `true` にすると、影を落とす(`Shadow` が有効な時だけ意味がある。§32) | `false` |
 | `receiveShadow` | `true` にすると、影を受ける(太陽・スポットの光が、影で暗くなる。§32) | `false` |
+| `rimColor` | 縁の光の色(§33) | 白 |
+| `rimStrength` | 縁の光の強さ。**0=光らない**(§33) | 0 |
+| `rimPower` | 縁にどれだけ集まるか。大きいほど縁の細い線だけが光る(§33) | 3 |
+| `outlineColor` | 枠線の色。**aは濃さ**(1=不透明。§33) | `{1, 1, 0, 1}`(黄) |
+| `outlineWidth` | 枠線の太さ(**画面のピクセル**)。**0=枠線なし**(§33) | 0 |
 
 - **光沢**は、光とカメラの真ん中の向きに法線が近いほど光る計算(ブリン・フォン)です。光の色(`Image::GetLight()` の `color`)も掛けます。`lit = false` の時は出ません。
 - **自発光**は、光の計算の後に色を足すだけです。画面全体ににじむ本物の「光る感じ」(ブルーム)ではありません。
 - ライト(ポイントライト・スポットライト)は `Material` の項目ではなく、別の部品 `LightComponent` です(§31)。**光沢は、ポイントライト・スポットライトにも効きます**(同じ `specularColor` / `specularStrength` / `shininess`。光の色と強さ・距離の減衰も掛かる)。`lit = false` の物は、これらの光の影響も受けません。
 - **影**は `castShadow`(影を落とす)・`receiveShadow`(影を受ける)の2つの項目で指定します(**どちらも既定は `false`**。`Shadow` を有効にした時だけ意味があります。§32)。
-- 縁の光・枠線の項目は、その機能(`docs/EngineRoadmap2.md` の 6.6)を作る時に `Material` へ足します。
+- **縁の光**(`rim*`)と**枠線**(`outline*`)も `Material` の項目です(**どちらも既定はオフ**)。`MeshRenderer` / `ModelRenderer` の `SetRimLight` / `SetOutline` が、これらを書き換えます。使い方と注意は§33。
 
 ### 半透明にする時
 
@@ -2191,13 +2199,13 @@ mesh.Draw(transform, camera, {1, 1, 1, 1}, light);      // 今まで通り(色�
 
 ### シェーダーの共通化(Shader3DCommon.hlsli)
 
-`Shader3D.hlsl`(普通のメッシュ)と `Shader3DSkin.hlsl`(骨で曲げるFBX)で、見た目の計算(光・色・テクスチャ・光沢・自発光)は、共通の `Shader3DCommon.hlsli` の `ShadePixel()` に書いてあります。**見た目の計算を変える時は、ここだけを直せば、2つのシェーダーが同じ結果になります。**
+`Shader3D.hlsl`(普通のメッシュ)と `Shader3DSkin.hlsl`(骨で曲げるFBX)で、見た目の計算(光・色・テクスチャ・光沢・自発光・縁の光)は、共通の `Shader3DCommon.hlsli` の `ShadePixel()` に書いてあります(枠線用の `OutlineClipPos()` / `ShadeOutline()` もここです。§33)。**見た目の計算を変える時は、ここだけを直せば、2つのシェーダーが同じ結果になります。**
 
 | レジスタ | 中身 |
 |---|---|
 | `b0` | ワールド・ビュー・射影・平行光源(今まで通り) |
 | `b1` | 骨の行列(`Shader3DSkin.hlsl` だけ。色は `b2` に移した) |
-| `b2` | マテリアル(色・光沢・自発光・光を使うか) |
+| `b2` | マテリアル(色・光沢・自発光・光を使うか・縁の光・枠線。`float4` が7本=112バイト) |
 | `b3` | カメラの位置(光沢のため) |
 | `b4` | ポイントライト・スポットライト(最大8個。§31。`Lighting` が持つ) |
 | `b5` | 影(光から見た行列・バイアスなど。§32。`Shadow` が持つ) |
@@ -2411,3 +2419,116 @@ torch->SetCastShadow(true);   // この懐中電灯の光は、壁などでさ�
 
 - 敵(画像)の足元の丸い影(ブロブシャドウ)・ポイントライトの影・カスケード・柔らかい影(PCSS)
 - 画像の透明部分を切り抜いた影
+
+---
+
+## 33. 枠線とリム発光(SetOutline / SetRimLight)
+
+物の縁を、色付きで光らせられます(`docs/EngineRoadmap2.md` の 6.6)。選んだ物・取れる物・敵を目立たせるのに使えます。2種類あります。
+
+| 名前 | 見え方 | 向いている物 |
+|---|---|---|
+| **枠線(アウトライン)** | 物の**外側**に、はっきりした色付きの線が出る | 「これを選んでいる」「近づくと取れる」「見つかった」の合図 |
+| **リム発光(縁の光)** | 物の**内側**の、視線に斜めになった縁がぼうっと光る | 魔法の光・ホログラム・主人公をきわだたせる |
+
+**どちらも既定はオフです。指定しない限り、見た目は今までと1ピクセルも変わりません**(Sample2D のデバッグ表示も同じです)。`MeshRenderer` と `ModelRenderer`(FBXモデル。骨で曲げるモデルも)で使えます。
+
+### 使い方
+
+```cpp
+// 縁の光: 色・強さ・(省略可)縁への集まり方
+meshRenderer->SetRimLight({ 0.3f, 0.7f, 1.0f }, 1.0f);       // 縁が青く光る。強さ0で消える
+meshRenderer->SetRimLight({ 0.3f, 0.7f, 1.0f }, 1.0f, 5.0f); // 5.0にすると、縁の細い線だけが光る
+
+// 枠線: 色と太さ(画面のピクセル)
+meshRenderer->SetOutline({ 1.0f, 0.9f, 0.2f, 1.0f }, 3.0f);  // 太さ3ピクセルの黄色い枠線
+meshRenderer->SetOutline({ 1.0f, 0.9f, 0.2f, 1.0f }, 0.0f);  // 太さ0で消える
+
+// 壁越し(seeThrough): 手前に壁があって隠れていても、枠線だけは見える
+obj->SetDrawPriority(5);                                          // 壁などより後に描く(下の注意)
+meshRenderer->SetOutline({ 1.0f, 0.9f, 0.2f, 1.0f }, 3.0f, true);
+
+// Materialの項目を直接書いても同じ(SetRimLight / SetOutline は、これを書き換えるだけ)
+meshRenderer->GetMaterial().outlineWidth = 3.0f;
+```
+
+「近づくと光る」のように、枠線の太さを毎フレーム切り替える使い方もできます(`outlineWidth` を 0 と 3 で切り替えるだけ)。Sample3D の `HighlightController` が例です。
+
+### 項目と既定値
+
+| 項目(`Material`) | 意味 | 既定 |
+|---|---|---|
+| `rimColor` | 縁の光の色 | 白 |
+| `rimStrength` | 縁の光の強さ。**0=光らない**。1くらいで見える | 0 |
+| `rimPower` | 縁への集まり方。大きいほど細い線だけが光る(1=広くぼんやり、6=細くくっきり) | 3 |
+| `outlineColor` | 枠線の色。**aは濃さ**(1=不透明。小さいと背景と混ざる) | `{1, 1, 0, 1}`(黄) |
+| `outlineWidth` | 枠線の太さ。**画面のピクセル**。**0=枠線なし** | 0 |
+
+### 壁越しに見える枠線(seeThrough)
+
+`SetOutline` の3つ目の引数を `true` にすると、**手前に壁などがあって本物が隠れていても、枠線が見えます**(敵や取れる物の位置を、壁越しに教える使い方)。**既定は `false`** で、指定しない物は今まで通りです(描画の回数も増えません)。`Material` の項目は `outlineSeeThrough` です。
+
+- 枠線は、**本物のシルエット(画面に映る形全体)の外側の輪**だけを、深度テストなしで描きます。シルエットの内側(本物が壁に隠れている部分)には、枠線は出ません(壁はそのまま見えます)。
+- **描画順に注意**: 枠線は、その物を描く時に描かれるので、**後から描かれる物(壁など)が上書きします**。壁越しに見せたい物は、**`SetDrawPriority` を壁より大きくして**(例: 5。壁は既定の0)、壁より後に描かれるようにしてください(描画順は `drawPriority` の小さい順 → `z` の小さい順です)。
+- 半透明・`depthWrite = false` の物には、今まで通り枠線を描きません。影のパスには出ません。スキンメッシュでも同じです。
+- 同じ色のまま出ます(隠れている間だけ色や濃さを変えることは、まだできません)。
+
+### 太さの単位(画面のピクセル)
+
+枠線の太さは**ワールドの長さではなく、画面上のピクセル数**です。**物がカメラから遠くても近くても、同じ太さに見えます**(ワールド単位だと、遠くの物の枠線は細くなって消えてしまうため)。画面の解像度が違うと、画面に対する太さの割合は変わります(`3` は、1280x720 でも 1920x1080 でも3ピクセル)。
+
+### 枠線の仕組みと見え方
+
+- 本物を描いた**直後**に、同じ物を「画面上で `outlineWidth` ピクセルだけ外へ膨らませて」もう一度描き、**裏向きの面だけ**を枠線の色で残します。本物は先に描いてあるので、膨らんだ分(外側の輪)だけが線として見えます。
+- 膨らませる向きは、**同じ位置にある頂点の法線を平均した向き**です(立方体のように面ごとに法線が違う形でも、角で線が割れません)。この平均した法線は、`Mesh` / `SkinMesh` が作る時に1回だけ作って持ちます(1頂点あたり12バイト増えます)。
+- 枠線は**深度に書きます**(本物の裏側の深さを、太さに応じて少しだけカメラ側へずらした値。ずらす量は「太さ(ピクセル)×3 を、その位置のワールドの長さに直したもの」)。ずらすのは、**地面に立つ物の接地部**(膨らんだ殻が地面と同じ高さか下に入る所)の枠線が地面に隠れて切れないようにするためです。**本物の内側には出ません**(本物の見えている画素にはステンシルで描かない)。**手前にある別の物には隠されます**(ずらした量より大きく手前にある壁など。それより近い物は、枠線が少し突き抜けて見えることがあります)。後ろにある物の上には出ます。
+- **影・光とは無関係**です。枠線は影を落とさず、影も受けず、平行光源・ポイントライト・スポットライトの光でも色が変わりません(いつも `outlineColor` のままです)。
+- **スキンメッシュ(骨で曲げるFBXモデル)にも出ます**。骨で曲げた後の形の外側に出て、骨の動きに付いてきます。`ModelRenderer` は、パーツごとに「パーツを描いた直後」に枠線を描きます。
+
+### 縁の光(リム発光)の式
+
+`光の強さ = (1 - |法線と視線の内積|) の rimPower 乗 × rimStrength` を、`rimColor` に掛けて、最後に足します。視線に垂直な面(縁)ほど明るく、真正面を向いた面は光りません。ライトの光や影には関係なく足します(自発光に近い扱い)。`lit = false`(スカイボックスなど)の物にも付きます。
+
+- 球・カプセルのように丸い形では、輪郭に沿ってきれいに光ります。**立方体のような平らな面は、面全体が同じ明るさ**で光ります(斜めに見える面ほど明るくなる)。
+
+### 制限・気を付けること
+
+- **角ばった形の枠線は、辺の所が角より細くなります**(立方体で、辺は指定した太さの約7割)。丸い形は指定どおりの太さです。
+- **枠線が突き抜けることがあります**: 手前の壁が、本物より「太さ×3ピクセルぶんのワールドの長さ」より近いと、壁の向こうの枠線が壁の上に少し見えることがあります(壁が本物の十分手前にあれば隠れます)。
+- **厚みの無い1枚の板**(表だけの面)には、枠線が出ません(裏向きの面が無いため)。立方体や球のように閉じた形か、厚みのある板で使ってください。
+- **`depthWrite = false` の物**(半透明の板・スカイボックス)には、枠線を描きません(本物が深度に書かれないと、膨らませた殻が内側まで枠線の色になってしまうため)。半透明の物を目立たせたい時は、リム発光を使ってください。
+- **画像の透明な部分(`png` のアルファ)は考えません**。透明を切り抜いた形でも、枠線は元の板(立方体など)の形の外側に出ます。
+- アルファで抜く画像(透明部分のある画像)のメッシュは、透明部分でも深度とステンシルが書かれるため、透明部分には枠線が出ません(抜き絵の輪郭の枠線は付きません)。
+- `outlineColor.a` を1より小さくすると、ごく一部の画素(輪が重なる所)が少し濃くなることがあります。普通は1のままにしてください。
+- 線で描くメッシュ(当たり判定のデバッグ表示など)には、枠線は付きません。
+- `SetFrustumCulling(true)` の判定は、枠線の太さを考えません(画面の端で、枠線だけ先に消えることがあります)。
+- **「光る」のにじみ(ブルーム)はありません**。枠線は、画面の外へにじまない、くっきりした線です(画面全体をぼかして足すブルームは、別の仕組みなので作っていません)。
+- 敵(画像のスプライト)には付きません(枠線は `Shader3D.hlsl` の物だけです)。
+
+### 性能
+
+- 枠線を付けた物は、描画命令が**1体につき3回**増えます(本物の印・枠線・印を消す。`ModelRenderer` はパーツごと)。枠線の太さが0の物には、何も増えません。
+- 平均した法線のバッファは、三角形のメッシュを作る時に1回だけ作ります(頂点数に比例。`Init` 時に少し時間がかかります)。
+- リムは、ピクセルシェーダーに数行足しただけです。`rimStrength = 0` の物は、その計算を飛ばします。
+
+### 仕組み(Engineを触る人向け)
+
+- **ファイル**: 新しいファイルはありません。`Shader3DCommon.hlsli`(`MaterialBuffer` に `matRim` / `matOutline` / `matOutlineParams` を追加。`ShadePixel()` の最後にリム。`OutlineClipPos()` と `ShadeOutline()` を追加)、`Shader3D.hlsl` / `Shader3DSkin.hlsl`(`VSOutline` / `PSOutline`)、`Mesh.h/.cpp` / `SkinMesh.h/.cpp`(`DrawOutline`)、`MeshRenderer.h` / `ModelRenderer.h/.cpp`、`Material.h` を変えました。
+- **`b2` の大きさ**: `MaterialConstantBuffer` は `float4` が7本(112バイト)になりました(`color` / `specular` / `emissive` / `params` / `rim` / `outline` / `outlineParams`)。C++側に `static_assert(sizeof == 16 * 7)` があり、HLSLの `MaterialBuffer` と並びを合わせています。`params.y` は `rimPower` です。
+- **`Mesh::DrawOutline(world, camera, color, widthPixels)`**(`SkinMesh::DrawOutline` も同じ形で、骨の行列を受ける): 頂点バッファの slot 0 に今まで通りの頂点、slot 1 に平均した法線を渡し、枠線専用の頂点シェーダー・ピクセルシェーダー・入力レイアウトで描きます。描画ステートは普通の物と同じ(アルファブレンド・深度テストと書き込みあり・カリングなし)で、描いた後は slot 1 を外してラスタライザを既定に戻します。
+- **画面上の太さ**: `OutlineClipPos()` が、クリップ空間の位置に、法線が画面上で動く向きへ `太さ × 2 / 画面の大きさ × w` だけ足します(`w` を掛けるので、遠くても同じピクセル数になります)。画面の大きさは `Graphics::width` / `Graphics::height` です。深度は、view空間の距離を `太さ × 1ピクセルのワールドの長さ × 3` だけ手前にした値に直します(xy は動かしません)。
+- **本物の内側に出さない(ステンシル)**: `DrawOutline` は3回に分けて描きます。①本物と同じ深度を通った画素(=本物が見えている画素)のステンシルを1にする(深度だけの頂点シェーダー。色も深度も書かない) ②ステンシルが1でない画素にだけ、枠線を描く ③ステンシルを0に戻す。ステンシルは毎フレームはクリアしませんが、③で戻すので他の描画には影響しません。**枠線を付けた物は、描画命令が1体につき3回増えます**。
+- **裏向きの面だけを残す**: ポリゴンの巻き方向(表裏)はメッシュによって違うので、カリングは使わず、`ShadeOutline()` が「元の法線とカメラへの向きの内積が正なら `discard`」で、手前向きの面を捨てます。
+
+### Sampleでの使われ方
+
+- **Sample3D の `Player`**: `SetRimLight({0.3, 0.7, 1.0}, 1.0)` で、縁が青く光ります(斜めに見える面が少し青くなります)。
+- **Sample3D の `Guard`**: 相手(Player)を見つけて赤くなった時は太さ4ピクセルの赤い枠線、見つけていない時は太さ2ピクセルの青い枠線が出ます(`GuardController`)。**壁越し(seeThrough)**なので、`Wall` の向こうにいる `Guard` の場所が、壁越しに分かります。`Guard` は `SetDrawPriority(5)` で壁より後に描いています(`Guard.cpp`)。
+- **Sample3D の `ModelDisplay`(黄色)と `SkinDisplay`(緑。骨で曲げたモデル)**: Playerが半径700以内に近づくと、太さ3ピクセルの枠線が光り、離れると消えます(`HighlightController`。`Physics::OverlapSphere` で近くの "Player" を調べるだけで、Playerは何も知りません)。
+- Sample2D は使いません。
+
+### まだ無いもの
+
+- ブルーム(画面全体をぼかして足す、にじむ光)
+- 敵(画像のスプライト)の枠線
+- 平らな1枚の板の枠線(ステンシル方式)・加算合成で光らせる枠線

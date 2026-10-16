@@ -17,6 +17,7 @@ GameObject* CreatePlayer(Scene& scene) {
     auto* meshRenderer = player->AddComponent<MeshRenderer>(Mesh::CreateCube());
     meshRenderer->GetMaterial().castShadow = true;     // 影を落とす(地面に影が出る)
     meshRenderer->GetMaterial().receiveShadow = true;  // 壁などの影を受ける
+    meshRenderer->SetRimLight({ 0.3f, 0.7f, 1.0f }, 1.0f);   // 縁が青く光る(斜めに見える面が少し青くなる)
 
     // 当たり判定+物理演算(PhysX)
     auto* rigidbody = player->AddComponent<BoxRigidbodyComponent>(BodyType::Dynamic, player->transform.scale, 100.f);

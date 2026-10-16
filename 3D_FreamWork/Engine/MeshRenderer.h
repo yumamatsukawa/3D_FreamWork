@@ -15,7 +15,9 @@
 // 見た目(色・画像・光沢・自発光・半透明など)は Material にまとめて持つ。
 // SetColor / SetTexture / SetUnlit / SetDepthWrite は、Material の項目を書き換える短い書き方。
 // 影: material.castShadow = true にすると、Shadow が有効な時に影を落とす(Shadow に自分を登録しておき、影のパスで深度だけ描く)。
-// 影を受けるかは material.receiveShadow
+// 影を受けるかは material.receiveShadow。
+// 縁の光 / 枠線: SetRimLight / SetOutline(material の rim* / outline* を書き換える短い書き方)。どちらも既定はオフ。
+// 枠線は、本物を描いた直後に Mesh::DrawOutline で描く(material.depthWrite = false の物には描かない)。影は落とさず・受けない
 class MeshRenderer : public Component, public Shadow::Caster {
 private:
     std::shared_ptr<Mesh> mesh;
@@ -72,6 +74,23 @@ public:
     void SetColor(float r, float g, float b, float a) { material.color = { r, g, b, a }; }
     DirectX::XMFLOAT4 GetColor() const { return material.color; }
 
+    // 縁の光(リム発光): 視線に対して斜めの縁を、物の内側で光らせる。strength=0で消す。power が大きいほど縁の細い線だけが光る
+    // 例: meshRenderer->SetRimLight({ 0.3f, 0.7f, 1.f }, 1.5f);
+    void SetRimLight(XMFLOAT3 color, float strength, float power = 3.f) {
+        material.rimColor = color;
+        material.rimStrength = strength;
+        material.rimPower = power;
+    }
+
+    // 枠線(アウトライン): 物の外側に、画面上で widthPixels ピクセルの太さの線を描く(遠くても近くても同じ太さ)。0で消す
+    // 例: meshRenderer->SetOutline({ 1.f, 0.9f, 0.2f, 1.f }, 3.f);
+    // seeThrough = true にすると、手前に壁などがあって隠れていても枠線が見える(既定false)。その物の SetDrawPriority を大きくしておくこと
+    void SetOutline(XMFLOAT4 color, float widthPixels, bool seeThrough = false) {
+        material.outlineColor = color;
+        material.outlineWidth = widthPixels;
+        material.outlineSeeThrough = seeThrough;
+    }
+
     // スカイボックスなど、光源の影響を受けたくない(常に一定の明るさで表示したい)場合に使う(material.lit = !value)
     void SetUnlit(bool value) { material.lit = !value; }
 
@@ -112,6 +131,11 @@ public:
         // カメラは2D(GetCamera)とは別の3D専用カメラ(GetCamera3D)を使う。
         // 光を使うかどうか(unlit)は、material.lit がシェーダーに伝える
         mesh->Draw(GetOwner()->transform, Image::GetCamera3D(), material, Image::GetLight());
+
+        // 枠線: 本物を描いた直後に描く(本物を深度に書かない物=スカイボックス・半透明の板には付けない)
+        if (material.outlineWidth > 0.f && material.depthWrite) {
+            mesh->DrawOutline(GetOwner()->transform.GetWorldMatrix(), Image::GetCamera3D(), material.outlineColor, material.outlineWidth, material.outlineSeeThrough);
+        }
     }
 
     void Uninit() override {

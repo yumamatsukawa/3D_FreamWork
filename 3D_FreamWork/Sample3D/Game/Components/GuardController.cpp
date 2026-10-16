@@ -24,10 +24,13 @@ void GuardController::Update(float dt) {
         torch->SetDirection({ forward.x * cosf(pitch), -sinf(pitch), forward.z * cosf(pitch) });
     }
 
-    // 視野に入っていて、壁にさえぎられていなければ見えた: 赤、見えていなければ青
+    // 視野に入っていて、壁にさえぎられていなければ見えた: 赤(太い赤の枠線)、見えていなければ青(細い青の枠線)。
+    // 枠線は壁越しでも見える(seeThrough)ので、壁の向こうにいる見張り役の場所が分かる
     bool seen = vision && target && vision->CanSee(target);
     if (renderer) {
         if (seen) renderer->SetColor(1.0f, 0.2f, 0.2f, 1.0f);
         else renderer->SetColor(0.3f, 0.5f, 1.0f, 1.0f);
+        if (seen) renderer->SetOutline({ 1.0f, 0.1f, 0.1f, 1.0f }, outlineWidth, true);
+        else renderer->SetOutline({ 0.3f, 0.6f, 1.0f, 1.0f }, calmOutlineWidth, true);
     }
 }

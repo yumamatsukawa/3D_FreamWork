@@ -1,6 +1,6 @@
 // Shader3D.hlsl と Shader3DSkin.hlsl の共通部分(定数バッファ・ピクセルシェーダーの見た目の計算)。
 // 光や見た目の計算を変える時は、ここだけを直す(2つのシェーダーが同じ結果になる)。
-// レジスタ: b0=ワールド・ビュー・射影・平行光源, b1=骨の行列(Skinだけ), b2=マテリアル, b3=カメラ位置, b4=点光源・スポットライト,
+// レジスタ(MaterialBuffer は 縁の光・枠線の項目も持つ): b0=ワールド・ビュー・射影・平行光源, b1=骨の行列(Skinだけ), b2=マテリアル, b3=カメラ位置, b4=点光源・スポットライト,
 //           b5=影, t0/s0=画像, t1=平行光源の影, t2=スポットライトの影, s1=影の比較サンプラー
 
 cbuffer ConstantBuffer : register(b0)
@@ -19,7 +19,10 @@ cbuffer MaterialBuffer : register(b2)
     float4 matColor;      // 色(頂点の色に掛ける)
     float4 matSpecular;   // rgb=光沢の色, w=強さ(0=ハイライト無し)
     float4 matEmissive;   // rgb=自発光の色, w=強さ(0=光らない)
-    float4 matParams;     // x=shininess, z=影を受ける(1/0), w=光を使う(1=lit, 0=unlit)
+    float4 matParams;     // x=shininess, y=縁の光のpower, z=影を受ける(1/0), w=光を使う(1=lit, 0=unlit)
+    float4 matRim;        // rgb=縁の光の色, w=強さ(0=光らない)
+    float4 matOutline;    // rgb=枠線の色, w=濃さ
+    float4 matOutlineParams;   // x=枠線の太さ(ピクセル), y=画面の幅, z=画面の高さ(ピクセル)
 };
 
 // カメラ(Mesh.h の MeshCameraBuffer と同じ並び)
@@ -225,5 +228,55 @@ float4 ShadePixel(PSInput input)
         rgb += matEmissive.rgb * matEmissive.w;
     }
 
+    // 縁の光(リム発光): 視線に対して斜めの面(輪郭に近い所)ほど光る。裏側を向いた面は、表と同じに扱う(abs)
+    if (matRim.w > 0.0f)
+    {
+        float3 rimToEye = normalize(eyePos.xyz - input.worldPos);
+        float rimAmount = pow(1.0f - saturate(abs(dot(normal, rimToEye))), max(matParams.y, 0.01f)) * matRim.w;
+        rgb += matRim.rgb * rimAmount;
+    }
+
     return float4(rgb, texColor.a);
+}
+
+// ───── 枠線(アウトライン) ─────
+// 同じ物をもう一度、法線の向きに画面上で matOutlineParams.x ピクセルだけ膨らませて描き、裏向きの面だけを単色で残す。
+// 本物は先に描いてあるので、膨らんだ分(物の外側の輪)だけが枠線として見える。
+// 頂点シェーダーが呼ぶ: clipPos=普通にクリップ空間へ変換した位置、smoothNormal=同じ位置の法線を平均したワールド法線
+float4 OutlineClipPos(float4 clipPos, float3 smoothNormal)
+{
+    if (clipPos.w < 0.001f) return clipPos;   // カメラの後ろ側は動かさない
+
+    // 法線の向きを、画面の上でどちらへ動くか(ピクセル単位の向き)に直す: d(clip.xy / clip.w) / dt
+    float4 normalClip = mul(mul(float4(smoothNormal, 0.0f), view), proj);
+    float2 ndc = clipPos.xy / clipPos.w;
+    float2 ndcDirection = (normalClip.xy - ndc * normalClip.w) / clipPos.w;
+    float2 pixelDirection = ndcDirection * matOutlineParams.yz * 0.5f;
+    float pixelLength = length(pixelDirection);
+    if (pixelLength < 0.000001f) return clipPos;   // 法線がカメラの方を向いている(向きが決まらない)
+
+    // 太さ(ピクセル)を NDC の長さに直して、クリップ空間では w を掛ける(遠くても近くても画面上で同じ太さ)
+    float2 offsetNdc = (pixelDirection / pixelLength) * matOutlineParams.x * 2.0f / matOutlineParams.yz;
+    float4 result = clipPos;
+    result.xy += offsetNdc * clipPos.w;
+
+    // 少しだけ手前(カメラ側)へずらす。地面に立つ物の接地部では、膨らんだ殻が地面と同じ高さか地面の下に入るので、
+    // 奥のままだと地面に隠されて枠線が切れる。ずらす量は「太さ(ピクセル)× 3 を、その位置のワールドの長さに直した値」(遠くても近くても画面上で同じ割合)。
+    // 本物の内側へ枠線が漏れないよう、C++側(DrawOutline)が、本物の見えている画素にはステンシルで枠線を描かない。手前の壁などは、これより大きく手前にあれば枠線を隠す
+    float pixelWorld = 2.0f * clipPos.w / (mul(float4(0.0f, 1.0f, 0.0f, 0.0f), proj).y * matOutlineParams.z);
+    float shift = matOutlineParams.x * pixelWorld * 3.0f;
+    // 奥行き(view空間の距離 = clip.w)を shift だけ手前にした時の深度に直す(xy は動かさない)
+    float projA = mul(float4(0.0f, 0.0f, 1.0f, 0.0f), proj).z;
+    float projB = mul(float4(0.0f, 0.0f, 0.0f, 1.0f), proj).z;
+    float nearerDepth = max(clipPos.w - shift, 0.001f);
+    result.z = ((projA * nearerDepth + projB) / nearerDepth) * clipPos.w;
+    return result;
+}
+
+// 枠線のピクセルシェーダー: 元の面が手前(カメラ側)を向いているピクセルは捨てる(裏向きの面だけを残す)
+float4 ShadeOutline(PSInput input)
+{
+    float3 toEye = eyePos.xyz - input.worldPos;
+    if (dot(input.worldNormal, toEye) > 0.0f) discard;
+    return float4(matOutline.rgb, matOutline.w);
 }

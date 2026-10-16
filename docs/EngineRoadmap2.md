@@ -11,7 +11,7 @@ Engine(`3D_FreamWork/Engine/`)に追加したい10個の機能(視界判定・�
 - ロードマップ1の機能(物理の問い合わせ 5.6、カメラ機能 5.7、FBX・骨アニメーション 5.16 など)は**もう使える前提**で書いています。特に、視界判定は 5.6 の `Physics::Raycast` を使います。
 
 ### 状態
-**ここに書いてある内容は「設計案」です。6.1 視界判定・6.2 カプセルコライダー・6.3 マテリアル・6.4 ポイントライトとスポットライト・6.5 影が実装済みです(4章の表の状態を見てください。ほかは「未着手」)。** 関数名・引数は、実装しながら変わってよいものです。この設計書は「実際のEngineのコードを読んで」書いたので、既存のクラス名・関数名・ファイル名は本物です。新しく作る名前だけが案です。
+**ここに書いてある内容は「設計案」です。6.1 視界判定・6.2 カプセルコライダー・6.3 マテリアル・6.4 ポイントライトとスポットライト・6.5 影・6.6 枠線とリム発光が実装済みです(4章の表の状態を見てください。ほかは「未着手」)。** 関数名・引数は、実装しながら変わってよいものです。この設計書は「実際のEngineのコードを読んで」書いたので、既存のクラス名・関数名・ファイル名は本物です。新しく作る名前だけが案です。
 
 ### 進め方の方針(1機能ずつ)
 1機能ごとに、次の流れで進めます。
@@ -92,7 +92,7 @@ Engine(`3D_FreamWork/Engine/`)に追加したい10個の機能(視界判定・�
 | 3 | [6.3 マテリアル](#63-マテリアル実装済み) | 5.3(`Resources`)を使う。ライト・影・枠線・水面・地形の土台 | | 実装済み |
 | 4 | [6.4 ポイントライトとスポットライト](#64-ポイントライト点光源とスポットライト実装済み) | 6.3 | | 実装済み |
 | 5 | [6.5 影](#65-影シャドウマップ実装済み) | 6.3(段階2)・6.4 | | 実装済み(段階1・2・3) |
-| 6 | [6.6 枠線を光らせる](#66-枠線を光らせるアウトラインリム発光) | 6.3・6.4 | | 未着手 |
+| 6 | [6.6 枠線を光らせる](#66-枠線を光らせるアウトラインリム発光実装済み) | 6.3・6.4 | | 実装済み(リム発光 + 法線拡大の枠線) |
 | 7 | [6.7 地形](#67-地形) | 6.3(段階2)。6.1は任意 | | 未着手 |
 | 8 | [6.8 地形に合わせたコライダー](#68-地形に合わせたコライダー) | 6.7 | | 未着手 |
 | 9 | [6.9 水面](#69-水面) | 6.3・6.4。6.7があると使い方が分かりやすい | | 未着手 |
@@ -452,7 +452,7 @@ meshRenderer->GetMaterial().emissiveStrength = 0.3f;
 
 **実装して決めたこと(実装済み。段階1・段階2とも)**:
 - **新しいファイル**: `Engine/Material.h`(`Material` と、シェーダーへ送る `MaterialConstantBuffer`)、`Shader3DCommon.hlsli`(`Engine.vcxproj` の `CopyRuntimeFiles` と `UpToDateCheckInput` に登録)。`Mesh.cpp` / `SkinMesh.cpp` の `D3DCompileFromFile` は `D3D_COMPILE_STANDARD_FILE_INCLUDE` に変えた。
-- **`Material` の項目**: `color`・`texture`・`lit`・`depthWrite`・`specularColor`・`specularStrength`・`shininess`・`emissiveColor`・`emissiveStrength` の9個。**設計書の `receiveShadow` / `castShadow` / `rim*` / `outline*` は、まだ足していない**(使う機能 6.5・6.6 を作る時に足す。定数バッファ `params` の `y`/`z` を予約してある)。
+- **`Material` の項目**: `color`・`texture`・`lit`・`depthWrite`・`specularColor`・`specularStrength`・`shininess`・`emissiveColor`・`emissiveStrength` の9個。**設計書の `receiveShadow` / `castShadow` / `rim*` / `outline*` は、まだ足していない**(使う機能 6.5・6.6 を作る時に足す。定数バッファ `params` の `y`/`z` を予約してある。**6.5 で `castShadow` / `receiveShadow` を、6.6 で `rim*` / `outline*` を足した**)。
 - **シェーダー**: `Shader3DCommon.hlsli` に `b0`(今まで通り)・`b2`(`MaterialBuffer`: `color` / `specular` / `emissive` / `params`)・`b3`(`CameraBuffer`: `eyePos` だけ)・`PSInput`(`worldPos` を追加)・`ShadePixel()` を置き、`Shader3D.hlsl` と `Shader3DSkin.hlsl` は頂点の動かし方と `ShadePixel()` の呼び出しだけにした。`b1`(骨)の `tint` は `b2` の `color` に移して削除した。
 - **鏡面**は `rgb += specularColor × lightColor × pow(saturate(dot(N, H)), shininess) × specularStrength`(設計書の式に、平行光源の色を掛けた。`lit = false` の時と、光が当たらない面(`dot(N, L) <= 0`)では出さない)。**自発光**は光の計算の後に足すだけ。
 - **持ち方**: `MeshRenderer` / `ModelRenderer` が `Material` を1体ごとに持つ。`material.texture`(パス)は、描く時(と `SetMaterial` / `SetTexture` の時)に `Resources` で借り直す。`SetColor` / `SetTexture` / `SetUnlit` / `SetDepthWrite` は残し、`Material` の項目を書き換えるだけにした。`ModelRenderer::SetTexture` は `material.texture` を書き換える。`Mesh::Draw` / `SkinMesh::Draw` に `Material` 版を足し、色指定の版は既定のマテリアルで呼ぶだけ(`RigidbodyComponent` / `VisionComponent` / `GroundController` は変更なし)。`MeshRenderer` の `unlit` は、`fullBright` の `Light` を渡すのをやめて、`material.lit = false` で伝える(結果は同じ)。
@@ -682,7 +682,7 @@ Shadow::GetSettings().distance = 2500.f;
 
 ---
 
-### 6.6 枠線を光らせる(アウトライン・リム発光)
+### 6.6 枠線を光らせる(アウトライン・リム発光)(実装済み)
 
 **目的**: 物の縁を色付きで光らせて、選んだ物・取れる物・敵を目立たせる。
 
@@ -696,7 +696,7 @@ Shadow::GetSettings().distance = 2500.f;
 **おすすめ**: 
 - **段階1 = C. リムライト**: シェーダーに数行足すだけで、`Material` の項目で操作できて安全。「光る」感じは最小の手間で出せる。
 - **段階2 = A. 法線拡大の2パス**: 外側の枠線が必要な時に足す。法線は「同じ位置の頂点の法線を平均した版」を、`Mesh` が初期化の時に別の頂点バッファ(または頂点データの別の枠)で用意する(段階2のMesh作り直しと一緒に作ると楽)。
-- B(ステンシル)は、Aで隙間が出る形の保険として残す(今回は作らない)。
+- B(ステンシル方式。物を少し大きくして印の無い所だけ描く)は作らない。ただし、Aの「本物の内側に枠線が漏れない」ための印として、ステンシルは使っている(下の「実装して決めたこと」)。
 
 **ファイル案**: 新しいファイルは不要。`Material`(6.3)の項目(`rimColor` / `rimStrength` / `rimPower` / `outlineColor` / `outlineWidth`)を使う。変更: `Shader3D.hlsl`・`Shader3DSkin.hlsl`(リム、`VSOutline` / `PSOutline`)、`Engine/Mesh.h/.cpp`・`SkinMesh.h/.cpp`(`DrawOutline`、表面を捨てるラスタライザ)、`Engine/MeshRenderer.h`・`Engine/ModelRenderer.h/.cpp`。
 
@@ -739,9 +739,27 @@ meshRenderer->SetOutline({ 1.f, 0.9f, 0.2f, 1.f }, nearby.empty() ? 0.f : 3.f);
 
 **依存する機能**: 6.3(`Material` の項目・ワールド座標)、6.4(`eyePos` の `b3`)。
 
-**未確定の点**:
-- 「光る」を、ブルーム(画面全体をにじませる)まで期待するか。しない前提で段階1(リム)+段階2(法線拡大)でよいか
-- 敵(画像)にも枠線を付けたいか(必要なら、画像用の別の仕組みを相談)
+**実装して決めたこと(実装済み。段階1・2とも)**:
+- **方式**: 設計書のおすすめどおり、**C. リムライト(段階1)+ A. 法線拡大の2パス(段階2)の組み合わせ**。B(ステンシル方式の枠線)は作っていない(A の中で、本物の内側に描かないための印にステンシルを使う)。ブルームは作っていない(枠線はくっきりした線で、画面の外へにじまない)。新しいファイルは無い。
+- **変えたEngine**: `Shader3DCommon.hlsli`(`MaterialBuffer` に `matRim` / `matOutline` / `matOutlineParams`、`ShadePixel` の最後にリム、`OutlineClipPos()` / `ShadeOutline()`)、`Shader3D.hlsl` / `Shader3DSkin.hlsl`(`VSOutline` / `PSOutline`)、`Material.h`、`Mesh.h/.cpp`・`SkinMesh.h/.cpp`(`DrawOutline`、平均した法線のバッファ)、`MeshRenderer.h`・`ModelRenderer.h/.cpp`(`SetRimLight` / `SetOutline`、描いた直後に枠線)。**`Shader.hlsl`・`PhysX.props`・`Component.h`・`Scene` などは変えていない。**
+- **`Material` の項目**: `rimColor`(白)・`rimStrength`(0)・`rimPower`(3)・`outlineColor`(`{1,1,0,1}`。**aは濃さ**)・`outlineWidth`(0)の5つ。**既定はどちらもオフ**。`MaterialConstantBuffer`(`b2`)は `float4` 4本 → 7本(112バイト)で、`rim`(rgb=色, w=強さ)・`outline`(rgb=色, w=濃さ)・`outlineParams`(x=太さ, y=画面の幅, z=画面の高さ)を足した。`params.y` を `rimPower` に使った。C++側に `static_assert(sizeof == 16 * 7)`、HLSL の `MaterialBuffer` と並びを合わせた。
+- **太さの単位は画面のピクセル**(ワールド単位ではない)。頂点シェーダーで、法線が画面上で動く向き(`d(clip.xy/clip.w)/dt`)へ `太さ × 2 / 画面の大きさ × w` だけクリップ空間でずらすので、遠くても近くても同じピクセル数になる。画面の大きさは `Graphics::width` / `Graphics::height`。
+- **枠線は「裏向きの面だけ」をピクセルシェーダーで選ぶ**(設計書の `D3D11_CULL_FRONT` のラスタライザは作っていない)。理由: このエンジンはカリングなしで描いていて、メッシュによってポリゴンの巻き方向が揃っていない(立方体・球・OBJで違う)ので、カリングだと表裏を間違える。代わりに `ShadeOutline()` が、元の法線とカメラへの向きの内積が正なら `discard` する(巻き方向に関係なく動く)。深度は書く(本物の裏側の深さを、`太さ(ピクセル)× 1ピクセルのワールドの長さ × 3` だけカメラ側へずらした値)。**最初は奥へずらしていたが、地面に立つ物の接地部で、膨らんだ殻が地面と同じ高さか下に入り、地面に隠されて枠線が切れた(実機で発見)ため、手前へずらす形に直した。** 手前へずらすと、縁のそばで本物の内側へ漏れるので、**ステンシルで本物の見えている画素に枠線を描かない**(`DrawOutline` が 印→枠線→印を消す の3回描く。`D24_UNORM_S8_UINT` のステンシルを使い、毎フレームのクリアはせず、描いた後に0へ戻す)。手前の壁が、ずらした量より近いと、枠線が少し突き抜ける。
+- **平均した法線**: 三角形の角度で重みを付けて、同じ位置(1/10000に丸めて比較)の頂点の法線を平均する(`Mesh::CreateSmoothNormals`。`SkinMesh` も使う)。**`Mesh` / `SkinMesh` を作る時に1回だけ、別の頂点バッファ(slot 1。1頂点12バイト)として作る**(`D3D11_USAGE_IMMUTABLE`)。三角形のメッシュだけ(線のメッシュは枠線なし)。入力レイアウトは枠線専用に別に作り、普通の描画のレイアウトは変えていない。
+- **描画ステートの復元**: `DrawOutline` は「ステンシルで本物の見えている画素に印を付ける → 印の無い画素にだけ枠線を描く → 印を消す」の3回描きで、終わりに深度ステンシルを普通の状態へ、slot 1 の頂点バッファを外してラスタライザを既定(`nullptr`)に戻す(`Draw` と同じ決まり)。枠線の深度は、本物の裏側の深さを**カメラ側へ**ずらした値(奥ではない)。
+- **壁越しの枠線(seeThrough。後から追加)**: `SetOutline(color, width, seeThrough = false)` / `Material::outlineSeeThrough`。`true` の時、`DrawOutline` は①深度テストなしで、本物のシルエット全体のステンシルを1にする ②深度テストも深度の書き込みもなしで、ステンシルが1でない画素(=シルエットの外側の輪)にだけ枠線を描く ③ステンシルを0に戻す。`false`(既定)の経路・描画回数は変えていない(ピクセル一致を確認)。壁など**後から描かれる物が枠線を上書きする**ので、使う物は `SetDrawPriority` を壁より大きくする。隠れている間だけ色・濃さを変える機能は作っていない(拡張案: `outlineHiddenColor` を足し、本物の深度テストを通る画素だけ通常の色、通らない画素は別の色にする=ピクセルシェーダーで深度を読むか、2回描き分ける)。Sample3D は `Guard`(`SetDrawPriority(5)`、見つけていない間は細い青、見つけた時は太い赤の壁越しの枠線)。
+- **透明部分のある画像**: アルファで抜く画像のメッシュは、透明部分でも深度とステンシルが書かれる(本物の板の形で書かれる)ので、透明部分には枠線が出ない(抜き絵の輪郭に沿った枠線は付かない)。
+- **影・光との関係**: 枠線のパスは光の計算も影の計算も通らない(`PSOutline` は枠線の色を返すだけ)ので、影を落とさず・受けず、光で色が変わらない。影のパス(`DrawDepth`)は枠線を描かない。
+- **半透明・スカイボックス(`depthWrite = false`)**: `MeshRenderer` / `ModelRenderer` は枠線を**描かない**(本物が深度に書かれないと、膨らませた殻が内側まで枠線の色になるため)。
+- **リム**: `pow(1 - |dot(N, V)|, rimPower) × rimStrength` を `rimColor` に掛けて最後に足す(裏向きの面でも真っ白にならないよう、内積は絶対値)。`lit = false` の物にも付く。`rimStrength = 0` の物は計算を飛ばす。
+- **`MeshRenderer` / `ModelRenderer` の追加関数**: `SetRimLight(color, strength, power = 3)` / `SetOutline(color, widthPixels)`(`Material` の項目を書き換えるだけ)。
+- **Sample**: Sample3D の `Player` に `SetRimLight`(青いリム)、`Guard` が相手を見つけたら赤い枠線(`GuardController`)、新しい `HighlightController`(`Components/`)を `ModelDisplay`(黄色)と `SkinDisplay`(緑。骨で曲げたモデル)に付けて、Playerが半径700以内に近づくと枠線を光らせる(`Physics::OverlapSphere`)。`Sphere` の例(設計書)は、シーンで未使用のため使っていない。**見た目が変わる所: `Player` の縁が少し青くなる。Guard が相手を見つけると赤い枠線が付く。モデルに近づくと枠線が光る。**
+- **確認(WARP=ソフトウェアのD3D11。デバッグレイヤー有効)**: ①枠線・リムを指定しない絵(地面・立方体・光沢の球・unlit の空・半透明・輪郭の線・スキン・ポイントライト)が、変更前と**1ピクセルも違わない**(262144バイト一致) ②`VSOutline` / `PSOutline` を含むシェーダー10本が警告なしでコンパイルできる ③球の枠線: 太さ2・4・8ピクセルで、本体の内側は1画素も変わらず、外側にだけ、すき間なく、指定の太さ(本体からの距離が太さ+0.5以内)で出る。真ん中の行の太さが指定どおり。カメラを z=-400〜-3000 に離しても同じ太さ ④色・濃さ(a)を変えると変わる(赤・半透明は背景と半分混ざる。a=0・太さ0では何も描かない) ⑤立方体(回転・斜め)でも枠線が割れない(辺は約7割の太さまで) ⑥リムの値が、球に対するCPUの式と最大1/255で一致(強さ・powerを変えて4通り)。縁だけが光り、中心は変わらない。真正面を向いた面の真ん中は光らない ⑦スキンメッシュ(骨で曲げた球)でも、枠線が太さどおりに出て、骨を変えると枠線も動く。リムも光る ⑧手前の板に枠線は隠され、後ろの板の上には出る(描く順番を入れ替えても同じ絵) ⑨平行光源・点光源・影を落とすスポット・影のある絵の中でも、枠線の画素は枠線の色のまま。枠線の有無で、枠線以外の画素は変わらない ⑩枠線を本体より先に描いても、本体の内側は変わらない ⑪地面(平らな板)に立つ箱の接地部の枠線が地面の上に出る(直す前は0画素で再現)・本体の内側は1画素も変わらない・壁(間60・100)の向こうの枠線は壁を突き抜けない・スキンでも同じ ⑫デバッグレイヤーに警告・エラーが出ない。
+- **WARP で確かめていない物**: `MeshRenderer` / `ModelRenderer` を通した描画(`Resources` の初期化が必要なため。同じ `DrawOutline` を直接呼んで確認した)、FBXモデル、実際の `GameScene`、実機GPUでの見た目。Sample3D の見え方(枠線の太さ・リムの強さ・近づいた時の切り替わり)は、実機で確認してもらう。
+
+**未確定の点(決まったこと)**:
+- 「光る」を、ブルーム(画面全体をにじませる)まで期待するか → **期待しない前提で、リム + 法線拡大の枠線を作った**(ブルームは作っていない)
+- 敵(画像)にも枠線を付けたいか → **付けていない**(`SpriteRenderer` は `Shader.hlsl` で描くため、枠線は効かない。必要なら画像用の別の仕組みを相談)
 
 ---
 
@@ -1108,7 +1126,7 @@ light->SetCastShadow(true);    // 追加: ランタンの光が、壁や Player 
 7. **6.3 透明**: `color.w < 1` の時、`depthWrite = false` と `drawPriority` を自動で変えてよいか。→ **自動では変えない(6.3 に書いた)**
 8. **6.4 ライト**: 最大数8でよいか。Sample3D の環境光を暗くしてよいか(見た目が変わる)。敵・弾・爆発にも光を付けるか。
 9. **6.5 影**: `Component` に `DrawShadow` を足す方式か、登録簿方式か。解像度と範囲の既定値(2048、3000)。敵(画像)の足元に丸い影を置くか。スポットの影(段階3)まで作るか。→ **登録簿方式・既定値はそのまま・丸い影は置かない・スポットの影まで作った(6.5 に書いた)**
-10. **6.6 枠線**: 「光る」にブルームは期待しない前提(リム + 法線拡大)でよいか。敵の画像にも枠線がほしいか。
+10. **6.6 枠線**: 「光る」にブルームは期待しない前提(リム + 法線拡大)でよいか。敵の画像にも枠線がほしいか。→ **ブルームは作らない・リム + 法線拡大でよい・敵の枠線は付けない(6.6 に書いた)**
 11. **6.7 地形**: 画像(PNG)を先、CSVを後でよいか。高さの精度(8ビット/16ビット)。大きさ・高さ・分割数の既定値。サンプルの高さ画像を作ってよいか。地形の外側の床を残すか。
 12. **6.8 地形コライダー**: 地形の下の保険の床を残すか。地形に `"Wall"` タグを付けるか。
 13. **6.9 水面**: 水に入ると遅くなる処理まで入れるか。深度を使った表現を将来やるか。
@@ -1128,7 +1146,7 @@ light->SetCastShadow(true);    // 追加: ランタンの光が、壁や Player 
 | 6.3 マテリアル | `Material.h`、(任意)`Shader3DCommon.hlsli` | `Shader3D.hlsl`、`Shader3DSkin.hlsl`、`Mesh.h/.cpp`、`SkinMesh.h/.cpp`、`MeshRenderer.h`、`ModelRenderer.h/.cpp`、`Engine.vcxproj`(`.hlsli` の登録) |
 | 6.4 ライト | `LightComponent.h/.cpp`、`Lighting.h/.cpp` | `Shader3D.hlsl`、`Shader3DSkin.hlsl`、`Mesh.h/.cpp`、`SkinMesh.h/.cpp`、`GameEngine.cpp`、`Engine.vcxproj(.filters)` |
 | 6.5 影 | `Shadow.h/.cpp` | `Shader3DCommon.hlsli`、`Shader3D.hlsl`、`Shader3DSkin.hlsl`、`Mesh.h/.cpp`、`SkinMesh.h/.cpp`、`Material.h`、`MeshRenderer.h`、`ModelRenderer.h/.cpp`、`LightComponent.h`、`Lighting.h/.cpp`、`GameEngine.cpp`、`Engine.vcxproj(.filters)`(登録簿方式にしたので、`Component.h`・`GameObject.h`・`Scene`・`SceneManager`・`Graphics` は変えていない) |
-| 6.6 枠線 | (なし) | `Shader3D.hlsl`、`Shader3DSkin.hlsl`、`Mesh.h/.cpp`、`SkinMesh.h/.cpp`、`MeshRenderer.h`、`ModelRenderer.h/.cpp` |
+| 6.6 枠線 | (なし) | `Shader3DCommon.hlsli`、`Shader3D.hlsl`、`Shader3DSkin.hlsl`、`Material.h`、`Mesh.h/.cpp`、`SkinMesh.h/.cpp`、`MeshRenderer.h`、`ModelRenderer.h/.cpp`(新しいファイルなし) |
 | 6.7 地形 | `Terrain.h/.cpp`、`TerrainRenderer.h/.cpp` | `Engine.vcxproj(.filters)`(6.3の段階2で `Mesh` を作り直し済みの前提) |
 | 6.8 地形コライダー | (なし) | `RigidbodyComponent.h/.cpp`、`Physics.h/.cpp` |
 | 6.9 水面 | `WaterRenderer.h/.cpp`、`Shader3DWater.hlsl` | `Engine.vcxproj(.filters)`(`UpToDateCheckInput` と `CopyRuntimeFiles`) |

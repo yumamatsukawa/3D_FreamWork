@@ -12,7 +12,8 @@
 // モデルのデータ(形・親子関係)は Resources 経由でみんなで共有し、パーツの今の動きはこのComponentが1体ごとに持つ。
 // 描画は MeshRenderer と同じ仕組み(Shader3D.hlsl)で、パーツごとに「親→子へ累積したワールド行列」で描く。
 // 影: material.castShadow = true にすると、Shadow が有効な時に影を落とす(骨で曲げるパーツも、曲げた後の形で落とす)。
-// 影を受けるかは material.receiveShadow(全パーツ共通)
+// 影を受けるかは material.receiveShadow(全パーツ共通)。
+// 縁の光 / 枠線: SetRimLight / SetOutline(全パーツ共通。どちらも既定はオフ)。枠線はパーツごとに、描いた直後に外側へ描く(骨で曲げるパーツは曲げた後の形)
 class ModelRenderer : public Component, public Shadow::Caster {
 private:
     std::shared_ptr<Model> model;              // 読み込んだモデル(共有。読み込めなかった時はnullptr)
@@ -54,6 +55,21 @@ public:
     // 手直し用: modelRenderer->GetMaterial().emissiveStrength = 0.5f;
     Material& GetMaterial() { return material; }
     const Material& GetMaterial() const { return material; }
+
+    // 縁の光(リム発光): 視線に対して斜めの縁を、物の内側で光らせる。strength=0で消す(MeshRenderer と同じ)
+    void SetRimLight(XMFLOAT3 color, float strength, float power = 3.f) {
+        material.rimColor = color;
+        material.rimStrength = strength;
+        material.rimPower = power;
+    }
+
+    // 枠線(アウトライン): 物の外側に、画面上で widthPixels ピクセルの太さの線を描く(遠くても近くても同じ太さ)。0で消す
+    // seeThrough = true にすると、手前に壁などがあって隠れていても枠線が見える(既定false)。その物の SetDrawPriority を大きくしておくこと
+    void SetOutline(XMFLOAT4 color, float widthPixels, bool seeThrough = false) {
+        material.outlineColor = color;
+        material.outlineWidth = widthPixels;
+        material.outlineSeeThrough = seeThrough;
+    }
 
     // trueにすると、カメラに映らない(画面の外の)時は描かなくなる(既定はfalse)。物理(当たり判定)は止まらない。
     // 大きさは「止まっている姿の一番遠い頂点」×1.5(余裕)。アニメーションで大きく動く・遠くへはみ出すモデルは、

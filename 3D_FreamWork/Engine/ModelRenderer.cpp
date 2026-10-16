@@ -87,6 +87,9 @@ void ModelRenderer::Draw() {
     UpdateModelMatrices();
     int count = model->GetNodeCount();
 
+    // 枠線: パーツを描いた直後に、そのパーツの外側へ描く(本物を深度に書かない物には付けない)
+    bool drawOutline = material.outlineWidth > 0.f && material.depthWrite;
+
     // 形のあるパーツを描く。3D専用カメラ(GetCamera3D)とシーン共通の光源を使うのはMeshRendererと同じ
     for (int i = 0; i < count; i++) {
         const ModelNode& node = model->GetNode(i);
@@ -104,6 +107,9 @@ void ModelRenderer::Draw() {
                 }
                 skinMesh->SetTexture(texture);
                 skinMesh->Draw(ownerWorld, boneMatrices.data(), (int)boneMatrices.size(), Image::GetCamera3D(), material, Image::GetLight());
+                if (drawOutline) {
+                    skinMesh->DrawOutline(ownerWorld, boneMatrices.data(), (int)boneMatrices.size(), Image::GetCamera3D(), material.outlineColor, material.outlineWidth, material.outlineSeeThrough);
+                }
                 continue;
             }
             // スキンメッシュを作れなかった時は、静止のメッシュとして表示する(下へ)
@@ -113,6 +119,7 @@ void ModelRenderer::Draw() {
         if (!mesh) continue;
         mesh->SetTexture(texture);
         mesh->Draw(modelMatrices[i] * ownerWorld, Image::GetCamera3D(), material, Image::GetLight());
+        if (drawOutline) mesh->DrawOutline(modelMatrices[i] * ownerWorld, Image::GetCamera3D(), material.outlineColor, material.outlineWidth, material.outlineSeeThrough);
     }
 }
 

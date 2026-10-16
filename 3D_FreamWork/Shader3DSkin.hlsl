@@ -55,6 +55,41 @@ float4 VSShadow(VSInput input) : SV_POSITION
     return mul(viewPos, proj);
 }
 
+// 枠線用(SkinMesh::DrawOutline)。slot 1 の NORMAL1 は、同じ位置の法線を平均した法線。骨で曲げた後の向きで膨らませる
+struct OutlineVSInput
+{
+    float3 pos : POSITION;
+    float3 normal : NORMAL0;
+    float3 smoothNormal : NORMAL1;
+    uint4 boneIndices : BLENDINDICES;
+    float4 boneWeights : BLENDWEIGHT;
+};
+
+PSInput VSOutline(OutlineVSInput input)
+{
+    PSInput output;
+    matrix skin = bones[input.boneIndices.x] * input.boneWeights.x
+                + bones[input.boneIndices.y] * input.boneWeights.y
+                + bones[input.boneIndices.z] * input.boneWeights.z
+                + bones[input.boneIndices.w] * input.boneWeights.w;
+    float4 worldPos = mul(mul(float4(input.pos, 1.0f), skin), world);
+    float4 clipPos = mul(mul(worldPos, view), proj);
+    float3 skinnedSmooth = mul(float4(input.smoothNormal, 0.0f), skin).xyz;
+    float3 smoothWorldNormal = normalize(mul(float4(skinnedSmooth, 0.0f), world).xyz);
+    float3 skinnedNormal = mul(float4(input.normal, 0.0f), skin).xyz;
+    output.pos = OutlineClipPos(clipPos, smoothWorldNormal);
+    output.worldNormal = normalize(mul(float4(skinnedNormal, 0.0f), world).xyz);
+    output.color = float4(1.0f, 1.0f, 1.0f, 1.0f);
+    output.uv = float2(0.0f, 0.0f);
+    output.worldPos = worldPos.xyz;
+    return output;
+}
+
+float4 PSOutline(PSInput input) : SV_TARGET
+{
+    return ShadeOutline(input);
+}
+
 float4 PS(PSInput input) : SV_TARGET
 {
     return ShadePixel(input);

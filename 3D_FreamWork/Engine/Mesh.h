@@ -43,6 +43,7 @@ private:
     // 頂点バッファ(とインデックスバッファ)は作る時に1回だけ作り、描く時に毎回コピーしない(変更不可)
     ID3D11Buffer* vertexBuffer = nullptr;
     ID3D11Buffer* indexBuffer = nullptr;   // InitIndexedで作った時だけ。nullptrなら頂点を順に描く
+    ID3D11Buffer* smoothNormalBuffer = nullptr;   // 枠線用: 同じ位置の頂点の法線を平均した法線(三角形のメッシュだけ。線のメッシュはnullptr)
     ID3D11ShaderResourceView* srv = nullptr;
     UINT vertexCount = 0;
     UINT indexCount = 0;
@@ -60,11 +61,18 @@ private:
     static ID3D11VertexShader* vertexShader;
     static ID3D11PixelShader* pixelShader;
     static ID3D11VertexShader* shadowVertexShader;   // 影の深度パス用(Shader3D.hlsl の VSShadow。ピクセルシェーダー無し)
+    static ID3D11VertexShader* outlineVertexShader;  // 枠線用(Shader3D.hlsl の VSOutline)
+    static ID3D11PixelShader* outlinePixelShader;    // 枠線用(Shader3D.hlsl の PSOutline)
     static ID3D11InputLayout* inputLayout;
+    static ID3D11InputLayout* outlineInputLayout;    // 枠線用: 位置・法線(slot 0)+平均した法線(slot 1)
     static ID3D11SamplerState* sampler;
     static ID3D11BlendState* blendState;
     static ID3D11DepthStencilState* depthStencilState;
     static ID3D11DepthStencilState* depthStencilStateNoWrite; // スカイボックス用: テストはするが書き込みしない
+    static ID3D11DepthStencilState* outlineMarkState;   // 枠線用: 本物の見えている画素のステンシルを書き換える(深度は書かない)
+    static ID3D11DepthStencilState* outlineMarkAllState;          // 枠線(壁越し): 深度テストなしで、シルエット全体のステンシルを書き換える
+    static ID3D11DepthStencilState* outlineRingSeeThroughState;   // 枠線(壁越し): 深度テストなしで、シルエットの外側だけに描く
+    static ID3D11DepthStencilState* outlineRingState;   // 枠線用: ステンシルが1の画素(本物の内側)には描かない
     static ID3D11RasterizerState* rasterizerState;
     // テクスチャを設定していないMesh用の、1x1の白いテクスチャ。
     // シェーダーは必ずテクスチャを読むので、何も渡さないと「直前に別のMeshが使った
@@ -111,6 +119,13 @@ public:
     // 色だけ指定する版(既定のマテリアルで描く)。writeDepth = false で深度に書き込まない
     void Draw(const Transform& transform, const Camera& camera, XMFLOAT4 color, const Light& light, bool writeDepth = true);
     void Draw(const XMMATRIX& world, const Camera& camera, XMFLOAT4 color, const Light& light, bool writeDepth = true);
+    // 枠線を描く(本物を Draw した直後に呼ぶ)。物の外側に、画面上で widthPixels ピクセルの太さの線を color で描く(遠くても近くても同じ太さ)。
+    // 法線の向きに膨らませた物の裏向きの面だけを描く。widthPixels <= 0 や color.w <= 0、線のメッシュでは何もしない。
+    // 深度は書く(本物の裏側の深さを、太さに応じて少し手前へずらした値)ので、手前の物には隠される。本物の見えている画素には、ステンシルで描かない(内側に漏れない)。影は落とさず・受けず、光の影響も受けない。
+    // 本物を深度に書かない描き方(material.depthWrite = false)の物には使わない(内側まで枠線の色になる)
+    // seeThrough = true にすると、手前に別の物があって本物が隠れていても、シルエットの外側の輪を深度テストなしで描く(壁越しに見える枠線。シルエットの内側には描かない)。
+    // その物より後に描かれる物(壁など)が枠線を上書きするので、その物の描画順(drawPriority)を大きくしておく。既定のfalseは今まで通り
+    void DrawOutline(const XMMATRIX& world, const Camera& camera, XMFLOAT4 color, float widthPixels, bool seeThrough = false);
     // 影のパス用: 光から見た行列(lightView / lightProj)で、深度だけを描く(色は描かない)。
     // 描画先・ビューポート・ステートは Shadow::Render が決めるので、ここでは頂点とシェーダーだけをセットする。三角形のメッシュだけが描かれる(線は影にならない)
     void DrawDepth(const XMMATRIX& world, const XMMATRIX& lightView, const XMMATRIX& lightProj);
@@ -120,6 +135,11 @@ public:
 
     // 単位立方体(-0.5〜0.5)の頂点データを作る。obj->transform.scaleで大きさを変えられる
     static std::vector<MeshVertex> CreateCube();
+
+    // 枠線用の法線を作る(Engine内部用。Mesh と SkinMesh が使う)。同じ位置の頂点の法線を、三角形の角度で重みを付けて平均する
+    // (立方体の角のように面ごとに法線が違う所でも、膨らませた時に割れない)。indices が nullptr なら、頂点を3つずつ三角形として読む
+    static std::vector<XMFLOAT3> CreateSmoothNormals(const std::vector<XMFLOAT3>& positions,
+        const std::vector<XMFLOAT3>& normals, const std::vector<UINT>* indices);
 
     // 半径0.5の単位球の頂点データを作る。obj->transform.scaleで大きさを変えられる。
     // rings: 緯度方向の分割数、segments: 経度方向の分割数(大きいほど滑らかで頂点数が増える)

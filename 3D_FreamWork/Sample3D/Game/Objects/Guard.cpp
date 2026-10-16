@@ -11,6 +11,7 @@ GameObject* CreateGuard(Scene& scene, GameObject* target) {
     GameObject* guard = scene.CreateObject("Guard");
     guard->transform.position = { -800.0f, 0.0f, 600.0f };
     guard->transform.scale    = {  100.0f, 100.0f, 100.0f };
+    guard->SetDrawPriority(5);   // 壁より後に描く(壁越しの枠線が、壁に上書きされないように)
 
     // 見た目(3Dメッシュの立方体)
     auto* meshRenderer = guard->AddComponent<MeshRenderer>(Mesh::CreateCube());
@@ -26,7 +27,7 @@ GameObject* CreateGuard(Scene& scene, GameObject* target) {
     // 懐中電灯(スポットライト。向きはGuardControllerが毎フレーム、視野の正面から少し下に向けて渡す)
     auto* torch = guard->AddComponent<LightComponent>(LightType::Spot);
     torch->SetColor(1.0f, 0.95f, 0.8f);
-    torch->SetIntensity(2.0f);
+    torch->SetIntensity(6.0f);
     torch->SetRange(1500.0f);
     torch->SetSpotAngle(15.0f, 30.0f);
     torch->SetCastShadow(true);   // 懐中電灯の光も影を作る(壁やPlayerの後ろは光が届かない。影を落とすスポットは1つだけ)

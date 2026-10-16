@@ -3,6 +3,7 @@
 #include "../../../Engine/GameObject.h"
 #include "../../../Engine/ModelRenderer.h"
 #include "../../../Engine/ModelAnimationComponent.h"
+#include "../Components/HighlightController.h"
 #include <Windows.h>
 
 GameObject* CreateSkinDisplay(Scene& scene) {
@@ -26,6 +27,9 @@ GameObject* CreateSkinDisplay(Scene& scene) {
     // アニメーション "Bend"(先端の骨が曲がって戻る)をループ再生。ModelRendererの後に付ける
     auto* animation = display->AddComponent<ModelAnimationComponent>();
     animation->Play("Bend");
+
+    // Playerが近づくと、骨で曲げた形の外側に枠線が光る(スキンメッシュにも枠線が付く)
+    display->AddComponent<HighlightController>()->Setup({ 0.3f, 1.0f, 0.5f, 1.0f }, 3.0f, 700.0f);
 
     return display;
 }

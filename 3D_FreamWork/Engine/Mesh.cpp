@@ -6,6 +6,9 @@
 #include <fstream>
 #include <sstream>
 #include <string>
+#include <unordered_map>
+#include <algorithm>
+#include <cmath>
 
 ID3D11DeviceContext* Mesh::context = nullptr;
 ID3D11Buffer* Mesh::constantBuffer = nullptr;
@@ -14,11 +17,18 @@ ID3D11Buffer* Mesh::cameraBuffer = nullptr;
 ID3D11VertexShader* Mesh::vertexShader = nullptr;
 ID3D11PixelShader* Mesh::pixelShader = nullptr;
 ID3D11VertexShader* Mesh::shadowVertexShader = nullptr;
+ID3D11VertexShader* Mesh::outlineVertexShader = nullptr;
+ID3D11PixelShader* Mesh::outlinePixelShader = nullptr;
 ID3D11InputLayout* Mesh::inputLayout = nullptr;
+ID3D11InputLayout* Mesh::outlineInputLayout = nullptr;
 ID3D11SamplerState* Mesh::sampler = nullptr;
 ID3D11BlendState* Mesh::blendState = nullptr;
 ID3D11DepthStencilState* Mesh::depthStencilState = nullptr;
 ID3D11DepthStencilState* Mesh::depthStencilStateNoWrite = nullptr;
+ID3D11DepthStencilState* Mesh::outlineMarkState = nullptr;
+ID3D11DepthStencilState* Mesh::outlineRingState = nullptr;
+ID3D11DepthStencilState* Mesh::outlineMarkAllState = nullptr;
+ID3D11DepthStencilState* Mesh::outlineRingSeeThroughState = nullptr;
 ID3D11RasterizerState* Mesh::rasterizerState = nullptr;
 ID3D11ShaderResourceView* Mesh::whiteTexture = nullptr;
 float Mesh::aspectRatio = 1.f;
@@ -66,10 +76,17 @@ void Mesh::ReleaseSharedResources() {
     if (blendState) { blendState->Release(); blendState = nullptr; }
     if (depthStencilState) { depthStencilState->Release(); depthStencilState = nullptr; }
     if (depthStencilStateNoWrite) { depthStencilStateNoWrite->Release(); depthStencilStateNoWrite = nullptr; }
+    if (outlineMarkState) { outlineMarkState->Release(); outlineMarkState = nullptr; }
+    if (outlineRingState) { outlineRingState->Release(); outlineRingState = nullptr; }
+    if (outlineMarkAllState) { outlineMarkAllState->Release(); outlineMarkAllState = nullptr; }
+    if (outlineRingSeeThroughState) { outlineRingSeeThroughState->Release(); outlineRingSeeThroughState = nullptr; }
     if (rasterizerState) { rasterizerState->Release(); rasterizerState = nullptr; }
     if (whiteTexture) { whiteTexture->Release(); whiteTexture = nullptr; }
     if (sampler) { sampler->Release(); sampler = nullptr; }
     if (inputLayout) { inputLayout->Release(); inputLayout = nullptr; }
+    if (outlineInputLayout) { outlineInputLayout->Release(); outlineInputLayout = nullptr; }
+    if (outlineVertexShader) { outlineVertexShader->Release(); outlineVertexShader = nullptr; }
+    if (outlinePixelShader) { outlinePixelShader->Release(); outlinePixelShader = nullptr; }
     if (pixelShader) { pixelShader->Release(); pixelShader = nullptr; }
     if (shadowVertexShader) { shadowVertexShader->Release(); shadowVertexShader = nullptr; }
     if (vertexShader) { vertexShader->Release(); vertexShader = nullptr; }
@@ -136,6 +153,49 @@ bool Mesh::CreateShaders() {
         return false;
     }
 
+    // 枠線用の頂点シェーダー・ピクセルシェーダー(同じファイルの VSOutline / PSOutline)
+    ID3DBlob* outlineVsBlob = nullptr;
+    ID3DBlob* outlinePsBlob = nullptr;
+    err = nullptr;
+    hr = D3DCompileFromFile(L"Shader3D.hlsl", nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE,
+        "VSOutline", "vs_5_0", 0, 0, &outlineVsBlob, &err);
+    if (FAILED(hr)) {
+        if (err) { OutputDebugStringA((char*)err->GetBufferPointer()); err->Release(); }
+        else { OutputDebugStringA("★ Shader3D VSOutline コンパイル失敗\n"); }
+        vsBlob->Release(); psBlob->Release();
+        return false;
+    }
+    err = nullptr;
+    hr = D3DCompileFromFile(L"Shader3D.hlsl", nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE,
+        "PSOutline", "ps_5_0", 0, 0, &outlinePsBlob, &err);
+    if (FAILED(hr)) {
+        if (err) { OutputDebugStringA((char*)err->GetBufferPointer()); err->Release(); }
+        else { OutputDebugStringA("★ Shader3D PSOutline コンパイル失敗\n"); }
+        outlineVsBlob->Release();
+        vsBlob->Release(); psBlob->Release();
+        return false;
+    }
+    bool outlineOk =
+        SUCCEEDED(Graphics::device->CreateVertexShader(outlineVsBlob->GetBufferPointer(), outlineVsBlob->GetBufferSize(), nullptr, &outlineVertexShader)) &&
+        SUCCEEDED(Graphics::device->CreatePixelShader(outlinePsBlob->GetBufferPointer(), outlinePsBlob->GetBufferSize(), nullptr, &outlinePixelShader));
+    if (outlineOk) {
+        // slot 0 = 普通の頂点(位置・法線だけ使う)、slot 1 = 平均した法線
+        D3D11_INPUT_ELEMENT_DESC outlineLayout[] = {
+            { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0,  0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+            { "NORMAL",   0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+            { "NORMAL",   1, DXGI_FORMAT_R32G32B32_FLOAT, 1,  0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+        };
+        outlineOk = SUCCEEDED(Graphics::device->CreateInputLayout(outlineLayout, 3,
+            outlineVsBlob->GetBufferPointer(), outlineVsBlob->GetBufferSize(), &outlineInputLayout));
+    }
+    outlineVsBlob->Release();
+    outlinePsBlob->Release();
+    if (!outlineOk) {
+        OutputDebugStringA("★ Mesh 枠線のシェーダー作成に失敗\n");
+        vsBlob->Release(); psBlob->Release();
+        return false;
+    }
+
     D3D11_INPUT_ELEMENT_DESC layout[] = {
         { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT,    0,  0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
         { "NORMAL",   0, DXGI_FORMAT_R32G32B32_FLOAT,    0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0 },
@@ -183,12 +243,32 @@ bool Mesh::CreateBuffers(const std::vector<MeshVertex>& verts, const std::vector
         }
     }
 
+    // 枠線用: 三角形のメッシュだけ、同じ位置の法線を平均した法線のバッファを作る(線のメッシュは枠線を描かない)
+    ID3D11Buffer* newSmoothBuffer = nullptr;
+    if (topology == D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST) {
+        std::vector<XMFLOAT3> positions(verts.size()), normals(verts.size());
+        for (size_t i = 0; i < verts.size(); i++) { positions[i] = verts[i].Position; normals[i] = verts[i].Normal; }
+        std::vector<XMFLOAT3> smooth = CreateSmoothNormals(positions, normals, indices);
+        D3D11_BUFFER_DESC sbd = {};
+        sbd.Usage = D3D11_USAGE_IMMUTABLE;
+        sbd.ByteWidth = sizeof(XMFLOAT3) * (UINT)smooth.size();
+        sbd.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+        D3D11_SUBRESOURCE_DATA sdata = {};
+        sdata.pSysMem = smooth.data();
+        if (FAILED(Graphics::device->CreateBuffer(&sbd, &sdata, &newSmoothBuffer))) {
+            newVertexBuffer->Release();
+            if (newIndexBuffer) newIndexBuffer->Release();
+            return false;
+        }
+    }
+
     // 作り直された時(同じMeshでInitを2回呼んだ時)に前のバッファが残らないよう、先に手放す
     if (vertexBuffer) vertexBuffer->Release();
     if (indexBuffer) indexBuffer->Release();
+    if (smoothNormalBuffer) smoothNormalBuffer->Release();
     vertexBuffer = newVertexBuffer;
     indexBuffer = newIndexBuffer;
-    vertexCount = (UINT)verts.size();
+    smoothNormalBuffer = newSmoothBuffer;    vertexCount = (UINT)verts.size();
     indexCount = indices ? (UINT)indices->size() : 0;
     return true;
 }
@@ -250,7 +330,43 @@ bool Mesh::CreateDepthStencilState() {
     dsdNoWrite.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ZERO;
     dsdNoWrite.DepthFunc = D3D11_COMPARISON_LESS;
     hr = Graphics::device->CreateDepthStencilState(&dsdNoWrite, &depthStencilStateNoWrite);
-    return SUCCEEDED(hr);
+    if (FAILED(hr)) return false;
+
+    // 枠線用(1): 本物と同じ深度(LESS_EQUAL)を通った画素のステンシルを、参照値に書き換える。深度は書かない
+    D3D11_DEPTH_STENCIL_DESC mark = {};
+    mark.DepthEnable = TRUE;
+    mark.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ZERO;
+    mark.DepthFunc = D3D11_COMPARISON_LESS_EQUAL;
+    mark.StencilEnable = TRUE;
+    mark.StencilReadMask = 0xFF;
+    mark.StencilWriteMask = 0xFF;
+    mark.FrontFace = { D3D11_STENCIL_OP_KEEP, D3D11_STENCIL_OP_KEEP, D3D11_STENCIL_OP_REPLACE, D3D11_COMPARISON_ALWAYS };
+    mark.BackFace = mark.FrontFace;
+    hr = Graphics::device->CreateDepthStencilState(&mark, &outlineMarkState);
+    if (FAILED(hr)) return false;
+
+    // 枠線用(2): 普通の深度テスト(書き込みあり)。ステンシルが参照値(1)の画素=本物の内側には描かない
+    D3D11_DEPTH_STENCIL_DESC ring = {};
+    ring.DepthEnable = TRUE;
+    ring.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ALL;
+    ring.DepthFunc = D3D11_COMPARISON_LESS;
+    ring.StencilEnable = TRUE;
+    ring.StencilReadMask = 0xFF;
+    ring.StencilWriteMask = 0;
+    ring.FrontFace = { D3D11_STENCIL_OP_KEEP, D3D11_STENCIL_OP_KEEP, D3D11_STENCIL_OP_KEEP, D3D11_COMPARISON_NOT_EQUAL };
+    ring.BackFace = ring.FrontFace;
+    hr = Graphics::device->CreateDepthStencilState(&ring, &outlineRingState);
+    if (FAILED(hr)) return false;
+    // 枠線(壁越し)用(1): 深度テストなしで、本物のシルエット全体のステンシルを参照値に書き換える
+    D3D11_DEPTH_STENCIL_DESC markAll = mark;
+    markAll.DepthEnable = FALSE;
+    if (FAILED(Graphics::device->CreateDepthStencilState(&markAll, &outlineMarkAllState))) return false;
+
+    // 枠線(壁越し)用(2): 深度テストも深度の書き込みもなし。ステンシルが参照値(1)の画素(シルエットの内側)には描かない
+    D3D11_DEPTH_STENCIL_DESC ringSeeThrough = ring;
+    ringSeeThrough.DepthEnable = FALSE;
+    ringSeeThrough.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ZERO;
+    return SUCCEEDED(Graphics::device->CreateDepthStencilState(&ringSeeThrough, &outlineRingSeeThroughState));
 }
 
 bool Mesh::CreateRasterizerState() {
@@ -327,6 +443,8 @@ void Mesh::Draw(const XMMATRIX& world, const Camera& camera, const Material& mat
 
     // b2: マテリアル(色・光沢・自発光・光を使うか)
     MaterialConstantBuffer mb = MakeMaterialConstantBuffer(material);
+    mb.outlineParams.y = Graphics::width;
+    mb.outlineParams.z = Graphics::height;
     context->Map(materialBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &msr);
     memcpy(msr.pData, &mb, sizeof(mb));
     context->Unmap(materialBuffer, 0);
@@ -367,6 +485,96 @@ void Mesh::Draw(const XMMATRIX& world, const Camera& camera, const Material& mat
     context->RSSetState(nullptr);
 }
 
+void Mesh::DrawOutline(const XMMATRIX& world, const Camera& camera, XMFLOAT4 color, float widthPixels, bool seeThrough) {
+    assert(context && "context が nullptr");
+    assert(vertexBuffer && "vertexBuffer が nullptr");
+    if (widthPixels <= 0.f || color.w <= 0.f) return;
+    if (!smoothNormalBuffer) return;   // 線のメッシュには枠線を付けない
+
+    // b0: ワールド・ビュー・射影(光は使わない)
+    MeshConstantBuffer cb = {};
+    cb.world = XMMatrixTranspose(world);
+    cb.view = XMMatrixTranspose(camera.GetViewMatrix());
+    cb.proj = XMMatrixTranspose(camera.GetProjectionMatrix(aspectRatio));
+    D3D11_MAPPED_SUBRESOURCE msr;
+    context->Map(constantBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &msr);
+    memcpy(msr.pData, &cb, sizeof(cb));
+    context->Unmap(constantBuffer, 0);
+
+    // b2: 枠線の色・太さ・画面の大きさ
+    Material outlineMaterial;
+    outlineMaterial.outlineColor = color;
+    outlineMaterial.outlineWidth = widthPixels;
+    MaterialConstantBuffer mb = MakeMaterialConstantBuffer(outlineMaterial);
+    mb.outlineParams.y = Graphics::width;
+    mb.outlineParams.z = Graphics::height;
+    context->Map(materialBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &msr);
+    memcpy(msr.pData, &mb, sizeof(mb));
+    context->Unmap(materialBuffer, 0);
+
+    // b3: カメラの位置(裏向きの面かどうかの判定に使う)
+    MeshCameraBuffer eye = { { camera.position.x, camera.position.y, camera.position.z, 1.f } };
+    context->Map(cameraBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &msr);
+    memcpy(msr.pData, &eye, sizeof(eye));
+    context->Unmap(cameraBuffer, 0);
+
+    float blendFactor[4] = {};
+    context->OMSetBlendState(blendState, blendFactor, 0xFFFFFFFF);
+    context->RSSetState(rasterizerState);
+
+    // (1) 本物の見えている画素(深度が本物と同じ画素)のステンシルを1にする。色も深度も書かない
+    //     (枠線を本物の内側に描かないための印。枠線の深度を手前へずらしても、内側に漏れない)
+    UINT markStride = sizeof(MeshVertex), markOffset = 0;
+    context->IASetInputLayout(inputLayout);
+    context->IASetVertexBuffers(0, 1, &vertexBuffer, &markStride, &markOffset);
+    context->IASetIndexBuffer(indexBuffer, DXGI_FORMAT_R32_UINT, 0);
+    context->IASetPrimitiveTopology(topology);
+    context->VSSetShader(shadowVertexShader, nullptr, 0);   // 深度だけの頂点シェーダー(本物の位置と同じ計算)
+    context->VSSetConstantBuffers(0, 1, &constantBuffer);
+    context->PSSetShader(nullptr, nullptr, 0);
+    context->OMSetDepthStencilState(seeThrough ? outlineMarkAllState : outlineMarkState, 1);
+    if (indexBuffer) context->DrawIndexed(indexCount, 0, 0);
+    else context->Draw(vertexCount, 0);
+
+    // (2) 枠線: ステンシルが1の画素には描かない
+    context->OMSetDepthStencilState(seeThrough ? outlineRingSeeThroughState : outlineRingState, 1);
+
+    ID3D11Buffer* buffers[2] = { vertexBuffer, smoothNormalBuffer };
+    UINT strides[2] = { sizeof(MeshVertex), sizeof(XMFLOAT3) };
+    UINT offsets[2] = { 0, 0 };
+    context->IASetInputLayout(outlineInputLayout);
+    context->IASetVertexBuffers(0, 2, buffers, strides, offsets);
+    context->IASetIndexBuffer(indexBuffer, DXGI_FORMAT_R32_UINT, 0);
+    context->IASetPrimitiveTopology(topology);
+
+    ID3D11Buffer* vsBuffers[3] = { constantBuffer, nullptr, materialBuffer };
+    context->VSSetShader(outlineVertexShader, nullptr, 0);
+    context->VSSetConstantBuffers(0, 3, vsBuffers);
+    context->PSSetShader(outlinePixelShader, nullptr, 0);
+    ID3D11Buffer* psBuffers[4] = { constantBuffer, nullptr, materialBuffer, cameraBuffer };
+    context->PSSetConstantBuffers(0, 4, psBuffers);
+
+    if (indexBuffer) context->DrawIndexed(indexCount, 0, 0);
+    else context->Draw(vertexCount, 0);
+
+    // (3) 印を消す(ステンシルを0に戻す。他の描画に影響しないように)
+    context->IASetInputLayout(inputLayout);
+    context->IASetVertexBuffers(0, 1, &vertexBuffer, &markStride, &markOffset);
+    context->VSSetShader(shadowVertexShader, nullptr, 0);
+    context->VSSetConstantBuffers(0, 1, &constantBuffer);
+    context->PSSetShader(nullptr, nullptr, 0);
+    context->OMSetDepthStencilState(seeThrough ? outlineMarkAllState : outlineMarkState, 0);
+    if (indexBuffer) context->DrawIndexed(indexCount, 0, 0);
+    else context->Draw(vertexCount, 0);
+
+    // 深度ステンシルを普通の状態に戻し、slot 1 の頂点バッファを外し(次の普通の描画は slot 0 だけ使う)、ラスタライザ状態を既定に戻す
+    ID3D11Buffer* noBuffers[2] = { nullptr, nullptr };
+    UINT noStrides[2] = { 0, 0 };
+    context->IASetVertexBuffers(0, 2, noBuffers, noStrides, offsets);
+    context->OMSetDepthStencilState(depthStencilState, 0);
+    context->RSSetState(nullptr);
+}
+
 void Mesh::DrawDepth(const XMMATRIX& world, const XMMATRIX& lightView, const XMMATRIX& lightProj) {
     assert(context && "context が nullptr");
     assert(vertexBuffer && "vertexBuffer が nullptr");
@@ -399,6 +607,7 @@ void Mesh::DrawDepth(const XMMATRIX& world, const XMMATRIX& lightView, const XMM
 void Mesh::Uninit() {
     if (vertexBuffer) { vertexBuffer->Release(); vertexBuffer = nullptr; }
     if (indexBuffer) { indexBuffer->Release(); indexBuffer = nullptr; }
+    if (smoothNormalBuffer) { smoothNormalBuffer->Release(); smoothNormalBuffer = nullptr; }
     vertexCount = 0;
     indexCount = 0;
 
@@ -435,6 +644,56 @@ std::vector<MeshVertex> Mesh::CreateCube() {
         {{-0.5f,-0.5f, 0.5f}, nBottom, c, {0.f,1.f}}, {{ 0.5f,-0.5f, 0.5f}, nBottom, c, {1.f,1.f}}, {{ 0.5f,-0.5f,-0.5f}, nBottom, c, {1.f,0.f}},
         {{-0.5f,-0.5f, 0.5f}, nBottom, c, {0.f,1.f}}, {{ 0.5f,-0.5f,-0.5f}, nBottom, c, {1.f,0.f}}, {{-0.5f,-0.5f,-0.5f}, nBottom, c, {0.f,0.f}},
     };
+}
+
+std::vector<XMFLOAT3> Mesh::CreateSmoothNormals(const std::vector<XMFLOAT3>& positions,
+    const std::vector<XMFLOAT3>& normals, const std::vector<UINT>* indices) {
+    // 位置を細かい格子(1/10000)に丸めて「同じ位置」を見つける
+    struct Key {
+        long long x, y, z;
+        bool operator==(const Key& o) const { return x == o.x && y == o.y && z == o.z; }
+    };
+    struct KeyHash {
+        size_t operator()(const Key& k) const {
+            return (size_t)(k.x * 73856093LL) ^ (size_t)(k.y * 19349663LL) ^ (size_t)(k.z * 83492791LL);
+        }
+    };
+    auto MakeKey = [](const XMFLOAT3& p) {
+        return Key{ (long long)floorf(p.x * 10000.f + 0.5f), (long long)floorf(p.y * 10000.f + 0.5f), (long long)floorf(p.z * 10000.f + 0.5f) };
+    };
+
+    std::unordered_map<Key, XMFLOAT3, KeyHash> sums;
+    size_t indexCount = indices ? indices->size() : positions.size();
+    auto VertexAt = [&](size_t i) { return indices ? (size_t)(*indices)[i] : i; };
+    for (size_t t = 0; t + 2 < indexCount; t += 3) {
+        size_t v[3] = { VertexAt(t), VertexAt(t + 1), VertexAt(t + 2) };
+        if (v[0] >= positions.size() || v[1] >= positions.size() || v[2] >= positions.size()) continue;
+        for (int k = 0; k < 3; k++) {
+            // 三角形のこの角の大きさ(ラジアン)を重みにする(細かく割った面に引っ張られないように)
+            XMVECTOR p = XMLoadFloat3(&positions[v[k]]);
+            XMVECTOR e1 = XMLoadFloat3(&positions[v[(k + 1) % 3]]) - p;
+            XMVECTOR e2 = XMLoadFloat3(&positions[v[(k + 2) % 3]]) - p;
+            float l1 = XMVectorGetX(XMVector3Length(e1)), l2 = XMVectorGetX(XMVector3Length(e2));
+            if (l1 < 1e-8f || l2 < 1e-8f) continue;   // つぶれた三角形
+            float cosine = XMVectorGetX(XMVector3Dot(e1, e2)) / (l1 * l2);
+            float weight = acosf((std::max)(-1.f, (std::min)(1.f, cosine)));
+            XMFLOAT3& sum = sums[MakeKey(positions[v[k]])];
+            sum.x += normals[v[k]].x * weight;
+            sum.y += normals[v[k]].y * weight;
+            sum.z += normals[v[k]].z * weight;
+        }
+    }
+
+    std::vector<XMFLOAT3> result(positions.size());
+    for (size_t i = 0; i < positions.size(); i++) {
+        result[i] = normals[i];   // どの三角形にも使われない頂点・合計が0になる頂点は、元の法線のまま
+        auto it = sums.find(MakeKey(positions[i]));
+        if (it == sums.end()) continue;
+        XMVECTOR sum = XMLoadFloat3(&it->second);
+        if (XMVectorGetX(XMVector3Length(sum)) < 1e-6f) continue;
+        XMStoreFloat3(&result[i], XMVector3Normalize(sum));
+    }
+    return result;
 }
 
 std::vector<MeshVertex> Mesh::CreateSphere(int rings, int segments) {
