@@ -530,7 +530,7 @@ Resources::ReleaseTexture(texID);
 - `LoadTexture` で借りたら、必ず `Uninit()` などで `ReleaseTexture` を返してください。返し忘れると、その画像はゲームを終了するまで解放されません(終了時にはまとめて解放され、Visual Studioの出力ウィンドウに「返し忘れの画像があります」と表示されます)。
 - 画像は共有されるので、**色やコマ番号は画像ではなく、描く側(`SpriteRenderer` など)が1体ごとに持ちます。** `Image::Draw` には、色とコマ(`SpriteSheet` = 横の分割数・縦の分割数・コマ番号)を毎回渡します。
 - `Image::LoadTexture` / `Image::ReleaseTexture` はEngine内部用(`Resources` だけが使う)です。ゲーム側からは呼ばないでください(呼ぶ度に同じ画像を読み直してしまいます)。
-- 音(`Audio`)とモデルの使い回しは、まだありません(音は「データ」と「再生口」を分ける時に一緒に作る予定。`docs/EngineRoadmap.md` の 5.13 / 5.16)。
+- 音(WAV)も同じ仕組みで使い回せます(`Resources::LoadSound` / `ReleaseSound`)。ただし普段は `Audio::PlayOneShot` や `AudioSourceComponent` が中で使うので、直接呼ぶことはありません(§24)。モデルの使い回しは、まだありません(`docs/EngineRoadmap.md` の 5.16)。
 
 ---
 
@@ -1223,7 +1223,7 @@ component->SetInteractable(false);    // 押せなくして、灰色にする
 
 - **HUD(両サンプル)**: `HUDController` の文字の位置は `GetAnchoredPosition` で決めています(Score / High Score / HP は `Anchor::TopLeft`、GAME OVER などは `Anchor::Center`)。HPの文字の下のHPゲージは、`Objects/HUD.cpp` で `GaugeRenderer` を付けて、`SetValueSource` で `PlayerController::GetHp()` / `GetMaxHp()` を読んで描いています。
 - **頭上のHPバー**: Sample2Dの `Objects/Player.cpp` で `SetFollowTarget(player, { 0, 70 })`。Sample3Dは `SetUse3DCamera(true)` も付けています(3Dカメラで画面座標に直す)。一人称の間はカメラがPlayerの位置にあって意味が無いので、`PlayerController` がPlayerの見た目と一緒に隠しています。
-- **タイトルの音量スライダー(両サンプル)**: `Objects/VolumeSlider.cpp` の `CreateVolumeSlider(scene, titleController)`。範囲は0〜1で、最初の値は `TitleController::GetVolume()`(= `SaveData` の `"MusicVolume"`、無ければ1)。動かすと `TitleController::SetVolume()` がBGMの音量を変えて `SaveData::SetFloat` で書き、つまみを離した時(`SetOnDragEnd`)に `SaveData::Save()` でファイルに保存します(§18)。次に起動した時も、その音量でBGMが鳴ります。音量の値の持ち主は `TitleController` で、スライダーはそれを変えてもらうだけです。キーはSample2DとSample3Dで共通です。
+- **タイトルの音量スライダー(両サンプル)**: `Objects/VolumeSlider.cpp` の `CreateVolumeSlider(scene, titleController)`。範囲は0〜1で、最初の値は `TitleController::GetVolume()`(= `SaveData` の `"MusicVolume"`、無ければ1)。動かすと `TitleController::SetVolume()` がBGMグループの音量(`Audio::SetGroupVolume(AudioGroup::BGM, 音量)`。§24)を変えて `SaveData::SetFloat` で書き、つまみを離した時(`SetOnDragEnd`)に `SaveData::Save()` でファイルに保存します(§18)。次に起動した時も、その音量でBGMが鳴ります。音量の値の持ち主は `TitleController` で、スライダーはそれを変えてもらうだけです。キーはSample2DとSample3Dで共通です。
 - **ボタン(両サンプル)**: `Objects/Button.cpp` の `CreateButton()` が `ButtonComponent` を付けています。
 
 ### 注意
@@ -1267,7 +1267,7 @@ Claude Code で作業する場合は、`.claude/`の設定で、メインの会�
 
 ### 音が鳴らない時は(WAVファイルの中身を疑う)
 
-`Audio::Load()`(`Engine/Audio.cpp`)は`.wav`ファイルの`fmt `/`data`チャンクを名前で探して読みます。以前は「`fmt `の直後は必ず`data`」という決め打ちの44バイト固定ヘッダーで読んでいたため、ffmpeg/Lavfなど一部のツールで書き出したWAV(`fmt `と`data`の間に`LIST`メタデータチャンクが挟まる)を読み込むと、メタデータの文字列を音声データと誤認識し、音が鳴らない(鳴ってもごく短いノイズだけ)という不具合がありました。現在は汎用的なチャンク読み取りに直してあるので、`LIST`/`fact`など余計なチャンクが挟まっていても正しく読めます。**それでも音が鳴らない場合は、まず`.wav`ファイル自体が壊れていないか(別プレイヤーで再生できるか)を確認してください**。
+`Audio::Load()` / `Audio::PlayOneShot()` / `AudioSourceComponent`(`Engine/Audio.cpp`)は`.wav`ファイルの`fmt `/`data`チャンクを名前で探して読みます。以前は「`fmt `の直後は必ず`data`」という決め打ちの44バイト固定ヘッダーで読んでいたため、ffmpeg/Lavfなど一部のツールで書き出したWAV(`fmt `と`data`の間に`LIST`メタデータチャンクが挟まる)を読み込むと、メタデータの文字列を音声データと誤認識し、音が鳴らない(鳴ってもごく短いノイズだけ)という不具合がありました。現在は汎用的なチャンク読み取りに直してあるので、`LIST`/`fact`など余計なチャンクが挟まっていても正しく読めます。**それでも音が鳴らない場合は、まず`.wav`ファイル自体が壊れていないか(別プレイヤーで再生できるか)を確認してください**。
 
 ---
 
@@ -1306,9 +1306,9 @@ Sample3D/Game/Scenes/      TitleScene, GameScene
 | `PlayerController` | HP・無敵時間・ノックバック(HPが0になったら`EventBus`で`"PlayerDied"`を発行し、以後は移動・向き・発射を受け付けない。ポーズ中・シーン切り替え中も`Time::IsPaused()`で受け付けない) |
 | `GameManager` | スコア(`"EnemyDefeated"`で加算)・ゲームオーバー判定(`"PlayerDied"`を受けて)・ハイスコアの更新と保存(ゲームオーバーの時。ハイスコアの値そのものは`SaveData`が持ち、`GetHighScore()`はそれを読むだけ。§18)・タイトルへの遷移。表示は一切しない |
 | `EnemyManager` | 敵のプールと出現タイマー。一定間隔でPlayerの周囲に敵を出し(追いかける動きは敵に付けた`ChaseComponent`に、相手と速さを渡す)、`"PlayerDied"`を受けたら出現を止める |
-| `BulletManager` | 弾のプール。`"FireBullet"`を受けて、撃った本人の向きへ弾を出す |
+| `BulletManager` | 弾のプール。`"FireBullet"`を受けて、撃った本人の向きへ弾を出す(出す時に発射音`shot.wav`を`Audio::PlayOneShotAt`で鳴らす。§24) |
 | `HUDController` | 画面表示(Score/High Score/HP/GAME OVER)だけ。値は自分で持たず、`GameManager::GetScore()`/`GameManager::GetHighScore()`/`PlayerController::GetHp()`などで毎フレーム読む。文字は`Init()`で`Text::LoadFont`したNoto Sans JPで、左上の文字は左寄せ+黒い縁取り(`TextStyle`。§19)。位置は`GetAnchoredPosition`で画面の隅・中央から決める(§20)。HUDオブジェクトに付けた`GaugeRenderer`のHPゲージも、`SetValueSource`で`PlayerController`のHPを読んで描くだけ(§20) |
-| `TitleController` | タイトルの表示とBGMの再生。BGMの音量の持ち主(`GetVolume()`/`SetVolume()`。`SaveData`の`"MusicVolume"`に書く)。音量スライダー(`SliderComponent`)は、`CreateVolumeSlider`でここへつないで、動かしてもらうだけ(§20) |
+| `TitleController` | タイトルの表示とBGMの再生。起動時に、BGMグループの音量(`"MusicVolume"`)と効果音(SE)グループの音量(`"SoundEffectVolume"`。変えるUIはまだ無い)を`SaveData`から読んで適用する(§24)。BGMの音量の持ち主(`GetVolume()`/`SetVolume()`。`SaveData`の`"MusicVolume"`に書く)。音量スライダー(`SliderComponent`)は、`CreateVolumeSlider`でここへつないで、動かしてもらうだけ(§20) |
 
 表示用に値のコピーを別に持つと、本物の値とズレる原因になるため、HUDは読むだけにしている(HPゲージも`SetValueSource`で読むだけ)。新しいUI要素を足す時は`HUDController::Draw()`(ゲージなら`GaugeRenderer`。§20)に追加し、表示したい値は持ち主側にゲッターを生やす形にすること。
 
@@ -1333,6 +1333,8 @@ GameManager/HUD/EnemyManager/BulletManagerのような「見た目の無い管�
 | 敵に当たったら画面が揺れる(Sample2D) | `PlayerController::OnCollisionStay2D()`(`CameraShake::Shake`。§14) |
 | 敵に当たったら画面の端が赤く点滅する | `PlayerController::OnCollisionStay2D()`(`ScreenEffect::Vignette`。§15) |
 | タイトルのBGM音量スライダー | `Objects/VolumeSlider.cpp`(`SliderComponent`を付け、動かしたら`TitleController::SetVolume()`、離したら`SaveData::Save()`。§20) |
+| 発射音・敵を倒した音 | `BulletManager::Fire()`(`shot.wav`)・`EnemyController::OnTriggerEnter2D()`(`hit.wav`)から`Audio::PlayOneShotAt`(その場所で鳴る。連射しても重なる。§24) |
+| 音を聞く位置 | `Objects/Player.cpp`で付けた`AudioListenerComponent`(Engine。Sample3Dは`SetUse3DCamera(true)`も。§24) |
 | 画面左上のHPゲージ | `Objects/HUD.cpp`(`GaugeRenderer`を付け、`SetValueSource`で`PlayerController`のHPを読む。§20) |
 | Playerの頭上のHPバー | `Objects/Player.cpp`(`GaugeRenderer`の`SetFollowTarget`。Sample3Dは`SetUse3DCamera(true)`も。一人称の間は`PlayerController`が隠す。§20) |
 | カメラがPlayerを追いかける(Sample2D) | `Objects/Player.cpp`で付けた`CameraFollowComponent`(Engine。§14) |
@@ -1533,3 +1535,82 @@ rigidbody->AddForce(away * 600.f, ForceMode::VelocityChange);
 
 - `ThirdParty/PhysX/lib/x64-debug/`, `x64-release/`: Debug/Release、x64向けのビルド済み成果物(`.pdb`/`.map`や、GPU支援用のDLL(`PhysXGpu`/`PhysXDevice`)は容量削減のため含めていません。今回はCPUベースの物理演算のみを使う想定です)
 - PhysXのinclude/lib設定は`PhysX.props`(ソリューションフォルダ直下)に1箇所にまとめてあり、`Engine.vcxproj`/`Sample2D.vcxproj`/`Sample3D.vcxproj`の全てがこれをImportしています。PhysXのバージョンを上げる、リンクするlibを増減する時はこのファイルだけ直せば全プロジェクトに反映されます。`RuntimeLibrary`も同じファイルで`MultiThreaded`/`MultiThreadedDebug`(静的CRT)に設定済みです。PhysXのビルドが`NV_USE_STATIC_WINCRT=True`だったため、CRTを合わせないとリンクエラーになります(新しいプロジェクトを追加する時も、必ず同じ`RuntimeLibrary`にしてください)
+
+---
+
+## 24. 音(Audio / AudioSourceComponent / AudioListenerComponent / グループ音量)
+
+音を鳴らす仕組みです(`Engine/Audio.h`、`Engine/AudioSourceComponent.h`、`Engine/AudioListenerComponent.h`)。**音が「どこで鳴っているか」で聞こえ方が変わります**(遠い音は小さく、左で鳴った音は左から聞こえる)。同じ効果音を重ねて鳴らせるので、連射しても音が途切れません。BGMと効果音の音量は別々に変えられます。
+
+### 使い方
+
+```cpp
+#include "../../../Engine/Audio.h"
+#include "../../../Engine/AudioSourceComponent.h"
+#include "../../../Engine/AudioListenerComponent.h"
+
+// 聞く側: Playerに1つ付ける(2D。向きは画面の上が正面で固定)
+player->AddComponent<AudioListenerComponent>();
+// 3Dなら、向きを3D用カメラに合わせる
+player->AddComponent<AudioListenerComponent>()->SetUse3DCamera(true);
+
+// 鳴らしっぱなしの効果音(重ねて鳴らせる。鳴り終われば自動で片付く)
+Audio::PlayOneShotAt(L"Assets/Sounds/shot.wav", position);   // その場所で鳴らす(遠いほど小さく、左右の向きも変わる)
+Audio::PlayOneShot(L"Assets/Sounds/click.wav", 0.8f);        // 位置に関係なく鳴らす(UIの音など)。第2引数は音量
+
+// 音を出すオブジェクトに付ける(焚き火・機械など。オブジェクトが動けば聞こえ方も変わる)
+auto* fire = obj->AddComponent<AudioSourceComponent>(L"Assets/Sounds/fire.wav");
+fire->SetLoop(true);
+fire->SetDistance(200.f, 1500.f);   // 200までは最大音量、1500で聞こえなくなる(その間は直線的に小さくなる)
+fire->Play();
+
+// グループごとの音量(0〜1)
+Audio::SetGroupVolume(AudioGroup::BGM, 0.5f);
+Audio::SetGroupVolume(AudioGroup::SE, 1.0f);
+```
+
+| 関数 | 内容 |
+|---|---|
+| `Audio::PlayOneShot(path, volume = 1)` | 位置に関係なく鳴らす。重ねて鳴らせる。グループはSE |
+| `Audio::PlayOneShotAt(path, position, volume = 1)` | `position`(ワールド座標)で鳴らす。聞く位置からの距離と左右で聞こえ方が変わる |
+| `Audio::SetGroupVolume(group, volume)` / `GetGroupVolume(group)` | `AudioGroup::BGM` / `AudioGroup::SE` の音量(0〜1。範囲外は収める) |
+| `AudioSourceComponent(path)` | 音を出す側。`Play` / `Stop` / `IsPlaying` / `SetVolume` / `SetLoop` / `SetSpatial(false)`(位置を使わない=BGM・UIの音) / `SetDistance(min, max)` / `SetGroup` |
+| `AudioListenerComponent` | 聞く側。付けたオブジェクトのワールド位置で聞く。`SetUse3DCamera(true)` で向きを3D用カメラに合わせる |
+| `Audio::Load` / `Play` / `Stop` / `Pause` / `Resume` / `SetVolume` / `SetLoop` / `Release` | 今までどおり。IDで鳴らす方法(長く鳴らすBGM向け。タイトルのBGMはこれ)。`Load` の第3引数で、グループを選べる(既定は**BGM**) |
+
+### 仕組みと決まり
+
+- **音のデータと再生口を分けています。** 音のデータ(WAVの中身)は `Resources::LoadSound` で1回だけ読み、みんなで使い回します(§11と同じ参照カウント。0になってもシーン切り替えまで残る)。実際に音を出す「再生口」(`IXAudio2SourceVoice`)は、鳴らす度に借りて、鳴り終わったら返して使い回します。だから、同じ音を何個でも重ねて鳴らせます。
+- **同時に鳴らせるのは32個まで**(`Audio::maxVoices`)。超えた分は鳴らさず、出力ウィンドウに1回だけ知らせます。
+- **グループの音量は、音を途中でまとめるボイス(サブミックス)で実現しています。** BGMグループの音量を下げれば、IDで鳴らしたBGMがまとめて小さくなります。`PlayOneShot` / `AudioSourceComponent` は既定でSEグループです。
+- **聞こえ方の計算は XAudio2 付属の X3DAudio です。** 聞く位置からの距離で小さくなり(`minDistance` までは最大音量、`maxDistance` で聞こえなくなる。既定は 300 と 2500)、左右の位置で左右の音量が変わります。モノラルでもステレオのWAVでも動きます。出力はいつもステレオ(2チャンネル)です。
+- **向きの決め方**: 2Dは「画面の上が正面、右が右」で固定(Playerが向きを変えても、画面の左にある音は左から聞こえる)。3D(`SetUse3DCamera(true)`)は、3D用カメラの向きです。2Dでは上下(Y)は前後の扱いになり、画面の上にある音は真ん中から聞こえます。
+- **`AudioListenerComponent` が2つ以上ある時**は、最後に有効になった(`AddComponent` / `SetActive(true)` された)1つだけが使われ、出力ウィンドウで1回知らせます。**1つも無い時**は、2D用カメラ(`Image::GetCamera()`)の x,y が聞く位置になります(2Dゲームは付けなくても動きます)。**3Dゲームは必ず Player などに付けてください**(付けないと、2D用カメラの位置で聞くことになってしまいます)。
+- **ポーズ中・シーン切り替え中(`Time::IsPaused()`)も、音は止まらず鳴り続けます。** 切り替え中にBGMや効果音が途切れないほうが自然なためです(止めたい時は `AudioSourceComponent::Stop` や `Audio::Pause` を使う)。
+- **`AudioSourceComponent` の再生口は、`Stop`・オブジェクトの破棄(`Destroy`)・シーン切り替え・`SetActive(false)` で返ります。** 鳴りっぱなしの音は残りません。`SetActive(false)` で止まった音は自動では再開しないので、必要なら `Play` し直してください。`SetLoop` / `SetGroup` は次の `Play` から効きます。
+- **`PlayOneShot` / `AudioSourceComponent` が失敗した時**(WAVが読めない・音声デバイスが無い)は、何もせず、出力ウィンドウに1回(パスごと)知らせます。
+- `Audio::Update` / `LoadWave` / `ReleaseWave` / `SetListener` / `StartVoice` などはEngine内部用です。ゲーム側からは呼びません。
+
+### 保存と音量
+
+- BGMグループの音量は `SaveData` の `"MusicVolume"`、効果音(SE)グループの音量は `"SoundEffectVolume"` に保存する決まりです。両サンプルの `TitleController::Init()` が、起動時に読んで `Audio::SetGroupVolume` で適用します(保存されていなければ最大)。タイトルのスライダー(§20)が変えるのはBGMグループです。効果音の音量を変えるUIは、まだありません(`SoundEffectVolume` を `SaveData` に書けば、次の起動から効きます)。
+
+### 効果音の素材(`Assets/Sounds/`)
+
+発射音 `shot.wav` と、敵を倒した音 `hit.wav` は、PowerShellで作った自作の音です(著作権の問題はありません)。16bit PCM・モノラル・44.1kHz の短いWAVです(モノラルにしておくと、左右の位置で聞こえ方が変わります)。
+
+- `shot.wav`(0.15秒): 1100Hz から 250Hz へ下がる正弦波 + 最初だけ短いノイズ。急に小さくなる(`exp(-22t)`)。
+- `hit.wav`(0.25秒): 520Hz → 780Hz の2段の電子音(倍音を少し足す)+ ノイズ。`exp(-12t)` で小さくなる。
+
+自分で作る時は、サンプル値を `sin(2π × 周波数 × 時間)` で並べて、時間とともに音量を下げ(`exp(-速さ × t)`)、16bitの整数にして WAV ヘッダー(44バイト)の後ろに書けば作れます。`Assets/` はビルドの時にフォルダごと(`Sounds/` も)出力先へコピーされます。
+
+### Sampleでの使われ方
+
+- 両サンプルの `BulletManager::Fire()` が、弾を出す時に `Audio::PlayOneShotAt(L"Assets/Sounds/shot.wav", position)`。
+- 両サンプルの `EnemyController::OnTriggerEnter2D()` が、敵を倒した時に `hit.wav` を倒された場所で鳴らす。
+- 両サンプルの `Objects/Player.cpp` に `AudioListenerComponent`(Sample3Dは `SetUse3DCamera(true)` 付き)。
+
+### 注意
+
+- 位置の単位はワールド座標です(2Dはピクセル、3Dのサンプルは1000で地面のタイル1枚)。ゲームの広さに合わせて `SetDistance` で調整してください。`PlayOneShotAt` は既定の 300 / 2500 です。
+- WAV は 16bit PCM(または8bit)を使ってください。フォーマットが違う音は同じ再生口を使い回せないので、種類が増えると再生口を作り直します(動きはしますが、1つのフォーマットにそろえたほうが軽いです)。

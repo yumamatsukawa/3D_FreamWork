@@ -5,6 +5,7 @@
 #include "../../../Engine/RigidbodyComponent.h"
 #include "../../../Engine/EventBus.h"
 #include "../../../Engine/MathUtil.h"
+#include "../../../Engine/Audio.h"
 #include "BulletController.h"
 
 namespace {
@@ -41,6 +42,9 @@ GameObject* BulletManager::Fire(XMFLOAT3 position, XMFLOAT2 direction) {
     GameObject* bullet = pool.Rent(*GetOwner()->GetScene(), SetupBullet);
     bullet->transform.position = position;
     bullet->transform.rotate = { 0.f, 0.f, 0.f };
+
+    // 発射音(その場所で鳴らす。連射しても重なって鳴る)
+    Audio::PlayOneShotAt(L"Assets/Sounds/shot.wav", position);
 
     // 進む方向と、消える時の返却先を渡す
     BulletController* controller = bullet->GetComponent<BulletController>();

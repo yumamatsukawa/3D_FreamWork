@@ -5,6 +5,7 @@
 #include "../../../Engine/RigidbodyComponent.h"
 #include "../../../Engine/CameraFollowComponent.h"
 #include "../../../Engine/GaugeRenderer.h"
+#include "../../../Engine/AudioListenerComponent.h"
 #include "../Components/PlayerController.h"
 
 GameObject* CreatePlayer(Scene& scene) {
@@ -27,6 +28,9 @@ GameObject* CreatePlayer(Scene& scene) {
 
     // カメラがPlayerを追いかける(ピッタリ追従。SetSmoothTime(0.1f) などにすると少し遅れてなめらかに追う)
     player->AddComponent<CameraFollowComponent>();
+
+    // 音を聞く位置(Playerの位置で聞こえる。敵や弾の音が、Playerからの距離と左右の向きで聞こえ方が変わる)
+    player->AddComponent<AudioListenerComponent>();
 
     // 動き・入力操作
     auto* controller = player->AddComponent<PlayerController>();

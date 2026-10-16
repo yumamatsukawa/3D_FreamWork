@@ -1,5 +1,6 @@
 ﻿#include "Resources.h"
 #include "Image.h"
+#include "Audio.h"
 #include <unordered_map>
 #include <cwctype>
 #include <climits>
@@ -13,6 +14,10 @@ namespace {
 
     std::unordered_map<std::wstring, unsigned int> textureIDs;  // そろえた後のパス → 画像のID
     std::unordered_map<unsigned int, TextureEntry> textures;    // 画像のID → 管理情報
+
+    // 音も画像と同じ仕組み(読み込み・解放はAudioがする。IDはAudio::LoadWaveのID)
+    std::unordered_map<std::wstring, unsigned int> soundIDs;    // そろえた後のパス → 音のID
+    std::unordered_map<unsigned int, TextureEntry> sounds;      // 音のID → 管理情報
 
     // 書き方が違うだけの同じパスを、同じ文字列にそろえる("Assets/Player.png" と "assets\player.png" を同じにする)
     std::wstring NormalizePath(const std::wstring& path) {
@@ -53,6 +58,33 @@ namespace Resources {
         if (found->second.refCount > 0) found->second.refCount--;
     }
 
+    unsigned int LoadSound(const std::wstring& path) {
+        std::wstring key = NormalizePath(path);
+
+        // 読み込み済みなら、読み直さずに同じIDを返す
+        auto found = soundIDs.find(key);
+        if (found != soundIDs.end()) {
+            sounds[found->second].refCount++;
+            return found->second;
+        }
+
+        // 初めての音だけ読み込む(失敗した時は登録しないので、次に呼ばれた時にもう一度読みにいく)
+        unsigned int id = Audio::LoadWave(path);
+        if (id == UINT_MAX) return UINT_MAX;
+
+        soundIDs[key] = id;
+        sounds[id] = { key, 1 };
+        return id;
+    }
+
+    void ReleaseSound(unsigned int id) {
+        auto found = sounds.find(id);
+        if (found == sounds.end()) return;
+
+        // 0になってもここでは解放しない(UnloadUnusedでまとめて解放する)
+        if (found->second.refCount > 0) found->second.refCount--;
+    }
+
     void UnloadUnused() {
         for (auto it = textures.begin(); it != textures.end();) {
             if (it->second.refCount <= 0) {
@@ -64,9 +96,31 @@ namespace Resources {
                 ++it;
             }
         }
+
+        // 音も同じ。鳴っている間は借りているので(参照カウントが1以上)、鳴っている音は解放されない
+        for (auto it = sounds.begin(); it != sounds.end();) {
+            if (it->second.refCount <= 0) {
+                Audio::ReleaseWave(it->first);
+                soundIDs.erase(it->second.key);
+                it = sounds.erase(it);
+            }
+            else {
+                ++it;
+            }
+        }
     }
 
     void UnloadAll() {
+        for (auto& pair : sounds) {
+            // 終了時にまだ使われている = どこかでReleaseSoundし忘れている(鳴っている音は、解放する時にAudioが止める)
+            if (pair.second.refCount > 0) {
+                OutputDebugStringW((L"★ Resources: 返し忘れの音があります: " + pair.second.key + L"\n").c_str());
+            }
+            Audio::ReleaseWave(pair.first);
+        }
+        sounds.clear();
+        soundIDs.clear();
+
         for (auto& pair : textures) {
             // 終了時にまだ使われている = どこかでReleaseTextureし忘れている
             if (pair.second.refCount > 0) {

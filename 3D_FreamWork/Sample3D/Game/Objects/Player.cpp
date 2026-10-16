@@ -4,6 +4,7 @@
 #include "../../../Engine/MeshRenderer.h"
 #include "../../../Engine/RigidbodyComponent.h"
 #include "../../../Engine/GaugeRenderer.h"
+#include "../../../Engine/AudioListenerComponent.h"
 #include "../Components/PlayerController.h"
 #include "../Components/CameraController.h"
 
@@ -25,6 +26,9 @@ GameObject* CreatePlayer(Scene& scene) {
     // 3Dカメラ(TABキーで三人称/一人称切り替え、マウス移動で視点回転。ESCでカーソル解放、左クリックで再固定)。
     // PlayerControllerより先に付けて、このフレームのカメラの向きを使えるようにする
     auto* camera = player->AddComponent<CameraController>();
+
+    // 音を聞く位置(Playerの位置で、向きは3D用カメラに合わせる)
+    player->AddComponent<AudioListenerComponent>()->SetUse3DCamera(true);
 
     // 動き・入力操作(カメラの向きを基準にする)
     auto* controller = player->AddComponent<PlayerController>();

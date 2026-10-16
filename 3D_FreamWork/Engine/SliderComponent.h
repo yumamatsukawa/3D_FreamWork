@@ -15,7 +15,7 @@
 //   slider->SetAnchor(Anchor::Bottom, { 0.f, 80.f });        // 画面の下の真ん中から、上へ80(下の辺の真ん中がそこに来る)
 //   slider->SetSize(300.f, 12.f);                            // 溝の幅と高さ
 //   slider->SetLabel(L"Volume", style);                      // スライダーの上に出す文字(省略できる)
-//   slider->SetOnChanged([](float v) { Audio::SetVolume(bgm, v); });   // 動かして値が変わった時に呼ばれる
+//   slider->SetOnChanged([](float v) { Audio::SetGroupVolume(AudioGroup::BGM, v); });   // 動かして値が変わった時に呼ばれる
 //   slider->SetOnDragEnd([](float v) { SaveData::Save(); });           // つまみを離した時に1回呼ばれる(保存など)
 //
 // 決まり:

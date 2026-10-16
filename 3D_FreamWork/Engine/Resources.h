@@ -13,9 +13,17 @@ namespace Resources {
     // (弾や敵のように出たり消えたりするものが、その度に読み直さないように)
     void ReleaseTexture(unsigned int id);
 
-    // 誰も使っていない(参照カウントが0の)画像をまとめて解放する。SceneManagerがシーン切り替えの時に呼ぶ
+    // 音(WAV)の波形データを借りる。画像と同じ仕組みで、同じパスは1回だけ読み、2回目以降は同じIDを返す。
+    // Audio::PlayOneShot / AudioSourceComponent が中で自動で使うので、ゲーム側は普段意識しなくてよい
+    // 読み込みに失敗したらUINT_MAX
+    unsigned int LoadSound(const std::wstring& path);
+
+    // 借りた音を返す(参照カウントを1減らす)。0になってもすぐには解放せず、UnloadUnused()まで残す
+    void ReleaseSound(unsigned int id);
+
+    // 誰も使っていない(参照カウントが0の)画像と音をまとめて解放する。SceneManagerがシーン切り替えの時に呼ぶ
     void UnloadUnused();
 
     // ─── Engine内部用(GameEngineだけが呼ぶ。ゲーム側からは呼ばない) ─────────────
-    void UnloadAll();   // 参照カウントに関係なく、すべての画像を解放する(終了時)
+    void UnloadAll();   // 参照カウントに関係なく、すべての画像と音を解放する(終了時。鳴っている音は止める)
 }

@@ -6,7 +6,7 @@
 Engine(`3D_FreamWork/Engine/`)に今後追加したい17個の機能について、「どんな関数を作るか」「どの順番で作るか」「Sampleではどう使えるか(使用例)」をまとめた設計書です。チーム(C++初心者を含む)で分担して実装する時の資料として使います。
 
 ### 状態
-**ここに書いてある内容は「設計案」です。実装済みのものは、4章の表の状態が「完了」になっています(今は計算系、時間とタイマー、リソースの使い回し、イージング、移動系、物理の問い合わせと力、カメラ機能、画面エフェクト、2Dアニメーション、シーン切り替え。9番のUI・テキスト・セーブ/ロードも実装済み)。**
+**ここに書いてある内容は「設計案」です。実装済みのものは、4章の表の状態が「完了」になっています(今は計算系、時間とタイマー、リソースの使い回し、イージング、移動系、物理の問い合わせと力、カメラ機能、画面エフェクト、2Dアニメーション、シーン切り替え。9番のUI・テキスト・セーブ/ロードも実装済み。10番の音(立体音響・グループ音量)も実装済み)。**
 関数名・引数は実装しながら変わってよいものです。実際に作る時は、この文書を出発点にして、下の「共通ルール」どおりに1機能ずつ、着手する時に説明してから進めてください(了承は待ちません)。実装したら、この文書の「作る順番」の表の状態を更新してください。
 
 ---
@@ -62,7 +62,7 @@ Engineを変えると Sample2D と Sample3D の**両方**に影響します(`CLA
    同じ画像を共有する仕組みが無く、`SpriteRenderer` を作る度にファイルを読み込みます。敵を100体出すと `player.png` を100回読むことになります(`MeshRenderer::SetTexture` も同じ)。
 2. **コマ番号と色が「画像1枚ごとのデータ」に入っている**(→ 5.3 で解決済み)
    `SetSpriteIndex` のコマ番号と `SetColor` の色は、`Image.cpp` の `TextureData`(画像1枚ぶんのデータ)に入っています。今は「1体ごとに画像を読み直している」ので困っていませんが、1の問題を直して画像を共有すると、**同じ画像を使う全員のコマと色が連動してしまいます**(1体を赤くすると全員赤くなる)。そのため、コマ番号と色は `SpriteRenderer` 側へ移す必要があります。
-3. **同じ効果音を重ねて鳴らせない**
+3. **同じ効果音を重ねて鳴らせない**(→ 5.13 で解決済み)
    `Audio` は1つの音に再生口(`IXAudio2SourceVoice`)を1つしか持たず、`Audio::Play` の度に前の音を `Stop` + `FlushSourceBuffers` で止めてから鳴らし直します。連射の音が途切れてしまいます。
 4. **各Componentがタイマーを手書きしている**(→ 5.2 で解決済み)
    `spawnTimer`(EnemyManager)、`invincibleTimer`(PlayerController)、`animationTimer`(Sample3D EnemyController)など、「時間を引いて0以下になったら…」という同じ処理があちこちにあります。
@@ -95,7 +95,7 @@ Engineを変えると Sample2D と Sample3D の**両方**に影響します(`CLA
 | 7 | [画面エフェクト](#58-画面エフェクト) | 時間(Unscaled)・イージングを使う | | 完了 |
 | 8 | [2Dアニメーション](#59-2dアニメーション) | 3(コマ番号をSpriteRendererへ移す)が前提 | | 完了 |
 | 9 | [UI](#510-ui) ・ [テキスト](#511-テキスト) + [セーブ/ロード](#512-セーブロード) | スライダーの値(音量など)を保存するため、セーブ/ロードも一緒に作る | | 完了 |
-| 10 | [音(立体音響・グループ音量)](#513-音の発生源と聞く位置立体音響) | 3(`Resources` の仕組み。音のデータ共有 `LoadSound` はここで足す)・9(音量スライダー・保存)を使う | | 未着手 |
+| 10 | [音(立体音響・グループ音量)](#513-音の発生源と聞く位置立体音響) | 3(`Resources` の仕組み。音のデータ共有 `LoadSound` はここで足す)・9(音量スライダー・保存)を使う | | 完了 |
 | 11 | [CSV](#514-csv) | ほかに依存しないので、いつでも並行して作れる | | 未着手 |
 | 12 | [パーティクル](#515-パーティクル) | 時間・計算系・リソースを使う | | 未着手 |
 | 13 | [FBX読み込み → 3Dアニメーション](#516-fbx読み込みと3dアニメーション) | 一番大きい。外部ライブラリの追加とシェーダーの追加がある | | 未着手 |
@@ -278,7 +278,7 @@ if (spawnTimer.Update(dt)) Spawn(...);
 
 > **実装済み(画像だけ)**: `Engine/Resources.h/.cpp`(`namespace Resources`)。`Image::TextureData` から `sheet`(分割数・コマ番号)と `color` を外し、`SpriteRenderer` のメンバへ移した。`MeshRenderer` も `Resources` を使う。下の「対象」のSampleのコード(`BackgroundController` / `GroundController`)も置き換え済み。使い方は `README.md` の「11. リソース(Resources、画像の使い回し)」を参照。
 > 設計から変えた・決まった所:
-> - **音(`LoadSound` / `ReleaseSound`)は今回は作らず、5.13 で作る。** 今の `Audio` は1つの音に再生口(`IXAudio2SourceVoice`)が1つしか無いので、音を共有すると、ある1体が鳴らした音を別の1体が止めてしまう(再生が干渉する)。5.13 で「音のデータ(共有)」と「再生口(鳴らす度に用意)」を分ける時に、一緒に `Resources` へ足す
+> - **音(`LoadSound` / `ReleaseSound`)は今回は作らず、5.13 で作る(→ 5.13 で作った。`Resources` に足した)。** 今の `Audio` は1つの音に再生口(`IXAudio2SourceVoice`)が1つしか無いので、音を共有すると、ある1体が鳴らした音を別の1体が止めてしまう(再生が干渉する)。5.13 で「音のデータ(共有)」と「再生口(鳴らす度に用意)」を分ける時に、一緒に `Resources` へ足す
 > - **`LoadModel` も今回は作らず、5.16 で作る**(`Model` クラスがまだ無いため)
 > - **参照カウントが0になっても、すぐには解放しない。** 0になった画像は `UnloadUnused()` でまとめて解放する。弾・敵のように出たり消えたりするものが、その度に読み直さないようにするため(上の関数案の「0になったら解放」から変えた)
 > - `UnloadUnused()` は `SceneManager` が、シーン切り替えで**新しいシーンの `Init()` が終わった後**に呼ぶ(古いシーンの `Uninit()` の後。両方のシーンで使う画像を読み直さないように)
@@ -977,6 +977,20 @@ if (score > SaveData::GetInt("HighScore")) {
 
 ### 5.13 音の発生源と聞く位置(立体音響)
 
+> **実装済み**: `Engine/AudioSourceComponent.h/.cpp`、`Engine/AudioListenerComponent.h/.cpp` を足した。`Engine/Audio.h/.cpp` は、中身を「音のデータ(Wave)」と「再生口(Voice)」に分けて作り直した(今までの `Load` / `Play` / `Stop` / `Pause` / `Resume` / `SetVolume` / `SetLoop` / `Release` / `ReleaseAll` は残してある)。`Engine/Resources.h/.cpp` に `LoadSound` / `ReleaseSound` を足し、`Engine/GameEngine.cpp` に `Audio::Update()` の呼び出しを足した(`Engine/SliderComponent.h` の使用例のコメントも直した)。見本の効果音 `Assets/Sounds/shot.wav` / `hit.wav` を作った。下の「対象」のSampleのコードも置き換え済み(両サンプルの `BulletManager` / `EnemyController` / `Player.cpp` / `TitleController`)。使い方は `README.md` の「24. 音(Audio / AudioSourceComponent / AudioListenerComponent / グループ音量)」を参照。
+> 設計から変えた・決まった所:
+> - **`AudioListenerComponent` が2つ以上ある時**: 最後に有効になった(`AddComponent` / `SetActive(true)`)1つだけを使い、出力ウィンドウで1回知らせる。**1つも無い時**: 2D用カメラ(`Image::GetCamera()`)の x,y を聞く位置にする(zは0)。3Dのゲームは必ずリスナーを付ける(付けないと2D用カメラの位置で聞く。2D/3Dのどちらで聞くかは、リスナーの有無と `SetUse3DCamera` で決まる)
+> - **向き**: 2Dは「画面の上(+Y)が正面、右が+X」で固定(頭の上は画面の手前=-Z。X3DAudioは左手系で、右 = 頭の上 × 正面)。3Dは `SetUse3DCamera(true)` で、3D用カメラの向きに合わせる(`AudioListenerComponent::SetUse3DCamera` は設計案に無かった追加)。2Dでは上下(Y)も前後として計算され、画面の上にある音は真ん中から聞こえる
+> - **再生口の上限は32個**(`Audio::maxVoices`)。超えたら鳴らさず、出力ウィンドウに1回知らせる。再生口は鳴らす度に借りて、鳴り終わったら(毎フレームの `Audio::Update` で、バッファが無くなったのを見つけて)返す。WAVのフォーマットが違う音は同じ再生口を使い回せないので、空いている別フォーマットの再生口は壊して作り直す(総数は32個のまま)
+> - **グループ**: `AudioGroup { BGM, SE }`。IDで鳴らす `Audio::Load` の音は既定でBGM(第3引数で選べる)。`PlayOneShot` / `AudioSourceComponent` は既定でSE(`SetGroup` で変えられる)。実装はXAudio2のサブミックスボイス(各グループ1つ)
+> - **距離の減衰は直線**: `minDistance` までは最大、`maxDistance` で0(X3DAudioの距離曲線を3点で作る)。既定は 300 / 2500。`PlayOneShotAt` に `minDistance` / `maxDistance` の引数は付けていない(細かく決めたい時は `AudioSourceComponent`)
+> - **出力はいつもステレオ(2チャンネル)**にした(`CreateMasteringVoice` を2チャンネルで作る)。スピーカーが5.1/7.1だと、左の音が「横のスピーカー」に行って、左右の聞こえ方が機種で変わってしまうため
+> - **ポーズ中・シーン切り替え中も音は止めない**(鳴り続ける)。切り替え中にBGMや効果音が途切れないほうが自然なため。`AudioSourceComponent` は `SetActive(false)` で止まるが、自動では再開しない
+> - **`Resources::UnloadUnused` は音も解放する**(画像と同じ。鳴っている音は借りているので解放されない)。`Resources::UnloadAll`(終了時)は、鳴っている音を先に止めてから解放する。`PlayOneShot` で借りた音は、鳴り終わった時に `ReleaseSound` で返す
+> - **SE音量(`"SoundEffectVolume"`)の適用は、両サンプルの `TitleController::Init()` で行う**(BGMの `"MusicVolume"` と同じ場所。EngineにSaveDataのキーを持たせないため)。SEの音量を変えるUIは今回は作っていない
+> - ID で鳴らす `Audio::Load` の音は、`Resources` を通さず、その音専用の波形データを持つ(BGMは1つの音を長く持つだけなので共有の必要が無い)
+> - 起動時の COM の初期化は、今までどおり(`Audio::Init` では呼ばない)。`CreateMasteringVoice` はCOMが初期化済みでないと失敗する
+
 **目的**: 音を「どこで鳴っているか」で聞こえ方が変わるようにする(遠い音は小さく、左の音は左から)。同じ効果音を重ねて鳴らせるようにする。BGMと効果音の音量を別々に変えられるようにする。
 
 **ファイル案**: `Engine/AudioSourceComponent.h/.cpp`、`Engine/AudioListenerComponent.h/.cpp`、既存の `Engine/Audio.h/.cpp` に追加
@@ -1012,7 +1026,7 @@ namespace Audio {
 - **「音のデータ(共有)」と「再生口(鳴らす度に用意)」を分けます。** 音のデータは `Resources::LoadSound` で1回だけ読み(5.3 では画像だけを作ったので、`LoadSound` / `ReleaseSound` はこの機能で `Resources` に足す)、鳴らす度に再生口(`IXAudio2SourceVoice`)を用意します。これで「同じ効果音を重ねて鳴らせない」問題も直ります。
 - 再生口を毎回作って捨てるのは重いので、鳴り終わった再生口を使い回します。同時に鳴らせる数の上限(例: 32個)も決めます。
 - グループの音量は、XAudio2のサブミックスボイス(音をまとめる途中の口)で実装します。5.10 のスライダーと 5.12 のセーブ/ロードと組み合わせて、音量設定を保存できます。
-- `AudioListenerComponent` が2つ以上ある時・1つも無い時の扱い(警告を出す、カメラの位置を使う)は未決定。
+- `AudioListenerComponent` が2つ以上ある時・1つも無い時の扱い(警告を出す、カメラの位置を使う)は未決定。(→ 決めた。上の「実装済み」を参照)
 - 今の `Audio::Load` / `Play`(IDで鳴らす方法)は、すぐには消さずに残します。
 
 **置き換えるSampleのコード(使用例)**:

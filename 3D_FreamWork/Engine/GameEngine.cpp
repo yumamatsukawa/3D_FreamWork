@@ -44,6 +44,7 @@ void GameEngine::Run()
 
         Physics::Update(Time::GetDeltaTime());
         SceneManager::Get().Update(Time::GetDeltaTime());
+        Audio::Update();   // シーンのUpdateの後に(動いた後の位置で聞こえ方を決める。ポーズ中も止めずに続ける)
 
         // 画面の揺れは描画の間だけカメラをずらす(Image::BeginFrameで3Dカメラを2Dカメラに合わせた後にずらし、
         // 描き終わったら元に戻す。Updateの中のカメラの値には揺れが入らない)
