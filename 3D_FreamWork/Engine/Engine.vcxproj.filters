@@ -53,6 +53,7 @@
     <ClCompile Include="TweenComponent.cpp" />
     <ClCompile Include="Visibility.cpp" />
     <ClCompile Include="VisionComponent.cpp" />
+    <ClCompile Include="WaterRenderer.cpp" />
     <ClCompile Include="WICTextureLoader11.cpp" />
     <ClCompile Include="..\..\ThirdParty\ufbx\ufbx.c" />
   </ItemGroup>
@@ -120,6 +121,7 @@
     <ClInclude Include="TweenComponent.h" />
     <ClInclude Include="Visibility.h" />
     <ClInclude Include="VisionComponent.h" />
+    <ClInclude Include="WaterRenderer.h" />
     <ClInclude Include="WICTextureLoader11.h" />
   </ItemGroup>
 </Project>

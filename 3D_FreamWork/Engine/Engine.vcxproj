@@ -123,6 +123,7 @@
     <ClCompile Include="TweenComponent.cpp" />
     <ClCompile Include="Visibility.cpp" />
     <ClCompile Include="VisionComponent.cpp" />
+    <ClCompile Include="WaterRenderer.cpp" />
     <ClCompile Include="WICTextureLoader11.cpp" />
     <!--
       外部ライブラリ ufbx(FBX読み込み。ThirdParty/ufbx/)。Cのファイルなので、Cとしてコンパイルする。
@@ -203,6 +204,7 @@
     <ClInclude Include="TweenComponent.h" />
     <ClInclude Include="Visibility.h" />
     <ClInclude Include="VisionComponent.h" />
+    <ClInclude Include="WaterRenderer.h" />
     <ClInclude Include="WICTextureLoader11.h" />
   </ItemGroup>
   <!--
@@ -229,6 +231,7 @@
     <UpToDateCheckInput Include="$(SolutionDir)Shader3D.hlsl" />
     <UpToDateCheckInput Include="$(SolutionDir)Shader3DSkin.hlsl" />
     <UpToDateCheckInput Include="$(SolutionDir)Shader3DCommon.hlsli" />
+    <UpToDateCheckInput Include="$(SolutionDir)Shader3DWater.hlsl" />
   </ItemGroup>
   <Target Name="CopyRuntimeFiles" AfterTargets="Build">
     <Exec Command="xcopy /y /d &quot;$(SolutionDir)..\ThirdParty\PhysX\lib\$(PhysXDllDir)\*.dll&quot; &quot;$(OutDir)&quot;" />
@@ -237,6 +240,7 @@
     <Exec Command="xcopy /y /d &quot;$(SolutionDir)Shader3D.hlsl&quot; &quot;$(OutDir)&quot;" />
     <Exec Command="xcopy /y /d &quot;$(SolutionDir)Shader3DSkin.hlsl&quot; &quot;$(OutDir)&quot;" />
     <Exec Command="xcopy /y /d &quot;$(SolutionDir)Shader3DCommon.hlsli&quot; &quot;$(OutDir)&quot;" />
+    <Exec Command="xcopy /y /d &quot;$(SolutionDir)Shader3DWater.hlsl&quot; &quot;$(OutDir)&quot;" />
   </Target>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

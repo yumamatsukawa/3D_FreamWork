@@ -3,6 +3,7 @@
 #include "../Objects/Sun.h"
 #include "../Objects/Ground.h"
 #include "../Objects/Hills.h"
+#include "../Objects/Water.h"
 #include "../Objects/ModelDisplay.h"
 #include "../Objects/SkinDisplay.h"
 #include "../Objects/Player.h"
@@ -25,6 +26,7 @@ void GameScene::Init()
     CreateSun(*this);   // 影を有効にする(影を落とす・受ける物は、各オブジェクトの Material で決める)
     CreateGround(*this);
     CreateHills(*this, { 1500.0f, -50.0f, -2000.0f });   // 遠くの起伏のある地形(東の方。歩ける)
+    CreateWater(*this, { 2075.0f, -16.0f, 1350.0f });   // 丘の谷(北西のくぼみ)に張った池(波打つ半透明の水面。通り抜けられる)
     CreateModelDisplay(*this);
     CreateSkinDisplay(*this);
     GameObject* player = CreatePlayer(*this);

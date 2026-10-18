@@ -17,7 +17,7 @@ DirectX11製の、Unity風のコンポーネント指向ゲームフレームワ
 ├── 3D_FreamWork.sln
 ├── PhysX.props        共有MSBuildプロパティシート(PhysXのinclude/lib設定を1箇所にまとめたもの)
 ├── Assets\             全プロジェクト共有の画像・音声・モデル・フォント(Fonts\。§19)・表(Data\。§25)・地形の高さの画像(Terrain\。§34)
-├── Shader.hlsl / Shader3D.hlsl / Shader3DSkin.hlsl / Shader3DCommon.hlsli   全プロジェクト共有のシェーダー(Shader3DSkinは骨で曲げるFBX用。§27。Shader3DCommon.hlsliは3Dの2つのシェーダーに共通の見た目の計算で、マテリアルもライトも縁の光・枠線もここ。§30・§31・§33)
+├── Shader.hlsl / Shader3D.hlsl / Shader3DSkin.hlsl / Shader3DCommon.hlsli / Shader3DWater.hlsl   全プロジェクト共有のシェーダー(Shader3DSkinは骨で曲げるFBX用。§27。Shader3DCommon.hlsliは3Dの2つのシェーダーに共通の見た目の計算で、マテリアルもライトも縁の光・枠線もここ。§30・§31・§33。Shader3DWaterは水面(WaterRenderer)専用。§35)
 ├── Engine\             フレームワーク本体(静的ライブラリ、Engine.vcxproj)
 ├── Sample2D\           2Dのサンプルゲーム(実行ファイル、Sample2D.vcxproj)
 └── Sample3D\           3Dのサンプルゲーム(実行ファイル、Sample3D.vcxproj)
@@ -1292,7 +1292,7 @@ Sample2D/Game/Components/  TitleController, BackgroundController, PlayerControll
 Sample2D/Game/Scenes/      TitleScene, GameScene
 
 Sample3D/Game/Objects/     Title, Button, StartButton, VolumeSlider, Skybox, Ground, Player, GameSystem, HUD,
-                            EnemySpawner, BulletSpawner, Explosion, ModelDisplay, SkinDisplay, Guard, Wall, GlassPanel, Lantern, Sun, Hills, Cube(未使用), Sphere(未使用)
+                            EnemySpawner, BulletSpawner, Explosion, ModelDisplay, SkinDisplay, Guard, Wall, GlassPanel, Lantern, Sun, Hills, Water, Cube(未使用), Sphere(未使用)
 Sample3D/Game/Components/  TitleController, GroundController, PlayerController,
                             CameraController, BulletController, EnemyController, GameManager,
                             HUDController, EnemyManager, BulletManager, SkyboxFollowComponent,
@@ -1301,7 +1301,7 @@ Sample3D/Game/Scenes/      TitleScene, GameScene
 ```
 
 - **Sample2D**: トップダウン視点のアリーナシューター。タイトル画面のSTARTボタン(出る時に`TweenComponent`でぴょこっと大きくなる)をクリックすると、画面が暗転してからゲーム開始(ゲーム画面に入ると明転する。`FadeTransition`。§16)(ボタンは`CreateButton(scene, 文字, 位置, クリックされた時の処理)`で作れる汎用部品で、動きはEngineの`ButtonComponent`。他の画面のボタンにも使い回せる。§20)。WASDで移動、Playerは常にマウスの方を向き、左クリックでその方向へ弾を発射。背景はタイル状に敷き詰めた床(`BackgroundController`)で、移動するとスクロールする(カメラはPlayerに付けた`CameraFollowComponent`が追いかける。§14)。敵(`EnemyManager`が一定間隔でPlayerの周囲にランダムスポーンさせる)がゆっくり追いかけてきて(`ChaseComponent`。§13)、弾を当てると倒せる(`EventBus`で`"EnemyDefeated"`イベントを発行しスコア加算。倒した位置に「+10」が出て、上に動きながら消える=`CreateScorePopup`。§19。爆発のパーティクルも出る=`CreateExplosion`。§26)。敵に触れるとHPが減り(1秒間の無敵時間つき)、敵から離れる向きに弾かれる(ノックバック。`AddForce`で衝撃を加え、0.2秒間は移動キーが効かない。§23)、画面が少し揺れて(`CameraShake`。§14)、画面の端が赤く点滅する(`ScreenEffect::Vignette`。§15)。HPが0になるとゲームオーバー画面が出てSPACEでタイトルに戻る(黒い丸が閉じて開く`SpriteTransition`。§16)。スコアがハイスコアを超えていたら、ゲームオーバーの時に保存され(`SaveData`。キーは`"Sample2DHighScore"`で、Sample3Dの記録とは別。§18)、画面左上のスコアの下に出る(次に起動しても残る)。タイトル画面の下にはBGMの音量スライダー(`CreateVolumeSlider`。つまみをドラッグして0〜1で変えられ、離すと保存されて次に起動した時も残る。§20)がある。画面左上のHPの文字の下にはHPゲージ(減った分が少し遅れて縮む)、Playerの頭上にも小さなHPバーが出る(`GaugeRenderer`。§20)。当たり判定・物理はPhysXを使い(Player=`CircleRigidbodyComponent`、敵=`SquareRigidbodyComponent`、弾=`CircleRigidbodyComponent`)、Player・敵はDynamic(`SetVelocity()`で速度を渡して動かす。重力なし・回転なし・`SetFreezePositionZ(true)`で奥行き方向に固定)、弾はKinematicのトリガー。3Dカメラは使わない(`CameraController`なし)。画面の左上のHPゲージの下には、画面の外なので描かずに省いた数「Culled」が出る(敵の `SpriteRenderer` は `SetFrustumCulling(true)`。§28)。マップには見張り役の `Guard`(青い `Player` 画像がゆっくり回り、扇形の視野に `Player` が入って壁にさえぎられていなければ赤くなる。視野は線で表示)と、視線をさえぎる壁 `Wall` が2枚置いてある(`VisionComponent`。§28)。
-- **Sample3D**: Sample2Dと同じアリーナシューターを3D空間で遊べるようにしたもの。タイトル画面のボタン(Sample2Dと同じく、出る時に`TweenComponent`でぴょこっと大きくなる)をクリックすると、Sample2Dと同じく暗転してからゲーム開始(Sample3Dの`CreateButton()`は、位置と大きさをまとめて`Transform`で受け取る形になっている: `CreateButton(scene, 文字, transform, クリックされた時の処理)`)。Player(立方体)は三人称カメラ(`CameraController`。マウス移動で視点回転。カーソルは画面中心に固定され、ESCで解除・左クリックで再固定。TABで一人称に切り替え)と同じ向きを向き、WASDもカメラ基準(W=カメラの前、D=カメラの右)で移動する。左クリックでPlayerの向いている方向へ、地面と水平に弾(球)を発射。敵を倒すと、その位置に爆発のパーティクルが出る(`CreateExplosion`。§26)。敵は2Dの画像(Worldモードの`SpriteRenderer`。Y軸だけカメラの方を向く立て看板)で、地面の上をPlayerに向かって歩いてくる(`ChaseComponent`を`SetPlane(MovePlane::XZ)`で使う。§13)。歩く間は、敵に付けた`SpriteAnimationComponent`がスプライトシートのコマ(4番と5番)を0.3秒ごとに切り替えて、歩きアニメーションにしている(始まるコマはランダムなので、何体いても足踏みがそろわない。§17)。スコア・ハイスコア(保存先のファイルはSample2Dと同じだが、キーは`"Sample3DHighScore"`で、記録はSample2Dとは別。§18)・HP・無敵時間・被弾時に画面の端が赤く点滅すること・ゲームオーバー(SPACEでタイトルへ。Sample3Dは、黒い帯が左から覆って右へ抜けていく`SpriteTransition(...).SetSwitchFrame(7)`。§16)・`EventBus`のイベント名はSample2Dと同じ。タイトル画面の下のBGMの音量スライダーと、画面左上のHPゲージ(Sample2Dと同じ)、三人称の間だけ出るPlayerの頭上のHPバー(`SetUse3DCamera(true)`の`GaugeRenderer`)もある(§20)。Playerは立方体の見た目とDynamicの`BoxRigidbodyComponent`、敵はDynamicの`CapsuleRigidbodyComponent`(半径40・高さ100の立ったカプセル。§29)(どちらも重力あり・回転なし。Y速度は`GetVelocity().y`を維持したまま`SetVelocity()`で動かす。敵は`ChaseComponent`がこれをしている)、弾はKinematicのトリガー(`SphereRigidbodyComponent`)。地面は、1000四方のタイルを3Dカメラの描画距離(farZ)の範囲だけ敷き詰めて描く`GroundController`(見た目)と、見えない大きなStaticの板(当たり判定)の組み合わせ。遠景はスカイボックス。地面の端(Playerから斜めに離れた所)には、FBXモデルの見本(`CreateModelDisplay`。`Assets/Models/TestAnim.fbx` の立方体2つ=親と子のパーツ。子の「Top」が、「Spin」(回る)と「Bob」(上下)のアニメーションを3秒ごとに切り替えて再生する。§27)が置いてある(FBXが無い時は何も置かない)。そのとなり(位置 `(1000, -50, 800)`)には、骨2本で曲がる細長い箱(`CreateSkinDisplay`。`Assets/Models/TestSkin.fbx` のアニメーション「Bend」を再生。§27)も置いてある。地面のタイルは、カメラに映る物だけ描く(`Visibility::IsSphereInView3D`)。敵の画像は `SetFrustumCulling(true)` で、画面の外にいる間は描かない。画面の左上のHPゲージの下には、描かずに省いた数「Culled」が出る。`Player` の近く(位置 `(-800, 0, 600)`)には見張り役 `Guard`(青い立方体がゆっくり回り、扇形の視野に `Player` が入って壁にさえぎられていなければ赤くなる。視野は線で表示)と、視線をさえぎる壁 `Wall` が2枚置いてある(`VisionComponent`。§28)。そのとなり(位置 `(400, 50, 300)`)には、半透明で光沢のある水色の板 `GlassPanel`(マテリアルの使用例。当たり判定は無いので通り抜けられる。§30)も置いてある。原点の周りでは、オレンジ色の光(ポイントライト)を持った小さな光る球 `Lantern` が、ふわふわ上下しながらゆっくり回っていて、近くの地面や壁を照らす。`Guard` は、視線の向きに懐中電灯(スポットライト)を持っていて、回ると地面の光の輪が一緒に動く(`LightComponent`。§31)。さらに、太陽の影が有効で(`CreateSun`。`ShadowManager`)、地面に `Player`・壁・FBXモデルの影が落ち、`Guard` の懐中電灯の光は壁や `Player` でさえぎられる(§32)。Playerの東の遠く(位置 `(1500, -50, -2000)` から4000四方)には、高さの画像(`Assets/Terrain/heightmap.png`)から作った、なだらかな丘と谷の地形 `Hills`(`CreateHills`)が置いてある(`TerrainRenderer`。影を受ける。当たり判定の`TerrainRigidbodyComponent`も付いていて、丘の起伏の上を歩ける。Playerの歩く速さ(200)で、丘の最大の傾き(約37度)も越えられる。丘の端はなだらかなスロープなので、地面から歩いて丘に登れる。§34)。
+- **Sample3D**: Sample2Dと同じアリーナシューターを3D空間で遊べるようにしたもの。タイトル画面のボタン(Sample2Dと同じく、出る時に`TweenComponent`でぴょこっと大きくなる)をクリックすると、Sample2Dと同じく暗転してからゲーム開始(Sample3Dの`CreateButton()`は、位置と大きさをまとめて`Transform`で受け取る形になっている: `CreateButton(scene, 文字, transform, クリックされた時の処理)`)。Player(立方体)は三人称カメラ(`CameraController`。マウス移動で視点回転。カーソルは画面中心に固定され、ESCで解除・左クリックで再固定。TABで一人称に切り替え)と同じ向きを向き、WASDもカメラ基準(W=カメラの前、D=カメラの右)で移動する。左クリックでPlayerの向いている方向へ、地面と水平に弾(球)を発射。敵を倒すと、その位置に爆発のパーティクルが出る(`CreateExplosion`。§26)。敵は2Dの画像(Worldモードの`SpriteRenderer`。Y軸だけカメラの方を向く立て看板)で、地面の上をPlayerに向かって歩いてくる(`ChaseComponent`を`SetPlane(MovePlane::XZ)`で使う。§13)。歩く間は、敵に付けた`SpriteAnimationComponent`がスプライトシートのコマ(4番と5番)を0.3秒ごとに切り替えて、歩きアニメーションにしている(始まるコマはランダムなので、何体いても足踏みがそろわない。§17)。スコア・ハイスコア(保存先のファイルはSample2Dと同じだが、キーは`"Sample3DHighScore"`で、記録はSample2Dとは別。§18)・HP・無敵時間・被弾時に画面の端が赤く点滅すること・ゲームオーバー(SPACEでタイトルへ。Sample3Dは、黒い帯が左から覆って右へ抜けていく`SpriteTransition(...).SetSwitchFrame(7)`。§16)・`EventBus`のイベント名はSample2Dと同じ。タイトル画面の下のBGMの音量スライダーと、画面左上のHPゲージ(Sample2Dと同じ)、三人称の間だけ出るPlayerの頭上のHPバー(`SetUse3DCamera(true)`の`GaugeRenderer`)もある(§20)。Playerは立方体の見た目とDynamicの`BoxRigidbodyComponent`、敵はDynamicの`CapsuleRigidbodyComponent`(半径40・高さ100の立ったカプセル。§29)(どちらも重力あり・回転なし。Y速度は`GetVelocity().y`を維持したまま`SetVelocity()`で動かす。敵は`ChaseComponent`がこれをしている)、弾はKinematicのトリガー(`SphereRigidbodyComponent`)。地面は、1000四方のタイルを3Dカメラの描画距離(farZ)の範囲だけ敷き詰めて描く`GroundController`(見た目)と、見えない大きなStaticの板(当たり判定)の組み合わせ。遠景はスカイボックス。地面の端(Playerから斜めに離れた所)には、FBXモデルの見本(`CreateModelDisplay`。`Assets/Models/TestAnim.fbx` の立方体2つ=親と子のパーツ。子の「Top」が、「Spin」(回る)と「Bob」(上下)のアニメーションを3秒ごとに切り替えて再生する。§27)が置いてある(FBXが無い時は何も置かない)。そのとなり(位置 `(1000, -50, 800)`)には、骨2本で曲がる細長い箱(`CreateSkinDisplay`。`Assets/Models/TestSkin.fbx` のアニメーション「Bend」を再生。§27)も置いてある。地面のタイルは、カメラに映る物だけ描く(`Visibility::IsSphereInView3D`)。敵の画像は `SetFrustumCulling(true)` で、画面の外にいる間は描かない。画面の左上のHPゲージの下には、描かずに省いた数「Culled」が出る。`Player` の近く(位置 `(-800, 0, 600)`)には見張り役 `Guard`(青い立方体がゆっくり回り、扇形の視野に `Player` が入って壁にさえぎられていなければ赤くなる。視野は線で表示)と、視線をさえぎる壁 `Wall` が2枚置いてある(`VisionComponent`。§28)。そのとなり(位置 `(400, 50, 300)`)には、半透明で光沢のある水色の板 `GlassPanel`(マテリアルの使用例。当たり判定は無いので通り抜けられる。§30)も置いてある。原点の周りでは、オレンジ色の光(ポイントライト)を持った小さな光る球 `Lantern` が、ふわふわ上下しながらゆっくり回っていて、近くの地面や壁を照らす。`Guard` は、視線の向きに懐中電灯(スポットライト)を持っていて、回ると地面の光の輪が一緒に動く(`LightComponent`。§31)。さらに、太陽の影が有効で(`CreateSun`。`ShadowManager`)、地面に `Player`・壁・FBXモデルの影が落ち、`Guard` の懐中電灯の光は壁や `Player` でさえぎられる(§32)。Playerの東の遠く(位置 `(1500, -50, -2000)` から4000四方)には、高さの画像(`Assets/Terrain/heightmap.png`)から作った、なだらかな丘と谷の地形 `Hills`(`CreateHills`)が置いてある(`TerrainRenderer`。影を受ける。当たり判定の`TerrainRigidbodyComponent`も付いていて、丘の起伏の上を歩ける。Playerの歩く速さ(200)で、丘の最大の傾き(約37度)も越えられる。丘の端はなだらかなスロープなので、地面から歩いて丘に登れる。§34)。その丘の北西のくぼみ(位置 `(2075, -16, 1350)`、650 x 700)には、波打つ半透明の池 `Water`(`CreateWater`)が張ってあります(`WaterRenderer`。青緑の水が波でうねり、日が当たる所がきらっと光り、水の下の地面が透けて見えます。当たり判定は無いので通り抜けられます。§35)。
 
 **Sample3Dの実装メモ**: 向きはすべて`transform.rotate.y`(度)で表し、`rotate.y`の時の正面(ローカルの+Z)は`(sin, 0, cos)`の方向になる(`CameraController::GetYaw()`の式と同じ。`Math::Forward3D()`で求められる)。Worldモードの`SpriteRenderer`は`rotate.y`を使わない(ビルボードの向きとZ軸回転だけを使う)ので、敵の画像の向きは`SetBillboardLock(true, false, true)`でカメラの方へ向けている。Playerは`SetFreezeRotation(true)`で、`RigidbodyComponent`は位置しか同期しないため、`PlayerController`が`rotate.y`が変わった時に`GetActor()`の`setGlobalPose`で当たり判定の箱の回転も合わせている(デバッグ表示の枠と実際の判定が同じ向きになる)。一人称の間は、カメラが立方体の内側に入るのでPlayerの`MeshRenderer`と頭上のHPバー(`GaugeRenderer`)を非表示にしている。
 
@@ -1363,6 +1363,7 @@ GameManager/HUD/EnemyManager/BulletManagerのような「見た目の無い管�
 | 地面のタイルのうち、画面に映る物だけ描く(Sample3D) | `GroundController::Draw()`(`Visibility::IsSphereInView3D`。§28) |
 | 起伏のある地形を置く(丘と谷。Sample3D) | `Objects/Hills.cpp`(`Terrain::LoadFromImage` で高さの画像から地形のデータを作り、`TerrainRenderer` で描く。影を受ける。同じデータから `TerrainRigidbodyComponent` で歩ける当たり判定も付ける。§34) |
 | 丘の起伏の上を歩く・物が乗る(Sample3D) | `Objects/Hills.cpp` で付けた `TerrainRigidbodyComponent`(Engine。PhysXの高さフィールド。Playerは今までどおり `SetVelocity` で動くだけ。§34) |
+| 丘のくぼみに、波打つ半透明の池を置く(Sample3D) | `Objects/Water.cpp`(`WaterRenderer` に色・波の大きさ・速さの設定 `WaterSettings` を渡し、`SetDrawPriority(100)` で不透明な物より後に描く。当たり判定は付けない=通り抜けられる。波は頂点シェーダーが時間から計算する。§35) |
 | 画面の外の敵を描かない | 敵の `SetupEnemy`(`SpriteRenderer::SetFrustumCulling(true)`。両サンプル。§28) |
 | 画面の外で省いた数の表示(Culled) | `HUDController::Draw()`(`Visibility::GetCulledCount()`。§28) |
 | ゲームオーバーの時にハイスコアを保存する | `GameManager::Init()`の`"PlayerDied"`を受けた所(`SaveData::SetInt` + `Save`。§18) |
@@ -2180,6 +2181,7 @@ material.depthWrite = false;         // 自分より後ろの物を隠さない
 - 描く順番は `drawPriority` → `z` の小さい順で、**カメラからの距離順ではありません**。半透明の物は、不透明の物より後に描くように `SetDrawPriority` を大きくしてください。
 - 半透明の物どうしの前後は、見る角度によってずれることがあります(距離で並べ替える処理が無いため)。
 - `clip` で、ほぼ透明なピクセルは今まで通り描きません。
+- 波打つ水面は、`Material` ではなく専用の `WaterRenderer`(§35)で作ります(色・透明度・光沢は `WaterSettings` で決めます)。
 
 ### Mesh の直接の使い方(Engineを触る人向け)
 
@@ -2693,3 +2695,150 @@ hills->AddComponent<TerrainRigidbodyComponent>(terrain);     // 当たり判定(
 - 高さで画像を混ぜる(草・岩・雪など)貼り方
 - 地形を小さく分けて、映る所だけ描くこと(チャンク)
 - 地形の編集(実行中に高さを変える)
+
+---
+
+## 35. 水面(WaterRenderer)
+
+波打つ半透明の水面を置けます(`docs/EngineRoadmap2.md` の 6.9)。池・湖・海のように、**地形(§34)のくぼみに水を張る**使い方がいちばん分かりやすいです。波は頂点シェーダーが時間から計算するので、毎フレームCPUで頂点を書き換えることはしません。**水面を置かない(`WaterRenderer` を付けない)限り、今までの見た目は1ピクセルも変わりません**(専用のシェーダー `Shader3DWater.hlsl` も、水面を作った時に初めて読まれます)。
+
+### 使い方
+
+```cpp
+// 1. 設定を決める(決めなかった項目は既定値)
+WaterSettings settings;
+settings.size = { 650.0f, 700.0f };              // 水面の大きさ(X, Z)
+settings.cells = 96;                             // 格子の細かさ
+settings.color = { 0.1f, 0.4f, 0.6f, 0.55f };    // 水の色(wが透明度。0=透明、1=不透明)
+settings.waveHeight = 8.0f;                      // 波の高さ(水位から上下に最大8)
+settings.waveLength = 300.0f;                    // 一番大きい波の長さ
+settings.waveSpeed = 70.0f;                      // 波の進む速さ
+
+// 2. オブジェクトに WaterRenderer を付ける(オブジェクトの位置が水面の中心で、Yが水位)
+GameObject* water = scene.CreateObject("Water");
+water->transform.position = { 2075.0f, -16.0f, 1350.0f };
+water->SetDrawPriority(100);                     // 不透明な物(地形・Player)より後に描く(大事。下の「描く順番」)
+auto* renderer = water->AddComponent<WaterRenderer>(settings);
+
+// 3. その場所の水面の高さ(ワールドのY)を調べる。浮かべる物・水の中かどうかの判定に使える
+float surfaceY = renderer->GetHeightAt(player.x, player.z);
+if (player.y < surfaceY && renderer->Contains(player.x, player.z)) { /* 水の中 */ }
+
+// 4. 実行中に手直しもできる(次のフレームから反映)
+renderer->GetSettings().color.w = 0.3f;
+```
+
+`Sample3D/Game/Objects/Water.cpp` が実例です。
+
+### 項目(`WaterSettings`)と既定値
+
+| 項目 | 意味 | 既定 |
+|---|---|---|
+| `size` | 水面の大きさ(X, Z)。実行中に変えられる | `{10000, 10000}` |
+| `cells` | 格子の分割数(**1〜512**。範囲外は丸める)。多いほど波が細かく、頂点が増える。変えると格子を作り直す | 128 |
+| `color` | 水の色。**wが透明度**(0=透明、1=不透明) | `{0.1, 0.4, 0.6, 0.6}` |
+| `skyColor` | 空の色。浅い角度で水面に映る色(反射の簡易表現) | `{0.6, 0.8, 1, 1}` |
+| `waveHeight` | 波の高さ。水位から、上下に**最大でこの高さ**まで動く(山の高さの半分) | 15 |
+| `waveLength` | 一番大きい波の、山から山までの長さ | 400 |
+| `waveSpeed` | 一番大きい波の、1秒に進む距離 | 120 |
+| `waveDirection` | 波の進む向き(X, Z。長さは使わない。`{0, 0}` は `{1, 0}` として扱う) | `{1, 0.4}` |
+| `specularStrength` | 太陽・光のきらめきの強さ。**0=きらめかない** | 1 |
+| `shininess` | きらめきの鋭さ(大きいほど小さく鋭い) | 128 |
+| `fresnelPower` | 浅い角度でどれだけ空が映るか(大きいほど、水面すれすれだけ映る。0なら全体が空の色) | 4 |
+| `receiveShadow` | `true` にすると、他の物の影を受ける(§32)。水面は影を**落とさない** | `false` |
+
+範囲外の値(波の長さ0以下・大きさ0以下など)は、壊れないよう内部で丸めて使います。
+
+### 波の仕組み
+
+- **4本の波を重ねます**。一番大きい波は設定の値そのままで、残りの3本は、少しずつ細かく・弱く・向きをずらします。
+
+  | 波 | 長さ | 高さ(`waveHeight` に対する割合) | 向き(`waveDirection` から) | 速さ |
+  |---|---|---|---|---|
+  | 1 | `waveLength` | 50% | そのまま | `waveSpeed` |
+  | 2 | x 0.62 | 25% | +25度 | x 0.79 |
+  | 3 | x 0.37 | 15% | -40度 | x 0.61 |
+  | 4 | x 0.23 | 10% | +65度 | x 0.48 |
+
+  (高さの割合の合計は100%なので、波がいちばん重なっても `waveHeight` を超えません。速さは「長い波ほど速い」関係です。)
+- **高さ** `h = Σ 振幅 × sin(向き・位置 × 周波数 − 位相)`(周波数 = 2π ÷ 波の長さ)。位置は**ワールドのXZ座標**なので、水面のオブジェクトを動かしても、波の模様は同じ場所に残ります(水面の板だけが動く)。
+- **法線(面の向き)**は、同じ式の傾き(微分)から**ピクセルごとに**求めます。頂点の間でも滑らかで、波がカクカクしません。
+- **時間**は `Time::GetTime()`(§10)です。**ポーズ中(倍率0)は波も止まり、スロー再生中は波もゆっくりになります**。シーン切り替えの演出中も止まります。波ごとの「位相」(0〜2π)は、C++ 側で `double` を使って求めてからGPUへ送るので、何時間遊んでも `sin` の精度が落ちず、波は荒れません。(`Time::GetTime()` 自体は `float` なので、100時間を超えるような長い遊びでは、波の動きの刻みが粗くなります。)
+- **`GetHeightAt` はシェーダーと同じ式**(CPUにも同じ式が書いてあり、同じ設定から計算します)。別に書いた式との違いは0.0001未満で、描かれた水面の頂点の高さも、この式と一致することを確かめました。ただし**描かれる水面は、頂点の間を直線でつないだ形**です。格子が波に対して十分細かければ(下の「格子の細かさ」の目安)、`GetHeightAt` の値(式そのものの値)との違いは0.1以下です。**格子が荒いと(たとえば、既定の大きさ10000に対して分割数128のままだと)、頂点の間の直線と式の値が、数ずれます**(最大で `waveHeight` の3分の1ほど)。大きな水面は `cells` を増やしてください。
+- **波の傾きの目安**: 最大の傾きはおよそ `11 × waveHeight ÷ waveLength`(既定なら約0.4=約22度)です。波を高く・短くしすぎると、水面が針のようにとがって見えます。
+
+### 色と半透明
+
+- **`color.w` が透明度**です。下の物(水の中の球・地面など)が透けて見えます。0なら水の色は出ず、1なら下は見えません。
+- **見た目の式**(平行光源 `L`、カメラへの向き `V`、波の法線 `N`):
+
+  ```
+  fresnel = pow(1 - saturate(dot(N, V)), fresnelPower)      // 浅い角度ほど1に近づく
+  水の色  = color.rgb × (環境光 + 平行光源 × saturate(dot(N, L)) + 点光源・スポットライトの光)
+  色      = lerp(水の色, skyColor, fresnel)                  // 浅い角度ほど空の色が映る(空の色は光の影響を受けない)
+  光沢    = 太陽・光の光沢(ブリン・フォン。pow(dot(N, H), shininess) × specularStrength)
+  出力    = 色 × color.w + 光沢      (ブレンド: ONE / INV_SRC_ALPHA)
+  ```
+
+- **きらめき(光沢)は透明度で薄まりません**。`color.w = 0` でも、光沢だけは見えます(消したい時は `specularStrength = 0`)。
+- **水の中から見上げても**水面が見えます(両面を描き、法線を見ている側へ向けます)。水中の霧や色の変化(水の中専用の表現)はありません。
+- 色は `Material`(§30)ではなく `WaterSettings` で決めます。縁の光(リム)・枠線(§33)は付けません(フレネルが似た役目をします)。
+
+### 描く順番(大事)
+
+- 水面は半透明なので、**不透明な物(地形・Player・立方体・球)の後**に描く必要があります。**`water->SetDrawPriority(100)`** のように、`drawPriority` を大きくしてください(Sample3D は100。`Hills` と `Ground` は `INT_MIN + 1`、`GlassPanel` は10)。
+- **深度**: 深度テストは**する**(手前の物に水面が隠される)が、深度は**書かない**(`depthWrite = false`。水面の中にある物が消えない)。
+- **両面描画**(カリングなし)です。
+- 描く順番は `drawPriority` → `z` の小さい順で、**カメラからの距離順ではありません**(§30)。そのため、**水面の中にいる半透明のもの(敵の画像など)と水面の前後は、正しくならないことがあります**(水面より先に描かれた物は水越しに、後に描かれた物は水面の上に出ます)。許容しています。
+- 波が高い・カメラが水面すれすれにある時は、**波の裏側が重なって、そこだけ少し濃く見える**ことがあります(深度を書かないため、視線が水面を2回またぐと、水面が2枚重なって描かれます)。波の傾き(上の目安)がカメラの俯角より急だと起きます。
+- **水面と地形が交わる所は、くっきり切れて見えます**。「浅い所は薄く、深い所は濃く」「岸辺の白い泡」は、シーンの深度バッファを読む必要があり(今の深度バッファは読めない形です)、まだ作っていません。
+
+### ライト・影との関係
+
+- **平行光源**(`Image::GetLight()`)と環境光で、水の色が明るくなり、太陽のきらめきが出ます。**ポイントライト・スポットライト**(§31)も、水面を照らし、光沢で光ります(最大8個。`Mesh` と同じ光の一覧を使います)。光が無ければ、環境光だけです。
+- **影**(§32): 水面は影を**落としません**(影のパスには出ません)。`receiveShadow = true` の時だけ、他の物の影を受けて、平行光源(と影を落とすスポットライト)の光が暗くなります。既定は `false` です。
+- 影が有効でも、`receiveShadow = false` の水面は何も変わりません。
+
+### 画面外の判定
+
+`renderer->SetFrustumCulling(true)` にすると、水面全体(波の高さの余裕込み)を囲む球がカメラに映らない時は描きません。**既定は `false`** です(`TerrainRenderer` と同じ。§28)。省いた数は `Visibility::GetCulledCount()` に数えられます。
+
+### 制限・気を付けること
+
+- **オブジェクトの `scale` は `{1,1,1}`、回転なし**にしてください(大きさは `WaterSettings::size` で決めます)。位置(と親)だけが使われます。拡大縮小や回転があると、`GetHeightAt` と見た目がずれます。
+- **当たり判定は付きません**(通り抜けられます)。水に入ると遅くなる・物が浮く、といった処理は、`GetHeightAt` と `Contains` で調べて自分で作ってください(Sampleでは作っていません)。
+- **格子の細かさ**: 波1つに格子が4個以上入るようにします(**既定の `size` = 10000・`cells` = 128 の組み合わせは、格子が荒すぎます**。大きな水面は `cells` を増やしてください)。**一番短い波は `waveLength` の0.23倍**なので、`cells` の目安は `size ÷ (waveLength × 0.23) × 4` 以上です(`size = 700`・`waveLength = 300` なら41以上。Sampleは96)。細かすぎる格子は頂点が増えます(128で頂点16641個・三角形32768枚、512で頂点263169個・三角形524288枚)。
+- **水位は、くぼみの縁より少し下に**してください(波の山が `waveHeight` だけ上がります)。
+- **地形の外の水面の縁**は、そのまま四角く切れて見えます。くぼみが閉じていない(外へ低くなっている)場所に置くと、水面の縁が空中に浮いて見えるので、縁が地形に隠れる場所に置くか、見える側から離しておいてください(Sampleの池は、北と西の縁が少し浮いて見えます)。
+- 水面を何枚置いてもよいですが、**重なった所は2枚ぶん濃く**なります(深度を書かないため)。
+- 実行中に `GetSettings()` を変えると、次のフレームから反映されます。`cells` を変えた時は、格子を作り直します。
+- シェーダー(`Shader3DWater.hlsl`)は実行時にコンパイルされます。書き方に間違いがあると、水面だけが描かれなくなり、出力ウィンドウにエラーが出ます。
+
+### 性能
+
+- **1つの水面は1回の描画**(`DrawIndexed`)です。頂点とインデックスは作る時に1回だけ送り、描く時のコピーはしません(`TerrainRenderer` と同じ)。
+- 波の計算は、頂点シェーダーとピクセルシェーダーで**毎回4本ぶん**(`sin` / `cos`)です。**画面いっぱいに水面が映ると、ピクセルシェーダーの分が重くなります**(光の数ぶんのループも加わります)。実機のGPUでは測っていません。重い時は、`SetFrustumCulling(true)`・`cells` を減らす・水面を小さくする、で軽くなります。
+
+### Sampleでの使われ方
+
+- **Sample3D の `Water`**(`Objects/Water.cpp`): 丘(`Hills`。§34)の北西のくぼみ、位置 `(2075, -16, 1350)` に、650 x 700 の池を置いています(水位は、丘の地面の高さ0から数えて34。くぼみの底は19〜24ほど、東と南の縁は38〜40ほどで、そこが岸になります)。青緑(`{0.1, 0.4, 0.6, 0.55}`)で、`waveHeight = 8`・`waveLength = 300`・`waveSpeed = 70`・`cells = 96`、`receiveShadow = true`。`SetDrawPriority(100)` で、不透明な物より後に描きます。**当たり判定は付けていない**ので、Playerは通り抜けます(水に入っても遅くなりません)。
+- **`GameScene` では `CreateWater(*this, 位置)` を1行並べるだけ**です(Sceneには「何を置くか」だけを書く)。
+- **Sample2D** は水面を使いません(シェーダーも読まれません)。
+
+### 仕組み(Engineを触る人向け)
+
+- **ファイル**: 新しく `Engine/WaterRenderer.h/.cpp` と、ソリューション直下の `Shader3DWater.hlsl` を足しました(`Engine.vcxproj` の `CopyRuntimeFiles` と `UpToDateCheckInput` に登録済み)。**既存のEngineファイル・`Shader.hlsl`・`Shader3D.hlsl`・`Shader3DSkin.hlsl`・`Shader3DCommon.hlsli`・`PhysX.props` は変えていません。**
+- **格子**: `(cells+1)^2` 個の頂点(`float2` の位置だけ。-0.5〜0.5)と、32ビットのインデックスを、`Mesh::InitIndexed` と同じ「作る時に1回だけ送る(`IMMUTABLE`)」作りで `WaterRenderer` が持ちます(`Mesh` は専用のシェーダーを使えないため、`Mesh` そのものは使っていません)。大きさは、シェーダーが `size` を掛けて決めます。
+- **レジスタ**: `b0`=`MeshConstantBuffer`(`Shader3D.hlsl` と同じ形)、`b3`=カメラの位置、`b4`=ポイントライト・スポットライト(`Lighting::Bind()`)、`b5` / `t1` / `t2` / `s1`=影(`Shadow::Bind()`)、**`b6`=`WaterBuffer`(水面だけ)**。`b6` は `float4` が9本(144バイト)で、C++ の `WaterConstantBuffer` と並びが一致するよう `static_assert`(大きさと項目の位置)を入れています(シェーダーの反射(`D3DReflect`)でも、大きさ・項目の位置・レジスタ番号が一致することを確かめました)。
+- **`Shader3DCommon.hlsli` を `#include`** して、`b0`〜`b5` の宣言と `SunShadow` / `SpotShadow` を使い回しています。点光源・スポットのループは、`ShadePixel`(`Material` 用)とは別に、水面用に書き直してあります(**`ShadePixel` の光の式を変えた時は、`Shader3DWater.hlsl` も見直すこと**)。
+- **波の式は2か所**: `Shader3DWater.hlsl` の `EvalWaves`(GPU)と `WaterRenderer.cpp` の `EvalWaves`(`GetHeightAt` 用)。**片方を変えたら、もう片方も同じに直すこと**(波の本数・割合・向きのずれの定数は `WaterRenderer.cpp` の先頭にあり、設定から作った波の表を `b6` に送ります)。
+- **ブレンド・深度・ラスタライザ**のステートは、`WaterRenderer` の `static` 共有物です(`Mesh` と同じく、最後の1体が手放した時に解放)。**描く前の状態を覚えておき、描いた後に元へ戻します**(ブレンド係数・サンプルマスク・ステンシルの参照値も)。水面だけが使う `b6` も外します。
+- **確認(WARP=ソフトウェアのD3D11)**: ①水面を一度も作らない絵と、水面を作って描いて壊した後の絵が、1ピクセルも違わない(描画状態が残らない)。②平らな水面・波のある水面(時間0・2.5秒・36000秒)・光の向きを変えた絵・ポイントライトとスポットライトを足した絵・水中から見上げた絵・影を受ける絵を、別に書いたCPUの計算(波の式・フレネル・光・光沢・ブレンド・影)と画素ごとに比べて、**最大1/255**で一致(水中から見上げた絵は、波の縁の1画素が10/255)。③波で持ち上げた水面の形を、真横から見て式の形と比べて、食い違いなし。④水面を作って壊す度に、D3D11の生存オブジェクトの数が元に戻る。(実際のゲームでの見え方・実機GPUの速さは、まだ確かめていません。)
+
+### まだ無いもの
+
+- **浅い所は薄く・深い所は濃く**、**岸辺の白い泡**(深度バッファを読む表現。今の深度バッファが読めない形なので、`Graphics.cpp` の変更が要ります)
+- 本物の反射(反射用の別の画面を描く)・屈折・波しぶき
+- 水に入ると遅くなる・物が自動で浮かぶ処理(`GetHeightAt` で調べて、自分で作ります)
+- 水の中専用の見た目(霧・色の変化)
+- 波の本数や形(波の割合・向きのずれ)を設定で変えること
