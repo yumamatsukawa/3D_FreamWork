@@ -92,6 +92,8 @@
     <ClCompile Include="Core\Input.cpp" />
     <ClCompile Include="Render3D\LightComponent.cpp" />
     <ClCompile Include="Render3D\Lighting.cpp" />
+    <ClCompile Include="Render3D\Lod.cpp" />
+    <ClCompile Include="Render3D\RenderStats.cpp" />
     <ClCompile Include="Render3D\Shadow.cpp" />
     <ClCompile Include="Core\MathUtil.cpp" />
     <ClCompile Include="Render3D\Mesh.cpp" />
@@ -172,6 +174,8 @@
     <ClInclude Include="Render3D\Light.h" />
     <ClInclude Include="Render3D\LightComponent.h" />
     <ClInclude Include="Render3D\Lighting.h" />
+    <ClInclude Include="Render3D\Lod.h" />
+    <ClInclude Include="Render3D\RenderStats.h" />
     <ClInclude Include="Render3D\Shadow.h" />
     <ClInclude Include="Core\MathUtil.h" />
     <ClInclude Include="Render3D\Material.h" />

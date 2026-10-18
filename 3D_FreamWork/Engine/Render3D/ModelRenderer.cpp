@@ -3,6 +3,7 @@
 #include "../Render/Image.h"
 #include "../Core/Resources.h"
 #include "../Render/Visibility.h"
+#include "RenderStats.h"
 #include <climits>
 
 ModelRenderer::ModelRenderer(const std::wstring& path) {
@@ -72,6 +73,13 @@ void ModelRenderer::UpdateModelMatrices() {
 void ModelRenderer::Draw() {
     if (!model) return;
 
+    // 遠い物は描かない(枠線も描かない)
+    float lodRadius = model->GetBoundingRadius() * cullingMargin;
+    if (lod.drawDistance > 0.f && Lod::IsBeyond(GetOwner()->transform.GetWorldMatrix(), lodRadius, lod.drawDistance)) {
+        RenderStats::AddLodCulled();
+        return;
+    }
+
     // material.texture が手で書き換えられていたら、ここで画像を借り直す
     SyncTexture();
 
@@ -89,6 +97,10 @@ void ModelRenderer::Draw() {
 
     // 枠線: パーツを描いた直後に、そのパーツの外側へ描く(本物を深度に書かない物には付けない)
     bool drawOutline = material.outlineWidth > 0.f && material.depthWrite;
+    if (drawOutline && lod.outlineDistance > 0.f && Lod::IsBeyond(ownerWorld, lodRadius, lod.outlineDistance)) {
+        drawOutline = false;   // 遠い物には枠線を付けない
+        RenderStats::AddLodCulled();
+    }
 
     // 形のあるパーツを描く。3D専用カメラ(GetCamera3D)とシーン共通の光源を使うのはMeshRendererと同じ
     for (int i = 0; i < count; i++) {
@@ -126,8 +138,14 @@ void ModelRenderer::Draw() {
 void ModelRenderer::DrawShadow(const Shadow::LightView& light) {
     if (!model || !material.castShadow) return;
 
-    // 描く時と同じ行列で、深度だけを描く(骨で曲げるパーツは、曲げた後の形で影になる)
+    // 遠い物は影を落とさない(骨の行列の計算も省ける)
     XMMATRIX ownerWorld = GetOwner()->transform.GetWorldMatrix();
+    if (lod.shadowDistance > 0.f && Lod::IsBeyond(ownerWorld, model->GetBoundingRadius() * cullingMargin, lod.shadowDistance)) {
+        RenderStats::AddLodCulled();
+        return;
+    }
+
+    // 描く時と同じ行列で、深度だけを描く(骨で曲げるパーツは、曲げた後の形で影になる)
     UpdateModelMatrices();
     int count = model->GetNodeCount();
     for (int i = 0; i < count; i++) {

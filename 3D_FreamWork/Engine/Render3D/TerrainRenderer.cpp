@@ -3,6 +3,7 @@
 #include "../Render/Image.h"
 #include "../Core/Resources.h"
 #include "../Render/Visibility.h"
+#include "RenderStats.h"
 #include <cmath>
 
 TerrainRenderer::TerrainRenderer(const std::shared_ptr<Terrain>& terrainData) : terrain(terrainData) {
@@ -48,6 +49,15 @@ XMFLOAT3 TerrainRenderer::GetOrigin() const {
     return origin;
 }
 
+void TerrainRenderer::GetBoundingSphere(XMFLOAT3& center, float& radius) const {
+    // 地形の箱(角から幅・高さ・奥行き)をすっぽり囲む球
+    const TerrainSettings& s = terrain->GetSettings();
+    float halfX = s.width * 0.5f, halfY = fabsf(s.maxHeight) * 0.5f, halfZ = s.depth * 0.5f;
+    XMFLOAT3 origin = GetOrigin();
+    center = { origin.x + halfX, origin.y + halfY, origin.z + halfZ };
+    radius = sqrtf(halfX * halfX + halfY * halfY + halfZ * halfZ);
+}
+
 float TerrainRenderer::GetHeightAt(float worldX, float worldZ) const {
     if (!terrain) return 0.f;
     XMFLOAT3 origin = GetOrigin();
@@ -74,20 +84,33 @@ void TerrainRenderer::Init() {
 // 影のパス: 深度だけを描く(Shadow::Render が、アクティブで有効な時だけ呼ぶ)
 void TerrainRenderer::DrawShadow(const Shadow::LightView& light) {
     if (!meshReady || !material.castShadow) return;
+
+    // 遠い地形は影を落とさない
+    if (lod.shadowDistance > 0.f) {
+        XMFLOAT3 center;
+        float radius;
+        GetBoundingSphere(center, radius);
+        if (Lod::IsBeyond(center, radius, lod.shadowDistance)) {
+            RenderStats::AddLodCulled();
+            return;
+        }
+    }
     mesh->DrawDepth(GetOwner()->transform.GetWorldMatrix(), light.view, light.proj);
 }
 
 void TerrainRenderer::Draw() {
     if (!meshReady) return;
 
-    // 画面の外なら描かない: 地形の箱(角から幅・高さ・奥行き)をすっぽり囲む球で調べる
-    if (frustumCulling && material.depthWrite) {
-        const TerrainSettings& s = terrain->GetSettings();
-        float halfX = s.width * 0.5f, halfY = fabsf(s.maxHeight) * 0.5f, halfZ = s.depth * 0.5f;
-        XMFLOAT3 origin = GetOrigin();
-        XMFLOAT3 center = { origin.x + halfX, origin.y + halfY, origin.z + halfZ };
-        float radius = sqrtf(halfX * halfX + halfY * halfY + halfZ * halfZ);
-        if (!Visibility::IsSphereInView3D(center, radius)) {
+    // 遠い地形は描かない / 画面の外なら描かない: 地形の箱をすっぽり囲む球で調べる
+    if (lod.drawDistance > 0.f || (frustumCulling && material.depthWrite)) {
+        XMFLOAT3 center;
+        float radius;
+        GetBoundingSphere(center, radius);
+        if (Lod::IsBeyond(center, radius, lod.drawDistance)) {
+            RenderStats::AddLodCulled();
+            return;
+        }
+        if (frustumCulling && material.depthWrite && !Visibility::IsSphereInView3D(center, radius)) {
             Visibility::CountCulled();
             return;
         }

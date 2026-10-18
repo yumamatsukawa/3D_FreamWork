@@ -6,6 +6,8 @@
 #include "../Core/Resources.h"
 #include "../Render/Visibility.h"
 #include "Shadow.h"
+#include "Lod.h"
+#include "RenderStats.h"
 #include "../Core/GameObject.h"
 #include <cmath>
 #include <memory>
@@ -18,6 +20,8 @@
 // 影を受けるかは material.receiveShadow。
 // 縁の光 / 枠線: SetRimLight / SetOutline(material の rim* / outline* を書き換える短い書き方)。どちらも既定はオフ。
 // 枠線は、本物を描いた直後に Mesh::DrawOutline で描く(material.depthWrite = false の物には描かない)。影は落とさず・受けない
+// 距離で省く(LOD): GetLod().drawDistance / shadowDistance / outlineDistance を決めると、カメラから遠い物を描かない/影を落とさない/枠線を描かない(既定は0=いつも)。
+// 距離は「カメラから物の球の表面まで」(Lod.h)。数は RenderStats / Visibility::GetCulledCount で確認する
 class MeshRenderer : public Component, public Shadow::Caster {
 private:
     std::shared_ptr<Mesh> mesh;
@@ -26,6 +30,7 @@ private:
     Material material;               // 見た目の設定
     bool frustumCulling = false;     // trueなら、画面の外にある時は描かない
     float boundingRadius = 0.f;      // 画面判定用: 原点から一番遠い頂点までの距離(拡大する前)
+    LodSettings lod;                 // 距離で省く設定(既定はすべて使わない)
 
     // material.texture が変わっていたら、画像を借り直す(新しい画像を先に借りてから、前の画像を返す。同じ画像は読み直さない)
     void SyncTexture() {
@@ -104,6 +109,13 @@ public:
     void SetFrustumCulling(bool enabled) { frustumCulling = enabled; }
     bool IsFrustumCulling() const { return frustumCulling; }
 
+    // 距離で省く設定(drawDistance / shadowDistance / outlineDistance。0=使わない)。まとめて渡す
+    // 例: meshRenderer->SetLod({ 6000.f, 2500.f, 1500.f });
+    void SetLod(const LodSettings& settings) { lod = settings; }
+    // 手直し用: meshRenderer->GetLod().drawDistance = 6000.f;
+    LodSettings& GetLod() { return lod; }
+    const LodSettings& GetLod() const { return lod; }
+
     // 影を落とす物として登録する(影を落とすかどうかは material.castShadow で、影のパスの度に見る)
     void Init() override {
         Shadow::Register(this, this);
@@ -112,10 +124,21 @@ public:
     // 影のパス: 深度だけを描く(Shadow::Render が、アクティブで有効な時だけ呼ぶ)
     void DrawShadow(const Shadow::LightView& light) override {
         if (!material.castShadow) return;
+        // 遠い物は影を落とさない
+        if (lod.shadowDistance > 0.f && Lod::IsBeyond(GetOwner()->transform.GetWorldMatrix(), boundingRadius, lod.shadowDistance)) {
+            RenderStats::AddLodCulled();
+            return;
+        }
         mesh->DrawDepth(GetOwner()->transform.GetWorldMatrix(), light.view, light.proj);
     }
 
     void Draw() override {
+        // 遠い物は描かない(枠線も描かない)
+        if (lod.drawDistance > 0.f && Lod::IsBeyond(GetOwner()->transform.GetWorldMatrix(), boundingRadius, lod.drawDistance)) {
+            RenderStats::AddLodCulled();
+            return;
+        }
+
         // 画面の外なら描かない(スカイボックスのように深度を書かない物は、画面全体を覆うので判定しない)
         if (frustumCulling && material.depthWrite &&
             !Visibility::IsTransformedSphereInView3D(GetOwner()->transform.GetWorldMatrix(), boundingRadius)) {
@@ -132,8 +155,12 @@ public:
         // 光を使うかどうか(unlit)は、material.lit がシェーダーに伝える
         mesh->Draw(GetOwner()->transform, Image::GetCamera3D(), material, Image::GetLight());
 
-        // 枠線: 本物を描いた直後に描く(本物を深度に書かない物=スカイボックス・半透明の板には付けない)
+        // 枠線: 本物を描いた直後に描く(本物を深度に書かない物=スカイボックス・半透明の板には付けない)。遠い物には付けない
         if (material.outlineWidth > 0.f && material.depthWrite) {
+            if (lod.outlineDistance > 0.f && Lod::IsBeyond(GetOwner()->transform.GetWorldMatrix(), boundingRadius, lod.outlineDistance)) {
+                RenderStats::AddLodCulled();
+                return;
+            }
             mesh->DrawOutline(GetOwner()->transform.GetWorldMatrix(), Image::GetCamera3D(), material.outlineColor, material.outlineWidth, material.outlineSeeThrough);
         }
     }

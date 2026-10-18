@@ -37,7 +37,7 @@ DirectX11製の、Unity風のコンポーネント指向ゲームフレームワ
 |---|---|
 | `Core\` | フレームワークの土台。ゲームの起動・シーン・GameObject/Component・時間・入力・イベント・プーリングなど |
 | `Render\` | 2Dの描画と画面まわり。スプライト・画像・カメラ・画面演出・パーティクルなど |
-| `Render3D\` | 3Dの描画。メッシュ・FBXモデル・地形・水面・ライト・影・マテリアルなど |
+| `Render3D\` | 3Dの描画。メッシュ・FBXモデル・地形・水面・ライト・影・マテリアル・距離で省く設定(LOD)と描画カウンタ(§37)など |
 | `Physics\` | 物理演算(PhysX)。剛体Component・コライダー・衝突の通知 |
 | `Audio\` | 音の再生。BGM/SE・音を聞く側(Listener)と鳴らす側(Source) |
 | `UI\` | 文字・ゲージ・スライダー・ボタンなど、画面に出す部品 |
@@ -1315,7 +1315,7 @@ Sample2D/Game/Components/  TitleController, BackgroundController, PlayerControll
 Sample2D/Game/Scenes/      TitleScene, GameScene
 
 Sample3D/Game/Objects/     Title, Button, StartButton, VolumeSlider, Skybox, Ground, Player, GameSystem, HUD,
-                            EnemySpawner, BulletSpawner, Explosion, ModelDisplay, SkinDisplay, Guard, Wall, GlassPanel, Lantern, Sun, Hills, Water, Navigation, Cube(未使用), Sphere(未使用)
+                            EnemySpawner, BulletSpawner, Explosion, ModelDisplay, SkinDisplay, Guard, Wall, WallField, GlassPanel, Lantern, Sun, Hills, Water, Navigation, Cube(未使用), Sphere(未使用)
 Sample3D/Game/Components/  TitleController, GroundController, PlayerController,
                             CameraController, BulletController, EnemyController, GameManager,
                             HUDController, EnemyManager, BulletManager, SkyboxFollowComponent,
@@ -1324,7 +1324,7 @@ Sample3D/Game/Scenes/      TitleScene, GameScene
 ```
 
 - **Sample2D**: トップダウン視点のアリーナシューター。タイトル画面のSTARTボタン(出る時に`TweenComponent`でぴょこっと大きくなる)をクリックすると、画面が暗転してからゲーム開始(ゲーム画面に入ると明転する。`FadeTransition`。§16)(ボタンは`CreateButton(scene, 文字, 位置, クリックされた時の処理)`で作れる汎用部品で、動きはEngineの`ButtonComponent`。他の画面のボタンにも使い回せる。§20)。WASDで移動、Playerは常にマウスの方を向き、左クリックでその方向へ弾を発射。背景はタイル状に敷き詰めた床(`BackgroundController`)で、移動するとスクロールする(カメラはPlayerに付けた`CameraFollowComponent`が追いかける。§14)。敵(`EnemyManager`が一定間隔でPlayerの周囲にランダムスポーンさせる)が壁を避けながらゆっくり追いかけてきて(`PathFollowComponent`。§36)、弾を当てると倒せる(`EventBus`で`"EnemyDefeated"`イベントを発行しスコア加算。倒した位置に「+10」が出て、上に動きながら消える=`CreateScorePopup`。§19。爆発のパーティクルも出る=`CreateExplosion`。§26)。敵に触れるとHPが減り(1秒間の無敵時間つき)、敵から離れる向きに弾かれる(ノックバック。`AddForce`で衝撃を加え、0.2秒間は移動キーが効かない。§23)、画面が少し揺れて(`CameraShake`。§14)、画面の端が赤く点滅する(`ScreenEffect::Vignette`。§15)。HPが0になるとゲームオーバー画面が出てSPACEでタイトルに戻る(黒い丸が閉じて開く`SpriteTransition`。§16)。スコアがハイスコアを超えていたら、ゲームオーバーの時に保存され(`SaveData`。キーは`"Sample2DHighScore"`で、Sample3Dの記録とは別。§18)、画面左上のスコアの下に出る(次に起動しても残る)。タイトル画面の下にはBGMの音量スライダー(`CreateVolumeSlider`。つまみをドラッグして0〜1で変えられ、離すと保存されて次に起動した時も残る。§20)がある。画面左上のHPの文字の下にはHPゲージ(減った分が少し遅れて縮む)、Playerの頭上にも小さなHPバーが出る(`GaugeRenderer`。§20)。当たり判定・物理はPhysXを使い(Player=`CircleRigidbodyComponent`、敵=`SquareRigidbodyComponent`、弾=`CircleRigidbodyComponent`)、Player・敵はDynamic(`SetVelocity()`で速度を渡して動かす。重力なし・回転なし・`SetFreezePositionZ(true)`で奥行き方向に固定)、弾はKinematicのトリガー。3Dカメラは使わない(`CameraController`なし)。画面の左上のHPゲージの下には、画面の外なので描かずに省いた数「Culled」が出る(敵の `SpriteRenderer` は `SetFrustumCulling(true)`。§28)。マップには見張り役の `Guard`(青い `Player` 画像がゆっくり回り、扇形の視野に `Player` が入って壁にさえぎられていなければ赤くなる。視野は線で表示)と、視線をさえぎる壁 `Wall` が2枚置いてある(`VisionComponent`。§28)。敵が壁を避けるための地図として、原点の周りの6000四方の格子 `Navigation`(`CreateNavigation`。`NavGridComponent`。壁は自動で読まれる)が置いてある(§36)。
-- **Sample3D**: Sample2Dと同じアリーナシューターを3D空間で遊べるようにしたもの。タイトル画面のボタン(Sample2Dと同じく、出る時に`TweenComponent`でぴょこっと大きくなる)をクリックすると、Sample2Dと同じく暗転してからゲーム開始(Sample3Dの`CreateButton()`は、位置と大きさをまとめて`Transform`で受け取る形になっている: `CreateButton(scene, 文字, transform, クリックされた時の処理)`)。Player(立方体)は三人称カメラ(`CameraController`。マウス移動で視点回転。カーソルは画面中心に固定され、ESCで解除・左クリックで再固定。TABで一人称に切り替え)と同じ向きを向き、WASDもカメラ基準(W=カメラの前、D=カメラの右)で移動する。左クリックでPlayerの向いている方向へ、地面と水平に弾(球)を発射。敵を倒すと、その位置に爆発のパーティクルが出る(`CreateExplosion`。§26)。敵は2Dの画像(Worldモードの`SpriteRenderer`。Y軸だけカメラの方を向く立て看板)で、地面の上をPlayerに向かって歩いてくる(壁と急な坂を避けて追いかける`PathFollowComponent`を`SetPlane(MovePlane::XZ)`で使う。§36)。歩く間は、敵に付けた`SpriteAnimationComponent`がスプライトシートのコマ(4番と5番)を0.3秒ごとに切り替えて、歩きアニメーションにしている(始まるコマはランダムなので、何体いても足踏みがそろわない。§17)。スコア・ハイスコア(保存先のファイルはSample2Dと同じだが、キーは`"Sample3DHighScore"`で、記録はSample2Dとは別。§18)・HP・無敵時間・被弾時に画面の端が赤く点滅すること・ゲームオーバー(SPACEでタイトルへ。Sample3Dは、黒い帯が左から覆って右へ抜けていく`SpriteTransition(...).SetSwitchFrame(7)`。§16)・`EventBus`のイベント名はSample2Dと同じ。タイトル画面の下のBGMの音量スライダーと、画面左上のHPゲージ(Sample2Dと同じ)、三人称の間だけ出るPlayerの頭上のHPバー(`SetUse3DCamera(true)`の`GaugeRenderer`)もある(§20)。Playerは立方体の見た目とDynamicの`BoxRigidbodyComponent`、敵はDynamicの`CapsuleRigidbodyComponent`(半径40・高さ100の立ったカプセル。§29)(どちらも重力あり・回転なし。Y速度は`GetVelocity().y`を維持したまま`SetVelocity()`で動かす。敵は`PathFollowComponent`がこれをしている)、弾はKinematicのトリガー(`SphereRigidbodyComponent`)。地面は、1000四方のタイルを3Dカメラの描画距離(farZ)の範囲だけ敷き詰めて描く`GroundController`(見た目)と、見えない大きなStaticの板(当たり判定)の組み合わせ。遠景はスカイボックス。地面の端(Playerから斜めに離れた所)には、FBXモデルの見本(`CreateModelDisplay`。`Assets/Models/TestAnim.fbx` の立方体2つ=親と子のパーツ。子の「Top」が、「Spin」(回る)と「Bob」(上下)のアニメーションを3秒ごとに切り替えて再生する。§27)が置いてある(FBXが無い時は何も置かない)。そのとなり(位置 `(1000, -50, 800)`)には、骨2本で曲がる細長い箱(`CreateSkinDisplay`。`Assets/Models/TestSkin.fbx` のアニメーション「Bend」を再生。§27)も置いてある。地面のタイルは、カメラに映る物だけ描く(`Visibility::IsSphereInView3D`)。敵の画像は `SetFrustumCulling(true)` で、画面の外にいる間は描かない。画面の左上のHPゲージの下には、描かずに省いた数「Culled」が出る。`Player` の近く(位置 `(-800, 0, 600)`)には見張り役 `Guard`(青い立方体がゆっくり回り、扇形の視野に `Player` が入って壁にさえぎられていなければ赤くなる。視野は線で表示)と、視線をさえぎる壁 `Wall` が2枚置いてある(`VisionComponent`。§28)。そのとなり(位置 `(400, 50, 300)`)には、半透明で光沢のある水色の板 `GlassPanel`(マテリアルの使用例。当たり判定は無いので通り抜けられる。§30)も置いてある。原点の周りでは、オレンジ色の光(ポイントライト)を持った小さな光る球 `Lantern` が、ふわふわ上下しながらゆっくり回っていて、近くの地面や壁を照らす。`Guard` は、視線の向きに懐中電灯(スポットライト)を持っていて、回ると地面の光の輪が一緒に動く(`LightComponent`。§31)。さらに、太陽の影が有効で(`CreateSun`。`ShadowManager`)、地面に `Player`・壁・FBXモデルの影が落ち、`Guard` の懐中電灯の光は壁や `Player` でさえぎられる(§32)。Playerの東の遠く(位置 `(1500, -50, -2000)` から4000四方)には、高さの画像(`Assets/Terrain/heightmap.png`)から作った、なだらかな丘と谷の地形 `Hills`(`CreateHills`)が置いてある(`TerrainRenderer`。影を受ける。当たり判定の`TerrainRigidbodyComponent`も付いていて、丘の起伏の上を歩ける。Playerの歩く速さ(200)で、丘の最大の傾き(約37度)も越えられる。丘の端はなだらかなスロープなので、地面から歩いて丘に登れる。§34)。その丘の北西のくぼみ(位置 `(2075, -16, 1350)`、650 x 700)には、波打つ半透明の池 `Water`(`CreateWater`)が張ってあります(`WaterRenderer`。青緑の水が波でうねり、日が当たる所がきらっと光り、水の下の地面が透けて見えます。当たり判定は無いので通り抜けられます。§35)。敵が壁と急な坂を避けるための地図として、9000四方の格子 `Navigation`(`CreateNavigation`。丘の高さと傾きも取り込む)が置いてある(池は通れるまま。§36)。
+- **Sample3D**: Sample2Dと同じアリーナシューターを3D空間で遊べるようにしたもの。タイトル画面のボタン(Sample2Dと同じく、出る時に`TweenComponent`でぴょこっと大きくなる)をクリックすると、Sample2Dと同じく暗転してからゲーム開始(Sample3Dの`CreateButton()`は、位置と大きさをまとめて`Transform`で受け取る形になっている: `CreateButton(scene, 文字, transform, クリックされた時の処理)`)。Player(立方体)は三人称カメラ(`CameraController`。マウス移動で視点回転。カーソルは画面中心に固定され、ESCで解除・左クリックで再固定。TABで一人称に切り替え)と同じ向きを向き、WASDもカメラ基準(W=カメラの前、D=カメラの右)で移動する。左クリックでPlayerの向いている方向へ、地面と水平に弾(球)を発射。敵を倒すと、その位置に爆発のパーティクルが出る(`CreateExplosion`。§26)。敵は2Dの画像(Worldモードの`SpriteRenderer`。Y軸だけカメラの方を向く立て看板)で、地面の上をPlayerに向かって歩いてくる(壁と急な坂を避けて追いかける`PathFollowComponent`を`SetPlane(MovePlane::XZ)`で使う。§36)。歩く間は、敵に付けた`SpriteAnimationComponent`がスプライトシートのコマ(4番と5番)を0.3秒ごとに切り替えて、歩きアニメーションにしている(始まるコマはランダムなので、何体いても足踏みがそろわない。§17)。スコア・ハイスコア(保存先のファイルはSample2Dと同じだが、キーは`"Sample3DHighScore"`で、記録はSample2Dとは別。§18)・HP・無敵時間・被弾時に画面の端が赤く点滅すること・ゲームオーバー(SPACEでタイトルへ。Sample3Dは、黒い帯が左から覆って右へ抜けていく`SpriteTransition(...).SetSwitchFrame(7)`。§16)・`EventBus`のイベント名はSample2Dと同じ。タイトル画面の下のBGMの音量スライダーと、画面左上のHPゲージ(Sample2Dと同じ)、三人称の間だけ出るPlayerの頭上のHPバー(`SetUse3DCamera(true)`の`GaugeRenderer`)もある(§20)。Playerは立方体の見た目とDynamicの`BoxRigidbodyComponent`、敵はDynamicの`CapsuleRigidbodyComponent`(半径40・高さ100の立ったカプセル。§29)(どちらも重力あり・回転なし。Y速度は`GetVelocity().y`を維持したまま`SetVelocity()`で動かす。敵は`PathFollowComponent`がこれをしている)、弾はKinematicのトリガー(`SphereRigidbodyComponent`)。地面は、1000四方のタイルを3Dカメラの描画距離(farZ)の範囲だけ敷き詰めて描く`GroundController`(見た目)と、見えない大きなStaticの板(当たり判定)の組み合わせ。遠景はスカイボックス。地面の端(Playerから斜めに離れた所)には、FBXモデルの見本(`CreateModelDisplay`。`Assets/Models/TestAnim.fbx` の立方体2つ=親と子のパーツ。子の「Top」が、「Spin」(回る)と「Bob」(上下)のアニメーションを3秒ごとに切り替えて再生する。§27)が置いてある(FBXが無い時は何も置かない)。そのとなり(位置 `(1000, -50, 800)`)には、骨2本で曲がる細長い箱(`CreateSkinDisplay`。`Assets/Models/TestSkin.fbx` のアニメーション「Bend」を再生。§27)も置いてある。地面のタイルは、カメラに映る物だけ描く(`Visibility::IsSphereInView3D`)。敵の画像は `SetFrustumCulling(true)` で、画面の外にいる間は描かない。画面の左上のHPゲージの下には、描かずに省いた数「Culled」が出る。`Player` の近く(位置 `(-800, 0, 600)`)には見張り役 `Guard`(青い立方体がゆっくり回り、扇形の視野に `Player` が入って壁にさえぎられていなければ赤くなる。視野は線で表示)と、視線をさえぎる壁 `Wall` が2枚置いてある(`VisionComponent`。§28)。そのとなり(位置 `(400, 50, 300)`)には、半透明で光沢のある水色の板 `GlassPanel`(マテリアルの使用例。当たり判定は無いので通り抜けられる。§30)も置いてある。原点の周りでは、オレンジ色の光(ポイントライト)を持った小さな光る球 `Lantern` が、ふわふわ上下しながらゆっくり回っていて、近くの地面や壁を照らす。`Guard` は、視線の向きに懐中電灯(スポットライト)を持っていて、回ると地面の光の輪が一緒に動く(`LightComponent`。§31)。さらに、太陽の影が有効で(`CreateSun`。`ShadowManager`)、地面に `Player`・壁・FBXモデルの影が落ち、`Guard` の懐中電灯の光は壁や `Player` でさえぎられる(§32)。Playerの東の遠く(位置 `(1500, -50, -2000)` から4000四方)には、高さの画像(`Assets/Terrain/heightmap.png`)から作った、なだらかな丘と谷の地形 `Hills`(`CreateHills`)が置いてある(`TerrainRenderer`。影を受ける。当たり判定の`TerrainRigidbodyComponent`も付いていて、丘の起伏の上を歩ける。Playerの歩く速さ(200)で、丘の最大の傾き(約37度)も越えられる。丘の端はなだらかなスロープなので、地面から歩いて丘に登れる。§34)。その丘の北西のくぼみ(位置 `(2075, -16, 1350)`、650 x 700)には、波打つ半透明の池 `Water`(`CreateWater`)が張ってあります(`WaterRenderer`。青緑の水が波でうねり、日が当たる所がきらっと光り、水の下の地面が透けて見えます。当たり判定は無いので通り抜けられます。§35)。敵が壁と急な坂を避けるための地図として、9000四方の格子 `Navigation`(`CreateNavigation`。丘の高さと傾きも取り込む)が置いてある(池は通れるまま。§36)。Playerの南の遠く(位置 `(0, 0, -6000)` の周り)には、細い柱を15 x 15本並べた `WallField`(`CreateWallField`)が置いてあり、遠い柱を描かない・影を落とさない・枠線を描かない設定(LOD)の見本になっている。画面の左上には、描画命令の数と三角形の数(`Draw` / `Tri`)も出る(§37)。
 
 **Sample3Dの実装メモ**: 向きはすべて`transform.rotate.y`(度)で表し、`rotate.y`の時の正面(ローカルの+Z)は`(sin, 0, cos)`の方向になる(`CameraController::GetYaw()`の式と同じ。`Math::Forward3D()`で求められる)。Worldモードの`SpriteRenderer`は`rotate.y`を使わない(ビルボードの向きとZ軸回転だけを使う)ので、敵の画像の向きは`SetBillboardLock(true, false, true)`でカメラの方へ向けている。Playerは`SetFreezeRotation(true)`で、`RigidbodyComponent`は位置しか同期しないため、`PlayerController`が`rotate.y`が変わった時に`GetActor()`の`setGlobalPose`で当たり判定の箱の回転も合わせている(デバッグ表示の枠と実際の判定が同じ向きになる)。一人称の間は、カメラが立方体の内側に入るのでPlayerの`MeshRenderer`と頭上のHPバー(`GaugeRenderer`)を非表示にしている。
 
@@ -1390,6 +1390,8 @@ GameManager/HUD/EnemyManager/BulletManagerのような「見た目の無い管�
 | 丘のくぼみに、波打つ半透明の池を置く(Sample3D) | `Objects/Water.cpp`(`WaterRenderer` に色・波の大きさ・速さの設定 `WaterSettings` を渡し、`SetDrawPriority(100)` で不透明な物より後に描く。当たり判定は付けない=通り抜けられる。波は頂点シェーダーが時間から計算する。§35) |
 | 画面の外の敵を描かない | 敵の `SetupEnemy`(`SpriteRenderer::SetFrustumCulling(true)`。両サンプル。§28) |
 | 画面の外で省いた数の表示(Culled) | `HUDController::Draw()`(`Visibility::GetCulledCount()`。§28) |
+| 描画命令・三角形・距離で省いた数の表示(Draw / Tri。Sample3D) | `HUDController::Draw()`(`RenderStats::GetDrawCallTotal()` など。§37) |
+| 多数の柱を置いて、遠い物を省く設定(LOD)を試す(Sample3D) | `Objects/WallField.cpp`(`CreateWall` で柱を格子状に並べ、`MeshRenderer::SetLod` で `drawDistance` / `shadowDistance` / `outlineDistance` を渡す。§37)。`GameScene::Init()` に1行。LODのON/OFFを比べる時は `GameScene.cpp` の `lodEnabled` を書き換える |
 | ゲームオーバーの時にハイスコアを保存する | `GameManager::Init()`の`"PlayerDied"`を受けた所(`SaveData::SetInt` + `Save`。§18) |
 
 Sceneに残してよいのは、オブジェクトの配置と、シーン全体の後片付け(`GameScene::Uninit()`の`EventBus::Get().Clear()`)くらい。新しい処理を足したくなったら、まず「どのオブジェクトの仕事か」を考えて、そのComponentに書くこと。
@@ -3029,3 +3031,122 @@ PathFollowComponent::SetDebugDrawEnabled(true);   // 今の経路を緑の線で
 - 他の敵を避ける動き(群れの分離)
 - 経路が見つからない時に「まっすぐ追う」ことを選ぶ設定(今は止まる)
 - 探索を複数のフレームに分けること(分割A\*)・別スレッドでの探索
+
+---
+
+## 37. LOD(距離で省く)と描画カウンタ(Lod / RenderStats)
+
+遠くの物を軽くするための機能です(`docs/EngineRoadmap3.md` の 7.2)。**今あるのは「段階1」だけ**で、遠い物を **描かない / 影を落とさない / 枠線を描かない** ようにする設定(`Lod`)と、**描画の重さを数えるカウンタ**(`RenderStats`)です。メッシュを軽いものに切り替える(段階2)・地形を区画に分ける(段階3)は、カウンタで測ってから作るか決めるため、まだ作っていません。**何も設定しなければ、見た目も速さも今までと同じです**(既定はすべてOFF。LODを使わない絵は、変更前とピクセル単位で一致することを確かめました)。
+
+### 使い方
+
+`MeshRenderer` / `ModelRenderer` / `TerrainRenderer` が、それぞれ距離の設定 `LodSettings` を1つ持っています。**0は「使わない=いつも描く」**です。
+
+```cpp
+auto* meshRenderer = wall->AddComponent<MeshRenderer>(Mesh::CreateCube());
+meshRenderer->GetLod().drawDistance    = 6000.f;   // 6000より遠い物は描かない
+meshRenderer->GetLod().shadowDistance  = 2500.f;   // 2500より遠い物は影を落とさない
+meshRenderer->GetLod().outlineDistance = 1500.f;   // 1500より遠い物は枠線を描かない
+// まとめて渡す書き方: meshRenderer->SetLod({ 6000.f, 2500.f, 1500.f });
+```
+
+`ModelRenderer`(FBX。骨で曲げるモデルも)も同じ書き方です。`TerrainRenderer` は枠線を付けないので `drawDistance` と `shadowDistance` だけが効きます(`outlineDistance` は無視)。
+
+### 3つの距離
+
+| 項目 | 意味 | 省くと減るもの |
+|---|---|---|
+| `drawDistance` | これより遠い物は**描かない**(その物の枠線も出ない) | 描画命令・三角形(通常+枠線)。物が多い時に一番効く |
+| `shadowDistance` | これより遠い物は**影のパスで描かない**(影を落とさなくなる。本番の絵は描かれる) | 影の描画命令(`Material` の `castShadow` が true の物だけが対象) |
+| `outlineDistance` | これより遠い物は**枠線を描かない**(本物は描かれる) | 枠線の描画命令。枠線は1つの物につき命令を3つ出すので、省くと減る数が大きい |
+
+- **描画を省くだけ**で、物理(当たり判定)は止まりません。`GameObject` もそのままです(`SetFrustumCulling` と同じ決まり)。
+- 枠線を省いた時も、ステンシル(枠線を本物の内側に描かないための印)の状態は壊れません。枠線の描画そのものを呼ばないので、印を付けないし、消し忘れも起きません。
+- `drawDistance` を `SetFrustumCulling(true)` と一緒に使うと、**先に距離を調べ**、遠ければそこで終わりです(画面の外で省いた数 `Visibility::GetCulledCount` ではなく、距離で省いた数 `RenderStats::GetLodCulledCount` に数えます)。近ければ今までどおり画面の外かを調べます。
+
+### 距離の測り方(基準)
+
+- **カメラの位置は `Image::GetCamera3D().position`** です(`Visibility` と同じ。`CameraShake` の揺れが入った位置。揺れは小さいので、判断にはほとんど影響しません)。ズーム(視野 `fovY` の変更)は考えていません。ズームすると、遠い物が大きく見えるのに距離では遠いままです。
+- **「カメラから物の中心までの距離 − 物の半径」** で調べます(球の表面までの距離。0より小さい=カメラが球の中なら、必ず「近い」)。長い壁や地形のように大きな物が、中心は遠くても手前の端は近い、という時に消えないようにするためです。**設定の距離「ちょうど」なら省きません**(超えたら省きます)。
+- 物の中心は `transform.GetWorldMatrix()` の位置(親子関係があっても正しい)。半径は、`MeshRenderer` は頂点の一番遠い点(`Visibility` と同じ)×行列の一番大きい拡大率、`ModelRenderer` は止まっている姿の一番遠い頂点×1.5(画面判定と同じ余裕)、`TerrainRenderer` は地形の箱を囲む球です。
+
+### 全体の切り替え(Lod 名前空間)
+
+| 関数 | 説明 |
+|---|---|
+| `Lod::SetEnabled(false)` | **すべての物の距離の設定を無視**します(LODなしの状態と比べる確認用。既定は `true`) |
+| `Lod::SetGlobalScale(0.5f)` | すべての距離に掛ける倍率(0.5で全部半分)。まとめて調整する用。既定は1(0以下は1に戻る) |
+| `Lod::GetCameraDistance(位置)` | カメラからその位置までの距離。自分のComponentで「遠いなら何かを止める」時に使えます(例: 遠い物の `ModelAnimationComponent` を `SetEnabled(false)` で止める) |
+| `Lod::IsBeyond(中心, 半径, 距離)` | 球の表面までの距離が、その距離を超えているか(0以下の距離は常に `false`) |
+
+### 描画カウンタ(RenderStats)
+
+LODが効いているかを確かめる数です。`Visibility::GetCulledCount()` と同じく、**すべて「前のフレームの数」**を返します(描いている途中で読んでも数が揺れません)。**Releaseでも数えます**(単純な足し算だけ)。
+
+| 関数 | 数えるもの |
+|---|---|
+| `GetDrawCallCount()` / `GetDrawTriangleCount()` | 本番(通常)の描画命令の数 / 三角形の数 |
+| `GetShadowDrawCount()` / `GetShadowTriangleCount()` | 影のパスの描画命令 / 三角形 |
+| `GetOutlineDrawCount()` / `GetOutlineTriangleCount()` | 枠線の描画命令 / 三角形 |
+| `GetDrawCallTotal()` / `GetTriangleCount()` | 上の3種類の合計 |
+| `GetLodCulledCount()` | 距離の設定で省いた回数の合計(描画・影・枠線を別々に数える) |
+
+- 数えるのは3Dの描画(`Mesh` / `SkinMesh` / 水面)です。2Dのスプライトと文字は数えません。当たり判定の線(デバッグ表示)は数えます(1つの線も命令1つ)。
+- **枠線は、1つの物につき命令を3つ**出します(本物の印を付ける・枠線を描く・印を消す)。なので、枠線を付けた物が100個なら、枠線の命令は300です。三角形も3回分数えます。
+- `RenderStats::BeginFrame()` は `GameEngine::Run` が `Visibility::BeginFrame()` の隣で呼びます(ゲーム側は呼びません)。
+
+### Sample3D での見方と測り方
+
+- 画面の左上、HPゲージの下に 2 行増えました。
+  - `Draw: 全体 (Shadow ○, Outline ○)` … 描画命令の数(通常+影+枠線の合計)と、その内訳(影・枠線)
+  - `Tri: ○  LodCulled: ○  LOD: ON/OFF` … 三角形の数(合計)、距離で省いた数、LODが有効か
+  - その上の `Culled` は今までどおり、画面の外で省いた数です。
+- **ON/OFFを比べる**: `Sample3D/Game/Scenes/GameScene.cpp` の先頭の `lodEnabled`(`true`/`false`)を書き換えて再ビルドします(`false` で `Lod::SetEnabled(false)` になり、柱の距離の設定が全部無視されます)。キー操作は足していません。
+- **多数の物で測る**: `Objects/WallField.cpp` が、細い柱(80 x 300 x 80)を 15 x 15 = 225 本、間隔 300 で並べます(`GameScene` で `CreateWallField(*this, { 0, 0, -6000 }, 15)`)。Playerの南(Z がマイナス側)の遠く、経路探索の格子(Z=-3000 まで)の外です。柱は `Wall` と同じ(影を落とす・受ける。Static。タグ `"Wall"`)で、さらに黒っぽい細い枠線と、`drawDistance = 6000`・`shadowDistance = 2500`・`outlineDistance = 1500` を設定してあります。Playerが南へ歩いて近づくと、柱が順に描かれ、影、枠線の順に出てきます。
+
+### 実測(Releaseのビルド、ソフトウェア描画 WARP、480 x 270)
+
+WARP はCPUで描く遊び用のGPUなので、**時間は参考値**です(実機のGPUは三角形に強く、命令の数が相対的に効きやすい)。信じてよいのは**命令の数・三角形の数**です。柱の並びは WallField と同じ(80 x 300 x 80、影・枠線つき)、カメラは南向きで、位置を変えて測りました。
+
+| 場面 | 設定 | 通常 | 影 | 枠線 | 命令合計 | 三角形 | 時間(ms/フレーム) |
+|---|---|---|---|---|---|---|---|
+| 15 x 15(225本)、カメラが手前(Z=0) | OFF | 225 | 225 | 675 | 1125 | 13,500 | 11.5 |
+| | drawDistance 6000 | 116 | 225 | 348 | 689 | 8,268 | 6.9 |
+| | shadowDistance 2500 | 225 | 0 | 675 | 900 | 10,800 | 9.2 |
+| | outlineDistance 1500 | 225 | 225 | 0 | 450 | 5,400 | 4.7 |
+| | 3つとも | 116 | 0 | 0 | 116 | 1,392 | 1.7 |
+| 30 x 30(900本)、カメラが手前(Z=0) | OFF | 900 | 900 | 2700 | 4500 | 54,000 | 42.4 |
+| | drawDistance 6000 | 418 | 900 | 1254 | 2572 | 30,864 | 23.7 |
+| | shadowDistance 2500 | 900 | 42 | 2700 | 3642 | 43,704 | 34.4 |
+| | outlineDistance 1500 | 900 | 900 | 12 | 1812 | 21,744 | 18.4 |
+| | 3つとも | 418 | 42 | 12 | 472 | 5,664 | 6.7 |
+
+- カメラが柱の列に近づく(15 x 15 で Z=-3000。列の手前から約900)と、距離で省ける柱が減り、3つとも設定しても命令は 1125 → 375(時間 13.2 → 7.5 ms)でした。**LODの効きは、カメラと物の位置関係で大きく変わります。**
+- 時間はほぼ**命令の数に比例**(1命令あたり約10マイクロ秒)でした。枠線は1つの物で命令3つなので、1つあたりの効きが一番大きく、影は1つあたり1命令分です。
+- 三角形の数は、今のSampleの物(立方体=12枚、球=768枚)では時間にほとんど効きません。同じ225個を、影・枠線なしで描き比べると、立方体(12枚)2.7ms・球4x6(48枚)2.9ms・球16x24(768枚)6.1ms・球48x72(6912枚、合計155万枚)22.6ms でした。**三角形が効き始めるのは、合計が数十万枚を超えてから**です。
+- ほかに確認したこと(合計116件)は、`docs/EngineRoadmap3.md` の 7.2 を見てください。
+
+### 制限・気を付けること
+
+- **急に消えます(ポップ)**。距離で省くだけで、フェード(少しずつ消す)はありません。`drawDistance` はカメラの `farZ`(10000)の少し手前にして、遠景で目立たなくするのが現実的です。
+- **`shadowDistance` を短くしすぎない**: 影の範囲は「カメラの前方の箱」ですが、光の向きによっては、**カメラから遠い背の高い物の影が、近くの地面に落ちます**。`shadowDistance` を短くすると、「遠い木の影が突然消える」ように見えます。物の大きさ(半径)は引いて調べますが、既定のOFFのまま使うか、`Shadow::Settings::distance` くらいを目安にしてください。スポットライトの影のパスにも同じ距離が効きます。
+- 距離は**カメラからの距離**です。ズームや、カメラから遠いのに画面で大きく見える物は考えていません。
+- 描画と影と枠線を省くだけで、物のUpdate・物理・アニメーションの計算は止まりません。遠い物のアニメーションを止めたい時は、Sampleの側で `Lod::GetCameraDistance` を見て `ModelAnimationComponent` を `SetEnabled(false)` にしてください(止まった姿のままになります)。
+- 水面(`WaterRenderer`)・スプライト(`SpriteRenderer`)・パーティクルには、距離の設定はありません(水面は描画命令の数には入ります)。
+
+### Sampleでの使われ方
+
+- **Sample3D**: `Objects/WallField.cpp`(柱の格子。`CreateWallField`)と、`HUDController` の `Draw` / `Tri` の表示、`GameScene` の `lodEnabled`(確認用のON/OFF)です。ほかの物(`Wall` など)にはLODを設定していないので、見た目は変わりません。
+- **Sample2D**: 変更なし。3Dのメッシュを使わないので、カウンタの数は当たり判定の線の分だけです。
+
+### 仕組み(Engineを触る人向け)
+
+- **ファイル**: 新しく `Engine/Render3D/Lod.h/.cpp`(`LodSettings` と、距離で省く判断)と `Engine/Render3D/RenderStats.h/.cpp`(カウンタ)を足しました。既存のEngineファイルは、`MeshRenderer.h`・`ModelRenderer.h/.cpp`・`TerrainRenderer.h/.cpp`(距離の設定と判断)、`Mesh.cpp`・`SkinMesh.cpp`・`WaterRenderer.cpp`(描画命令の直前に数える。1〜2行)、`GameEngine.cpp`(`RenderStats::BeginFrame()` の1行)に少し足しました。**`Shader*.hlsl`・`PhysX.props` は変えていません**。
+- 距離の設定が 0 の物は、**行列も読まずに**そのまま描きます(OFFの時の追加の計算は、`if` 1つだけです)。
+- 数え方: `Mesh::Draw` / `DrawDepth` / `DrawOutline`、`SkinMesh` の同じ3つ、水面の `DrawIndexed` が、描画命令を出す直前に `RenderStats::AddDraw` / `AddShadowDraw` / `AddOutlineDraw` を呼びます。三角形は `indexCount / 3`(インデックスなし=`vertexCount / 3`)で、線のメッシュは0です。
+
+### まだ無いもの
+
+- **段階2(メッシュ・モデルの切り替え)・段階3(地形のチャンク分け)・段階4(ディザのフェード。シェーダー変更)**: 上の測定の結果を見て、必要かどうかを決めます(今のSampleは三角形が少ないので、効果が小さい可能性が高い)。
+- 遠い物のアニメーションの更新間隔(`ModelAnimationComponent::SetUpdateInterval`)・遠いスプライトを描かない設定(`SpriteRenderer::SetMaxDrawDistance`)。設計書の「任意」の項目で、今回は作っていません(Sample側の `SetEnabled(false)` で代わりにできます)。
+- 同じ物をまとめて1回で描く(インスタンス描画)。物が数百個ある場面では、LODより効く可能性があります。別の機能として提案する予定です。

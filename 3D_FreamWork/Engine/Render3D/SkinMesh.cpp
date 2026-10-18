@@ -2,6 +2,7 @@
 #include "../Render/Graphics.h"
 #include "Lighting.h"
 #include "Shadow.h"
+#include "RenderStats.h"
 #include <cassert>
 #include <cstring>
 
@@ -383,6 +384,7 @@ void SkinMesh::Draw(const XMMATRIX& world, const XMMATRIX* boneMatrices, int bon
     context->PSSetShaderResources(0, 1, &view);
     context->PSSetSamplers(0, 1, &sampler);
 
+    RenderStats::AddDraw((int)(vertexCount / 3));
     context->Draw(vertexCount, 0);
 
     // 次に2D(Sprite)や普通のMeshが描画される時のために、ラスタライザ状態を既定に戻しておく
@@ -447,6 +449,7 @@ void SkinMesh::DrawOutline(const XMMATRIX& world, const XMMATRIX* boneMatrices, 
     context->VSSetConstantBuffers(0, 2, markVsBuffers);
     context->PSSetShader(nullptr, nullptr, 0);
     context->OMSetDepthStencilState(seeThrough ? outlineMarkAllState : outlineMarkState, 1);
+    RenderStats::AddOutlineDraw((int)(vertexCount / 3));
     context->Draw(vertexCount, 0);
 
     // (2) 枠線: ステンシルが1の画素には描かない
@@ -466,6 +469,7 @@ void SkinMesh::DrawOutline(const XMMATRIX& world, const XMMATRIX* boneMatrices, 
     ID3D11Buffer* psBuffers[4] = { constantBuffer, nullptr, materialBuffer, cameraBuffer };
     context->PSSetConstantBuffers(0, 4, psBuffers);
 
+    RenderStats::AddOutlineDraw((int)(vertexCount / 3));
     context->Draw(vertexCount, 0);
 
     // (3) 印を消す(ステンシルを0に戻す。他の描画に影響しないように)
@@ -475,6 +479,7 @@ void SkinMesh::DrawOutline(const XMMATRIX& world, const XMMATRIX* boneMatrices, 
     context->VSSetConstantBuffers(0, 2, markVsBuffers);
     context->PSSetShader(nullptr, nullptr, 0);
     context->OMSetDepthStencilState(seeThrough ? outlineMarkAllState : outlineMarkState, 0);
+    RenderStats::AddOutlineDraw((int)(vertexCount / 3));
     context->Draw(vertexCount, 0);
 
     // 深度ステンシルを普通の状態に戻し、slot 1 の頂点バッファを外し(次の普通の描画は slot 0 だけ使う)、ラスタライザ状態を既定に戻す
@@ -519,6 +524,7 @@ void SkinMesh::DrawDepth(const XMMATRIX& world, const XMMATRIX* boneMatrices, in
     context->VSSetConstantBuffers(0, 2, vsBuffers);
     context->PSSetShader(nullptr, nullptr, 0);   // 色は描かない(深度だけ)
 
+    RenderStats::AddShadowDraw((int)(vertexCount / 3));
     context->Draw(vertexCount, 0);
 }
 

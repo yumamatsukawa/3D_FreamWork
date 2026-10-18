@@ -4,6 +4,8 @@
 #include "../../../Engine/UI/Text.h"
 #include "../../../Engine/UI/Anchor.h"
 #include "../../../Engine/Render/Visibility.h"
+#include "../../../Engine/Render3D/RenderStats.h"
+#include "../../../Engine/Render3D/Lod.h"
 #include <cstdio>
 
 namespace {
@@ -12,6 +14,8 @@ namespace {
     constexpr DirectX::XMFLOAT2 highScoreOffset = { 80.f, -75.f };     // 左上から: High Score
     constexpr DirectX::XMFLOAT2 hpOffset = { 80.f, -115.f };           // 左上から: HP(この下にHPゲージが出る。Objects/HUD.cpp)
     constexpr DirectX::XMFLOAT2 culledOffset = { 80.f, -165.f };       // 左上から: Culled(HPゲージの下)
+    constexpr DirectX::XMFLOAT2 drawStatsOffset = { 80.f, -190.f };    // 左上から: Draw(描画命令の数)
+    constexpr DirectX::XMFLOAT2 triStatsOffset = { 80.f, -215.f };     // 左上から: Tri(三角形の数)
     constexpr DirectX::XMFLOAT2 gameOverOffset = { 0.f, 40.f };        // 中央から: GAME OVER
     constexpr DirectX::XMFLOAT2 returnHintOffset = { 0.f, -30.f };     // 中央から: press SPACE ...
 }
@@ -22,7 +26,7 @@ void HUDController::Init() {
 }
 
 void HUDController::Draw() {
-    wchar_t buf[64];
+    wchar_t buf[96];
 
     // 文字の見た目: 黒い縁取り。左上の文字は左寄せ(xが文字の左端)
     TextStyle style;
@@ -60,6 +64,15 @@ void HUDController::Draw() {
     style.color = { 0.7f, 0.9f, 1.0f, 1.0f };
     {
         DirectX::XMFLOAT2 pos = GetAnchoredPosition(Anchor::TopLeft, culledOffset);
+        Text::Draw(buf, pos.x, pos.y, style);
+
+        // 描画の重さ(RenderStats。LODの効果の確認用。Draw=描画命令の数(影・枠線の内訳つき)、Tri=三角形の数、LodCulled=距離で省いた数)
+        swprintf_s(buf, L"Draw: %d (Shadow %d, Outline %d)", RenderStats::GetDrawCallTotal(), RenderStats::GetShadowDrawCount(), RenderStats::GetOutlineDrawCount());
+        pos = GetAnchoredPosition(Anchor::TopLeft, drawStatsOffset);
+        Text::Draw(buf, pos.x, pos.y, style);
+
+        swprintf_s(buf, L"Tri: %d  LodCulled: %d  LOD: %s", RenderStats::GetTriangleCount(), RenderStats::GetLodCulledCount(), Lod::IsEnabled() ? L"ON" : L"OFF");
+        pos = GetAnchoredPosition(Anchor::TopLeft, triStatsOffset);
         Text::Draw(buf, pos.x, pos.y, style);
     }
 

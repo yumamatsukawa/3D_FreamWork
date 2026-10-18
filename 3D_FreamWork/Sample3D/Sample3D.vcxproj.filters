@@ -127,6 +127,9 @@
     <ClCompile Include="Game\Objects\Wall.cpp">
       <Filter>Game\Objects</Filter>
     </ClCompile>
+    <ClCompile Include="Game\Objects\WallField.cpp">
+      <Filter>Game\Objects</Filter>
+    </ClCompile>
     <ClCompile Include="Game\Objects\Title.cpp">
       <Filter>Game\Objects</Filter>
     </ClCompile>
@@ -256,6 +259,9 @@
       <Filter>Game\Components</Filter>
     </ClInclude>
     <ClInclude Include="Game\Objects\Wall.h">
+      <Filter>Game\Objects</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\Objects\WallField.h">
       <Filter>Game\Objects</Filter>
     </ClInclude>
     <ClInclude Include="Game\Objects\Title.h">

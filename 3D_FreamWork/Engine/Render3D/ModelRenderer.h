@@ -3,6 +3,7 @@
 #include "Model.h"
 #include "Material.h"
 #include "Shadow.h"
+#include "Lod.h"
 #include "../Core/Transform.h"
 #include <memory>
 #include <string>
@@ -14,6 +15,8 @@
 // 影: material.castShadow = true にすると、Shadow が有効な時に影を落とす(骨で曲げるパーツも、曲げた後の形で落とす)。
 // 影を受けるかは material.receiveShadow(全パーツ共通)。
 // 縁の光 / 枠線: SetRimLight / SetOutline(全パーツ共通。どちらも既定はオフ)。枠線はパーツごとに、描いた直後に外側へ描く(骨で曲げるパーツは曲げた後の形)
+// 距離で省く(LOD): GetLod().drawDistance / shadowDistance / outlineDistance(MeshRenderer と同じ。既定は0=いつも)。
+// 半径は「止まっている姿の一番遠い頂点」×1.5(画面判定と同じ余裕。アニメーションではみ出しても、遠いと誤って省かないように)
 class ModelRenderer : public Component, public Shadow::Caster {
 private:
     std::shared_ptr<Model> model;              // 読み込んだモデル(共有。読み込めなかった時はnullptr)
@@ -25,6 +28,7 @@ private:
     std::vector<XMMATRIX> modelMatrices;       // 描画用の作業場所: パーツごとの「モデル空間」の行列(毎フレーム作り直す)
     std::vector<XMMATRIX> boneMatrices;        // 描画用の作業場所: 骨で曲げるパーツのスキン行列
     bool frustumCulling = false;               // trueなら、画面の外にある時は描かない
+    LodSettings lod;                           // 距離で省く設定(既定はすべて使わない)
 
     static constexpr float cullingMargin = 1.5f;   // 画面判定の球に持たせる余裕(骨・アニメーションで、止まっている姿よりはみ出すため)
 
@@ -76,6 +80,12 @@ public:
     // 画面の端で消えて見えることがあるので、その時はfalseに戻す(Visibility::GetCulledCountで確認)
     void SetFrustumCulling(bool enabled) { frustumCulling = enabled; }
     bool IsFrustumCulling() const { return frustumCulling; }
+
+    // 距離で省く設定(drawDistance / shadowDistance / outlineDistance。0=使わない)。まとめて渡す
+    void SetLod(const LodSettings& settings) { lod = settings; }
+    // 手直し用: modelRenderer->GetLod().drawDistance = 8000.f;
+    LodSettings& GetLod() { return lod; }
+    const LodSettings& GetLod() const { return lod; }
 
     // 名前でパーツを探して、その動き(Transform)を返す。無ければnullptr
     // position / rotate(度数) / scale を書き換えると、そのパーツと子のパーツが動く(砲台だけ回す、など)。

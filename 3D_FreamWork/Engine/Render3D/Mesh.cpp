@@ -2,6 +2,7 @@
 #include "../Render/Graphics.h"
 #include "Lighting.h"
 #include "Shadow.h"
+#include "RenderStats.h"
 #include <cassert>
 #include <fstream>
 #include <sstream>
@@ -33,6 +34,12 @@ ID3D11RasterizerState* Mesh::rasterizerState = nullptr;
 ID3D11ShaderResourceView* Mesh::whiteTexture = nullptr;
 float Mesh::aspectRatio = 1.f;
 int Mesh::refCount = 0;
+
+// 1回の描画命令で描く三角形の数(線のメッシュは0。RenderStats の数え用)
+static int CountTriangles(D3D11_PRIMITIVE_TOPOLOGY topology, UINT vertexCount, UINT indexCount, bool indexed) {
+    if (topology != D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST) return 0;
+    return (int)((indexed ? indexCount : vertexCount) / 3);
+}
 
 bool Mesh::Init(const std::vector<MeshVertex>& verts, D3D11_PRIMITIVE_TOPOLOGY topo) {
     return InitInternal(verts, nullptr, topo);
@@ -478,6 +485,7 @@ void Mesh::Draw(const XMMATRIX& world, const Camera& camera, const Material& mat
     context->PSSetShaderResources(0, 1, &view);
     context->PSSetSamplers(0, 1, &sampler);
 
+    RenderStats::AddDraw(CountTriangles(topology, vertexCount, indexCount, indexBuffer != nullptr));
     if (indexBuffer) context->DrawIndexed(indexCount, 0, 0);
     else context->Draw(vertexCount, 0);
 
@@ -533,6 +541,8 @@ void Mesh::DrawOutline(const XMMATRIX& world, const Camera& camera, XMFLOAT4 col
     context->VSSetConstantBuffers(0, 1, &constantBuffer);
     context->PSSetShader(nullptr, nullptr, 0);
     context->OMSetDepthStencilState(seeThrough ? outlineMarkAllState : outlineMarkState, 1);
+    int outlineTriangles = CountTriangles(topology, vertexCount, indexCount, indexBuffer != nullptr);
+    RenderStats::AddOutlineDraw(outlineTriangles);
     if (indexBuffer) context->DrawIndexed(indexCount, 0, 0);
     else context->Draw(vertexCount, 0);
 
@@ -554,6 +564,7 @@ void Mesh::DrawOutline(const XMMATRIX& world, const Camera& camera, XMFLOAT4 col
     ID3D11Buffer* psBuffers[4] = { constantBuffer, nullptr, materialBuffer, cameraBuffer };
     context->PSSetConstantBuffers(0, 4, psBuffers);
 
+    RenderStats::AddOutlineDraw(outlineTriangles);
     if (indexBuffer) context->DrawIndexed(indexCount, 0, 0);
     else context->Draw(vertexCount, 0);
 
@@ -564,6 +575,7 @@ void Mesh::DrawOutline(const XMMATRIX& world, const Camera& camera, XMFLOAT4 col
     context->VSSetConstantBuffers(0, 1, &constantBuffer);
     context->PSSetShader(nullptr, nullptr, 0);
     context->OMSetDepthStencilState(seeThrough ? outlineMarkAllState : outlineMarkState, 0);
+    RenderStats::AddOutlineDraw(outlineTriangles);
     if (indexBuffer) context->DrawIndexed(indexCount, 0, 0);
     else context->Draw(vertexCount, 0);
 
@@ -600,6 +612,7 @@ void Mesh::DrawDepth(const XMMATRIX& world, const XMMATRIX& lightView, const XMM
     context->VSSetConstantBuffers(0, 1, &constantBuffer);
     context->PSSetShader(nullptr, nullptr, 0);   // 色は描かない(深度だけ)
 
+    RenderStats::AddShadowDraw(CountTriangles(topology, vertexCount, indexCount, indexBuffer != nullptr));
     if (indexBuffer) context->DrawIndexed(indexCount, 0, 0);
     else context->Draw(vertexCount, 0);
 }

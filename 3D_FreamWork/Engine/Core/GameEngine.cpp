@@ -12,6 +12,7 @@
 #include "../Render/Visibility.h"
 #include "../Render3D/Lighting.h"
 #include "../Render3D/Shadow.h"
+#include "../Render3D/RenderStats.h"
 #include "../Render/ScreenEffect.h"
 #include "../Transition/SpriteTransition.h"
 #include "../Data/SaveData.h"
@@ -54,6 +55,7 @@ void GameEngine::Run()
         Image::BeginFrame();
         CameraShake::BeginDraw();
         Visibility::BeginFrame();   // 揺れが入ったカメラで視錐台を作る(画面の端で揺れた時に、一瞬描かれない物が出ないように)
+        RenderStats::BeginFrame();  // 描画命令・三角形の数を数え直す(前のフレームの数を確定)
         Lighting::Update();         // 点光源・スポットライトを集める(同じ揺れ入りカメラに近い順で選ぶ)
         Shadow::Render();           // 影のパス(有効な時だけ)。描画先を一時的に影のテクスチャにして、終わったら元に戻す。Direct2D(Text)の描画の前に終えておく
         Text::BeginDraw();

@@ -5,6 +5,7 @@
 #include "Lighting.h"
 #include "Mesh.h"
 #include "Shadow.h"
+#include "RenderStats.h"
 #include "../Core/Time.h"
 #include "../Render/Visibility.h"
 #include <d3dcompiler.h>
@@ -408,6 +409,7 @@ void WaterRenderer::Draw() {
     Lighting::Bind();   // b4: 点光源・スポットライト
     Shadow::Bind();     // b5 / t1 / t2 / s1: 影(影を受ける設定の時だけ使われる)
 
+    RenderStats::AddDraw((int)(indexCount / 3));
     context->DrawIndexed(indexCount, 0, 0);
 
     // 水面だけが使った b6 を外し、描画状態を元へ戻す
