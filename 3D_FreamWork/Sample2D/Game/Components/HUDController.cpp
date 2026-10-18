@@ -1,9 +1,9 @@
 ﻿#include "HUDController.h"
 #include "GameManager.h"
 #include "PlayerController.h"
-#include "../../../Engine/Text.h"
-#include "../../../Engine/Anchor.h"
-#include "../../../Engine/Visibility.h"
+#include "../../../Engine/UI/Text.h"
+#include "../../../Engine/UI/Anchor.h"
+#include "../../../Engine/Render/Visibility.h"
 #include <cstdio>
 
 namespace {

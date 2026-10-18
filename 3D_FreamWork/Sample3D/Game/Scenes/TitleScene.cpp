@@ -3,7 +3,7 @@
 #include "../Objects/StartButton.h"
 #include "../Objects/VolumeSlider.h"
 #include "../Components/TitleController.h"
-#include "../../../Engine/GameObject.h"
+#include "../../../Engine/Core/GameObject.h"
 
 void TitleScene::Init()
 {

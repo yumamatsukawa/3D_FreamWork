@@ -1,6 +1,6 @@
 ﻿#include "GameSystem.h"
-#include "../../../Engine/Scene.h"
-#include "../../../Engine/GameObject.h"
+#include "../../../Engine/Core/Scene.h"
+#include "../../../Engine/Core/GameObject.h"
 #include "../Components/GameManager.h"
 
 GameManager* CreateGameSystem(Scene& scene) {

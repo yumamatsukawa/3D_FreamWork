@@ -1,6 +1,6 @@
 ﻿#include "Sun.h"
-#include "../../../Engine/Scene.h"
-#include "../../../Engine/GameObject.h"
+#include "../../../Engine/Core/Scene.h"
+#include "../../../Engine/Core/GameObject.h"
 #include "../Components/ShadowManager.h"
 
 GameObject* CreateSun(Scene& scene) {

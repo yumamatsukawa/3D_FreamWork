@@ -1,7 +1,7 @@
 ﻿#include "GroundController.h"
-#include "../../../Engine/Image.h"
-#include "../../../Engine/Resources.h"
-#include "../../../Engine/Visibility.h"
+#include "../../../Engine/Render/Image.h"
+#include "../../../Engine/Core/Resources.h"
+#include "../../../Engine/Render/Visibility.h"
 #include <cmath>
 
 void GroundController::Init() {

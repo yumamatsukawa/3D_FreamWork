@@ -1,8 +1,8 @@
 ﻿#include "Guard.h"
-#include "../../../Engine/Scene.h"
-#include "../../../Engine/GameObject.h"
-#include "../../../Engine/SpriteRenderer.h"
-#include "../../../Engine/VisionComponent.h"
+#include "../../../Engine/Core/Scene.h"
+#include "../../../Engine/Core/GameObject.h"
+#include "../../../Engine/Render/SpriteRenderer.h"
+#include "../../../Engine/Behavior/VisionComponent.h"
 #include "../Components/GuardController.h"
 
 GameObject* CreateGuard(Scene& scene, GameObject* target) {

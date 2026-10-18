@@ -8,8 +8,8 @@
 #include "../Objects/BulletSpawner.h"
 #include "../Objects/HUD.h"
 #include "../Components/PlayerController.h"
-#include "../../../Engine/EventBus.h"
-#include "../../../Engine/GameObject.h"
+#include "../../../Engine/Core/EventBus.h"
+#include "../../../Engine/Core/GameObject.h"
 
 void GameScene::Init()
 {

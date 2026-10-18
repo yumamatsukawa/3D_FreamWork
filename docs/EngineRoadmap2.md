@@ -1,9 +1,9 @@
-# Engine 機能追加ロードマップ2(見え方・地形・物理の追加)
+﻿# Engine 機能追加ロードマップ2(見え方・地形・物理の追加)
 
 ## 1. はじめに
 
 ### この文書の目的
-Engine(`3D_FreamWork/Engine/`)に追加したい10個の機能(視界判定・カプセルコライダー・マテリアル・ライト・影・枠線・地形・地形コライダー・水面・ポイントライトの影)について、「どんな関数を作るか」「どの順番で作るか」「Engineのどのファイルを変えるか」「Sampleではどう使えるか」をまとめた設計書です。チーム(C++初心者を含む)で分担して実装する時の資料として使います。
+Engine(`3D_FreamWork/Engine/`)に追加したい10個の機能(視界判定・カプセルコライダー・マテリアル・ライト・影・枠線・地形・地形コライダー・水面・ポイントライトの影)について(うち、ポイントライトの影 6.10 は、ユーザーの判断で作らないことにした=見送り。設計だけ残してある)、「どんな関数を作るか」「どの順番で作るか」「Engineのどのファイルを変えるか」「Sampleではどう使えるか」をまとめた設計書です。チーム(C++初心者を含む)で分担して実装する時の資料として使います。
 
 ### `docs/EngineRoadmap.md` との関係
 - `EngineRoadmap.md`(ロードマップ1)の17機能は**すべて完了**しています。この文書はその**続き**です。書き方(目的 / ファイル案 / 関数 / 設計のポイント / 置き換えるSampleのコード / 依存する機能)は同じにそろえました。
@@ -11,7 +11,7 @@ Engine(`3D_FreamWork/Engine/`)に追加したい10個の機能(視界判定・�
 - ロードマップ1の機能(物理の問い合わせ 5.6、カメラ機能 5.7、FBX・骨アニメーション 5.16 など)は**もう使える前提**で書いています。特に、視界判定は 5.6 の `Physics::Raycast` を使います。
 
 ### 状態
-**ここに書いてある内容は「設計案」です。6.1 視界判定・6.2 カプセルコライダー・6.3 マテリアル・6.4 ポイントライトとスポットライト・6.5 影・6.6 枠線とリム発光が実装済みです(4章の表の状態を見てください。ほかは「未着手」)。** 関数名・引数は、実装しながら変わってよいものです。この設計書は「実際のEngineのコードを読んで」書いたので、既存のクラス名・関数名・ファイル名は本物です。新しく作る名前だけが案です。
+**ここに書いてある内容は「設計案」です。6.1 視界判定・6.2 カプセルコライダー・6.3 マテリアル・6.4 ポイントライトとスポットライト・6.5 影・6.6 枠線とリム発光・6.7 地形・6.8 地形に合わせたコライダー・6.9 水面が実装済みで、6.10 ポイントライトの影は見送りです(4章の表の状態を見てください)。つまり、6.1〜6.9 は実装済み、6.10 は見送りです。** 関数名・引数は、実装しながら変わってよいものです。この設計書は「実際のEngineのコードを読んで」書いたので、既存のクラス名・関数名・ファイル名は本物です。新しく作る名前だけが案です。
 
 ### 進め方の方針(1機能ずつ)
 1機能ごとに、次の流れで進めます。
@@ -45,7 +45,7 @@ Engine(`3D_FreamWork/Engine/`)に追加したい10個の機能(視界判定・�
 - **マテリアル → ライト → 影**: ライトも影も、「この面の色を、光でどう変えるか」という計算を増やす機能です。その計算を入れる場所(マテリアルの定数バッファ・カメラ位置の定数バッファ)を、最初にマテリアルで決めておくと、後の機能がシェーダーを何度も書き直さずに済みます。影は「光の向き・位置」(ライト)と「Meshを速く描ける作り」(マテリアル段階2)が前提なので、一番後ろに置きました。
 - **地形 → 地形コライダー → 水面**: 地形コライダーは、地形と**同じ高さのデータ**から作ります(見た目と当たり判定がずれないように)。水面は「地形のくぼみに水を張る」使い方が一番分かりやすいので、地形の後にしました。
 - **視界判定とカプセルは単独**: ほかの機能に依存せず、依存もされません(カプセルは地形と相性がよいだけ)。担当者が空いている時に、いつでも先に作ってよいです。
-- **ポイントライトの影は最後**: 6.5 で作った影の仕組み(`Shadow`・`VSShadow`・`DrawDepth`・`ShadowBuffer`)をそのまま使って、6面ぶん描くだけなので、6.5 の後ならいつでも作れます。ほかの機能(枠線・地形・水面)とは独立しています。
+- **ポイントライトの影は最後(→ 見送り。作らないことにした)**: 6.5 で作った影の仕組み(`Shadow`・`VSShadow`・`DrawDepth`・`ShadowBuffer`)をそのまま使って、6面ぶん描くだけなので、6.5 の後ならいつでも作れます。ほかの機能(枠線・地形・水面)とは独立しています。
 - **枠線はマテリアルの後**: 枠線の色・太さ・縁の光り方はマテリアルの項目として持つので、マテリアルが先です。影(5)とは独立しているので、影が難しければ先に作ってもかまいません。
 
 ---
@@ -96,7 +96,7 @@ Engine(`3D_FreamWork/Engine/`)に追加したい10個の機能(視界判定・�
 | 7 | [6.7 地形](#67-地形実装済み) | 6.3(段階2)。6.1は任意 | | 実装済み(画像・CSV・描画。遠くに置いた例) |
 | 8 | [6.8 地形に合わせたコライダー](#68-地形に合わせたコライダー実装済み) | 6.7 | | 実装済み(高さフィールド。実測で見た目と一致) |
 | 9 | [6.9 水面](#69-水面実装済み) | 6.3・6.4。6.7があると使い方が分かりやすい | | 実装済み(4本の波・フレネル・光沢・半透明。深度を読む表現は将来) |
-| 10 | [6.10 ポイントライトの影](#610-ポイントライトの影) | 6.4・6.5(`Shadow` の仕組みを使う。6.6〜6.9とは独立) | | 未着手 |
+| 10 | [6.10 ポイントライトの影](#610-ポイントライトの影見送り) | 6.4・6.5(`Shadow` の仕組みを使う。6.6〜6.9とは独立) | | 見送り(設計だけ残す) |
 
 ---
 
@@ -115,7 +115,7 @@ Engine(`3D_FreamWork/Engine/`)に追加したい10個の機能(視界判定・�
 | `b5` | `ShadowBuffer`(光から見たview×proj・バイアスなど。6.4 が `b4` を使ったので `b5` にずらす) | 6.5 | 1フレームに1回 |
 | `t0` / `s0` | 画像 / サンプラー(今のまま) | (今ある) | |
 | `t1` / `t2` / `s1` | 太陽の影・スポットの影の深度テクスチャ / 比較サンプラー | 6.5 | |
-| `t3` | ポイントライトの影(`TextureCube`。6面の深度)。`s1` を共用。定数は `b5` の末尾に足す | 6.10 | |
+| `t3` | ポイントライトの影(`TextureCube`。6面の深度)。`s1` を共用。定数は `b5` の末尾に足す | 6.10(見送り。使われていない) | |
 | `b6` | `WaterBuffer`(水面だけ。6.4・6.5 で番号がずれたので `b6`) | 6.9 | 1フレームに1回 |
 
 **`b0` を変えない理由**: `MeshConstantBuffer` は `Mesh` と `SkinMesh` と2つのシェーダーが同じ形で使っていて、平行光源はここに入っています。ここを変えると全部を同時に直す必要があります。**平行光源は今のまま `b0`、増える光(点光源・スポット)は新しい `b4`**(設計時は `b3` と書いたが、6.4 で `b4` にした)にすれば、新しい光を1つも置かない限り、今のゲームの見た目は変わりません。
@@ -150,9 +150,9 @@ Engine(`3D_FreamWork/Engine/`)に追加したい10個の機能(視界判定・�
 - **(b) 敵の視野の扇形に入っているか**: 角度・距離で扇形の中にいて、かつ壁などで遮られていないか(5.6 の `Physics::Raycast` を使う)
 
 **ファイル案**:
-- `Engine/Visibility.h/.cpp`(中身は `namespace Visibility`。(a)の判定)
-- `Engine/VisionComponent.h/.cpp`((b)の視野。敵などに付ける)
-- 既存の変更: `Engine/MeshRenderer.h`・`Engine/ModelRenderer.h/.cpp`・`Engine/SpriteRenderer.h/.cpp`(画面外なら描かない)、`Engine/Model.h/.cpp`(大きさの半径)、`Engine/GameEngine.cpp`(毎フレームの準備を呼ぶ)、`Engine/Image.h/.cpp`(縦横比を返す関数を公開)
+- `Engine/Render/Visibility.h/.cpp`(中身は `namespace Visibility`。(a)の判定)
+- `Engine/Behavior/VisionComponent.h/.cpp`((b)の視野。敵などに付ける)
+- 既存の変更: `Engine/Render3D/MeshRenderer.h`・`Engine/Render3D/ModelRenderer.h/.cpp`・`Engine/Render/SpriteRenderer.h/.cpp`(画面外なら描かない)、`Engine/Render3D/Model.h/.cpp`(大きさの半径)、`Engine/Core/GameEngine.cpp`(毎フレームの準備を呼ぶ)、`Engine/Render/Image.h/.cpp`(縦横比を返す関数を公開)
 
 **関数**:
 ```cpp
@@ -231,8 +231,8 @@ public:
 - **デバッグ表示**: 扇形の外側の弧と2本の辺を、線(`D3D11_PRIMITIVE_TOPOLOGY_LINELIST`)で描きます。`Mesh::Draw` は `vertices` を毎回そのまま送る作りで、頂点を後から変える関数が無いので、**距離1の扇形を作っておき、`Transform` の `scale`(距離)と `rotate`(向き)で大きさと向きを変える**やり方にします(`RigidbodyComponent::Draw` が輪郭のメッシュを `scale` で伸ばしているのと同じ)。視野の角度を変えた時だけ、`Mesh` を作り直します。見えている時は赤、見えていない時は緑。
 
 **両サンプルへの影響(変えるEngineファイル。了承が必要)**:
-- 新規: `Engine/Visibility.h/.cpp`、`Engine/VisionComponent.h/.cpp`、`Engine.vcxproj(.filters)`
-- 既存の変更: `Engine/MeshRenderer.h`・`Engine/ModelRenderer.h/.cpp`(`Draw` の最初に判定を足す)、`Engine/SpriteRenderer.h/.cpp`、`Engine/Model.h/.cpp`(半径)、`Engine/GameEngine.cpp`(`Visibility::BeginFrame()` を1行足す)、`Engine/Image.h/.cpp`(縦横比を返す関数。任意)
+- 新規: `Engine/Render/Visibility.h/.cpp`、`Engine/Behavior/VisionComponent.h/.cpp`、`Engine.vcxproj(.filters)`
+- 既存の変更: `Engine/Render3D/MeshRenderer.h`・`Engine/Render3D/ModelRenderer.h/.cpp`(`Draw` の最初に判定を足す)、`Engine/Render/SpriteRenderer.h/.cpp`、`Engine/Render3D/Model.h/.cpp`(半径)、`Engine/Core/GameEngine.cpp`(`Visibility::BeginFrame()` を1行足す)、`Engine/Render/Image.h/.cpp`(縦横比を返す関数。任意)
 - `Shader*.hlsl`・`PhysX.props`・`Physics.h/.cpp` は**変えない**
 - Sample2D: `SpriteRenderer` が画面外なら描かなくなる(見た目は変わらない。**画面外にいる敵・弾のスプライトを描かなくなるだけ**)。Sample3D: `MeshRenderer` / `ModelRenderer` / 敵の `SpriteRenderer`(ビルボード)も同じ。**見た目は変わらない**はずですが、半径の見積もりが小さいと画面の端で消えるので、遊んで確認してもらう。
 
@@ -282,7 +282,7 @@ sprite->SetColor(seen ? 1.f : 0.f, 0.f, seen ? 0.f : 1.f, 1.f);
 
 **目的**: 立った人や敵のような、細長い形(円柱の両端が半球)の当たり判定を作れるようにする。箱の角で段差に引っかからない、坂道を滑らかに歩ける、という利点がある(特に地形(6.7〜6.8)の上を歩く時)。
 
-**ファイル案**: 既存の `Engine/RigidbodyComponent.h/.cpp` に追加(新しい派生クラス)。見た目用に `Engine/Mesh.h/.cpp` に `CreateCapsule` を追加。
+**ファイル案**: 既存の `Engine/Physics/RigidbodyComponent.h/.cpp` に追加(新しい派生クラス)。見た目用に `Engine/Render3D/Mesh.h/.cpp` に `CreateCapsule` を追加。
 
 **関数**:
 ```cpp
@@ -329,7 +329,7 @@ static std::vector<MeshVertex> Mesh::CreateCapsule(float radius, float height, i
 - **質問が出そうな点**: `Physics::OverlapSphere` / `OverlapBox` は、カプセルの形にも当たる(相手の形は何でもよい)ので、変更は不要です。カプセルで調べる `Physics::OverlapCapsule` は、今回は作りません(必要になったら足す)。
 
 **両サンプルへの影響(変えるEngineファイル。了承が必要)**:
-- 変更: `Engine/RigidbodyComponent.h/.cpp`(派生クラス2つ、`InitWithGeometry` に形の向きを渡せるようにする、`Draw` の `eCAPSULE`)、`Engine/Mesh.h/.cpp`(`CreateCapsule`、`CreateCapsuleOutline`)、`Engine.vcxproj`(ファイルは増えないので不要。増やす場合のみ)
+- 変更: `Engine/Physics/RigidbodyComponent.h/.cpp`(派生クラス2つ、`InitWithGeometry` に形の向きを渡せるようにする、`Draw` の `eCAPSULE`)、`Engine/Render3D/Mesh.h/.cpp`(`CreateCapsule`、`CreateCapsuleOutline`)、`Engine.vcxproj`(ファイルは増えないので不要。増やす場合のみ)
 - `Shader*.hlsl`・`PhysX.props`・`Physics.h/.cpp` は**変えない**
 - 既存の `Box` / `Sphere` / `Circle` / `Square` の動きは変わらない(`InitWithGeometry` の引数は既定値つきで追加するので、呼び出し側は直さなくて済む)。Sample2D・Sample3D とも、**既存のオブジェクトを置き換えるまでは何も変わりません**。
 
@@ -368,7 +368,7 @@ auto* rigidbody = obj->AddComponent<CapsuleRigidbodyComponent>(BodyType::Dynamic
 
 **目的**: 色・画像・光沢(スペキュラ)・透明度・自発光(縁の光や枠線の項目を含む)を、1つの「マテリアル」にまとめる。今は `MeshRenderer::SetColor` / `SetTexture` / `SetUnlit` / `SetDepthWrite` がバラバラにある。ライト・影・枠線・水面の項目を足す入れ物になる。
 
-**ファイル案**: `Engine/Material.h`(構造体だけ)。既存の変更: `Engine/Mesh.h/.cpp`・`Engine/SkinMesh.h/.cpp`・`Engine/MeshRenderer.h`・`Engine/ModelRenderer.h/.cpp`・`Shader3D.hlsl`・`Shader3DSkin.hlsl`(・5章で決める `Shader3DCommon.hlsli`)。
+**ファイル案**: `Engine/Render3D/Material.h`(構造体だけ)。既存の変更: `Engine/Render3D/Mesh.h/.cpp`・`Engine/Render3D/SkinMesh.h/.cpp`・`Engine/Render3D/MeshRenderer.h`・`Engine/Render3D/ModelRenderer.h/.cpp`・`Shader3D.hlsl`・`Shader3DSkin.hlsl`(・5章で決める `Shader3DCommon.hlsli`)。
 
 **関数**:
 ```cpp
@@ -425,8 +425,8 @@ Material& GetMaterial();                      // 手直し用: renderer->GetMate
 - **落とし穴**: `Mesh` を `static` で共有しているものがある(`RigidbodyComponent.cpp` の `GetOutlineMesh`)。`Init` の呼び方は変えないこと。
 
 **両サンプルへの影響(変えるEngineファイル。了承が必要)**:
-- 新規: `Engine/Material.h`、(任意)`Shader3DCommon.hlsli`
-- 変更: `Shader3D.hlsl`・`Shader3DSkin.hlsl`(`b2`、ワールド座標の受け渡し、鏡面・自発光)、`Engine/Mesh.h/.cpp`・`Engine/SkinMesh.h/.cpp`(`MaterialBuffer`、`Draw` の新しい版、段階2)、`Engine/MeshRenderer.h`・`Engine/ModelRenderer.h/.cpp`、`Engine.vcxproj`(`.hlsli` を足す場合)
+- 新規: `Engine/Render3D/Material.h`、(任意)`Shader3DCommon.hlsli`
+- 変更: `Shader3D.hlsl`・`Shader3DSkin.hlsl`(`b2`、ワールド座標の受け渡し、鏡面・自発光)、`Engine/Render3D/Mesh.h/.cpp`・`Engine/Render3D/SkinMesh.h/.cpp`(`MaterialBuffer`、`Draw` の新しい版、段階2)、`Engine/Render3D/MeshRenderer.h`・`Engine/Render3D/ModelRenderer.h/.cpp`、`Engine.vcxproj`(`.hlsli` を足す場合)
 - `PhysX.props` は変えない
 - **Sample3D**: 既定値は「今の見た目と同じ」になる(ハイライトなし・自発光なし)ので、**見た目は変わらないはず**。ただし `Shader3D.hlsl` を書き換えるので、全部の3Dオブジェクトの見た目が変わっていないか確認してもらう。
 - **Sample2D**: 当たり判定のデバッグ表示(`Mesh`)を通して間接的に影響する。`Shader3D.hlsl` の変更が表示を壊していないか確認する(`RigidbodyComponent::SetDebugDrawEnabled(true)` で見る)。
@@ -451,7 +451,7 @@ meshRenderer->GetMaterial().emissiveStrength = 0.3f;
 **依存する機能**: 5.3 リソースの使い回し(画像の共有)。
 
 **実装して決めたこと(実装済み。段階1・段階2とも)**:
-- **新しいファイル**: `Engine/Material.h`(`Material` と、シェーダーへ送る `MaterialConstantBuffer`)、`Shader3DCommon.hlsli`(`Engine.vcxproj` の `CopyRuntimeFiles` と `UpToDateCheckInput` に登録)。`Mesh.cpp` / `SkinMesh.cpp` の `D3DCompileFromFile` は `D3D_COMPILE_STANDARD_FILE_INCLUDE` に変えた。
+- **新しいファイル**: `Engine/Render3D/Material.h`(`Material` と、シェーダーへ送る `MaterialConstantBuffer`)、`Shader3DCommon.hlsli`(`Engine.vcxproj` の `CopyRuntimeFiles` と `UpToDateCheckInput` に登録)。`Mesh.cpp` / `SkinMesh.cpp` の `D3DCompileFromFile` は `D3D_COMPILE_STANDARD_FILE_INCLUDE` に変えた。
 - **`Material` の項目**: `color`・`texture`・`lit`・`depthWrite`・`specularColor`・`specularStrength`・`shininess`・`emissiveColor`・`emissiveStrength` の9個。**設計書の `receiveShadow` / `castShadow` / `rim*` / `outline*` は、まだ足していない**(使う機能 6.5・6.6 を作る時に足す。定数バッファ `params` の `y`/`z` を予約してある。**6.5 で `castShadow` / `receiveShadow` を、6.6 で `rim*` / `outline*` を足した**)。
 - **シェーダー**: `Shader3DCommon.hlsli` に `b0`(今まで通り)・`b2`(`MaterialBuffer`: `color` / `specular` / `emissive` / `params`)・`b3`(`CameraBuffer`: `eyePos` だけ)・`PSInput`(`worldPos` を追加)・`ShadePixel()` を置き、`Shader3D.hlsl` と `Shader3DSkin.hlsl` は頂点の動かし方と `ShadePixel()` の呼び出しだけにした。`b1`(骨)の `tint` は `b2` の `color` に移して削除した。
 - **鏡面**は `rgb += specularColor × lightColor × pow(saturate(dot(N, H)), shininess) × specularStrength`(設計書の式に、平行光源の色を掛けた。`lit = false` の時と、光が当たらない面(`dot(N, L) <= 0`)では出さない)。**自発光**は光の計算の後に足すだけ。
@@ -473,7 +473,7 @@ meshRenderer->GetMaterial().emissiveStrength = 0.3f;
 
 **目的**: 今の「全体に同じ方向から当たる光(平行光源)」に、ランタンのように**周りを照らす光(ポイントライト)**と、懐中電灯のように**円すい形に照らす光(スポットライト)**を足す。
 
-**ファイル案**: `Engine/LightComponent.h/.cpp`(付けたオブジェクトの位置から光る)、`Engine/Lighting.h/.cpp`(`namespace Lighting`。光の一覧を集めて、GPUへ送る)。既存の変更: `Shader3D.hlsl`・`Shader3DSkin.hlsl`・`Engine/Mesh.cpp`・`Engine/SkinMesh.cpp`・`Engine/GameEngine.cpp`。
+**ファイル案**: `Engine/Render3D/LightComponent.h/.cpp`(付けたオブジェクトの位置から光る)、`Engine/Render3D/Lighting.h/.cpp`(`namespace Lighting`。光の一覧を集めて、GPUへ送る)。既存の変更: `Shader3D.hlsl`・`Shader3DSkin.hlsl`・`Engine/Render3D/Mesh.cpp`・`Engine/Render3D/SkinMesh.cpp`・`Engine/Core/GameEngine.cpp`。
 
 **関数**:
 ```cpp
@@ -528,8 +528,8 @@ namespace Lighting {
 - **2D(Sample2D)**: スプライト(`Shader.hlsl`)は光を計算しないので、**光は2Dには効きません**。2Dの明るさは今回の範囲外(必要なら別の機能として相談)。
 
 **両サンプルへの影響(変えるEngineファイル。了承が必要)**:
-- 新規: `Engine/LightComponent.h/.cpp`、`Engine/Lighting.h/.cpp`、`Engine.vcxproj(.filters)`
-- 変更: `Shader3D.hlsl`・`Shader3DSkin.hlsl`(`b3`、ループ)、`Engine/Mesh.h/.cpp`・`Engine/SkinMesh.h/.cpp`(`b3` の作成・`Bind`)、`Engine/GameEngine.cpp`(`Lighting::Update()` を、`Visibility::BeginFrame()` の次あたりに1行)
+- 新規: `Engine/Render3D/LightComponent.h/.cpp`、`Engine/Render3D/Lighting.h/.cpp`、`Engine.vcxproj(.filters)`
+- 変更: `Shader3D.hlsl`・`Shader3DSkin.hlsl`(`b3`、ループ)、`Engine/Render3D/Mesh.h/.cpp`・`Engine/Render3D/SkinMesh.h/.cpp`(`b3` の作成・`Bind`)、`Engine/Core/GameEngine.cpp`(`Lighting::Update()` を、`Visibility::BeginFrame()` の次あたりに1行)
 - `PhysX.props`・`Light.h`(平行光源)は変えない
 - Sample3D: 光を置くまで見た目は変わらない。Sample2D: 変わらない(デバッグ表示の `Mesh` が `b3` を使うが、光の数が0なので同じ)。
 
@@ -554,7 +554,7 @@ Image::GetLight().ambient = { 0.1f, 0.1f, 0.12f };
 **依存する機能**: 6.3(`PSInput` のワールド座標・鏡面反射・`eyePos`)。
 
 **実装して決めたこと(実装済み)**:
-- **新しいファイル**: `Engine/LightComponent.h/.cpp`、`Engine/Lighting.h/.cpp`(`Engine.vcxproj(.filters)` に登録)。変更: `Shader3DCommon.hlsli`(`LightBuffer` と光のループ。`Shader3D.hlsl` / `Shader3DSkin.hlsl` は共通ファイルを `#include` しているので、中身は変えていない)、`Engine/Mesh.cpp`・`SkinMesh.cpp`(描く時に `Lighting::Bind()` を1行)、`Engine/GameEngine.cpp`(`Lighting::Update()` を `Visibility::BeginFrame()` の次に、`Lighting::Shutdown()` を終了時に)。`Light.h`(平行光源)・`PhysX.props`・`Shader.hlsl` は変えていない。
+- **新しいファイル**: `Engine/Render3D/LightComponent.h/.cpp`、`Engine/Render3D/Lighting.h/.cpp`(`Engine.vcxproj(.filters)` に登録)。変更: `Shader3DCommon.hlsli`(`LightBuffer` と光のループ。`Shader3D.hlsl` / `Shader3DSkin.hlsl` は共通ファイルを `#include` しているので、中身は変えていない)、`Engine/Render3D/Mesh.cpp`・`SkinMesh.cpp`(描く時に `Lighting::Bind()` を1行)、`Engine/Core/GameEngine.cpp`(`Lighting::Update()` を `Visibility::BeginFrame()` の次に、`Lighting::Shutdown()` を終了時に)。`Light.h`(平行光源)・`PhysX.props`・`Shader.hlsl` は変えていない。
 - **レジスタは `b4`**(設計書は `b3`)。`b3` は 6.3 で `eyePos` だけの `CameraBuffer` として描く度に書いている。光(512バイト+数)を同じバッファに入れると、描く度に書き直すので無駄になる。そこで光は `b4`(1フレームに1回)にし、5.1の表の `ShadowBuffer` を `b5`、`WaterBuffer` を `b6` にずらした。
 - **`LightBuffer`**: `int4 lightCounts`(`x`=光の数)+ `GpuLight lights[8]`(`float4` を4本=64バイト。`positionRange` / `colorType` / `directionOuter` / `innerPad`)= 528バイト。C++側は `Lighting::LightConstantBuffer`(`static_assert` でサイズを確認)。`Lighting::Update()` は、光が1つも無くてまだバッファが無い間は何も作らず、`Bind()` は `nullptr` をセットする(シェーダーは0として読むので、光は0個の扱い)。
 - **ライトの数が `Lighting::maxLights`(8)を超えた時**: **カメラに近い8個だけ**を使う(3Dカメラ=画面の揺れが入った位置との距離の2乗で並べ、同じ距離なら登録順)。1フレームに1回だけ選ぶ(設計書どおり)。超えた間は、出力ウィンドウに警告が**1回だけ**出る(超え続けても毎フレーム出さず、いったん8個以下に戻ってから、また超えたら出す)。
@@ -582,7 +582,7 @@ Image::GetLight().ambient = { 0.1f, 0.1f, 0.12f };
 
 > **この機能は一番大きく、難しいです。** 描画の流れそのもの(`GameEngine::Run`)に新しい「影のパス」が加わります。下の「難しい・大きい点」と「段階分け」を必ず読んでください。
 
-**ファイル案**: `Engine/Shadow.h/.cpp`(`namespace Shadow`。影の深度テクスチャ・描画の準備・後片付け)。既存の変更: `Shader3D.hlsl`・`Shader3DSkin.hlsl`(影の深度を書くエントリ `VSShadow` を足し、本番のピクセルシェーダーで影を引く)、`Engine/Mesh.h/.cpp`・`SkinMesh.h/.cpp`(`DrawDepth` を足す)、`Engine/Component.h`・`Engine/GameObject.h`・`Engine/Scene.h/.cpp`・`Engine/SceneManager.h/.cpp`(影のパスで「影を落とす物」を呼ぶ口)、`Engine/MeshRenderer.h`・`Engine/ModelRenderer.h/.cpp`、`Engine/GameEngine.cpp`。
+**ファイル案**: `Engine/Render3D/Shadow.h/.cpp`(`namespace Shadow`。影の深度テクスチャ・描画の準備・後片付け)。既存の変更: `Shader3D.hlsl`・`Shader3DSkin.hlsl`(影の深度を書くエントリ `VSShadow` を足し、本番のピクセルシェーダーで影を引く)、`Engine/Render3D/Mesh.h/.cpp`・`SkinMesh.h/.cpp`(`DrawDepth` を足す)、`Engine/Core/Component.h`・`Engine/Core/GameObject.h`・`Engine/Core/Scene.h/.cpp`・`Engine/Core/SceneManager.h/.cpp`(影のパスで「影を落とす物」を呼ぶ口)、`Engine/Render3D/MeshRenderer.h`・`Engine/Render3D/ModelRenderer.h/.cpp`、`Engine/Core/GameEngine.cpp`。
 
 **関数**:
 ```cpp
@@ -634,11 +634,11 @@ virtual void DrawShadow() {}
 - **段階1**: 平行光源だけ、`Mesh`(`MeshRenderer`)が影を落とし・受ける。PCF 3x3。解像度は設定。静止した `ModelRenderer` のパーツも落とす。
 - **段階2**: スキンメッシュ(`SkinMesh`)が影を落とす。透明部分が多い画像(アルファの切り抜き)の影。
 - **段階3**: スポットライトの影(透視投影で、光の位置から見た深度。同時に影を作る光は1つだけ)。
-- **将来(今回は作らない)**: カスケード(遠近で影の解像度を変える)、点光源の影(キューブマップ。→ **6.10 で設計**)、柔らかい影(PCSS)。
+- **将来(今回は作らない)**: カスケード(遠近で影の解像度を変える)、点光源の影(キューブマップ。→ 6.10 で設計したが、**見送り**)、柔らかい影(PCSS)。
 
 **両サンプルへの影響(変えるEngineファイル。了承が必要)**:
-- 新規: `Engine/Shadow.h/.cpp`、`Engine.vcxproj(.filters)`
-- 変更: `Shader3D.hlsl`・`Shader3DSkin.hlsl`、`Engine/Mesh.h/.cpp`・`Engine/SkinMesh.h/.cpp`、`Engine/Component.h`・`Engine/GameObject.h`・`Engine/Scene.h/.cpp`・`Engine/SceneManager.h/.cpp`、`Engine/MeshRenderer.h`・`Engine/ModelRenderer.h/.cpp`、`Engine/GameEngine.cpp`(影のパスの呼び出し)、`Engine/Graphics.h/.cpp`(必要なら、元のビューポートを戻す補助)
+- 新規: `Engine/Render3D/Shadow.h/.cpp`、`Engine.vcxproj(.filters)`
+- 変更: `Shader3D.hlsl`・`Shader3DSkin.hlsl`、`Engine/Render3D/Mesh.h/.cpp`・`Engine/Render3D/SkinMesh.h/.cpp`、`Engine/Core/Component.h`・`Engine/Core/GameObject.h`・`Engine/Core/Scene.h/.cpp`・`Engine/Core/SceneManager.h/.cpp`、`Engine/Render3D/MeshRenderer.h`・`Engine/Render3D/ModelRenderer.h/.cpp`、`Engine/Core/GameEngine.cpp`(影のパスの呼び出し)、`Engine/Render/Graphics.h/.cpp`(必要なら、元のビューポートを戻す補助)
 - `PhysX.props` は変えない
 - **`Shadow::GetSettings().enabled = false` の間は影のパスを実行しないので、見た目は今と同じ**(既定OFF)。両サンプルとも、ONにしたシーンだけが変わる。Sample2D は影を使わない。ただし根幹のファイルを触るので、**Sample2D も含めて全体が正しく動くことを必ず確認**する。
 
@@ -659,7 +659,7 @@ Shadow::GetSettings().distance = 2500.f;
 
 **実装して決めたこと(実装済み。段階1・2・3とも)**:
 - **方式は「登録簿方式」にした**(`Component::DrawShadow` を足す案は選ばなかった)。`MeshRenderer` / `ModelRenderer` が `Init` で `Shadow::Register` に自分を登録し(`Uninit` とデストラクタで解除)、`Shadow::Render` が登録簿を回して、アクティブ(`SetActive`)で有効(`SetEnabled`)な物の `DrawShadow` を呼ぶ。選んだ理由: ①`Component.h` / `GameObject.h` / `Scene.h/.cpp` / `SceneManager.h/.cpp` の根幹を1行も触らずに済み、Sample2D を含む全オブジェクトへの影響が無い(`Lighting` と同じ作りで、チームも読みやすい) ②アクティブ・有効の判定は `GetOwner()->GetIsActive()` と `IsEnabled()` の2行で済み、`GameObject::Draw` と同じ決まりになる ③`DrawShadow` を実装した物だけが影のパスに出るので、`Component` を使う全部のクラスに口を増やさない。デメリット(登録の消し忘れ)は、`Uninit` とデストラクタの両方で外すことで防いだ。
-- **新しいファイル**: `Engine/Shadow.h/.cpp`(`Engine.vcxproj(.filters)` に登録)。**変えた Engine**: `Shader3DCommon.hlsli`(`ShadowBuffer` b5・`SunShadow` / `SpotShadow` / PCF。`ShadePixel` で引く)、`Shader3D.hlsl`・`Shader3DSkin.hlsl`(深度だけの頂点シェーダー `VSShadow` を足しただけ)、`Mesh.h/.cpp`・`SkinMesh.h/.cpp`(`DrawDepth` と深度用の頂点シェーダー。`Draw` が `Shadow::Bind()` を1行)、`MeshRenderer.h`・`ModelRenderer.h/.cpp`(登録と `DrawShadow`)、`Material.h`(`castShadow` / `receiveShadow`)、`GameEngine.cpp`(`Shadow::Render()` と `Shadow::Shutdown()`)。**変えていない**: `Component.h`・`GameObject.h`・`Scene.h/.cpp`・`SceneManager.h/.cpp`・`Graphics.h/.cpp`(描画先の保存と復元を `Shadow::Render` の中で `OMGet○○` / `RSGet○○` でやったので不要)・`Shader.hlsl`・`PhysX.props`。段階3のために、6.4 で「影の余地」として予約していた範囲で `LightComponent.h`(`SetCastShadow`)と `Lighting.h/.cpp`(影を落とすスポットを1つ選び、`GpuLight::innerPad[1]` に印を付ける。`GetShadowSpotLight()`)も変えた。
+- **新しいファイル**: `Engine/Render3D/Shadow.h/.cpp`(`Engine.vcxproj(.filters)` に登録)。**変えた Engine**: `Shader3DCommon.hlsli`(`ShadowBuffer` b5・`SunShadow` / `SpotShadow` / PCF。`ShadePixel` で引く)、`Shader3D.hlsl`・`Shader3DSkin.hlsl`(深度だけの頂点シェーダー `VSShadow` を足しただけ)、`Mesh.h/.cpp`・`SkinMesh.h/.cpp`(`DrawDepth` と深度用の頂点シェーダー。`Draw` が `Shadow::Bind()` を1行)、`MeshRenderer.h`・`ModelRenderer.h/.cpp`(登録と `DrawShadow`)、`Material.h`(`castShadow` / `receiveShadow`)、`GameEngine.cpp`(`Shadow::Render()` と `Shadow::Shutdown()`)。**変えていない**: `Component.h`・`GameObject.h`・`Scene.h/.cpp`・`SceneManager.h/.cpp`・`Graphics.h/.cpp`(描画先の保存と復元を `Shadow::Render` の中で `OMGet○○` / `RSGet○○` でやったので不要)・`Shader.hlsl`・`PhysX.props`。段階3のために、6.4 で「影の余地」として予約していた範囲で `LightComponent.h`(`SetCastShadow`)と `Lighting.h/.cpp`(影を落とすスポットを1つ選び、`GpuLight::innerPad[1]` に印を付ける。`GetShadowSpotLight()`)も変えた。
 - **`Material` の `castShadow` / `receiveShadow` は、既定を両方 `false` にした**(設計書は `true`)。「影を有効にしない限り既存の見た目を変えない」ことに加えて、影を有効にしても、指定した物だけが影の影響を受けるようにするため。`RigidbodyComponent` の枠線表示や、色指定の `Mesh::Draw` も、既定のマテリアル(=影を受けない)になる。
 - **既定値(`Shadow::Settings`)**: `enabled = false`、`resolution = 2048`、`distance = 3000`、`depthBias = 0.0005`(設計書は0.0015)、`normalBias = 2.0`、`strength = 0.6`、`pcfRadius = 1`、スポット用に `spotResolution = 1024`・`spotDepthBias = 3.0`(ワールド単位)・`spotStrength = 1.0`。`depthBias` を設計書より小さくしたのは、影の奥行きの範囲が `2 × distance`(既定6000)で、0.0005 がワールド単位で約3に当たり、0.0015(約9)だと影が物から浮いて見えるため。ラスタライザの傾き補正(`SlopeScaledDepthBias = 1.5`)と合わせて、WARP で床・箱・球・スキンの自己影が出ないことを確認した。Sample3D は `distance = 2500` にしている。
 - **影の範囲**: 3Dカメラの前方 `distance / 2` の点を中心に、一辺 `distance` の正方形(光に垂直な面)×奥行き `2 × distance`(中心の前後に `distance` ずつ)の箱。中心の縦横は、光から見て1テクセルの大きさの整数倍に丸める(カメラが動いても縁がちらつかない)。範囲の縁(4%)は影を弱くして、影が急に消えて見えないようにした。範囲の外・奥行きの外は影なし(明るい)。カメラが高い所から真下を見るような時は、床が奥行きの範囲(中心から光の向きに `distance` まで)の外になって影が出ないので、`distance` を大きくする。
@@ -698,7 +698,7 @@ Shadow::GetSettings().distance = 2500.f;
 - **段階2 = A. 法線拡大の2パス**: 外側の枠線が必要な時に足す。法線は「同じ位置の頂点の法線を平均した版」を、`Mesh` が初期化の時に別の頂点バッファ(または頂点データの別の枠)で用意する(段階2のMesh作り直しと一緒に作ると楽)。
 - B(ステンシル方式。物を少し大きくして印の無い所だけ描く)は作らない。ただし、Aの「本物の内側に枠線が漏れない」ための印として、ステンシルは使っている(下の「実装して決めたこと」)。
 
-**ファイル案**: 新しいファイルは不要。`Material`(6.3)の項目(`rimColor` / `rimStrength` / `rimPower` / `outlineColor` / `outlineWidth`)を使う。変更: `Shader3D.hlsl`・`Shader3DSkin.hlsl`(リム、`VSOutline` / `PSOutline`)、`Engine/Mesh.h/.cpp`・`SkinMesh.h/.cpp`(`DrawOutline`、表面を捨てるラスタライザ)、`Engine/MeshRenderer.h`・`Engine/ModelRenderer.h/.cpp`。
+**ファイル案**: 新しいファイルは不要。`Material`(6.3)の項目(`rimColor` / `rimStrength` / `rimPower` / `outlineColor` / `outlineWidth`)を使う。変更: `Shader3D.hlsl`・`Shader3DSkin.hlsl`(リム、`VSOutline` / `PSOutline`)、`Engine/Render3D/Mesh.h/.cpp`・`SkinMesh.h/.cpp`(`DrawOutline`、表面を捨てるラスタライザ)、`Engine/Render3D/MeshRenderer.h`・`Engine/Render3D/ModelRenderer.h/.cpp`。
 
 **関数**:
 ```cpp
@@ -721,7 +721,7 @@ void DrawOutline(const XMMATRIX& world, const Camera& camera, XMFLOAT4 color, fl
 - **加算合成で光らせる案**: 枠線を加算ブレンド(`Mesh` に `blendStateAdditive` を足す)で描くと、背景が明るく透けて「光って」見えやすい。段階2の中で試す。
 
 **両サンプルへの影響(変えるEngineファイル。了承が必要)**:
-- 変更: `Shader3D.hlsl`・`Shader3DSkin.hlsl`、`Engine/Mesh.h/.cpp`・`SkinMesh.h/.cpp`、`Engine/MeshRenderer.h`・`Engine/ModelRenderer.h/.cpp`。新しいファイルなし。
+- 変更: `Shader3D.hlsl`・`Shader3DSkin.hlsl`、`Engine/Render3D/Mesh.h/.cpp`・`SkinMesh.h/.cpp`、`Engine/Render3D/MeshRenderer.h`・`Engine/Render3D/ModelRenderer.h/.cpp`。新しいファイルなし。
 - `PhysX.props` は変えない
 - 枠線・リムは**既定OFF**(`outlineWidth = 0`、`rimStrength = 0`)なので、見た目は変わらない。Sample2D は使わない(デバッグ表示の `Mesh` への影響の確認だけ)。
 
@@ -767,7 +767,7 @@ meshRenderer->SetOutline({ 1.f, 0.9f, 0.2f, 1.f }, nearby.empty() ? 0.f : 3.f);
 
 **目的**: 高さの画像(白=高い、黒=低い)または表(CSV)から、起伏のある地面の見た目(メッシュ)を作る。今の地面は、平らなタイルを敷き詰めているだけ(`GroundController`)。
 
-**ファイル案**: `Engine/Terrain.h/.cpp`(高さのデータと、高さ・法線を調べる関数)、`Engine/TerrainRenderer.h/.cpp`(描画する Component)。`Assets/Terrain/`(高さの画像。サンプルを1枚作る)。
+**ファイル案**: `Engine/Render3D/Terrain.h/.cpp`(高さのデータと、高さ・法線を調べる関数)、`Engine/Render3D/TerrainRenderer.h/.cpp`(描画する Component)。`Assets/Terrain/`(高さの画像。サンプルを1枚作る)。
 
 **関数**:
 ```cpp
@@ -831,7 +831,7 @@ public:
 - **地形の外**: 地形の範囲の外は何もない(落ちる)。Sample3D は今、見えない大きな床(100000四方)を持っている。地形の外側にも床が必要かどうかは 7章で確認。
 
 **両サンプルへの影響(変えるEngineファイル。了承が必要)**:
-- 新規: `Engine/Terrain.h/.cpp`、`Engine/TerrainRenderer.h/.cpp`、`Engine.vcxproj(.filters)`
+- 新規: `Engine/Render3D/Terrain.h/.cpp`、`Engine/Render3D/TerrainRenderer.h/.cpp`、`Engine.vcxproj(.filters)`
 - 変更: 6.3 の段階2で `Mesh` のインデックス対応を作るので、**6.7 では新しい変更は(WIC の画像読み込みを除き)少ない**
 - `Shader*.hlsl`・`PhysX.props` は変えない
 - Sample2D: 影響なし。Sample3D: 地形を使うまでは何も変わらない。
@@ -865,7 +865,7 @@ ground->AddComponent<TerrainRigidbodyComponent>(terrain);       // 6.8
 - 高さの画像のサンプルを、こちらで作ってよいか(`Assets/Terrain/heightmap.png`)
 
 **実装して決めたこと(実装済み)**:
-- **ファイル**: 新規は `Engine/Terrain.h/.cpp`・`Engine/TerrainRenderer.h/.cpp`(`Engine.vcxproj(.filters)` に登録)と、サンプルの高さ画像 `Assets/Terrain/heightmap.png`(129x129、16ビットのグレースケールPNG。なだらかな丘と谷。PowerShellで数式から自動生成)。Sample3D は `Objects/Hills.h/.cpp`(`CreateHills`)を足して `GameScene` に1行置いた。**既存のEngineファイル・`Shader*.hlsl`・`PhysX.props` は1つも変えていない**(`Mesh::InitIndexed` など、6.3 で作った物をそのまま使った)。
+- **ファイル**: 新規は `Engine/Render3D/Terrain.h/.cpp`・`Engine/Render3D/TerrainRenderer.h/.cpp`(`Engine.vcxproj(.filters)` に登録)と、サンプルの高さ画像 `Assets/Terrain/heightmap.png`(129x129、16ビットのグレースケールPNG。なだらかな丘と谷。PowerShellで数式から自動生成)。Sample3D は `Objects/Hills.h/.cpp`(`CreateHills`)を足して `GameScene` に1行置いた。**既存のEngineファイル・`Shader*.hlsl`・`PhysX.props` は1つも変えていない**(`Mesh::InitIndexed` など、6.3 で作った物をそのまま使った)。
 - **高さの入力(PNG先・CSVも作った)**: `Terrain::LoadFromImage`(WIC。`SpriteTransition` と同じ `IWICImagingFactory`。`Texture::Load` は GPU 用でCPUに画素が残らないため、自前でWICから読む。`CoInitializeEx` は自分で呼び、戻す)。**16ビットのグレースケール(`GUID_WICPixelFormat16bppGray`)は65536段階でそのまま**、それ以外(8ビットのグレースケール・カラー・パレット)は `GUID_WICPixelFormat32bppRGBA` に変換して**赤(R)の256段階**。`Terrain::LoadFromCsv`(`Csv` クラスを使用。1行目 `x0,x1,x2,...`、1マス1つの数値0〜1)。プログラムで作る `Terrain::CreateFromSamples`(確認用にも使う)も足した。
 - **画像の向き**: 画像の左が X=0、**画像の上が Z=最大**(上から見た地図と同じ。CSV は最初のデータ行が Z=最大)。頂点 (x, z) は `u = x / cellsX`、`v = 1 - z / cellsZ` で画像を**双線形補間**して読むので、画像の大きさと `cellsX/cellsZ` が違っても使える(画像が129で `cells` が128なら、頂点がちょうど画素の位置になる)。8ビットの階段は、補間と中心差分の法線でなめらかになる(隣との平均は、コライダー(6.8)とデータがずれるので足していない)。
 - **高さの並び**: `GetHeights()[x * GetVertexCountZ() + z]`(行=X、列=Z。PhysX の高さフィールドと同じ並び)。**maxHeight を掛けた後のワールドの高さ**を持つ。6.8 はこの配列から `PxHeightField` を作る(`GetCellSizeX/Z()` で行・列のスケールも取れる)。
@@ -891,7 +891,7 @@ ground->AddComponent<TerrainRigidbodyComponent>(terrain);       // 6.8
 
 **目的**: 6.7 の地形と**同じ高さのデータ**から、PhysX の当たり判定を作り、物が地形の起伏の上に立てるようにする。
 
-**ファイル案**: 既存の `Engine/RigidbodyComponent.h/.cpp` に `TerrainRigidbodyComponent` を足す。`Engine/Physics.h/.cpp` に PhysX の「クッキング」(`PxCooking`)を足す。
+**ファイル案**: 既存の `Engine/Physics/RigidbodyComponent.h/.cpp` に `TerrainRigidbodyComponent` を足す。`Engine/Physics/Physics.h/.cpp` に PhysX の「クッキング」(`PxCooking`)を足す。
 
 **関数**:
 ```cpp
@@ -930,7 +930,7 @@ physx::PxCooking* Physics::GetCooking();    // 最初に呼ばれた時に作る
 - **見た目と当たり判定のずれの検証**: `Terrain::GetHeightAt` の値と、地形の上から下へ飛ばした `Physics::Raycast` の `hit.point.y` を、いくつかの場所で比べる(誤差が1単位未満)。この検証用のサンプルを、実装時にScratchで作る。
 
 **両サンプルへの影響(変えるEngineファイル。了承が必要)**:
-- 変更: `Engine/RigidbodyComponent.h/.cpp`(`TerrainRigidbodyComponent`、必要なら形の位置・向きを渡す口)、`Engine/Physics.h/.cpp`(`GetCooking()` を足し、`Init` / `Uninit` で作成・解放)
+- 変更: `Engine/Physics/RigidbodyComponent.h/.cpp`(`TerrainRigidbodyComponent`、必要なら形の位置・向きを渡す口)、`Engine/Physics/Physics.h/.cpp`(`GetCooking()` を足し、`Init` / `Uninit` で作成・解放)
 - `PhysX.props` は変えない(クッキングは既にリンク済み)。`Shader*.hlsl` は変えない
 - Sample2D: 影響なし(既存の物理の動きは変わらない)。Sample3D: 地形を使うまでは何も変わらない。**`Physics::Init` / `Uninit` の変更なので、Sample2D も含めて起動・終了が壊れていないことを確認する**。
 
@@ -978,7 +978,7 @@ physx::PxCooking* Physics::GetCooking();    // 最初に呼ばれた時に作る
 
 **目的**: 波打つ半透明の面を作る。地形のくぼみに水を張る、池・湖・海のように使う。
 
-**ファイル案**: `Engine/WaterRenderer.h/.cpp`(Component。専用の格子メッシュとパイプラインを持つ)、`Shader3DWater.hlsl`(新しいシェーダー)。
+**ファイル案**: `Engine/Render3D/WaterRenderer.h/.cpp`(Component。専用の格子メッシュとパイプラインを持つ)、`Shader3DWater.hlsl`(新しいシェーダー)。
 
 **関数**:
 ```cpp
@@ -1019,7 +1019,7 @@ public:
 - **シェーダー**: `Shader3DWater.hlsl` を新しく作り、`b0` は `Shader3D.hlsl` と同じ形(`MeshConstantBuffer`)にする。`Engine.vcxproj` の `UpToDateCheckInput` と `CopyRuntimeFiles` に足す(3章7番)。`SkinMesh` のように、専用の入力レイアウト・ステートを `WaterRenderer` の `static` 共有物にする(最後の1体で解放)。
 
 **両サンプルへの影響(変えるEngineファイル。了承が必要)**:
-- 新規: `Engine/WaterRenderer.h/.cpp`、`Shader3DWater.hlsl`(ソリューション直下)、`Engine.vcxproj(.filters)`(`UpToDateCheckInput` と `CopyRuntimeFiles` にも)
+- 新規: `Engine/Render3D/WaterRenderer.h/.cpp`、`Shader3DWater.hlsl`(ソリューション直下)、`Engine.vcxproj(.filters)`(`UpToDateCheckInput` と `CopyRuntimeFiles` にも)
 - 既存の `Shader.hlsl`・`Shader3D.hlsl`・`PhysX.props` は変えない
 - Sample2D: 影響なし(水面は3D専用)。Sample3D: 水面を置くまでは何も変わらない。
 
@@ -1066,13 +1066,15 @@ if (pos.y < waterY) speed *= 0.5f;
 
 ---
 
-### 6.10 ポイントライトの影
+### 6.10 ポイントライトの影(見送り)
+
+> **見送り**: ユーザーの判断で、この機能は作らないことにした。必要になったら、下の設計を使って作れる(設計の本文は残してある)。
 
 **目的**: 全方向に光るポイントライト(`Lantern` のようなランタン・たいまつ)が、壁や `Player` の後ろに影を落とすようにする。6.5 で作った影(太陽・スポット)の続きで、**6.5 で「作れない」としていたポイントライトの影**を作る。
 
 > **6.5 との違い**: 太陽は一方向、スポットは円すいの範囲なので、光から見た絵が1枚で済みます。ポイントライトは**360度すべての向き**に光るので、光から見た絵が1枚では足りません。**上下左右前後の6方向の絵(キューブマップ)**を作ります。影のパスが6回に増えるのが、この機能の一番のコストです。
 
-**ファイル案**: 新しいファイルは作らない。`Engine/Shadow.h/.cpp`(キューブの深度テクスチャ・6面のパス・`Bind` の `t3`)、`Engine/Lighting.h/.cpp`(影を落とすポイントライトの選択)、`Shader3DCommon.hlsli`(`PointShadow`・`b5` の拡張・`t3`)、`Engine/LightComponent.h`(`SetCastShadow` の説明をポイントにも効くように直す)。
+**ファイル案**: 新しいファイルは作らない。`Engine/Render3D/Shadow.h/.cpp`(キューブの深度テクスチャ・6面のパス・`Bind` の `t3`)、`Engine/Render3D/Lighting.h/.cpp`(影を落とすポイントライトの選択)、`Shader3DCommon.hlsli`(`PointShadow`・`b5` の拡張・`t3`)、`Engine/Render3D/LightComponent.h`(`SetCastShadow` の説明をポイントにも効くように直す)。
 
 **関数**:
 ```cpp
@@ -1142,7 +1144,7 @@ float PointShadow(float3 worldPos, float3 normal, float3 lightPos, float lightNd
 
 **両サンプルへの影響(変えるEngineファイル。了承が必要)**:
 - 新規: なし(`Engine.vcxproj(.filters)` も変えない)
-- 変更: `Engine/Shadow.h/.cpp`(`Settings` に `pointResolution` / `pointDepthBias` / `pointStrength`、キューブのテクスチャ・6面の DSV・SRV、`Render` に6面のパス、`Bind` に `t3`、`ShadowConstantBuffer` の末尾に項目、`GetDrawnCount` にポイントの分)、`Engine/Lighting.h/.cpp`(影を落とすポイントライトの選択。`GetShadowPointLight()`)、`Shader3DCommon.hlsli`(`b5` の末尾・`t3`・`PointShadow`・`ShadePixel` のループで、ポイントライトの影を引く)、`Engine/LightComponent.h`(`SetCastShadow` の説明と、ポイントに効くようにした注意書き)
+- 変更: `Engine/Render3D/Shadow.h/.cpp`(`Settings` に `pointResolution` / `pointDepthBias` / `pointStrength`、キューブのテクスチャ・6面の DSV・SRV、`Render` に6面のパス、`Bind` に `t3`、`ShadowConstantBuffer` の末尾に項目、`GetDrawnCount` にポイントの分)、`Engine/Render3D/Lighting.h/.cpp`(影を落とすポイントライトの選択。`GetShadowPointLight()`)、`Shader3DCommon.hlsli`(`b5` の末尾・`t3`・`PointShadow`・`ShadePixel` のループで、ポイントライトの影を引く)、`Engine/Render3D/LightComponent.h`(`SetCastShadow` の説明と、ポイントに効くようにした注意書き)
 - **変えない**: `Shader3D.hlsl`・`Shader3DSkin.hlsl`(`VSShadow` を使い回す)、`Mesh.h/.cpp`・`SkinMesh.h/.cpp`(`DrawDepth` は行列を引数で受け取る作りのまま。`Draw` の `Shadow::Bind()` が `t3` も一緒にセットする)、`MeshRenderer.h`・`ModelRenderer.h/.cpp`(`DrawShadow` が6回呼ばれるだけ)、`GameEngine.cpp`(`Shadow::Render` / `Shutdown` を呼んでいる今のまま)、`Material.h`、`Component.h`・`GameObject.h`・`Scene`・`SceneManager`・`Graphics`、`Shader.hlsl`、`PhysX.props`
 - **場合により変える**: 影のパスの呼び出し側(`Mesh` / `SkinMesh` の `DrawDepth`)に、面ごとの引数(ビューポートの切り替えなど)が要るとわかったら、その時だけ変える(今の `DrawDepth` は、描画先・ビューポートを `Shadow::Render` が決める作りなので、要らない見込み)。
 - **`enabled = false`、または影を落とすポイントライトが無い間は、6面のパスを実行しないので、見た目は今と同じ**(既定OFF。`SetCastShadow` の既定は `false`)。Sample2D はポイントライトも影も使わない(影響なし)。ただし `Shader3DCommon.hlsli` はSample2D のデバッグ表示(枠線)も通るので、**コンパイルが通り、見た目が変わらないこと**を確認する。
@@ -1188,7 +1190,7 @@ light->SetCastShadow(true);    // 追加: ランタンの光が、壁や Player 
 11. **6.7 地形**: 画像(PNG)を先、CSVを後でよいか。高さの精度(8ビット/16ビット)。大きさ・高さ・分割数の既定値。サンプルの高さ画像を作ってよいか。地形の外側の床を残すか。
 12. **6.8 地形コライダー**: 地形の下の保険の床を残すか。地形に `"Wall"` タグを付けるか。
 13. **6.9 水面**: 水に入ると遅くなる処理まで入れるか。深度を使った表現を将来やるか。→ **どちらもやっていない(6.9 に書いた)**
-14. **6.10 ポイントライトの影**: 6面の深度のキューブ方式(A)でよいか。影を落とすポイントライトは1つまででよいか。解像度512・`Lantern` に `SetCastShadow(true)` でよいか。
+14. **6.10 ポイントライトの影**: → **作らないことにした(見送り。設計だけ残す)**。作る時に決める点(6面の深度のキューブ方式(A)でよいか、影を落とすポイントライトは1つまででよいか、解像度512・`Lantern` に `SetCastShadow(true)` でよいか)は 6.10 の「未確定の点」に残してある。
 15. **作る順番・担当者**: 4章の順番でよいか。担当者は誰か。
 
 ---
@@ -1208,7 +1210,7 @@ light->SetCastShadow(true);    // 追加: ランタンの光が、壁や Player 
 | 6.7 地形 | `Terrain.h/.cpp`、`TerrainRenderer.h/.cpp` | `Engine.vcxproj(.filters)`(6.3の段階2で `Mesh` を作り直し済みの前提) |
 | 6.8 地形コライダー | (なし) | `RigidbodyComponent.h/.cpp`、`Physics.h/.cpp` |
 | 6.9 水面 | `WaterRenderer.h/.cpp`、`Shader3DWater.hlsl` | `Engine.vcxproj(.filters)`(`UpToDateCheckInput` と `CopyRuntimeFiles`) |
-| 6.10 ポイントライトの影 | (なし) | `Shadow.h/.cpp`、`Lighting.h/.cpp`、`Shader3DCommon.hlsli`、`LightComponent.h`(`VSShadow`・`DrawDepth` を使い回すので、`Shader3D.hlsl`・`Shader3DSkin.hlsl`・`Mesh`・`SkinMesh`・`MeshRenderer`・`ModelRenderer` は変えない見込み) |
+| 6.10 ポイントライトの影(見送り。作らないので変更なし。以下は作る場合の予定) | (なし) | `Shadow.h/.cpp`、`Lighting.h/.cpp`、`Shader3DCommon.hlsli`、`LightComponent.h`(`VSShadow`・`DrawDepth` を使い回すので、`Shader3D.hlsl`・`Shader3DSkin.hlsl`・`Mesh`・`SkinMesh`・`MeshRenderer`・`ModelRenderer` は変えない見込み) |
 
 **`Shader.hlsl`(スプライト用)と `PhysX.props` は、10機能のどれでも変えません**(クッキングのライブラリは既にリンク済み)。`Shader3D.hlsl` / `Shader3DSkin.hlsl` は 6.3・6.4・6.5・6.6 で変えます。
 

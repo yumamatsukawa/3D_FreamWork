@@ -1,6 +1,6 @@
 ﻿#pragma once
-#include "../../../Engine/Component.h"
-#include "../../../Engine/Timer.h"
+#include "../../../Engine/Core/Component.h"
+#include "../../../Engine/Core/Timer.h"
 #include <DirectXMath.h>
 
 class ObjectPool;

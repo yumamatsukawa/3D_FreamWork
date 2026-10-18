@@ -1,8 +1,8 @@
 ﻿#include "ModelDisplay.h"
-#include "../../../Engine/Scene.h"
-#include "../../../Engine/GameObject.h"
-#include "../../../Engine/ModelRenderer.h"
-#include "../../../Engine/ModelAnimationComponent.h"
+#include "../../../Engine/Core/Scene.h"
+#include "../../../Engine/Core/GameObject.h"
+#include "../../../Engine/Render3D/ModelRenderer.h"
+#include "../../../Engine/Animation/ModelAnimationComponent.h"
 #include "../Components/ModelDisplayController.h"
 #include "../Components/HighlightController.h"
 #include <Windows.h>

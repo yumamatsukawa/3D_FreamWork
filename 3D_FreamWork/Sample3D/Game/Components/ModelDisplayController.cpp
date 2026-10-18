@@ -1,6 +1,6 @@
 ﻿#include "ModelDisplayController.h"
-#include "../../../Engine/ModelRenderer.h"
-#include "../../../Engine/ModelAnimationComponent.h"
+#include "../../../Engine/Render3D/ModelRenderer.h"
+#include "../../../Engine/Animation/ModelAnimationComponent.h"
 
 void ModelDisplayController::Update(float dt) {
     // アニメーション付き: 3秒ごとに、SpinとBobを滑らかに切り替える

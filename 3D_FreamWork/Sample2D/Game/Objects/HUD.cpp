@@ -1,7 +1,7 @@
 ﻿#include "HUD.h"
-#include "../../../Engine/Scene.h"
-#include "../../../Engine/GameObject.h"
-#include "../../../Engine/GaugeRenderer.h"
+#include "../../../Engine/Core/Scene.h"
+#include "../../../Engine/Core/GameObject.h"
+#include "../../../Engine/UI/GaugeRenderer.h"
 #include "../Components/HUDController.h"
 #include "../Components/PlayerController.h"
 

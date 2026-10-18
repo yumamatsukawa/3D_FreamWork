@@ -29,7 +29,7 @@ argument-hint: "[Sample2D|Sample3D] [オブジェクト名] [何をするオブ�
 
 ## 3. ファイルを作る(4つ)
 
-パスは `3D_FreamWork/<サンプル>/Game/` から。Engineのヘッダーは `../../../Engine/○○.h`。
+パスは `3D_FreamWork/<サンプル>/Game/` から。Engineのヘッダーは `../../../Engine/<機能フォルダ>/○○.h`(例: `../../../Engine/Core/Scene.h`)。
 
 **`Objects/<名前>.h`**
 ```cpp
@@ -46,8 +46,8 @@ GameObject* Create<名前>(Scene& scene);
 **`Objects/<名前>.cpp`**
 ```cpp
 #include "<名前>.h"
-#include "../../../Engine/Scene.h"
-#include "../../../Engine/GameObject.h"
+#include "../../../Engine/Core/Scene.h"
+#include "../../../Engine/Core/GameObject.h"
 #include "../Components/<名前>Controller.h"
 
 GameObject* Create<名前>(Scene& scene) {
@@ -68,7 +68,7 @@ GameObject* Create<名前>(Scene& scene) {
 **`Components/<名前>Controller.h`**
 ```cpp
 #pragma once
-#include "../../../Engine/Component.h"
+#include "../../../Engine/Core/Component.h"
 
 // <このComponentの役割を1行で>
 class <名前>Controller : public Component {

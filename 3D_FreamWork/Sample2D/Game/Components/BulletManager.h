@@ -1,7 +1,7 @@
 ﻿#pragma once
 #include <DirectXMath.h>
-#include "../../../Engine/Component.h"
-#include "../../../Engine/ObjectPool.h"
+#include "../../../Engine/Core/Component.h"
+#include "../../../Engine/Core/ObjectPool.h"
 
 class GameObject;
 

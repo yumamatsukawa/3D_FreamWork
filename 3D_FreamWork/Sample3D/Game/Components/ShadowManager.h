@@ -1,5 +1,5 @@
 ﻿#pragma once
-#include "../../../Engine/Component.h"
+#include "../../../Engine/Core/Component.h"
 
 // 影の設定を担当する(このシーンの間だけ影を有効にして、終わったら元に戻す。影を落とす・受ける物は、各オブジェクトの Material で決める)
 class ShadowManager : public Component {

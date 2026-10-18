@@ -1,9 +1,9 @@
 ﻿#include "VolumeSlider.h"
 #include "../Components/TitleController.h"
-#include "../../../Engine/Scene.h"
-#include "../../../Engine/GameObject.h"
-#include "../../../Engine/SliderComponent.h"
-#include "../../../Engine/SaveData.h"
+#include "../../../Engine/Core/Scene.h"
+#include "../../../Engine/Core/GameObject.h"
+#include "../../../Engine/UI/SliderComponent.h"
+#include "../../../Engine/Data/SaveData.h"
 
 GameObject* CreateVolumeSlider(Scene& scene, TitleController* title) {
     GameObject* object = scene.CreateObject("VolumeSlider");

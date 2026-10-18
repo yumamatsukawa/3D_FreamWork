@@ -1,6 +1,6 @@
 ﻿#include "Explosion.h"
-#include "../../../Engine/Effect.h"
-#include "../../../Engine/GameObject.h"
+#include "../../../Engine/Render/Effect.h"
+#include "../../../Engine/Core/GameObject.h"
 
 namespace {
     constexpr int particleCount = 30;   // 一度に出す粒の数

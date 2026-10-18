@@ -1,6 +1,6 @@
 ﻿#pragma once
-#include "../../../Engine/Component.h"
-#include "../../../Engine/Timer.h"
+#include "../../../Engine/Core/Component.h"
+#include "../../../Engine/Core/Timer.h"
 
 // Playerの操作(移動・向き・発射)とHPを担当する
 class PlayerController : public Component {

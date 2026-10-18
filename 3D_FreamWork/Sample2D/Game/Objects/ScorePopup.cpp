@@ -1,9 +1,9 @@
 ﻿#include "ScorePopup.h"
-#include "../../../Engine/Scene.h"
-#include "../../../Engine/GameObject.h"
-#include "../../../Engine/Text.h"
-#include "../../../Engine/TextRenderer.h"
-#include "../../../Engine/TweenComponent.h"
+#include "../../../Engine/Core/Scene.h"
+#include "../../../Engine/Core/GameObject.h"
+#include "../../../Engine/UI/Text.h"
+#include "../../../Engine/UI/TextRenderer.h"
+#include "../../../Engine/Animation/TweenComponent.h"
 
 namespace {
     constexpr float riseHeight = 60.f;   // 上へ動く距離(ワールド)

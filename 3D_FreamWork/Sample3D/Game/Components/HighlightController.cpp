@@ -1,7 +1,7 @@
 ﻿#include "HighlightController.h"
-#include "../../../Engine/GameObject.h"
-#include "../../../Engine/ModelRenderer.h"
-#include "../../../Engine/Physics.h"
+#include "../../../Engine/Core/GameObject.h"
+#include "../../../Engine/Render3D/ModelRenderer.h"
+#include "../../../Engine/Physics/Physics.h"
 
 void HighlightController::Init() {
     // 同じオブジェクトに付いているモデルの見た目を探す(作る側で、このComponentより先に付けておく)

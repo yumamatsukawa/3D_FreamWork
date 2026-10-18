@@ -1,6 +1,6 @@
 ﻿#include "BackgroundController.h"
-#include "../../../Engine/Image.h"
-#include "../../../Engine/Resources.h"
+#include "../../../Engine/Render/Image.h"
+#include "../../../Engine/Core/Resources.h"
 #include <cmath>
 
 void BackgroundController::Init() {

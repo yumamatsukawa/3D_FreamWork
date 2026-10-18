@@ -1,8 +1,8 @@
 ﻿#include "EnemyController.h"
-#include "../../../Engine/GameObject.h"
-#include "../../../Engine/ObjectPool.h"
-#include "../../../Engine/EventBus.h"
-#include "../../../Engine/Audio.h"
+#include "../../../Engine/Core/GameObject.h"
+#include "../../../Engine/Core/ObjectPool.h"
+#include "../../../Engine/Core/EventBus.h"
+#include "../../../Engine/Audio/Audio.h"
 #include "../Objects/ScorePopup.h"
 #include "../Objects/Explosion.h"
 

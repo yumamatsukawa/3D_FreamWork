@@ -1,8 +1,8 @@
 ﻿#include "CameraController.h"
-#include "../../../Engine/GameObject.h"
-#include "../../../Engine/Input.h"
-#include "../../../Engine/Image.h"
-#include "../../../Engine/Graphics.h"
+#include "../../../Engine/Core/GameObject.h"
+#include "../../../Engine/Core/Input.h"
+#include "../../../Engine/Render/Image.h"
+#include "../../../Engine/Render/Graphics.h"
 #include <cmath>
 
 // マウスがゲーム画面(ウィンドウの中)にあるか。GetMousePositionは画面中央が原点で、画面の解像度の単位

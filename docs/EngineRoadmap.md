@@ -113,7 +113,7 @@ Engineを変えると Sample2D と Sample3D の**両方**に影響します(`CLA
 
 ### 5.1 計算系
 
-> **実装済み**: `Engine/MathUtil.h`(演算子と、乱数以外の関数をinlineで)と `Engine/MathUtil.cpp`(乱数)。下の「対象」のSampleのコードも置き換え済み。使い方は `README.md` の「9. 計算系(Math)」を参照。
+> **実装済み**: `Engine/Core/MathUtil.h`(演算子と、乱数以外の関数をinlineで)と `Engine/Core/MathUtil.cpp`(乱数)。下の「対象」のSampleのコードも置き換え済み。使い方は `README.md` の「9. 計算系(Math)」を参照。
 > 設計から変えた所:
 > - `Clamp` / `RandomRange` の引数名を `min` / `max` から `minValue` / `maxValue` にした(`windows.h` の `min` / `max` マクロとぶつかる心配をなくすため)
 > - `Normalize` は長さが「ほぼ0」(1e-6未満)の時も0ベクトルを返す(とても短いベクトルで割って値が大きくなりすぎないように)
@@ -123,7 +123,7 @@ Engineを変えると Sample2D と Sample3D の**両方**に影響します(`CLA
 
 **目的**: 方向・距離・角度の計算を1か所にまとめて、各Componentから `atan2f` / `sqrtf` / `sinf` / `cosf` を消す。0で割ってしまう、角度の向きを間違える、といったミスを無くす。
 
-**ファイル案**: `Engine/MathUtil.h`(中身は `namespace Math`)。短い関数ばかりなので、`.cpp` は乱数の部分だけ(`Engine/MathUtil.cpp`)。
+**ファイル案**: `Engine/Core/MathUtil.h`(中身は `namespace Math`)。短い関数ばかりなので、`.cpp` は乱数の部分だけ(`Engine/Core/MathUtil.cpp`)。
 
 **関数**:
 ```cpp
@@ -204,7 +204,7 @@ XMFLOAT2 offset = Math::RandomOnCircle(spawnDistance);
 
 ### 5.2 時間とタイマー
 
-> **実装済み**: `Engine/Time.h/.cpp`(`namespace Time`)と `Engine/Timer.h`(`struct Timer`、ヘッダーだけ)。`GameEngine` の `CalcDeltaTime()` は `Time::Update()` に移した。下の「対象」のSampleのコードも置き換え済み。使い方は `README.md` の「10. 時間とタイマー(Time / Timer)」を参照。
+> **実装済み**: `Engine/Core/Time.h/.cpp`(`namespace Time`)と `Engine/Core/Timer.h`(`struct Timer`、ヘッダーだけ)。`GameEngine` の `CalcDeltaTime()` は `Time::Update()` に移した。下の「対象」のSampleのコードも置き換え済み。使い方は `README.md` の「10. 時間とタイマー(Time / Timer)」を参照。
 > 決まったこと:
 > - **A. ポーズ中の入力**: Engineはポーズ中も各Componentの `Update` を止めない(`dt=0` で呼ばれ続ける)。`Time::IsPaused()`(倍率が0ならtrue)を用意し、入力を止めたいControllerが `Update` の先頭で `if (Time::IsPaused()) return;` と書く。「ポーズ中も動くGameObject」の印は作らない
 > - **B. dtの上限**: 1フレームの時間に上限0.1秒を付けた(ウィンドウのドラッグ中などに、すり抜け・ワープしないように)。上限は倍率をかける前の本当の時間にかけるので、`GetUnscaledDeltaTime()` も上限付き
@@ -221,7 +221,7 @@ XMFLOAT2 offset = Math::RandomOnCircle(spawnDistance);
 
 **目的**: 「1フレームの時間」をどこからでも取れるようにして、スロー・ポーズを作れるようにする。各Componentで手書きしているタイマーを1つの型にまとめる。
 
-**ファイル案**: `Engine/Time.h/.cpp`(`namespace Time`)、`Engine/Timer.h`(`struct Timer`、短いのでヘッダーだけ)
+**ファイル案**: `Engine/Core/Time.h/.cpp`(`namespace Time`)、`Engine/Core/Timer.h`(`struct Timer`、短いのでヘッダーだけ)
 
 **関数**:
 ```cpp
@@ -276,7 +276,7 @@ if (spawnTimer.Update(dt)) Spawn(...);
 
 ### 5.3 リソースの使い回し
 
-> **実装済み(画像だけ)**: `Engine/Resources.h/.cpp`(`namespace Resources`)。`Image::TextureData` から `sheet`(分割数・コマ番号)と `color` を外し、`SpriteRenderer` のメンバへ移した。`MeshRenderer` も `Resources` を使う。下の「対象」のSampleのコード(`BackgroundController` / `GroundController`)も置き換え済み。使い方は `README.md` の「11. リソース(Resources、画像の使い回し)」を参照。
+> **実装済み(画像だけ)**: `Engine/Core/Resources.h/.cpp`(`namespace Resources`)。`Image::TextureData` から `sheet`(分割数・コマ番号)と `color` を外し、`SpriteRenderer` のメンバへ移した。`MeshRenderer` も `Resources` を使う。下の「対象」のSampleのコード(`BackgroundController` / `GroundController`)も置き換え済み。使い方は `README.md` の「11. リソース(Resources、画像の使い回し)」を参照。
 > 設計から変えた・決まった所:
 > - **音(`LoadSound` / `ReleaseSound`)は今回は作らず、5.13 で作る(→ 5.13 で作った。`Resources` に足した)。** 今の `Audio` は1つの音に再生口(`IXAudio2SourceVoice`)が1つしか無いので、音を共有すると、ある1体が鳴らした音を別の1体が止めてしまう(再生が干渉する)。5.13 で「音のデータ(共有)」と「再生口(鳴らす度に用意)」を分ける時に、一緒に `Resources` へ足す
 > - **`LoadModel` も今回は作らず、5.16 で作る**(`Model` クラスがまだ無いため)
@@ -291,7 +291,7 @@ if (spawnTimer.Update(dt)) Spawn(...);
 
 **目的**: 同じ画像・音・モデルを何度も読み込まないようにする。あわせて「みんなで共有するデータ」と「1体ごとの状態」を分ける。
 
-**ファイル案**: `Engine/Resources.h/.cpp`(`namespace Resources`)
+**ファイル案**: `Engine/Core/Resources.h/.cpp`(`namespace Resources`)
 
 **関数**:
 ```cpp
@@ -325,7 +325,7 @@ namespace Resources {
 
 ### 5.4 イージング
 
-> **実装済み**: `Engine/Ease.h`(`namespace Ease` と `EaseFunction`、ヘッダーだけ)と `Engine/TweenComponent.h/.cpp`。`MeshRenderer` に `GetColor()` を足した。下の「対象」のSampleのコード(両サンプルの `StartButton`)も置き換え済み。使い方は `README.md` の「12. イージング(Ease / TweenComponent)」を参照。
+> **実装済み**: `Engine/Animation/Ease.h`(`namespace Ease` と `EaseFunction`、ヘッダーだけ)と `Engine/Animation/TweenComponent.h/.cpp`。`MeshRenderer` に `GetColor()` を足した。下の「対象」のSampleのコード(両サンプルの `StartButton`)も置き換え済み。使い方は `README.md` の「12. イージング(Ease / TweenComponent)」を参照。
 > 決まったこと:
 > - **`SetUnscaled(bool)` を足した**(直前の動きに効く)。trueの動きはポーズ中も `Time::GetUnscaledDeltaTime()` で進む。既定はfalseで、`Update` の `dt`(= `Time::GetDeltaTime()`)で進む
 > - **`ColorTo` は `SpriteRenderer` があればその色、無ければ `MeshRenderer` の色を変える。** どちらも無ければ何もしない(出力ウィンドウに表示する)。そのため `MeshRenderer` に `GetColor()` を足した
@@ -345,7 +345,7 @@ namespace Resources {
 
 **目的**: 「最初は速く、最後はゆっくり止まる」のような気持ちいい動きを、1行で付けられるようにする。
 
-**ファイル案**: `Engine/Ease.h`(`namespace Ease`)、`Engine/TweenComponent.h/.cpp`
+**ファイル案**: `Engine/Animation/Ease.h`(`namespace Ease`)、`Engine/Animation/TweenComponent.h/.cpp`
 
 **関数**:
 ```cpp
@@ -400,7 +400,7 @@ tween->ScaleTo({ 300.f, 80.f, 1.f }, 0.4f, Ease::OutBack);
 
 ### 5.5 移動系
 
-> **実装済み**: `Engine/MoveComponent.h/.cpp`(親クラスと `enum class MovePlane`)、`Engine/ChaseComponent.h/.cpp`、`Engine/AccelerateChaseComponent.h/.cpp`、`Engine/HomingComponent.h/.cpp`。下の「対象」のSampleのコード(両サンプルの `EnemyController` の移動処理)も置き換え済み。使い方は `README.md` の「13. 移動(MoveComponent ほか)」を参照。
+> **実装済み**: `Engine/Behavior/MoveComponent.h/.cpp`(親クラスと `enum class MovePlane`)、`Engine/Behavior/ChaseComponent.h/.cpp`、`Engine/Behavior/AccelerateChaseComponent.h/.cpp`、`Engine/Behavior/HomingComponent.h/.cpp`。下の「対象」のSampleのコード(両サンプルの `EnemyController` の移動処理)も置き換え済み。使い方は `README.md` の「13. 移動(MoveComponent ほか)」を参照。
 > 決まったこと(下の「未決定」):
 > - **Rigidbodyが無い時の動かし方**: Rigidbody必須にはしない。DynamicのRigidbodyなら `SetVelocity`、Kinematic・Rigidbody無しなら `transform.position` を dt 分だけ直接動かす、Staticなら動かさない(出力ウィンドウに1回だけ知らせる)
 > - **2Dと3D**: 1つのComponentで `SetPlane(MovePlane::XY / XZ)` を使う(既定XY)。XZの時はY方向の速度(`GetVelocity().y`、重力)を残す。XYの時はZ方向の速度を0にする
@@ -418,7 +418,7 @@ tween->ScaleTo({ 300.f, 80.f, 1.f }, 0.4f, Ease::OutBack);
 
 **目的**: 「ターゲットに向かって動く」処理をComponentにして、敵・弾・ミサイルなどで使い回す。
 
-**ファイル案**: `Engine/MoveComponent.h/.cpp`(親クラス)、`Engine/ChaseComponent.h/.cpp`、`Engine/AccelerateChaseComponent.h/.cpp`、`Engine/HomingComponent.h/.cpp`
+**ファイル案**: `Engine/Behavior/MoveComponent.h/.cpp`(親クラス)、`Engine/Behavior/ChaseComponent.h/.cpp`、`Engine/Behavior/AccelerateChaseComponent.h/.cpp`、`Engine/Behavior/HomingComponent.h/.cpp`
 
 **関数**:
 ```cpp
@@ -480,7 +480,7 @@ chase->SetSpeed(60.f);
 
 ### 5.6 物理の問い合わせと力
 
-> **実装済み**: `Engine/Physics.h/.cpp`(`struct RaycastHit`、`enum class ForceMode`、`Physics::Raycast` / `OverlapSphere` / `OverlapBox`)と `Engine/RigidbodyComponent.h/.cpp`(`AddForce` / `AddTorque` / `SetMass` / `SetDrag`)。下の「対象」のSampleのコード(Sample2Dの被弾時のノックバック)も置き換え済み。使い方は `README.md` の「23. PhysX」の「物理の問い合わせと力」を参照。
+> **実装済み**: `Engine/Physics/Physics.h/.cpp`(`struct RaycastHit`、`enum class ForceMode`、`Physics::Raycast` / `OverlapSphere` / `OverlapBox`)と `Engine/Physics/RigidbodyComponent.h/.cpp`(`AddForce` / `AddTorque` / `SetMass` / `SetDrag`)。下の「対象」のSampleのコード(Sample2Dの被弾時のノックバック)も置き換え済み。使い方は `README.md` の「23. PhysX」の「物理の問い合わせと力」を参照。
 > 決まったこと(下の「未決定」):
 > - **トリガーを含めるか**: 既定では含めない(視線の判定が飛んでいる弾などにさえぎられないように)。含めたい時用の引数 `QueryTriggers triggers = QueryTriggers::Ignore` を、`Raycast` / `OverlapSphere` / `OverlapBox` の最後に足した。アイテムやゴールのようなトリガーそのものを探す時は `QueryTriggers::Include`(例: `Physics::OverlapSphere(pos, 200.f, "Item", QueryTriggers::Include)`)。タグを指定してもトリガーは無視のまま
 >
@@ -500,7 +500,7 @@ chase->SetSpeed(60.f);
 
 **目的**: 「この線の先に何があるか」「この範囲に敵がいるか」を調べられるようにする。ノックバック・ジャンプなど、力で動かせるようにする。
 
-**ファイル案**: 既存の `Engine/Physics.h/.cpp` と `Engine/RigidbodyComponent.h/.cpp` に追加
+**ファイル案**: 既存の `Engine/Physics/Physics.h/.cpp` と `Engine/Physics/RigidbodyComponent.h/.cpp` に追加
 
 **関数**:
 ```cpp
@@ -556,7 +556,7 @@ rigidbody->AddForce(away * 500.f, ForceMode::Impulse);
 
 ### 5.7 カメラ機能
 
-> **実装済み**: `Engine/CameraFollowComponent.h/.cpp`、`Engine/CameraShake.h/.cpp`(`namespace CameraShake`)、`Engine/Image.h/.cpp` に座標の変換(`WorldToScreen2D` / `ScreenToWorld2D` / `WorldToScreen3D` / `ScreenPointToRay3D`)。`Input::GetMouseWorldPosition()` は `Image::ScreenToWorld2D` を使う形にした(結果は今までと同じ)。`GameEngine::Run` に揺れの呼び出しを足した。下の「対象」のSampleのコード(Sample2D `PlayerController` のカメラ追従3行と、被弾時の揺れ)も置き換え済み。使い方は `README.md` の「14. カメラ(CameraFollowComponent / CameraShake / 座標の変換)」を参照。
+> **実装済み**: `Engine/Render/CameraFollowComponent.h/.cpp`、`Engine/Render/CameraShake.h/.cpp`(`namespace CameraShake`)、`Engine/Render/Image.h/.cpp` に座標の変換(`WorldToScreen2D` / `ScreenToWorld2D` / `WorldToScreen3D` / `ScreenPointToRay3D`)。`Input::GetMouseWorldPosition()` は `Image::ScreenToWorld2D` を使う形にした(結果は今までと同じ)。`GameEngine::Run` に揺れの呼び出しを足した。下の「対象」のSampleのコード(Sample2D `PlayerController` のカメラ追従3行と、被弾時の揺れ)も置き換え済み。使い方は `README.md` の「14. カメラ(CameraFollowComponent / CameraShake / 座標の変換)」を参照。
 > 決まったこと(下の「未決定」):
 > - **2Dと3Dの座標の変換**: `Camera` に2D/3Dを持たせず、`Image` の関数を2D用・3D用で分けた(`Camera` クラスへの追加はしていない)。2D用は `Image::GetCamera()`、3D用は `Image::GetCamera3D()` を使う
 >
@@ -580,7 +580,7 @@ rigidbody->AddForce(away * 500.f, ForceMode::Impulse);
 
 **目的**: カメラの追従・揺れ・座標の変換を、毎回手書きしなくて済むようにする。
 
-**ファイル案**: `Engine/CameraFollowComponent.h/.cpp`、`Engine/CameraShake.h/.cpp`(`namespace CameraShake`)、既存の `Engine/Camera.h` に追加
+**ファイル案**: `Engine/Render/CameraFollowComponent.h/.cpp`、`Engine/Render/CameraShake.h/.cpp`(`namespace CameraShake`)、既存の `Engine/Render/Camera.h` に追加
 
 **関数**:
 ```cpp
@@ -629,7 +629,7 @@ CameraShake::Shake(8.f, 0.2f);
 
 ### 5.8 画面エフェクト
 
-> **実装済み**: `Engine/ScreenEffect.h/.cpp`(`namespace ScreenEffect`)。`Engine/Text.h/.cpp` に Engine内部用の `Text::GetRenderTarget()` を足し、`GameEngine::Run` / `Uninit` に呼び出しを足した。下の「対象」のSampleのコードのうち、両サンプルの被弾処理(`Vignette`)は置き換え済み。`StartButton` の暗転・明転は、後から 5.17 の `FadeTransition` に置き換えた(この節の最後を参照)。使い方は `README.md` の「15. 画面エフェクト(ScreenEffect)」を参照。
+> **実装済み**: `Engine/Render/ScreenEffect.h/.cpp`(`namespace ScreenEffect`)。`Engine/UI/Text.h/.cpp` に Engine内部用の `Text::GetRenderTarget()` を足し、`GameEngine::Run` / `Uninit` に呼び出しを足した。下の「対象」のSampleのコードのうち、両サンプルの被弾処理(`Vignette`)は置き換え済み。`StartButton` の暗転・明転は、後から 5.17 の `FadeTransition` に置き換えた(この節の最後を参照)。使い方は `README.md` の「15. 画面エフェクト(ScreenEffect)」を参照。
 >
 > 決めた所(設計の「未決定」):
 > - **文字(`Text::Draw`)も含めて画面の一番上に描く**(暗転すると文字も隠れる)。`GameEngine::Run` で、`SceneManager::Draw()`(その中の `Text::Draw` も)が全部終わった後、`Text::EndDraw()` の前に `ScreenEffect::Draw()` を呼ぶ。Direct2Dは `EndDraw` でまとめて描き、後に追加した物が上になる
@@ -654,7 +654,7 @@ CameraShake::Shake(8.f, 0.2f);
 
 **目的**: 被弾・回復・シーン切り替えなどで、画面全体に色の演出(ライトエフェクト)を付ける。
 
-**ファイル案**: `Engine/ScreenEffect.h/.cpp`(`namespace ScreenEffect`)
+**ファイル案**: `Engine/Render/ScreenEffect.h/.cpp`(`namespace ScreenEffect`)
 
 **関数**:
 ```cpp
@@ -689,10 +689,10 @@ ScreenEffect::Fade({ 0.f, 0.f, 0.f, 1.f }, 1.f, 0.5f);
 
 ### 5.9 2Dアニメーション
 
-> **実装済み**: `Engine/SpriteAnimationComponent.h/.cpp`。下の「対象」のSampleのコード(Sample3D `EnemyController` の歩きアニメーション)も置き換え済みで、`EnemyManager` の `SetupEnemy` で `AddClip("Walk", { 4, 5 }, 0.3f, true)`・`SetRandomStart(true)`・`Play("Walk")` をしている。`EnemyController` は弾に当たった時の処理だけになった(`Update` は消した)。使い方は `README.md` の「17. 2Dアニメーション(SpriteAnimationComponent)」を参照。
+> **実装済み**: `Engine/Animation/SpriteAnimationComponent.h/.cpp`。下の「対象」のSampleのコード(Sample3D `EnemyController` の歩きアニメーション)も置き換え済みで、`EnemyManager` の `SetupEnemy` で `AddClip("Walk", { 4, 5 }, 0.3f, true)`・`SetRandomStart(true)`・`Play("Walk")` をしている。`EnemyController` は弾に当たった時の処理だけになった(`Update` は消した)。使い方は `README.md` の「17. 2Dアニメーション(SpriteAnimationComponent)」を参照。
 >
 > 決めた所(設計の「未決定」):
-> - **Engineに作る**(`Engine/SpriteAnimationComponent.h/.cpp`)
+> - **Engineに作る**(`Engine/Animation/SpriteAnimationComponent.h/.cpp`)
 > - **名前付きのクリップをいくつでも登録できる**(同じ名前で `AddClip` し直すと上書き。再生中のクリップを上書きしたら最初のコマから)
 > - **ループしないクリップが終わったことは `IsFinished()` で調べる**(コールバックは作らない)。最後のコマを1コマ分の時間見せ終わったら true になり、最後のコマのまま止まる。ループするクリップは常に false
 >
@@ -711,7 +711,7 @@ ScreenEffect::Fade({ 0.f, 0.f, 0.f, 1.f }, 1.f, 0.5f);
 
 **目的**: スプライトシートのコマ送りを、手書きのタイマー無しで書けるようにする。
 
-**ファイル案**: `Engine/SpriteAnimationComponent.h/.cpp`
+**ファイル案**: `Engine/Animation/SpriteAnimationComponent.h/.cpp`
 
 **関数**:
 ```cpp
@@ -755,7 +755,7 @@ if (moving) anim->Play("Walk"); else anim->Play("Idle");
 
 ### 5.10 UI
 
-> **実装済み**: `Engine/Anchor.h/.cpp`(`enum class Anchor`、`GetAnchoredPosition`、足した `GetAnchoredCenter`)、`Engine/GaugeRenderer.h/.cpp`、`Engine/SliderComponent.h/.cpp`、`Engine/ButtonComponent.h/.cpp`(どれも新規)、`Engine/Image.h/.cpp` に `Image::DrawRect` と Engine内部用の `ReleaseDrawRectBrush()`、`Engine/GameEngine.cpp` の `Uninit` に `ReleaseDrawRectBrush()` の呼び出し。下の「対象」のSampleのコードも置き換え済み: 両サンプルの `HUDController` の座標(`GetAnchoredPosition`)、両サンプルの `ButtonController`(**消して** `ButtonComponent` に。`Objects/Button.cpp` が使う)。足したSample: 両サンプルの HUD にHPゲージ(`Objects/HUD.cpp`)、両サンプルの Player に頭上のHPバー(`Objects/Player.cpp`)、両サンプルのタイトルにBGMの音量スライダー(`Objects/VolumeSlider.h/.cpp`、`TitleController` に `GetVolume` / `SetVolume`)。使い方は `README.md` の「20. UI(Anchor / DrawRect / GaugeRenderer / SliderComponent / ButtonComponent)」を参照。
+> **実装済み**: `Engine/UI/Anchor.h/.cpp`(`enum class Anchor`、`GetAnchoredPosition`、足した `GetAnchoredCenter`)、`Engine/UI/GaugeRenderer.h/.cpp`、`Engine/UI/SliderComponent.h/.cpp`、`Engine/UI/ButtonComponent.h/.cpp`(どれも新規)、`Engine/Render/Image.h/.cpp` に `Image::DrawRect` と Engine内部用の `ReleaseDrawRectBrush()`、`Engine/Core/GameEngine.cpp` の `Uninit` に `ReleaseDrawRectBrush()` の呼び出し。下の「対象」のSampleのコードも置き換え済み: 両サンプルの `HUDController` の座標(`GetAnchoredPosition`)、両サンプルの `ButtonController`(**消して** `ButtonComponent` に。`Objects/Button.cpp` が使う)。足したSample: 両サンプルの HUD にHPゲージ(`Objects/HUD.cpp`)、両サンプルの Player に頭上のHPバー(`Objects/Player.cpp`)、両サンプルのタイトルにBGMの音量スライダー(`Objects/VolumeSlider.h/.cpp`、`TitleController` に `GetVolume` / `SetVolume`)。使い方は `README.md` の「20. UI(Anchor / DrawRect / GaugeRenderer / SliderComponent / ButtonComponent)」を参照。
 >
 > 決めた所:
 > - **`Image::DrawRect` はDirect2D**(`Text::GetRenderTarget()`。`ScreenEffect` と同じ方法)で描く。設計の「1x1の白い画像を描く」方法はやめた(画像で描くとUIモードのスプライトと同じくカメラでスクロールしてしまい、文字との重なる順番も決められないため)。`Text::Draw` とは**呼んだ順**に重なる(ゲージの上に数字を重ねられる)。カメラの影響を受けない。座標は「画面中央(0,0)・Y+=上」で、`position` は四角の**中心**、`size` は幅と高さ。ブラシ(`ID2D1SolidColorBrush`)は1つ作って使い回し、描画先が変わっていたら作り直す。解放は `ScreenEffect` と同じ流れで、`GameEngine::Uninit` の `Text::Uninit` より前に `ReleaseDrawRectBrush()` を呼ぶ(`Image::Uninit` でも呼ぶが、`nullptr` の時は何もしないので二重には解放しない)。透明(`w<=0`)・大きさが0以下・NaN・無限大は描かない
@@ -771,7 +771,7 @@ if (moving) anim->Play("Walk"); else anim->Play("Idle");
 > - **テスト**: スクラッチのテスト(リポジトリには入れていない)で、`Input` をスタブに差し替えてOSの入力を使わずに確かめた。`GetAnchoredPosition` / `GetAnchoredCenter` の9か所(1280x720と800x600)、`DrawRect` の位置(実際に描いて画素を読む。Y+=上、カメラの影響を受けない、半透明、呼んだ順、描かない場合)、ブラシの再作成・二重解放が無いこと(`Text` を作り直す繰り返しでメモリが増えない)、ゲージの割合・範囲外・NaN・遅れて縮む帯の時間(0.4秒待ってから0.5/秒で縮む、回復で追いつく)・`SetValueSource`・追いかける位置(2D・3D・カメラの後ろ・非アクティブ・`Destroy`)、スライダーのドラッグ(溝の外に出ても追従、`step`、範囲外、端のぴったりの値、`onChanged` が値が変わった時だけ、`onDragEnd`、ポーズ中、非アクティブ、複数のスライダー)、`ButtonComponent` のクリック判定(外で押して中で離す等)と `SetInteractable`、スライダーをつかんでいる間のボタン
 **目的**: HPバー・音量スライダー・ボタンを、どのゲームでも使える部品にする。画面サイズが変わってもずれないようにする。
 
-**ファイル案**: `Engine/Anchor.h`、`Engine/GaugeRenderer.h/.cpp`、`Engine/SliderComponent.h/.cpp`、`Engine/ButtonComponent.h/.cpp`、`Engine/Image.h/.cpp` に `DrawRect` を追加
+**ファイル案**: `Engine/UI/Anchor.h`、`Engine/UI/GaugeRenderer.h/.cpp`、`Engine/UI/SliderComponent.h/.cpp`、`Engine/UI/ButtonComponent.h/.cpp`、`Engine/Render/Image.h/.cpp` に `DrawRect` を追加
 
 **関数**:
 ```cpp
@@ -841,7 +841,7 @@ gauge->SetFollowTarget(player, { 0.f, 70.f });
 
 ### 5.11 テキスト
 
-> **実装済み**: `Engine/Text.h/.cpp`(`enum class TextAlign`、`struct TextStyle`、`Text::LoadFont` / `Draw(text, x, y, style)` / `Measure`)と `Engine/TextRenderer.h/.cpp`(新規)。フォントは `Assets/Fonts/NotoSansJP[wght].ttf`(Noto Sans JP、Google Fonts から。太さを変えられる1ファイル)と、そのライセンス `Assets/Fonts/OFL.txt`(SIL Open Font License)。下の「対象」のSampleのコードのうち、両サンプルの `HUDController` と `TitleController` を置き換え済み(`ButtonController` の文字は、5.10 で `ButtonComponent` に移した。文字の描き方は今まで通り)。`TextRenderer` の使用例として、Sample2Dに `Objects/ScorePopup.h/.cpp`(敵を倒した位置に「+10」)を足した。使い方は `README.md` の「19. テキスト」を参照。
+> **実装済み**: `Engine/UI/Text.h/.cpp`(`enum class TextAlign`、`struct TextStyle`、`Text::LoadFont` / `Draw(text, x, y, style)` / `Measure`)と `Engine/UI/TextRenderer.h/.cpp`(新規)。フォントは `Assets/Fonts/NotoSansJP[wght].ttf`(Noto Sans JP、Google Fonts から。太さを変えられる1ファイル)と、そのライセンス `Assets/Fonts/OFL.txt`(SIL Open Font License)。下の「対象」のSampleのコードのうち、両サンプルの `HUDController` と `TitleController` を置き換え済み(`ButtonController` の文字は、5.10 で `ButtonComponent` に移した。文字の描き方は今まで通り)。`TextRenderer` の使用例として、Sample2Dに `Objects/ScorePopup.h/.cpp`(敵を倒した位置に「+10」)を足した。使い方は `README.md` の「19. テキスト」を参照。
 >
 > 決めた所:
 > - **寄せ方**: `Left` は x が文字の左端、`Center` は中心、`Right` は右端(どれも `Measure` の幅=DirectWriteのレイアウトの幅が基準。字の形の左右の少しの余白も含む)。縦はいつも中心(今まで通り)。`Measure` の幅と高さは寄せ方では変わらず、縁取りの分は入らない
@@ -858,7 +858,7 @@ gauge->SetFollowTarget(player, { 0.f, 70.f });
 
 **目的**: 文字の左寄せ・縁取り・自前のフォントを使えるようにする。オブジェクトに付いて動く文字(ダメージの数字など)を出せるようにする。
 
-**ファイル案**: 既存の `Engine/Text.h/.cpp` に追加、`Engine/TextRenderer.h/.cpp`
+**ファイル案**: 既存の `Engine/UI/Text.h/.cpp` に追加、`Engine/UI/TextRenderer.h/.cpp`
 
 **関数**:
 ```cpp
@@ -912,7 +912,7 @@ Text::Draw(buf, pos.x, pos.y, style);
 
 ### 5.12 セーブ/ロード
 
-> **実装済み**: `Engine/SaveData.h/.cpp`(`namespace SaveData`)。`Engine/GameEngine.cpp` の `Init` で `SaveData::Init()`(= `Load(0)`)、`Uninit` で `SaveData::Uninit()`(書き換えていれば `Save`)を呼ぶ。下の「対象」のSampleのコード(両サンプルの `GameManager` と `HUDController`)も置き換え済み。使い方は `README.md` の「18. セーブ/ロード(SaveData)」を参照。
+> **実装済み**: `Engine/Data/SaveData.h/.cpp`(`namespace SaveData`)。`Engine/Core/GameEngine.cpp` の `Init` で `SaveData::Init()`(= `Load(0)`)、`Uninit` で `SaveData::Uninit()`(書き換えていれば `Save`)を呼ぶ。下の「対象」のSampleのコード(両サンプルの `GameManager` と `HUDController`)も置き換え済み。使い方は `README.md` の「18. セーブ/ロード(SaveData)」を参照。
 >
 > 決めた所(設計の「未決定」):
 > - **起動時(`GameEngine::Init` の最初)に自動で `Load(0)`、終了時(`GameEngine::Uninit`。`SceneManager::Uninit` の後)に自動で `Save`** する。ゲーム側が `Save` を呼び忘れても消えない。ゲーム側から `Save` を呼ぶのも自由(ハイスコア更新時など)
@@ -934,7 +934,7 @@ Text::Draw(buf, pos.x, pos.y, style);
 
 **目的**: ハイスコア・音量などを保存して、次に起動した時も残るようにする。
 
-**ファイル案**: `Engine/SaveData.h/.cpp`(`namespace SaveData`)
+**ファイル案**: `Engine/Data/SaveData.h/.cpp`(`namespace SaveData`)
 
 **関数**:
 ```cpp
@@ -977,7 +977,7 @@ if (score > SaveData::GetInt("HighScore")) {
 
 ### 5.13 音の発生源と聞く位置(立体音響)
 
-> **実装済み**: `Engine/AudioSourceComponent.h/.cpp`、`Engine/AudioListenerComponent.h/.cpp` を足した。`Engine/Audio.h/.cpp` は、中身を「音のデータ(Wave)」と「再生口(Voice)」に分けて作り直した(今までの `Load` / `Play` / `Stop` / `Pause` / `Resume` / `SetVolume` / `SetLoop` / `Release` / `ReleaseAll` は残してある)。`Engine/Resources.h/.cpp` に `LoadSound` / `ReleaseSound` を足し、`Engine/GameEngine.cpp` に `Audio::Update()` の呼び出しを足した(`Engine/SliderComponent.h` の使用例のコメントも直した)。見本の効果音 `Assets/Sounds/shot.wav` / `hit.wav` を作った。下の「対象」のSampleのコードも置き換え済み(両サンプルの `BulletManager` / `EnemyController` / `Player.cpp` / `TitleController`)。使い方は `README.md` の「24. 音(Audio / AudioSourceComponent / AudioListenerComponent / グループ音量)」を参照。
+> **実装済み**: `Engine/Audio/AudioSourceComponent.h/.cpp`、`Engine/Audio/AudioListenerComponent.h/.cpp` を足した。`Engine/Audio/Audio.h/.cpp` は、中身を「音のデータ(Wave)」と「再生口(Voice)」に分けて作り直した(今までの `Load` / `Play` / `Stop` / `Pause` / `Resume` / `SetVolume` / `SetLoop` / `Release` / `ReleaseAll` は残してある)。`Engine/Core/Resources.h/.cpp` に `LoadSound` / `ReleaseSound` を足し、`Engine/Core/GameEngine.cpp` に `Audio::Update()` の呼び出しを足した(`Engine/UI/SliderComponent.h` の使用例のコメントも直した)。見本の効果音 `Assets/Sounds/shot.wav` / `hit.wav` を作った。下の「対象」のSampleのコードも置き換え済み(両サンプルの `BulletManager` / `EnemyController` / `Player.cpp` / `TitleController`)。使い方は `README.md` の「24. 音(Audio / AudioSourceComponent / AudioListenerComponent / グループ音量)」を参照。
 > 設計から変えた・決まった所:
 > - **`AudioListenerComponent` が2つ以上ある時**: 最後に有効になった(`AddComponent` / `SetActive(true)`)1つだけを使い、出力ウィンドウで1回知らせる。**1つも無い時**: 2D用カメラ(`Image::GetCamera()`)の x,y を聞く位置にする(zは0)。3Dのゲームは必ずリスナーを付ける(付けないと2D用カメラの位置で聞く。2D/3Dのどちらで聞くかは、リスナーの有無と `SetUse3DCamera` で決まる)
 > - **向き**: 2Dは「画面の上(+Y)が正面、右が+X」で固定(頭の上は画面の手前=-Z。X3DAudioは左手系で、右 = 頭の上 × 正面)。3Dは `SetUse3DCamera(true)` で、3D用カメラの向きに合わせる(`AudioListenerComponent::SetUse3DCamera` は設計案に無かった追加)。2Dでは上下(Y)も前後として計算され、画面の上にある音は真ん中から聞こえる
@@ -993,7 +993,7 @@ if (score > SaveData::GetInt("HighScore")) {
 
 **目的**: 音を「どこで鳴っているか」で聞こえ方が変わるようにする(遠い音は小さく、左の音は左から)。同じ効果音を重ねて鳴らせるようにする。BGMと効果音の音量を別々に変えられるようにする。
 
-**ファイル案**: `Engine/AudioSourceComponent.h/.cpp`、`Engine/AudioListenerComponent.h/.cpp`、既存の `Engine/Audio.h/.cpp` に追加
+**ファイル案**: `Engine/Audio/AudioSourceComponent.h/.cpp`、`Engine/Audio/AudioListenerComponent.h/.cpp`、既存の `Engine/Audio/Audio.h/.cpp` に追加
 
 **関数**:
 ```cpp
@@ -1047,7 +1047,7 @@ player->AddComponent<AudioListenerComponent>();
 
 **目的**: 敵の強さや出現の順番などを、コードではなく表(Excel)で調整できるようにする。
 
-> **実装済み**: `Engine/Csv.h/.cpp`(`class Csv`)。下の「対象」のSampleのコード(両サンプルの `EnemyManager`)も置き換え済み。使い方は `README.md` の「25. CSV(Csv)」を参照。
+> **実装済み**: `Engine/Data/Csv.h/.cpp`(`class Csv`)。下の「対象」のSampleのコード(両サンプルの `EnemyManager`)も置き換え済み。使い方は `README.md` の「25. CSV(Csv)」を参照。
 >
 > **決めたこと・設計から変えた所**:
 > - 関数は下のとおりに作り、`GetColumnCount()` と `HasColumn(列)` を足した。`Csv` は中身を `shared_ptr` で共有するので、値としてコピーしても軽い
@@ -1068,7 +1068,7 @@ player->AddComponent<AudioListenerComponent>();
 > - Sample: 両サンプルの `EnemyManager` が `Csv` を2つ(Enemies / Waves)持ち、0.5秒ごと(`Timer`)に確かめる。Wavesが変わった時は、経過時間をそのままに、新しい表で経過時間より前の回を「出した扱い」にして `waveIndex` / `spawnedCount` を数え直す(ウェーブごとに計算するので、Intervalが極端に小さくても終わる)。Enemiesが変わった時は、出ている敵の `ChaseComponent::SetSpeed` にも渡す。そのために `ObjectPool` に読むだけの `GetObjects()` を追加した(Engineの変更)
 > - 実行中に編集するのは出力先(`x64\Debug\Assets\Data`)。ソース側の編集はビルドでコピーされる(自動コピーはしない)
 
-**ファイル案**: `Engine/Csv.h/.cpp`
+**ファイル案**: `Engine/Data/Csv.h/.cpp`
 
 **関数**:
 ```cpp
@@ -1116,7 +1116,7 @@ float speed = table.GetFloat(row, "Speed", 60.f);
 
 **目的**: 爆発・煙・火花などを、たくさんの小さな粒で表現する。
 
-> **実装済み**: `Engine/ParticleRenderer.h/.cpp`(`ParticleSettings` + `ParticleRenderer`)、`Engine/Effect.h/.cpp`(`CreateEffect`)、`Assets/particle.png`。下の「対象」のSampleのコード(両サンプルの「敵を倒した時」)も置き換え済み(`Game/Objects/Explosion.h/.cpp` の `CreateExplosion` を `EnemyController::OnTriggerEnter2D` から呼ぶ)。使い方は `README.md` の「26. パーティクル」を参照。
+> **実装済み**: `Engine/Render/ParticleRenderer.h/.cpp`(`ParticleSettings` + `ParticleRenderer`)、`Engine/Render/Effect.h/.cpp`(`CreateEffect`)、`Assets/particle.png`。下の「対象」のSampleのコード(両サンプルの「敵を倒した時」)も置き換え済み(`Game/Objects/Explosion.h/.cpp` の `CreateExplosion` を `EnemyController::OnTriggerEnter2D` から呼ぶ)。使い方は `README.md` の「26. パーティクル」を参照。
 >
 > **変えたEngineのファイル**: 新規 `ParticleRenderer.h/.cpp`・`Effect.h/.cpp`、既存の `Sprite.h/.cpp`(重ね方 `BlendMode` と、加算合成・ふわっとした合成のブレンド状態、深度を書かない状態を追加)・`Image.h/.cpp`(`Draw` に `blend`・`depthWrite` の引数を追加。既定値は今までと同じ)・`Engine.vcxproj(.filters)`。`Shader*.hlsl` は変えていない
 >
@@ -1130,7 +1130,7 @@ float speed = table.GetFloat(row, "Speed", 60.f);
 > - 粒の大きさが0.01未満になった粒、濃さが0以下の粒は描かない(大きさ0を `Sprite` に渡すと「画像の大きさ」の意味になるため)
 > - ランダムは `Math::RandomRange`(MathUtil)を使った。粒の回転・色相の変化・スプライトシート(アニメする粒)・粒ごとの描画のまとめ(インスタンシング。今は粒1つにつき1回の描画命令)は作っていない
 
-**ファイル案**: `Engine/ParticleRenderer.h/.cpp`、`Engine/Effect.h/.cpp`(使い捨てエフェクトの工場関数)
+**ファイル案**: `Engine/Render/ParticleRenderer.h/.cpp`、`Engine/Render/Effect.h/.cpp`(使い捨てエフェクトの工場関数)
 
 **関数**:
 ```cpp
@@ -1186,7 +1186,7 @@ effect->GetComponent<ParticleRenderer>()->Burst(30);
 
 ### 5.16 FBX読み込みと3Dアニメーション
 
-> **段階1(FBXの読み込み・静止)は実装済み(段階2・3も下に続く。5.16全体は完了)**: `ThirdParty/ufbx/`(ufbx v0.23.1。`ufbx.h`/`ufbx.c`/`LICENSE`/出所の`README.txt`)、`Engine/Model.h/.cpp`、`Engine/ModelRenderer.h/.cpp` を足した。`Engine/Resources.h/.cpp` に `LoadModel` を、`Engine/Mesh.h/.cpp` にワールド行列を直接渡す `Draw` を足し、`Engine/Engine.vcxproj` に ufbx.c のCとしてのビルド設定とinclude pathを足した。`MeshVertex` と `Shader3D.hlsl` は変えていない。Sample3Dに `CreateModelDisplay`(手書きの `Assets/Models/TestParts.fbx` を地面の端に置く)を足した。使い方は `README.md` の「27. FBXモデル(Model / ModelRenderer)」を参照。
+> **段階1(FBXの読み込み・静止)は実装済み(段階2・3も下に続く。5.16全体は完了)**: `ThirdParty/ufbx/`(ufbx v0.23.1。`ufbx.h`/`ufbx.c`/`LICENSE`/出所の`README.txt`)、`Engine/Render3D/Model.h/.cpp`、`Engine/Render3D/ModelRenderer.h/.cpp` を足した。`Engine/Core/Resources.h/.cpp` に `LoadModel` を、`Engine/Render3D/Mesh.h/.cpp` にワールド行列を直接渡す `Draw` を足し、`Engine/Engine.vcxproj` に ufbx.c のCとしてのビルド設定とinclude pathを足した。`MeshVertex` と `Shader3D.hlsl` は変えていない。Sample3Dに `CreateModelDisplay`(手書きの `Assets/Models/TestParts.fbx` を地面の端に置く)を足した。使い方は `README.md` の「27. FBXモデル(Model / ModelRenderer)」を参照。
 >
 > 決めた所:
 > - **ufbxの読み込み設定**: `target_axes = left_handed_y_up`、`target_unit_meters = 0.01`(1単位=1cm)、`handedness_conversion_axis = Z`(右手系のMayaからはZを反転。三角形の頂点順・法線はufbxが直す)、`space_conversion = MODIFY_GEOMETRY`、`geometry_transform_handling = MODIFY_GEOMETRY`、`pivot_handling = ADJUST_TO_PIVOT`、`generate_missing_normals = true`。ファイルは自分でメモリに読んでから `ufbx_load_memory` に渡す(日本語のパスでも開けるように)
@@ -1199,7 +1199,7 @@ effect->GetComponent<ParticleRenderer>()->Burst(30);
 > - **サンプルのFBX**: Mayaで書き出した物ではなく、手書きのASCII FBX(立方体2つ。親「Base」と子「Top」。ジオメトリは共有)。ファイルが無い時は `CreateModelDisplay` が何も置かない
 > - **未対応(5.16の範囲外・今後)**: スキン(骨)、複数マテリアルごとの画像、法線マップなどの追加の画像
 >
-> **段階2(パーツの動き=ノードアニメーション)も実装済み(段階3も下に追記)**: `Engine/ModelAnimationComponent.h/.cpp` を足し、`Engine/Model.h/.cpp` にクリップのデータ(`ModelClip`/`ModelPose`、`GetClipCount`/`GetClip`/`FindClip`、`QuaternionToEuler`)を、`Engine/ModelRenderer.h` に番号で引く `GetNodeTransform(int)` を足した。Sample3Dの `CreateModelDisplay` は手書きのアニメ付きFBX `Assets/Models/TestAnim.fbx`(クリップ「Spin」「Bob」)を再生し、`ModelDisplayController` が3秒ごとに `CrossFade` で切り替える(`TestAnim.fbx` が無ければ静止の `TestParts.fbx`)。使い方は `README.md` の27章「アニメーション」を参照。
+> **段階2(パーツの動き=ノードアニメーション)も実装済み(段階3も下に追記)**: `Engine/Animation/ModelAnimationComponent.h/.cpp` を足し、`Engine/Render3D/Model.h/.cpp` にクリップのデータ(`ModelClip`/`ModelPose`、`GetClipCount`/`GetClip`/`FindClip`、`QuaternionToEuler`)を、`Engine/Render3D/ModelRenderer.h` に番号で引く `GetNodeTransform(int)` を足した。Sample3Dの `CreateModelDisplay` は手書きのアニメ付きFBX `Assets/Models/TestAnim.fbx`(クリップ「Spin」「Bob」)を再生し、`ModelDisplayController` が3秒ごとに `CrossFade` で切り替える(`TestAnim.fbx` が無ければ静止の `TestParts.fbx`)。使い方は `README.md` の27章「アニメーション」を参照。
 >
 > 決めた所(段階2):
 > - **ufbxのAPI**: `ufbx_bake_anim` ではなく `ufbx_evaluate_transform(stack->anim, node, time)` を使い、読み込み時にアニメーションスタック(クリップ)ごと・パーツごとに**1秒30個**で全部サンプリングして持つ(キーの形に依存せず確実で、単位・座標系の変換が静止モデルの `local_transform` と同じ空間で返る)。クリップの長さは `time_end - time_begin`。1クリップは最大20000個(約11分)で、超えたら途中まで。メモリは パーツ数×個数×約40バイト
@@ -1210,7 +1210,7 @@ effect->GetComponent<ParticleRenderer>()->Burst(30);
 > - **手動操作との優先順位**: 再生中はアニメーションが全パーツを毎フレーム上書きする。ループしない動きが終わった後は書き込まないので手で動かせる。止めたい時は `SetEnabled(false)`
 > - **検証**: 手書きASCII FBX(`AnimationStack`/`AnimationLayer`/`AnimationCurveNode`/`AnimationCurve`)で、クリップ2つ・値(Bobの位置が100→130→100、Spinの回転が0→-360=Z反転でY回転の向きが逆)・CrossFadeの混ざり方・非ループの終了を、スクラッチのテストプログラムで確認した
 >
-> **段階3(骨のスキンアニメーション)も実装済み。5.16 はこれで完了**: `Shader3DSkin.hlsl`(新しいシェーダー。`Shader3D.hlsl` と同じ場所)、`Engine/SkinMesh.h/.cpp`(`SkinVertex` と描画クラス)を足し、`Engine/Model.h/.cpp` にスキンのデータ(`ModelNode::skinVertices`/`skinBones`/`skinInverseBind`、`GetSkinMesh`)、`Engine/ModelRenderer.h/.cpp` に骨の行列の計算と送信、`Engine/Engine.vcxproj` に `Shader3DSkin.hlsl` のコピー(`CopyRuntimeFiles`)と `UpToDateCheckInput` を足した。`MeshVertex`・`Shader3D.hlsl`・`Shader.hlsl` は変えていない。Sample3Dに `CreateSkinDisplay`(手書きの `Assets/Models/TestSkin.fbx`、クリップ「Bend」)を足した。使い方は `README.md` の27章「骨で曲げるモデル」を参照。
+> **段階3(骨のスキンアニメーション)も実装済み。5.16 はこれで完了**: `Shader3DSkin.hlsl`(新しいシェーダー。`Shader3D.hlsl` と同じ場所)、`Engine/Render3D/SkinMesh.h/.cpp`(`SkinVertex` と描画クラス)を足し、`Engine/Render3D/Model.h/.cpp` にスキンのデータ(`ModelNode::skinVertices`/`skinBones`/`skinInverseBind`、`GetSkinMesh`)、`Engine/Render3D/ModelRenderer.h/.cpp` に骨の行列の計算と送信、`Engine/Engine.vcxproj` に `Shader3DSkin.hlsl` のコピー(`CopyRuntimeFiles`)と `UpToDateCheckInput` を足した。`MeshVertex`・`Shader3D.hlsl`・`Shader.hlsl` は変えていない。Sample3Dに `CreateSkinDisplay`(手書きの `Assets/Models/TestSkin.fbx`、クリップ「Bend」)を足した。使い方は `README.md` の27章「骨で曲げるモデル」を参照。
 >
 > 決めた所(段階3):
 > - **頂点形式**: `SkinVertex`(位置・法線・色・UV + `uint BoneIndices[4]` + `float BoneWeights[4]`、80バイト)。入力レイアウトは `BLENDINDICES`(R32G32B32A32_UINT)・`BLENDWEIGHT`(R32G32B32A32_FLOAT)。頂点バッファは `D3D11_USAGE_IMMUTABLE` で読み込み時(最初に描く時)に1回だけ作り、毎フレームの頂点コピーはしない。色は頂点に焼かず、`b1` の `tint` で掛ける
@@ -1225,7 +1225,7 @@ effect->GetComponent<ParticleRenderer>()->Burst(30);
 
 **目的**: Mayaで作ったモデルとアニメーションを、ゲームで使えるようにする。
 
-**ファイル案**: `ThirdParty/ufbx/`(外部ライブラリ)、`Engine/Model.h/.cpp`、`Engine/ModelRenderer.h/.cpp`、`Engine/ModelAnimationComponent.h/.cpp`
+**ファイル案**: `ThirdParty/ufbx/`(外部ライブラリ)、`Engine/Render3D/Model.h/.cpp`、`Engine/Render3D/ModelRenderer.h/.cpp`、`Engine/Animation/ModelAnimationComponent.h/.cpp`
 
 **外部ライブラリ**: **ufbx**(github.com/ufbx/ufbx、MITライセンス)を使う予定です。`ufbx.h` と `ufbx.c` の2ファイルだけなので、`ThirdParty/ufbx/` に置いてEngineと一緒にビルドできます。**ダウンロードはユーザーの了承済み**で、v0.23.1 を `ThirdParty/ufbx/` に置いた(MIT/Public Domain のデュアルライセンス。`LICENSE` を一緒に置いた)。
 
@@ -1293,7 +1293,7 @@ if (moving) anim->CrossFade("Run", 0.2f); else anim->CrossFade("Idle", 0.2f);
 
 ### 5.17 シーン切り替え
 
-> **実装済み**: `Engine/SceneTransition.h/.cpp`(親クラス)、`Engine/FadeTransition.h/.cpp`、`Engine/SpriteTransition.h/.cpp` を足した。`Engine/SceneManager.h/.cpp` に演出付きの `ChangeScene<T>(演出)` を足し、`Engine/Time.h/.cpp` にEngine内部用の「切り替えの間だけ時間を止める」関数を足し、`Engine/GameEngine.cpp` に描画と後片付けの呼び出しを足した。見本の画像 `Assets/transition_circle.png` を作った。下の「対象」のSampleのコードも置き換え済み。使い方は `README.md` の「16. シーン切り替え(SceneTransition)」を参照。
+> **実装済み**: `Engine/Transition/SceneTransition.h/.cpp`(親クラス)、`Engine/Transition/FadeTransition.h/.cpp`、`Engine/Transition/SpriteTransition.h/.cpp` を足した。`Engine/Core/SceneManager.h/.cpp` に演出付きの `ChangeScene<T>(演出)` を足し、`Engine/Core/Time.h/.cpp` にEngine内部用の「切り替えの間だけ時間を止める」関数を足し、`Engine/Core/GameEngine.cpp` に描画と後片付けの呼び出しを足した。見本の画像 `Assets/transition_circle.png` を作った。下の「対象」のSampleのコードも置き換え済み。使い方は `README.md` の「16. シーン切り替え(SceneTransition)」を参照。
 >
 > 決めた所:
 > - **時間を止める方法**: 演出が始まった時に `Time::PauseForSceneTransition()`(今の倍率を覚えて0にする)、開き終わった時に `Time::ResumeAfterSceneTransition()`(覚えた倍率に戻す)。どちらもEngine内部用(`SceneManager` だけが呼ぶ)。切り替え前が0.3なら0.3に戻る
@@ -1309,7 +1309,7 @@ if (moving) anim->CrossFade("Run", 0.2f); else anim->CrossFade("Idle", 0.2f);
 > - `SceneManager.h` が `FadeTransition.h` / `SpriteTransition.h` もインクルードするので、ゲーム側は `SceneManager.h` だけで3種類とも使える
 > - `ScreenEffect::Fade` は変えていない(シーン切り替え以外の演出用に残す)
 >
-> **後から追加(切り替えるコマ)**: `SpriteTransition::SetSwitchFrame(コマ)` を足し(`Engine/SpriteTransition.h/.cpp`)、見本の画像 `Assets/transition_wipe.png`(8×2、1コマ320×180。黒い帯が左から入ってコマ7で全部覆い、右へ抜けてコマ15で全部透明)を作った。Sample3D の `GameManager` のタイトルへの切り替えを `SpriteTransition(L"Assets/transition_wipe.png", 8, 2, 0.04f).SetSwitchFrame(7)` にした(Sample2D は丸のまま)。
+> **後から追加(切り替えるコマ)**: `SpriteTransition::SetSwitchFrame(コマ)` を足し(`Engine/Transition/SpriteTransition.h/.cpp`)、見本の画像 `Assets/transition_wipe.png`(8×2、1コマ320×180。黒い帯が左から入ってコマ7で全部覆い、右へ抜けてコマ15で全部透明)を作った。Sample3D の `GameManager` のタイトルへの切り替えを `SpriteTransition(L"Assets/transition_wipe.png", 8, 2, 0.04f).SetSwitchFrame(7)` にした(Sample2D は丸のまま)。
 > - **進み方**: 逆再生はせず、コマ0→最後のコマを順に1回だけ流す。覆う=コマ0〜frame(frame+1コマ分の時間)、開く=コマframe+1〜最後(最後−frame コマ分の時間)。1コマの時間は覆う時の画像の `frameDuration`。`SceneTransition`(親クラス)は変えず、`GetCoverDuration` / `GetOpenDuration` / `DrawCover` / `DrawOpen` の中で分けている
 > - **切り替えの瞬間**: 開く段階の progress=0(シーンを切り替えたフレームと、その次の読み込みで長くなったフレーム)は、まだ全部覆っているコマ frame を出す。開く段階のコマは切り上げで求める(0より少しでも進んだら frame+1。各コマは1コマの時間ずつ出る)
 > - **範囲外**: frame は 0〜(コマ数−2) に収めて、出力ウィンドウに `★ SpriteTransition::SetSwitchFrame: ...` を出す(最後のコマ以上だと開く段階が0コマになり、新しいシーンがいきなり見えるため)。1コマだけの画像は 0(開く段階は0コマ)
@@ -1319,7 +1319,7 @@ if (moving) anim->CrossFade("Run", 0.2f); else anim->CrossFade("Idle", 0.2f);
 
 **目的**: シーンの切り替えに演出(暗転・画像のアニメーション)を付ける。今は「`ScreenEffect::Fade` の終わった時の処理で `ChangeScene` する」「次のシーンの `Init` で明転する」の2か所に分かれていて、明転を忘れると真っ暗のままになる。また二重押しを防ぐ `IsFading()` のチェックも毎回書く必要がある。1行で「覆う → 切り替える → 開く」まで済むようにする。
 
-**ファイル案**: `Engine/SceneTransition.h/.cpp`(親クラス)、`Engine/FadeTransition.h/.cpp`、`Engine/SpriteTransition.h/.cpp`、`Engine/SceneManager.h/.cpp` に引数付きの `ChangeScene` を追加
+**ファイル案**: `Engine/Transition/SceneTransition.h/.cpp`(親クラス)、`Engine/Transition/FadeTransition.h/.cpp`、`Engine/Transition/SpriteTransition.h/.cpp`、`Engine/Core/SceneManager.h/.cpp` に引数付きの `ChangeScene` を追加
 
 **関数**:
 ```cpp

@@ -1,11 +1,11 @@
 ﻿#include "Player.h"
-#include "../../../Engine/Scene.h"
-#include "../../../Engine/GameObject.h"
-#include "../../../Engine/SpriteRenderer.h"
-#include "../../../Engine/RigidbodyComponent.h"
-#include "../../../Engine/CameraFollowComponent.h"
-#include "../../../Engine/GaugeRenderer.h"
-#include "../../../Engine/AudioListenerComponent.h"
+#include "../../../Engine/Core/Scene.h"
+#include "../../../Engine/Core/GameObject.h"
+#include "../../../Engine/Render/SpriteRenderer.h"
+#include "../../../Engine/Physics/RigidbodyComponent.h"
+#include "../../../Engine/Render/CameraFollowComponent.h"
+#include "../../../Engine/UI/GaugeRenderer.h"
+#include "../../../Engine/Audio/AudioListenerComponent.h"
 #include "../Components/PlayerController.h"
 
 GameObject* CreatePlayer(Scene& scene) {

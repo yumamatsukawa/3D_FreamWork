@@ -1,5 +1,5 @@
 ﻿#include "LanternController.h"
-#include "../../../Engine/GameObject.h"
+#include "../../../Engine/Core/GameObject.h"
 #include <cmath>
 
 void LanternController::Update(float dt) {

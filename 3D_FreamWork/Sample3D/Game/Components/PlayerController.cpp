@@ -1,14 +1,14 @@
 ﻿#include "PlayerController.h"
 #include "CameraController.h"
-#include "../../../Engine/GameObject.h"
-#include "../../../Engine/MeshRenderer.h"
-#include "../../../Engine/GaugeRenderer.h"
-#include "../../../Engine/Input.h"
-#include "../../../Engine/EventBus.h"
-#include "../../../Engine/RigidbodyComponent.h"
-#include "../../../Engine/MathUtil.h"
-#include "../../../Engine/ScreenEffect.h"
-#include "../../../Engine/Time.h"
+#include "../../../Engine/Core/GameObject.h"
+#include "../../../Engine/Render3D/MeshRenderer.h"
+#include "../../../Engine/UI/GaugeRenderer.h"
+#include "../../../Engine/Core/Input.h"
+#include "../../../Engine/Core/EventBus.h"
+#include "../../../Engine/Physics/RigidbodyComponent.h"
+#include "../../../Engine/Core/MathUtil.h"
+#include "../../../Engine/Render/ScreenEffect.h"
+#include "../../../Engine/Core/Time.h"
 #include <PxPhysicsAPI.h>
 
 void PlayerController::Init() {

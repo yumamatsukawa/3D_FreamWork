@@ -1,8 +1,8 @@
 ﻿#include "Button.h"
-#include "../../../Engine/Scene.h"
-#include "../../../Engine/GameObject.h"
-#include "../../../Engine/SpriteRenderer.h"
-#include "../../../Engine/ButtonComponent.h"
+#include "../../../Engine/Core/Scene.h"
+#include "../../../Engine/Core/GameObject.h"
+#include "../../../Engine/Render/SpriteRenderer.h"
+#include "../../../Engine/UI/ButtonComponent.h"
 
 GameObject* CreateButton(Scene& scene, const std::wstring& label, Transform tf,
     std::function<void()> onClick) {

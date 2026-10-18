@@ -1,7 +1,7 @@
 ﻿#include "Ground.h"
-#include "../../../Engine/Scene.h"
-#include "../../../Engine/GameObject.h"
-#include "../../../Engine/RigidbodyComponent.h"
+#include "../../../Engine/Core/Scene.h"
+#include "../../../Engine/Core/GameObject.h"
+#include "../../../Engine/Physics/RigidbodyComponent.h"
 #include "../Components/GroundController.h"
 #include <climits>
 

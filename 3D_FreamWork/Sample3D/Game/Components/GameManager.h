@@ -1,5 +1,5 @@
 ﻿#pragma once
-#include "../../../Engine/Component.h"
+#include "../../../Engine/Core/Component.h"
 
 // スコア・ハイスコアの更新・ゲームオーバーを管理する(敵の出現はEnemyManager、弾の発射はBulletManagerの担当)
 class GameManager : public Component {

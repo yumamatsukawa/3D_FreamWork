@@ -1,9 +1,9 @@
 ﻿#include "Hills.h"
-#include "../../../Engine/Scene.h"
-#include "../../../Engine/GameObject.h"
-#include "../../../Engine/Terrain.h"
-#include "../../../Engine/TerrainRenderer.h"
-#include "../../../Engine/RigidbodyComponent.h"
+#include "../../../Engine/Core/Scene.h"
+#include "../../../Engine/Core/GameObject.h"
+#include "../../../Engine/Render3D/Terrain.h"
+#include "../../../Engine/Render3D/TerrainRenderer.h"
+#include "../../../Engine/Physics/RigidbodyComponent.h"
 #include <climits>
 
 GameObject* CreateHills(Scene& scene, DirectX::XMFLOAT3 corner) {

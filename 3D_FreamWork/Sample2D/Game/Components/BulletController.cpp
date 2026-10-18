@@ -1,6 +1,6 @@
 ﻿#include "BulletController.h"
-#include "../../../Engine/GameObject.h"
-#include "../../../Engine/ObjectPool.h"
+#include "../../../Engine/Core/GameObject.h"
+#include "../../../Engine/Core/ObjectPool.h"
 
 void BulletController::Update(float dt) {
     Transform& t = GetOwner()->transform;

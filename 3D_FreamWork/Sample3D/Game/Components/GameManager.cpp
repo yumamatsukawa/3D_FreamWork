@@ -1,10 +1,10 @@
 ﻿#include "GameManager.h"
-#include "../../../Engine/EventBus.h"
-#include "../../../Engine/Input.h"
-#include "../../../Engine/SceneManager.h"
-#include "../../../Engine/RigidbodyComponent.h"
-#include "../../../Engine/VisionComponent.h"
-#include "../../../Engine/SaveData.h"
+#include "../../../Engine/Core/EventBus.h"
+#include "../../../Engine/Core/Input.h"
+#include "../../../Engine/Core/SceneManager.h"
+#include "../../../Engine/Physics/RigidbodyComponent.h"
+#include "../../../Engine/Behavior/VisionComponent.h"
+#include "../../../Engine/Data/SaveData.h"
 #include "../Scenes/TitleScene.h"
 
 namespace {

@@ -1,6 +1,6 @@
 ﻿#pragma once
-#include "../../../Engine/Component.h"
-#include "../../../Engine/GameObject.h"
+#include "../../../Engine/Core/Component.h"
+#include "../../../Engine/Core/GameObject.h"
 
 // デモ・確認用: 毎フレーム一定角速度で回転し続けるComponent。
 // 3Dメッシュがちゃんと立体として回っているか目視確認するために使う

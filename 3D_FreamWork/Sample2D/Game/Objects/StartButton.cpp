@@ -1,9 +1,9 @@
 ﻿#include "StartButton.h"
 #include "Button.h"
 #include "../Scenes/GameScene.h"
-#include "../../../Engine/GameObject.h"
-#include "../../../Engine/SceneManager.h"
-#include "../../../Engine/TweenComponent.h"
+#include "../../../Engine/Core/GameObject.h"
+#include "../../../Engine/Core/SceneManager.h"
+#include "../../../Engine/Animation/TweenComponent.h"
 
 GameObject* CreateStartButton(Scene& scene) {
     // ここでは「どこに置いて、押されたら何をするか」だけを決める

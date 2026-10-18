@@ -1,8 +1,8 @@
 ﻿#include "Wall.h"
-#include "../../../Engine/Scene.h"
-#include "../../../Engine/GameObject.h"
-#include "../../../Engine/SpriteRenderer.h"
-#include "../../../Engine/RigidbodyComponent.h"
+#include "../../../Engine/Core/Scene.h"
+#include "../../../Engine/Core/GameObject.h"
+#include "../../../Engine/Render/SpriteRenderer.h"
+#include "../../../Engine/Physics/RigidbodyComponent.h"
 
 GameObject* CreateWall(Scene& scene, DirectX::XMFLOAT2 position, DirectX::XMFLOAT2 size) {
     // タグを"Wall"にしておくと、VisionComponentの視線がさえぎられる(付け忘れると素通しになる)

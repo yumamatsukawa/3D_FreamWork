@@ -1,8 +1,8 @@
 ﻿#include "Lantern.h"
-#include "../../../Engine/Scene.h"
-#include "../../../Engine/GameObject.h"
-#include "../../../Engine/MeshRenderer.h"
-#include "../../../Engine/LightComponent.h"
+#include "../../../Engine/Core/Scene.h"
+#include "../../../Engine/Core/GameObject.h"
+#include "../../../Engine/Render3D/MeshRenderer.h"
+#include "../../../Engine/Render3D/LightComponent.h"
 #include "../Components/LanternController.h"
 
 GameObject* CreateLantern(Scene& scene, DirectX::XMFLOAT3 center) {

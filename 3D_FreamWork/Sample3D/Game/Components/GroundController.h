@@ -1,6 +1,6 @@
 ﻿#pragma once
-#include "../../../Engine/Component.h"
-#include "../../../Engine/Mesh.h"
+#include "../../../Engine/Core/Component.h"
+#include "../../../Engine/Render3D/Mesh.h"
 #include <string>
 #include <climits>
 

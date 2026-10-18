@@ -1,7 +1,7 @@
 ﻿#include "GlassPanel.h"
-#include "../../../Engine/Scene.h"
-#include "../../../Engine/GameObject.h"
-#include "../../../Engine/MeshRenderer.h"
+#include "../../../Engine/Core/Scene.h"
+#include "../../../Engine/Core/GameObject.h"
+#include "../../../Engine/Render3D/MeshRenderer.h"
 
 GameObject* CreateGlassPanel(Scene& scene, DirectX::XMFLOAT3 position, DirectX::XMFLOAT3 size) {
     GameObject* panel = scene.CreateObject("GlassPanel");

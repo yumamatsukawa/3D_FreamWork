@@ -1,6 +1,6 @@
 ﻿#include "EnemySpawner.h"
-#include "../../../Engine/Scene.h"
-#include "../../../Engine/GameObject.h"
+#include "../../../Engine/Core/Scene.h"
+#include "../../../Engine/Core/GameObject.h"
 #include "../Components/EnemyManager.h"
 
 EnemyManager* CreateEnemySpawner(Scene& scene, GameObject* target) {

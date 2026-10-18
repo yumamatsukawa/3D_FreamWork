@@ -1,5 +1,5 @@
 ﻿#pragma once
-#include "../../../Engine/Component.h"
+#include "../../../Engine/Core/Component.h"
 #include <DirectXMath.h>
 
 // ランタンの動きを担当する(中心の周りをゆっくり回りながら、上下にふわふわ揺れる。光はLightComponentが担当)

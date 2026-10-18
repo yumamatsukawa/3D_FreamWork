@@ -1,5 +1,5 @@
 ﻿#pragma once
-#include "../../../Engine/Scene.h"
+#include "../../../Engine/Core/Scene.h"
 
 // ゲーム本編のシーン
 class GameScene : public Scene

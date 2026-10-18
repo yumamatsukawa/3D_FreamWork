@@ -1,9 +1,9 @@
 ﻿#pragma once
 #include <DirectXMath.h>
-#include "../../../Engine/Component.h"
-#include "../../../Engine/ObjectPool.h"
-#include "../../../Engine/Timer.h"
-#include "../../../Engine/Csv.h"
+#include "../../../Engine/Core/Component.h"
+#include "../../../Engine/Core/ObjectPool.h"
+#include "../../../Engine/Core/Timer.h"
+#include "../../../Engine/Data/Csv.h"
 #include <vector>
 
 class GameObject;

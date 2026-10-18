@@ -1,6 +1,6 @@
 ﻿#include "Title.h"
-#include "../../../Engine/Scene.h"
-#include "../../../Engine/GameObject.h"
+#include "../../../Engine/Core/Scene.h"
+#include "../../../Engine/Core/GameObject.h"
 #include "../Components/TitleController.h"
 
 GameObject* CreateTitle(Scene& scene) {

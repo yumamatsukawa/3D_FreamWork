@@ -1,9 +1,9 @@
 ﻿#include "GuardController.h"
-#include "../../../Engine/GameObject.h"
-#include "../../../Engine/MeshRenderer.h"
-#include "../../../Engine/VisionComponent.h"
-#include "../../../Engine/LightComponent.h"
-#include "../../../Engine/MathUtil.h"
+#include "../../../Engine/Core/GameObject.h"
+#include "../../../Engine/Render3D/MeshRenderer.h"
+#include "../../../Engine/Behavior/VisionComponent.h"
+#include "../../../Engine/Render3D/LightComponent.h"
+#include "../../../Engine/Core/MathUtil.h"
 #include <cmath>
 
 void GuardController::Init() {

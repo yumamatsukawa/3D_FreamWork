@@ -1,4 +1,4 @@
-# 3D_FreamWork
+﻿# 3D_FreamWork
 
 DirectX11製の、Unity風のコンポーネント指向ゲームフレームワーク。2D(スプライト)と3D(メッシュ)の両方に対応しています。
 
@@ -29,6 +29,28 @@ DirectX11製の、Unity風のコンポーネント指向ゲームフレームワ
 - ビルド後、`Engine.lib`/`Sample2D.exe`/`Sample3D.exe`は全て同じ`x64\Debug\`(`Release\`)フォルダに出力されます。`Assets\`とシェーダーは、Engineのビルドのたびに(`Engine.vcxproj`の`CopyRuntimeFiles`)、新しいファイルだけがそこへ自動コピーされます。Engineのコードが変わっていなくても動き、`Assets/`とシェーダーを高速最新チェックの入力に登録してあるので(`UpToDateCheckInput`)、`Assets/`だけ編集して実行(F5)しても反映されます。ビルド済みの`.exe`をダブルクリックするだけでも動きます。
 - ソリューションを開いてF5で実行する時は、実行したい方(Sample2DかSample3D)をソリューションエクスプローラーで右クリック→「スタートアッププロジェクトに設定」してから実行してください(複数のスタートアッププロジェクトを同時に起動する設定も可能です)。
 
+### Engineのフォルダ構成
+
+`Engine\`の中は、機能ごとに11個のフォルダに分けてあります(`.h`と`.cpp`は同じフォルダに入れます)。
+
+| フォルダ | 役割 |
+|---|---|
+| `Core\` | フレームワークの土台。ゲームの起動・シーン・GameObject/Component・時間・入力・イベント・プーリングなど |
+| `Render\` | 2Dの描画と画面まわり。スプライト・画像・カメラ・画面演出・パーティクルなど |
+| `Render3D\` | 3Dの描画。メッシュ・FBXモデル・地形・水面・ライト・影・マテリアルなど |
+| `Physics\` | 物理演算(PhysX)。剛体Component・コライダー・衝突の通知 |
+| `Audio\` | 音の再生。BGM/SE・音を聞く側(Listener)と鳴らす側(Source) |
+| `UI\` | 文字・ゲージ・スライダー・ボタンなど、画面に出す部品 |
+| `Animation\` | 動きの時間変化。Tween・イージング・スプライトやモデルのアニメーション |
+| `Transition\` | シーン切り替えの演出(フェード・スプライトを使った切り替え) |
+| `Behavior\` | 動きの部品。移動・追いかけ・ホーミング・視界判定など、そのまま付けて使うComponent |
+| `Data\` | データの読み書き。CSVの表・セーブデータ |
+| `ThirdParty\` | 外部のコード(WICTextureLoader11)をそのまま置く場所 |
+
+新しいファイルを作る時は、一番近い役割のフォルダに置きます。迷ったら、同じ仲間のファイル(例: 新しいComponentが「追いかける動き」なら`Behavior\`)と同じ場所にしてください。`.vcxproj`と`.vcxproj.filters`の登録(フィルターは同じフォルダ名)も忘れずに。
+
+#include の書き方: 同じフォルダ内は`#include "Foo.h"`、別のフォルダは`#include "../Core/GameObject.h"`、Sampleからは`#include "../../../Engine/Core/GameObject.h"`のように、フォルダ名を挟んだ相対パスで書きます。
+
 新しい3つ目のサンプルを作りたい時は、`Sample2D`か`Sample3D`のフォルダ構成をコピーして名前を変え、`.sln`に登録し、`Engine.vcxproj`への`ProjectReference`と`PhysX.props`のImportを忘れずに設定してください。
 
 ---
@@ -50,7 +72,7 @@ enemy->AddComponent<BoxRigidbodyComponent>(BodyType::Kinematic, enemy->transform
 - `SetActive(false)`: 非表示・Update/Draw停止(**破棄はされない**。オブジェクトプーリングで使う)
 - `Destroy()`: 本当に破棄する(次のフレームで実際に取り除かれる)
 
-新しいComponentを作る時は`Component`(`Engine/Component.h`)を継承し、必要な関数だけoverrideします:
+新しいComponentを作る時は`Component`(`Engine/Core/Component.h`)を継承し、必要な関数だけoverrideします:
 
 ```cpp
 class MyComponent : public Component {
@@ -167,7 +189,7 @@ auto* meshRenderer = obj->AddComponent<MeshRenderer>(Mesh::LoadOBJ(L"Assets/mode
 
 `LoadOBJ`は`v`(頂点座標)/`vt`(UV座標)/`vn`(法線)/`f`(面)に対応しています。四角形以上の面は自動で三角形に分割されます。`vn`が無いファイルは、三角形ごとに2辺の外積から面法線を自動計算するので、法線無しのモデルでもとりあえず陰影は付きます。
 
-これら以外の形状を追加したい場合は、同じ形式(`std::vector<MeshVertex>`を返す静的関数)で頂点データを作る関数を`Engine/Mesh.h/.cpp`に足してください(`Game/Objects/Cube.cpp`や`Sphere.cpp`が実例)。
+これら以外の形状を追加したい場合は、同じ形式(`std::vector<MeshVertex>`を返す静的関数)で頂点データを作る関数を`Engine/Render3D/Mesh.h/.cpp`に足してください(`Game/Objects/Cube.cpp`や`Sphere.cpp`が実例)。
 
 **スカイボックス**: `Game/Objects/Skybox.cpp`が実例です。カメラを中心に追従する(回転はしない)巨大なメッシュを使った、遠景の作り方のパターンとして参考にしてください。
 
@@ -184,7 +206,7 @@ meshRenderer->SetDepthWrite(false);    // 深度バッファに書き込まな�
 
 **見た目の設定(マテリアル)**: 色・画像・光沢・自発光・半透明などは `Material` にまとめて持っています(`meshRenderer->GetMaterial()`で手直しできます。`SetColor`/`SetTexture`/`SetUnlit`/`SetDepthWrite` はその項目を書き換える短い書き方です)。詳しくは §30 を見てください。
 
-**内部実装メモ**: シェーダー・サンプラー・ブレンド/深度/ラスタライザステート・定数バッファは、`Mesh`クラス全体で1つだけ作成して全インスタンスで共有しています(Cube/Sphere/Skyboxを何体作っても、シェーダーのコンパイルなどは初回の1回だけ)。頂点バッファ(形状データ)は作る時に1回だけ送る変更不可のバッファで、インスタンスごとに別です(描く度の頂点のコピーはしません。§30)(テクスチャは`Resources`で同じ画像どうし共有しています。§11)。特に意識する必要はありませんが、`Engine/Mesh.h/.cpp`を触る時は「インスタンスごとの値」と「共有する値(static)」を混同しないよう注意してください。
+**内部実装メモ**: シェーダー・サンプラー・ブレンド/深度/ラスタライザステート・定数バッファは、`Mesh`クラス全体で1つだけ作成して全インスタンスで共有しています(Cube/Sphere/Skyboxを何体作っても、シェーダーのコンパイルなどは初回の1回だけ)。頂点バッファ(形状データ)は作る時に1回だけ送る変更不可のバッファで、インスタンスごとに別です(描く度の頂点のコピーはしません。§30)(テクスチャは`Resources`で同じ画像どうし共有しています。§11)。特に意識する必要はありませんが、`Engine/Render3D/Mesh.h/.cpp`を触る時は「インスタンスごとの値」と「共有する値(static)」を混同しないよう注意してください。
 
 ### ライティング(3Dメッシュの陰影)
 
@@ -296,7 +318,7 @@ void OnCollisionExit2D(CollisionInfo info) override;
 - ポーズ中(`Time::SetTimeScale(0.0f)` で、PhysXの計算が止まっている間)は呼ばれません
 - どちらかが非アクティブ(`ObjectPool` に戻った)・`Destroy()` 済みの間は呼ばれません。プールに戻した物をまた使った時は、重なっていれば `OnTriggerEnter2D` からやり直しになります
 - `OnTriggerStay2D` の中で、相手をプールに戻す・`Destroy()` する・`AddForce` するのは大丈夫です(`AddForce` はその場で効きます)
-- PhysXはトリガーの「重なっている間」の知らせを出さないので、`Engine/Physics.cpp` が Enter で組み合わせを覚えて、Exit で忘れ、`Physics::Update()` の最後に毎回呼んでいます
+- PhysXはトリガーの「重なっている間」の知らせを出さないので、`Engine/Physics/Physics.cpp` が Enter で組み合わせを覚えて、Exit で忘れ、`Physics::Update()` の最後に毎回呼んでいます
 
 **注意: トリガー同士が重なっても、トリガーのコールバックは呼ばれません**
 - 両方が `isTrigger = true` の物同士が重なっても、`OnTriggerEnter2D` / `OnTriggerStay2D` / `OnTriggerExit2D` は呼ばれません。これはPhysX 4.1の仕様です(`PxShape.h` / `PxSimulationEventCallback.h` に書かれています)。Unityでは、どちらかにRigidbodyがあればトリガー同士でも呼ばれるので、ここはUnityと違います
@@ -305,7 +327,7 @@ void OnCollisionExit2D(CollisionInfo info) override;
   1. 片方をトリガーにしない(ただし普通の当たり判定は、ぶつかって止まる/押し返す動きになります)
   2. すり抜けたまま調べたい時は、範囲の側が自分から探す。例: `Physics::OverlapBox(t.position, t.scale, "Bullet", QueryTriggers::Include)`(→「物理の問い合わせと力」の節)
 
-**内部実装メモ**: `Engine/Physics.cpp`のシミュレーションコールバック(`onContact`/`onTrigger`)が、PhysXの結果をこれらのコールバックに変換しています。Kinematicなオブジェクト同士がぶつかった時の「押し戻し」は、PhysXの自動計算に任せられない(キネマティックは力の影響を受けないため)ので、接触の法線・めり込み量から手動で`Transform.position`をずらしています(`isStaticForPush=true`側は動かさない)。Dynamicなオブジェクト(Sphereなど)が絡む場合は、PhysX自身が正しく押し返すので、この手動処理はスキップされます。
+**内部実装メモ**: `Engine/Physics/Physics.cpp`のシミュレーションコールバック(`onContact`/`onTrigger`)が、PhysXの結果をこれらのコールバックに変換しています。Kinematicなオブジェクト同士がぶつかった時の「押し戻し」は、PhysXの自動計算に任せられない(キネマティックは力の影響を受けないため)ので、接触の法線・めり込み量から手動で`Transform.position`をずらしています(`isStaticForPush=true`側は動かさない)。Dynamicなオブジェクト(Sphereなど)が絡む場合は、PhysX自身が正しく押し返すので、この手動処理はスキップされます。
 
 **薄い形状のすり抜けについて**: PhysXは、紙のように薄い形状同士が角(コーナー)でかすめるように当たると、押し返しが弱く貫通してしまうことがあります(以前の`SquareRigidbodyComponent`は奥行き1.0の薄い箱だったため、実際にこれが起きていました)。対策として2つ行っています:
 - `SquareRigidbodyComponent`は奥行きも一辺と同じ長さにした(実質的に立方体)。2Dゲームでは`SetFreezePositionZ(true)`で奥行き方向に動かないようにしておけば、厚みがあっても見た目や動きには影響しない
@@ -383,10 +405,10 @@ pool.Return(obj);
 
 ## 9. 計算系(Math)
 
-方向・距離・角度・乱数の計算は、`Engine/MathUtil.h` の `namespace Math` にまとめてあります。各Componentで `atan2f`/`sqrtf`/`sinf`/`cosf`/`rand()` を直接書かずに、こちらを使ってください(0で割る・角度の向きを間違える、といったミスを防ぐため)。
+方向・距離・角度・乱数の計算は、`Engine/Core/MathUtil.h` の `namespace Math` にまとめてあります。各Componentで `atan2f`/`sqrtf`/`sinf`/`cosf`/`rand()` を直接書かずに、こちらを使ってください(0で割る・角度の向きを間違える、といったミスを防ぐため)。
 
 ```cpp
-#include "../../../Engine/MathUtil.h"
+#include "../../../Engine/Core/MathUtil.h"
 ```
 
 `XMFLOAT2`/`XMFLOAT3` の `+` `-`(2つの和・差)と `* float`(何倍か)も使えるようになります。
@@ -427,12 +449,12 @@ XMFLOAT2 offset = Math::RandomOnCircle(spawnDistance);
 
 ## 10. 時間とタイマー(Time / Timer)
 
-「1フレームの時間」「時間の倍率(スロー・ポーズ)」は `Engine/Time.h` の `namespace Time`、「○秒たったら」を数えるのは `Engine/Timer.h` の `Timer` でできます。各Componentで `timer -= dt; if (timer <= 0) ...` のような処理を手書きせずに、こちらを使ってください。
+「1フレームの時間」「時間の倍率(スロー・ポーズ)」は `Engine/Core/Time.h` の `namespace Time`、「○秒たったら」を数えるのは `Engine/Core/Timer.h` の `Timer` でできます。各Componentで `timer -= dt; if (timer <= 0) ...` のような処理を手書きせずに、こちらを使ってください。
 
 ### Time(1フレームの時間・スロー・ポーズ)
 
 ```cpp
-#include "../../../Engine/Time.h"
+#include "../../../Engine/Core/Time.h"
 ```
 
 | 関数 | 内容 |
@@ -467,7 +489,7 @@ Time::SetTimeScale(1.0f);   // 元に戻す
 ### Timer(○秒たったら)
 
 ```cpp
-#include "../../../Engine/Timer.h"
+#include "../../../Engine/Core/Timer.h"
 ```
 
 Componentのメンバに持って、`Update` で毎フレーム `dt` を渡します。
@@ -508,12 +530,12 @@ if (lifeTimer.Update(dt)) pool->Return(GetOwner());  // 2秒たったらプー�
 
 ## 11. リソース(Resources、画像の使い回し)
 
-同じ画像を何度も読み込まないための仕組みです(`Engine/Resources.h` の `namespace Resources`)。同じパスの画像は1回だけ読み込み、「何人が使っているか」(参照カウント)を数えて管理します。敵を100体出しても、`player.png` を読み込むのは1回だけです。
+同じ画像を何度も読み込まないための仕組みです(`Engine/Core/Resources.h` の `namespace Resources`)。同じパスの画像は1回だけ読み込み、「何人が使っているか」(参照カウント)を数えて管理します。敵を100体出しても、`player.png` を読み込むのは1回だけです。
 
 **`SpriteRenderer` / `MeshRenderer` は中で自動で使っているので、ゲーム側は普段意識しなくてかまいません**(`AddComponent<SpriteRenderer>(L"Assets/player.png", 8, 2)` の書き方はそのまま)。自分で画像を読んで描くComponent(Sample2D `BackgroundController`、Sample3D `GroundController` など)だけが、直接使います。
 
 ```cpp
-#include "../../../Engine/Resources.h"
+#include "../../../Engine/Core/Resources.h"
 
 // Init: 画像を借りる(読み込み済みなら読み直さずに同じIDが返る)
 texID = Resources::LoadTexture(L"Assets/grid.png");
@@ -546,11 +568,11 @@ Resources::ReleaseTexture(texID);
 
 「最初は速く、最後はゆっくり止まる」「少し行き過ぎてから戻る」のような気持ちいい動きを、1行で付けられます。
 
-- `Engine/Ease.h` の `namespace Ease`: 動きの「速さの変化」を決める関数(イージング関数)
-- `Engine/TweenComponent.h`: オブジェクトの位置・大きさ・回転・色(と好きな値)を、イージングを付けて目標値まで動かすComponent
+- `Engine/Animation/Ease.h` の `namespace Ease`: 動きの「速さの変化」を決める関数(イージング関数)
+- `Engine/Animation/TweenComponent.h`: オブジェクトの位置・大きさ・回転・色(と好きな値)を、イージングを付けて目標値まで動かすComponent
 
 ```cpp
-#include "../../../Engine/TweenComponent.h"   // Ease.h も一緒に読み込まれる
+#include "../../../Engine/Animation/TweenComponent.h"   // Ease.h も一緒に読み込まれる
 ```
 
 ### Ease(イージング関数)
@@ -636,7 +658,7 @@ tween->MoveTo({ 0.f, 20.f, 0.f }, 0.8f, Ease::InOutQuad).SetLoop(true, true).Set
 「目的地(相手・場所)へ向かって動く」処理をComponentにしたものです。敵・弾・ミサイルなどで使い回せます。
 
 ```cpp
-#include "../../../Engine/ChaseComponent.h"   // 使うComponentのヘッダーを読む(MoveComponent.h も一緒に読み込まれる)
+#include "../../../Engine/Behavior/ChaseComponent.h"   // 使うComponentのヘッダーを読む(MoveComponent.h も一緒に読み込まれる)
 
 auto* chase = enemy->AddComponent<ChaseComponent>();
 chase->SetTarget(player);          // 追いかける相手
@@ -688,9 +710,9 @@ chase->SetPlane(MovePlane::XZ);    // 3Dの地面の上を動く時(2Dなら不�
 カメラの追従・画面の揺れ・座標の変換を、毎回手書きしなくて済むようにしたものです。カメラそのもの(2D用`Image::GetCamera()`と3D用`Image::GetCamera3D()`の違い)は§5を参照してください。
 
 ```cpp
-#include "../../../Engine/CameraFollowComponent.h"   // 追従
-#include "../../../Engine/CameraShake.h"             // 揺れ
-#include "../../../Engine/Image.h"                   // 座標の変換
+#include "../../../Engine/Render/CameraFollowComponent.h"   // 追従
+#include "../../../Engine/Render/CameraShake.h"             // 揺れ
+#include "../../../Engine/Render/Image.h"                   // 座標の変換
 ```
 
 ### CameraFollowComponent(2Dカメラで追いかける)
@@ -779,7 +801,7 @@ if (Physics::Raycast(origin, direction, 5000.f, hit, "Enemy")) { /* hit.object �
 被弾・回復・シーン切り替えなどで、画面全体に色の演出を重ねます。
 
 ```cpp
-#include "../../../Engine/ScreenEffect.h"
+#include "../../../Engine/Render/ScreenEffect.h"
 ```
 
 | 関数 | 内容 |
@@ -831,7 +853,7 @@ SceneManager::Get().ChangeScene<GameScene>(FadeTransition());
 シーンを切り替える時に、暗転や画像のアニメーションで画面を隠します。どの切り替え方も「**画面を覆う → シーンを切り替える → 開く**」の順に進みます。
 
 ```cpp
-#include "../../../Engine/SceneManager.h"   // これだけで3種類とも使える
+#include "../../../Engine/Core/SceneManager.h"   // これだけで3種類とも使える
 ```
 
 | 書き方 | 内容 |
@@ -900,7 +922,7 @@ SceneManager::Get().ChangeScene<TitleScene>(SpriteTransition(L"Assets/transition
 スプライトシートのコマを、時間に合わせて切り替える(パラパラ漫画にする)Componentです。タイマーを手書きせずに、歩き・待機・攻撃などのアニメーションを作れます。同じGameObjectの`SpriteRenderer`のコマ番号(`SetSpriteIndex`)を、毎フレーム書き換えます。
 
 ```cpp
-#include "../../../Engine/SpriteAnimationComponent.h"
+#include "../../../Engine/Animation/SpriteAnimationComponent.h"
 
 // 組み立て時(工場関数・SetupEnemyなど)。SpriteRendererを先に付けておく
 auto* anim = obj->AddComponent<SpriteAnimationComponent>();
@@ -952,7 +974,7 @@ if (anim->GetCurrentClip() == "Attack" && anim->IsFinished()) anim->Play("Idle")
 ハイスコア・音量などを保存して、次に起動した時も残るようにする仕組みです。使い方はUnityの `PlayerPrefs` と同じで、`Set○○` / `Get○○` で読み書きして、`Save` でファイルに書きます。
 
 ```cpp
-#include "../../../Engine/SaveData.h"
+#include "../../../Engine/Data/SaveData.h"
 
 // 書く・読む
 SaveData::SetInt("HighScore", 1200);
@@ -1012,11 +1034,11 @@ PlayerName=ゆうしゃ
 
 ## 19. テキスト(Text / TextStyle / TextRenderer)
 
-画面に文字を描く仕組みです(`Engine/Text.h`、`Engine/TextRenderer.h`)。座標は **「画面中央が(0,0)、Y+=上、単位はゲーム画面のピクセル」** です(§14の座標の変換と同じ)。`Text::Draw` は Component の `Draw()` の中で呼びます。
+画面に文字を描く仕組みです(`Engine/UI/Text.h`、`Engine/UI/TextRenderer.h`)。座標は **「画面中央が(0,0)、Y+=上、単位はゲーム画面のピクセル」** です(§14の座標の変換と同じ)。`Text::Draw` は Component の `Draw()` の中で呼びます。
 
 **今までの書き方も、そのまま使えます**(見た目も今までと同じ。文字の中心が (x, y) に来ます):
 ```cpp
-#include "../../../Engine/Text.h"
+#include "../../../Engine/UI/Text.h"
 
 Text::Draw(L"GAME OVER", 0.f, 40.f, 64.f, { 1.0f, 0.2f, 0.2f, 1.0f });   // 文字, x, y, 大きさ, 色, フォント名(省略するとArial)
 ```
@@ -1068,7 +1090,7 @@ Text::Draw(L"Score: 100", -560.f, 320.f, style);
 ダメージの数字・キャラクターの名前など、**GameObjectと一緒に動く文字**を出すComponentです。オブジェクトの位置(ワールド)を画面座標に直して(§14の `Image::WorldToScreen2D`)、`Text::Draw` で描きます。
 
 ```cpp
-#include "../../../Engine/TextRenderer.h"
+#include "../../../Engine/UI/TextRenderer.h"
 
 auto* text = obj->AddComponent<TextRenderer>();
 text->SetText(L"+10");                 // 表示する文字
@@ -1097,7 +1119,7 @@ text->SetOffset({ 0.f, 60.f, 0.f });   // オブジェクトの位置から、�
 
 ## 20. UI(Anchor / DrawRect / GaugeRenderer / SliderComponent / ButtonComponent)
 
-HPバー・音量スライダー・ボタンを、どのゲームでも使える部品にしたものです(`Engine/Anchor.h`、`Engine/GaugeRenderer.h`、`Engine/SliderComponent.h`、`Engine/ButtonComponent.h`、`Engine/Image.h` の `DrawRect`)。画面サイズが変わっても、隅や中央からの距離でずれずに置けます。
+HPバー・音量スライダー・ボタンを、どのゲームでも使える部品にしたものです(`Engine/UI/Anchor.h`、`Engine/UI/GaugeRenderer.h`、`Engine/UI/SliderComponent.h`、`Engine/UI/ButtonComponent.h`、`Engine/Render/Image.h` の `DrawRect`)。画面サイズが変わっても、隅や中央からの距離でずれずに置けます。
 
 ### 画面座標の決まり
 
@@ -1109,7 +1131,7 @@ HPバー・音量スライダー・ボタンを、どのゲームでも使える
 ### Anchor(画面のどこを基準にするか)
 
 ```cpp
-#include "../../../Engine/Anchor.h"
+#include "../../../Engine/UI/Anchor.h"
 
 XMFLOAT2 pos = GetAnchoredPosition(Anchor::TopLeft, { 40.f, -40.f });   // 左上の隅から、右に40・下に40
 Text::Draw(L"Score", pos.x, pos.y, style);
@@ -1137,7 +1159,7 @@ Image::DrawRect({ 0.f, 0.f }, { 200.f, 20.f }, { 1.f, 0.f, 0.f, 1.f });   // 画
 **値の持ち主にはならず、読んだ値を表示するだけ**のComponentです(§22の「値の持ち主は1か所」と同じ。HPは `PlayerController` が持ち、ゲージは読むだけ)。
 
 ```cpp
-#include "../../../Engine/GaugeRenderer.h"
+#include "../../../Engine/UI/GaugeRenderer.h"
 
 // 画面の左上に固定して表示(HUD)
 auto* gauge = hud->AddComponent<GaugeRenderer>();
@@ -1175,7 +1197,7 @@ bar->SetSize(80.f, 10.f);
 ### SliderComponent(ドラッグで値を変えるスライダー)
 
 ```cpp
-#include "../../../Engine/SliderComponent.h"
+#include "../../../Engine/UI/SliderComponent.h"
 
 auto* slider = obj->AddComponent<SliderComponent>();
 slider->SetRange(0.f, 1.f);                              // 値の範囲
@@ -1208,7 +1230,7 @@ slider->SetOnDragEnd([](float v) { /* つまみを離した時 */ });
 見た目の画像は、同じオブジェクトの `SpriteRenderer` を使います(先に付けておく)。以前は Sample2D・Sample3D に同じ内容の `ButtonController` がコピーされていましたが、Engineの `ButtonComponent` に移しました。
 
 ```cpp
-#include "../../../Engine/ButtonComponent.h"
+#include "../../../Engine/UI/ButtonComponent.h"
 
 GameObject* button = scene.CreateObject("Button");
 button->transform.position = { 0.f, -150.f, 0.f };
@@ -1275,7 +1297,7 @@ Claude Code で作業する場合は、`.claude/`の設定で、メインの会�
 
 ### 音が鳴らない時は(WAVファイルの中身を疑う)
 
-`Audio::Load()` / `Audio::PlayOneShot()` / `AudioSourceComponent`(`Engine/Audio.cpp`)は`.wav`ファイルの`fmt `/`data`チャンクを名前で探して読みます。以前は「`fmt `の直後は必ず`data`」という決め打ちの44バイト固定ヘッダーで読んでいたため、ffmpeg/Lavfなど一部のツールで書き出したWAV(`fmt `と`data`の間に`LIST`メタデータチャンクが挟まる)を読み込むと、メタデータの文字列を音声データと誤認識し、音が鳴らない(鳴ってもごく短いノイズだけ)という不具合がありました。現在は汎用的なチャンク読み取りに直してあるので、`LIST`/`fact`など余計なチャンクが挟まっていても正しく読めます。**それでも音が鳴らない場合は、まず`.wav`ファイル自体が壊れていないか(別プレイヤーで再生できるか)を確認してください**。
+`Audio::Load()` / `Audio::PlayOneShot()` / `AudioSourceComponent`(`Engine/Audio/Audio.cpp`)は`.wav`ファイルの`fmt `/`data`チャンクを名前で探して読みます。以前は「`fmt `の直後は必ず`data`」という決め打ちの44バイト固定ヘッダーで読んでいたため、ffmpeg/Lavfなど一部のツールで書き出したWAV(`fmt `と`data`の間に`LIST`メタデータチャンクが挟まる)を読み込むと、メタデータの文字列を音声データと誤認識し、音が鳴らない(鳴ってもごく短いノイズだけ)という不具合がありました。現在は汎用的なチャンク読み取りに直してあるので、`LIST`/`fact`など余計なチャンクが挟まっていても正しく読めます。**それでも音が鳴らない場合は、まず`.wav`ファイル自体が壊れていないか(別プレイヤーで再生できるか)を確認してください**。
 
 ---
 
@@ -1305,7 +1327,7 @@ Sample3D/Game/Scenes/      TitleScene, GameScene
 
 **Sample3Dの実装メモ**: 向きはすべて`transform.rotate.y`(度)で表し、`rotate.y`の時の正面(ローカルの+Z)は`(sin, 0, cos)`の方向になる(`CameraController::GetYaw()`の式と同じ。`Math::Forward3D()`で求められる)。Worldモードの`SpriteRenderer`は`rotate.y`を使わない(ビルボードの向きとZ軸回転だけを使う)ので、敵の画像の向きは`SetBillboardLock(true, false, true)`でカメラの方へ向けている。Playerは`SetFreezeRotation(true)`で、`RigidbodyComponent`は位置しか同期しないため、`PlayerController`が`rotate.y`が変わった時に`GetActor()`の`setGlobalPose`で当たり判定の箱の回転も合わせている(デバッグ表示の枠と実際の判定が同じ向きになる)。一人称の間は、カメラが立方体の内側に入るのでPlayerの`MeshRenderer`と頭上のHPバー(`GaugeRenderer`)を非表示にしている。
 
-**Sample2Dの実装メモ**: `EnemyManager`/`BulletManager`はどちらも`ObjectPool`を使った使い回し方式(実例は`Engine/ObjectPool.h`)。プールで使い回すオブジェクトは`Scene::CreateObject("Pooled")`で名前だけ付けて作られるため、`GameObject::SetTag()`で組み立て時にタグ("Enemy"/"Bullet")を後付けしている。敵を倒す/Playerがダメージを受ける判定は、それぞれ`EnemyController::OnTriggerEnter2D`(相手のタグが"Bullet")と`PlayerController::OnCollisionStay2D`(相手のタグが"Enemy")が担当する。
+**Sample2Dの実装メモ**: `EnemyManager`/`BulletManager`はどちらも`ObjectPool`を使った使い回し方式(実例は`Engine/Core/ObjectPool.h`)。プールで使い回すオブジェクトは`Scene::CreateObject("Pooled")`で名前だけ付けて作られるため、`GameObject::SetTag()`で組み立て時にタグ("Enemy"/"Bullet")を後付けしている。敵を倒す/Playerがダメージを受ける判定は、それぞれ`EnemyController::OnTriggerEnter2D`(相手のタグが"Bullet")と`PlayerController::OnCollisionStay2D`(相手のタグが"Enemy")が担当する。
 
 役割分担は「値の持ち主は1か所、他は読むだけ」にしている:
 
@@ -1380,7 +1402,7 @@ Sceneに残してよいのは、オブジェクトの配置と、シーン全体
 
 ### 現状
 
-`Engine/Physics.h/.cpp`が、PhysXの初期化・毎フレームのシミュレーション更新・終了処理を行う最小限の窓口です(Image/Audio/Textと同じ、名前空間+staticなグローバル状態という流儀)。`GameEngine::Init/Run/Uninit`から自動的に呼ばれるので、現時点では特に何もしなくてもPhysXは起動・更新され続けています。
+`Engine/Physics/Physics.h/.cpp`が、PhysXの初期化・毎フレームのシミュレーション更新・終了処理を行う最小限の窓口です(Image/Audio/Textと同じ、名前空間+staticなグローバル状態という流儀)。`GameEngine::Init/Run/Uninit`から自動的に呼ばれるので、現時点では特に何もしなくてもPhysXは起動・更新され続けています。
 
 ```cpp
 namespace Physics {
@@ -1394,7 +1416,7 @@ namespace Physics {
 
 ### RigidbodyComponent(3Dの物理演算でオブジェクトを動かす)
 
-`Engine/RigidbodyComponent.h/.cpp`に、`BoxRigidbodyComponent`/`SphereRigidbodyComponent`(3D向け)と`SquareRigidbodyComponent`/`CircleRigidbodyComponent`(2D向け)があります。見た目(`MeshRenderer`/`SpriteRenderer`)とは別に、動き方だけを担当するComponentです。4つとも共通の基底クラス`RigidbodyComponent`を継承しているので、他のComponentから形状を意識せず`GetComponent<RigidbodyComponent>()`で探せます(`PlayerController`が実例。これにより、Playerの形状を変えても`Player.cpp`の1行を変えるだけで済みます)。
+`Engine/Physics/RigidbodyComponent.h/.cpp`に、`BoxRigidbodyComponent`/`SphereRigidbodyComponent`(3D向け)と`SquareRigidbodyComponent`/`CircleRigidbodyComponent`(2D向け)があります。見た目(`MeshRenderer`/`SpriteRenderer`)とは別に、動き方だけを担当するComponentです。4つとも共通の基底クラス`RigidbodyComponent`を継承しているので、他のComponentから形状を意識せず`GetComponent<RigidbodyComponent>()`で探せます(`PlayerController`が実例。これにより、Playerの形状を変えても`Player.cpp`の1行を変えるだけで済みます)。
 
 - 立った人・敵向けの`CapsuleRigidbodyComponent`(3D)/`Capsule2DRigidbodyComponent`(2D)もあります(§29)
 - 地形(§34)の起伏に合わせた、動かない当たり判定の`TerrainRigidbodyComponent`もあります(§34)。`Physics::GetCooking()`(PhysXの「クッキング」。形のデータをPhysXが使える形に変える窓口。Engine内部用)を使います
@@ -1483,10 +1505,10 @@ if (rigidbody) rigidbody->SetVelocity(velocity);
 
 ### 物理の問い合わせと力(Raycast / Overlap / AddForce)
 
-「この線の先に何があるか」「この範囲に何がいるか」を調べる関数(`Engine/Physics.h`)と、剛体に力を加える関数(`RigidbodyComponent`)です。
+「この線の先に何があるか」「この範囲に何がいるか」を調べる関数(`Engine/Physics/Physics.h`)と、剛体に力を加える関数(`RigidbodyComponent`)です。
 
 ```cpp
-#include "../../../Engine/Physics.h"
+#include "../../../Engine/Physics/Physics.h"
 
 // 正面へ線を飛ばして、最初に当たった敵を調べる
 RaycastHit hit;
@@ -1569,14 +1591,14 @@ rigidbody->AddForce(away * 600.f, ForceMode::VelocityChange);
 
 ## 24. 音(Audio / AudioSourceComponent / AudioListenerComponent / グループ音量)
 
-音を鳴らす仕組みです(`Engine/Audio.h`、`Engine/AudioSourceComponent.h`、`Engine/AudioListenerComponent.h`)。**音が「どこで鳴っているか」で聞こえ方が変わります**(遠い音は小さく、左で鳴った音は左から聞こえる)。同じ効果音を重ねて鳴らせるので、連射しても音が途切れません。BGMと効果音の音量は別々に変えられます。
+音を鳴らす仕組みです(`Engine/Audio/Audio.h`、`Engine/Audio/AudioSourceComponent.h`、`Engine/Audio/AudioListenerComponent.h`)。**音が「どこで鳴っているか」で聞こえ方が変わります**(遠い音は小さく、左で鳴った音は左から聞こえる)。同じ効果音を重ねて鳴らせるので、連射しても音が途切れません。BGMと効果音の音量は別々に変えられます。
 
 ### 使い方
 
 ```cpp
-#include "../../../Engine/Audio.h"
-#include "../../../Engine/AudioSourceComponent.h"
-#include "../../../Engine/AudioListenerComponent.h"
+#include "../../../Engine/Audio/Audio.h"
+#include "../../../Engine/Audio/AudioSourceComponent.h"
+#include "../../../Engine/Audio/AudioListenerComponent.h"
 
 // 聞く側: Playerに1つ付ける(2D。向きは画面の上が正面で固定)
 player->AddComponent<AudioListenerComponent>();
@@ -1651,7 +1673,7 @@ Audio::SetGroupVolume(AudioGroup::SE, 1.0f);
 敵の強さや出現の順番などを、コードではなく表(Excel)で調整するための仕組みです。表のファイル(`.csv`)を読んで、**列の名前**で値を取り出します。
 
 ```cpp
-#include "../../../Engine/Csv.h"
+#include "../../../Engine/Data/Csv.h"
 
 // Assets/Data/Enemies.csv
 // Name,Speed
@@ -1767,7 +1789,7 @@ Time,Count,Interval,Repeat
 
 ## 26. パーティクル(ParticleRenderer / CreateEffect)
 
-爆発・煙・火花などを、たくさんの小さな粒で出す仕組みです。粒1つ1つはGameObjectではなく、`ParticleRenderer`の中のデータ(位置・速さ・残り時間)で、まとめて描きます(数百個出しても重くなりにくい)。使うヘッダーは `Engine/ParticleRenderer.h`(`ParticleSettings`もここ)と `Engine/Effect.h`(`CreateEffect`)です。
+爆発・煙・火花などを、たくさんの小さな粒で出す仕組みです。粒1つ1つはGameObjectではなく、`ParticleRenderer`の中のデータ(位置・速さ・残り時間)で、まとめて描きます(数百個出しても重くなりにくい)。使うヘッダーは `Engine/Render/ParticleRenderer.h`(`ParticleSettings`もここ)と `Engine/Render/Effect.h`(`CreateEffect`)です。
 
 ### 使い方1: 使い捨ての爆発(`CreateEffect`)
 
@@ -1883,7 +1905,7 @@ if (turret) turret->rotate.y += 90.f * dt;       // 見つからない時はnull
 | `SetTexture(パス)` | 全パーツに同じ画像を貼る |
 | `SetColor(r, g, b, a)` | 色 |
 | `GetNodeTransform(名前)` | パーツの動き(`Transform`)を返す。無い名前は `nullptr` |
-| `Model::Load(パス)` / `GetNodeCount()` / `FindNode(名前)` | モデルのデータそのもの(`Engine/Model.h`)。普通は `ModelRenderer` が使うので、直接使うことは少ない |
+| `Model::Load(パス)` / `GetNodeCount()` / `FindNode(名前)` | モデルのデータそのもの(`Engine/Render3D/Model.h`)。普通は `ModelRenderer` が使うので、直接使うことは少ない |
 | `Resources::LoadModel(パス)` | モデルを借りる。同じパスは同じ `Model` を返す(§11)。`ModelRenderer` が中で自動で使う |
 
 ### 決まり(重要)
@@ -1938,7 +1960,7 @@ if (anim->IsFinished()) anim->CrossFade("Idle", 0.2f);
 人や動物のように、**骨に合わせて体が曲がる**モデルも、そのまま `ModelRenderer` + `ModelAnimationComponent` で動かせます(コードは変わりません。読み込んだFBXに骨とスキンが入っていれば、自動で曲げて描きます)。
 
 - **仕組み**: 頂点に「どの骨に・どれだけ影響されるか」を持たせ、毎フレーム、骨の今の位置(アニメーションで動いたパーツ)から「スキン行列(逆バインド行列 × 骨の行列)」を作ってGPUへ送り、頂点シェーダーで頂点を動かします。骨のパーツ自体は形が無いので描かれず、メッシュ(体)だけが曲がります。
-- **新しいシェーダー**: `Shader3DSkin.hlsl`(`Shader3D.hlsl` と同じ場所。`Engine.vcxproj` の `CopyRuntimeFiles` が出力先へコピーします)と、描画クラス `Engine/SkinMesh.h/.cpp`、頂点形式 `SkinVertex`(位置・法線・色・UV + 骨の番号4つ + 影響度4つ)です。**今の `MeshVertex` / `Shader3D.hlsl` / `Shader.hlsl` は変えていません。** ライティング・色・テクスチャの計算は `Shader3D.hlsl` と同じです(今は両方が共通の `Shader3DCommon.hlsli` を使っています。§30)。シェーダーは実行時にコンパイルされ、エラーは出力ウィンドウに出ます。
+- **新しいシェーダー**: `Shader3DSkin.hlsl`(`Shader3D.hlsl` と同じ場所。`Engine.vcxproj` の `CopyRuntimeFiles` が出力先へコピーします)と、描画クラス `Engine/Render3D/SkinMesh.h/.cpp`、頂点形式 `SkinVertex`(位置・法線・色・UV + 骨の番号4つ + 影響度4つ)です。**今の `MeshVertex` / `Shader3D.hlsl` / `Shader.hlsl` は変えていません。** ライティング・色・テクスチャの計算は `Shader3D.hlsl` と同じです(今は両方が共通の `Shader3DCommon.hlsli` を使っています。§30)。シェーダーは実行時にコンパイルされ、エラーは出力ウィンドウに出ます。
 - **頂点バッファは読み込み時に1回だけ作ります**(変更不可)。毎フレームの頂点のコピーは無く、骨の行列(最大64本)だけを送ります。同じモデルを何体置いても頂点バッファは共有です。
 - **上位4つに絞られます**: 1つの頂点に影響できる骨は最大**4本**です。それより多く影響していると、影響度の大きい上位4つだけを使い、合計が1になるように直します(Mayaの Bind Skin の「Max Influences」を **4以下**にしておくと、見た目が変わりません)。
 - **骨の最大数は、1つのメッシュにつき64本**です。超えるメッシュは、出力ウィンドウに知らせて、曲げずに静止の形のまま表示します(骨の数を減らしてください)。
@@ -2113,7 +2135,7 @@ obj->AddComponent<CapsuleRigidbodyComponent>(BodyType::Dynamic, 50.f, 180.f, 100
 
 ## 30. マテリアル(Material)
 
-3Dメッシュの見た目の設定(色・画像・光沢・自発光・半透明)を、1つの `Material`(`Engine/Material.h`)にまとめました(`docs/EngineRoadmap2.md` の 6.3)。`MeshRenderer` と `ModelRenderer` が1体ごとに持ちます。**何も設定しなければ、マテリアルが無かった頃と見た目は同じです**(ハイライトなし・自発光なし)。
+3Dメッシュの見た目の設定(色・画像・光沢・自発光・半透明)を、1つの `Material`(`Engine/Render3D/Material.h`)にまとめました(`docs/EngineRoadmap2.md` の 6.3)。`MeshRenderer` と `ModelRenderer` が1体ごとに持ちます。**何も設定しなければ、マテリアルが無かった頃と見た目は同じです**(ハイライトなし・自発光なし)。
 
 ### 使い方
 
@@ -2236,7 +2258,7 @@ mesh.Draw(transform, camera, {1, 1, 1, 1}, light);      // 今まで通り(色�
 
 ## 31. ライト(LightComponent)
 
-今までの光は「全体に同じ方向から当たる光(平行光源。`Image::GetLight()`)」だけでした。そこに、**ランタンのように周りを照らす光(ポイントライト)**と、**懐中電灯のように円すい形に照らす光(スポットライト)**を足せます(`docs/EngineRoadmap2.md` の 6.4)。光を付けたいオブジェクトに `LightComponent`(`Engine/LightComponent.h`)を付けるだけです。**光を1つも置かなければ、見た目は今までと1ピクセルも変わりません**(平行光源・環境光のまま)。
+今までの光は「全体に同じ方向から当たる光(平行光源。`Image::GetLight()`)」だけでした。そこに、**ランタンのように周りを照らす光(ポイントライト)**と、**懐中電灯のように円すい形に照らす光(スポットライト)**を足せます(`docs/EngineRoadmap2.md` の 6.4)。光を付けたいオブジェクトに `LightComponent`(`Engine/Render3D/LightComponent.h`)を付けるだけです。**光を1つも置かなければ、見た目は今までと1ピクセルも変わりません**(平行光源・環境光のまま)。
 
 ### 使い方
 
@@ -2301,7 +2323,7 @@ Image::GetLight().ambient = { 0.1f, 0.1f, 0.12f };   // 暗くする(今は 0.25
 
 ### 仕組み(Engineを触る人向け)
 
-- 光は `Lighting`(`Engine/Lighting.h/.cpp`)が集めます。`LightComponent` の `Init` / `Uninit` / デストラクタで登録・解除し、`GameEngine` が毎フレーム `Lighting::Update()`(`Visibility::BeginFrame()` の後)を呼んで、アクティブな光をカメラに近い順に8個選び、定数バッファ **`b4`** に書きます。`Mesh::Draw` / `SkinMesh::Draw` は `Lighting::Bind()` で `b4` をセットするだけです。
+- 光は `Lighting`(`Engine/Render3D/Lighting.h/.cpp`)が集めます。`LightComponent` の `Init` / `Uninit` / デストラクタで登録・解除し、`GameEngine` が毎フレーム `Lighting::Update()`(`Visibility::BeginFrame()` の後)を呼んで、アクティブな光をカメラに近い順に8個選び、定数バッファ **`b4`** に書きます。`Mesh::Draw` / `SkinMesh::Draw` は `Lighting::Bind()` で `b4` をセットするだけです。
 - シェーダー側は `Shader3DCommon.hlsli` の `LightBuffer`(`int4 lightCounts` + `GpuLight lights[8]`)と、`ShadePixel()` の中のループです(`Shader3D.hlsl` と `Shader3DSkin.hlsl` が同じ結果になります)。C++の `Lighting::LightConstantBuffer`(528バイト)と並びが一致するよう `static_assert` を入れています。光が0個なら、ループは1回も回りません。
 - レジスタは `b3`(カメラ位置。描く度)、`b4`(光。1フレームに1回)です。影(`docs/EngineRoadmap2.md` の 6.5。§32)は `b5` を使い、`GpuLight` の `innerPad.y` が「影を引く光(1つだけ)」の印です(`Lighting` が、`castShadow` のスポットから1つ選んで印を付けます)。
 
@@ -2395,7 +2417,7 @@ torch->SetCastShadow(true);   // この懐中電灯の光は、壁などでさ�
 - カメラが高い所から真下を見る時は、床が奥行きの範囲(中心から光の向きに `distance` まで)の外に出て、影が出なくなります。その時は `distance` を大きくしてください。
 - 画像の透明な部分(`png` のアルファ)も、**板全体が影になります**(切り抜きの影にはなりません)。半透明の物(`GlassPanel` など)は `castShadow` を付けないのがおすすめです。
 - 影を落とす物は、**アクティブ(`SetActive(true)`)で有効(`SetEnabled(true)`)な物だけ**です。`ObjectPool` で休んでいる物は影を落としません。`Destroy` やシーンの切り替え(`Uninit`)で、登録は自動で外れます。
-- カスケード(遠近で影の細かさを変える)・ポイントライトの影・柔らかい影(PCSS)は、ありません(ポイントライトの影は、設計だけ `docs/EngineRoadmap2.md` の 6.10 にあります)。
+- カスケード(遠近で影の細かさを変える)・ポイントライトの影・柔らかい影(PCSS)は、ありません(ポイントライトの影は、作らないことにしました。設計だけ `docs/EngineRoadmap2.md` の 6.10 に残してあります)。
 
 ### 性能
 
@@ -2685,7 +2707,7 @@ hills->AddComponent<TerrainRigidbodyComponent>(terrain);     // 当たり判定(
 
 ### 仕組み(Engineを触る人向け)
 
-- **ファイル**: 新しく `Engine/Terrain.h/.cpp`(高さのデータ・高さと法線の計算・メッシュの元データ作り)と `Engine/TerrainRenderer.h/.cpp`(描く Component)を足しました。既存のEngineファイル・シェーダーは変えていません(`Mesh::InitIndexed` と `Material` と `Shadow::Caster` を、そのまま使っています)。
+- **ファイル**: 新しく `Engine/Render3D/Terrain.h/.cpp`(高さのデータ・高さと法線の計算・メッシュの元データ作り)と `Engine/Render3D/TerrainRenderer.h/.cpp`(描く Component)を足しました。既存のEngineファイル・シェーダーは変えていません(`Mesh::InitIndexed` と `Material` と `Shadow::Caster` を、そのまま使っています)。
 - **画像の読み込み**: `Texture::Load` は GPU 用のテクスチャしか作らず、画素を CPU で読めないため、`Terrain` が自分でWIC(`IWICImagingFactory`。`SpriteTransition` と同じ)を使って読みます。16ビットのグレースケール(`GUID_WICPixelFormat16bppGray`)はそのまま、他の形式は `GUID_WICPixelFormat32bppRGBA` に変換して赤(R)を使います。
 - **高さの配列**: `GetHeights()[x * GetVertexCountZ() + z]`(行=X方向、列=Z方向。PhysX の高さフィールドと同じ並び)。`maxHeight` を掛けた後のワールドの高さです。
 - **当たり判定(6.8)**: `RigidbodyComponent.h/.cpp` に `TerrainRigidbodyComponent` を、`Physics.h/.cpp` に `GetCooking()`(`PxCreateCooking`。最初に呼ばれた時に作り、`Physics::Uninit()` で解放)を足しました。`GetHeights()` を `PxHeightFieldSample`(16ビット整数 + `tessFlag`)に直し、`PxCooking::createHeightField` で `PxHeightField` を作って、`PxHeightFieldGeometry`(`rowScale = GetCellSizeX()`、`columnScale = GetCellSizeZ()`)で Static のアクターにします。`PhysX.props` には `PhysXCooking_64.lib` が元から入っていたので変えていません。**`tessFlag` を立てた向きが `Terrain` の対角線と同じ**ことは、`GetHeightAt` と `Physics::Raycast` の高さを24万点以上で比べて確かめました(`docs/EngineRoadmap2.md` の 6.8)。
@@ -2827,7 +2849,7 @@ renderer->GetSettings().color.w = 0.3f;
 
 ### 仕組み(Engineを触る人向け)
 
-- **ファイル**: 新しく `Engine/WaterRenderer.h/.cpp` と、ソリューション直下の `Shader3DWater.hlsl` を足しました(`Engine.vcxproj` の `CopyRuntimeFiles` と `UpToDateCheckInput` に登録済み)。**既存のEngineファイル・`Shader.hlsl`・`Shader3D.hlsl`・`Shader3DSkin.hlsl`・`Shader3DCommon.hlsli`・`PhysX.props` は変えていません。**
+- **ファイル**: 新しく `Engine/Render3D/WaterRenderer.h/.cpp` と、ソリューション直下の `Shader3DWater.hlsl` を足しました(`Engine.vcxproj` の `CopyRuntimeFiles` と `UpToDateCheckInput` に登録済み)。**既存のEngineファイル・`Shader.hlsl`・`Shader3D.hlsl`・`Shader3DSkin.hlsl`・`Shader3DCommon.hlsli`・`PhysX.props` は変えていません。**
 - **格子**: `(cells+1)^2` 個の頂点(`float2` の位置だけ。-0.5〜0.5)と、32ビットのインデックスを、`Mesh::InitIndexed` と同じ「作る時に1回だけ送る(`IMMUTABLE`)」作りで `WaterRenderer` が持ちます(`Mesh` は専用のシェーダーを使えないため、`Mesh` そのものは使っていません)。大きさは、シェーダーが `size` を掛けて決めます。
 - **レジスタ**: `b0`=`MeshConstantBuffer`(`Shader3D.hlsl` と同じ形)、`b3`=カメラの位置、`b4`=ポイントライト・スポットライト(`Lighting::Bind()`)、`b5` / `t1` / `t2` / `s1`=影(`Shadow::Bind()`)、**`b6`=`WaterBuffer`(水面だけ)**。`b6` は `float4` が9本(144バイト)で、C++ の `WaterConstantBuffer` と並びが一致するよう `static_assert`(大きさと項目の位置)を入れています(シェーダーの反射(`D3DReflect`)でも、大きさ・項目の位置・レジスタ番号が一致することを確かめました)。
 - **`Shader3DCommon.hlsli` を `#include`** して、`b0`〜`b5` の宣言と `SunShadow` / `SpotShadow` を使い回しています。点光源・スポットのループは、`ShadePixel`(`Material` 用)とは別に、水面用に書き直してあります(**`ShadePixel` の光の式を変えた時は、`Shader3DWater.hlsl` も見直すこと**)。

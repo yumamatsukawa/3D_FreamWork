@@ -1,5 +1,5 @@
 ﻿#pragma once
-#include "../../../Engine/Component.h"
+#include "../../../Engine/Core/Component.h"
 #include <string>
 
 // タイトル画面の表示とBGMを担当する

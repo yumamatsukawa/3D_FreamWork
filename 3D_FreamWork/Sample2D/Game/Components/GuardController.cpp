@@ -1,7 +1,7 @@
 ﻿#include "GuardController.h"
-#include "../../../Engine/GameObject.h"
-#include "../../../Engine/SpriteRenderer.h"
-#include "../../../Engine/VisionComponent.h"
+#include "../../../Engine/Core/GameObject.h"
+#include "../../../Engine/Render/SpriteRenderer.h"
+#include "../../../Engine/Behavior/VisionComponent.h"
 
 void GuardController::Init() {
     // 同じオブジェクトに付いている視野と見た目を探す(CreateGuard()で、このComponentより先に付けておく)

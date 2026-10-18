@@ -1,6 +1,6 @@
 ﻿#include "Background.h"
-#include "../../../Engine/Scene.h"
-#include "../../../Engine/GameObject.h"
+#include "../../../Engine/Core/Scene.h"
+#include "../../../Engine/Core/GameObject.h"
 #include "../Components/BackgroundController.h"
 #include <climits>
 

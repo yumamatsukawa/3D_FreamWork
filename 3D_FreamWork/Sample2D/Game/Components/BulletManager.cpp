@@ -1,11 +1,11 @@
 ﻿#include "BulletManager.h"
-#include "../../../Engine/Scene.h"
-#include "../../../Engine/GameObject.h"
-#include "../../../Engine/MeshRenderer.h"
-#include "../../../Engine/RigidbodyComponent.h"
-#include "../../../Engine/EventBus.h"
-#include "../../../Engine/MathUtil.h"
-#include "../../../Engine/Audio.h"
+#include "../../../Engine/Core/Scene.h"
+#include "../../../Engine/Core/GameObject.h"
+#include "../../../Engine/Render3D/MeshRenderer.h"
+#include "../../../Engine/Physics/RigidbodyComponent.h"
+#include "../../../Engine/Core/EventBus.h"
+#include "../../../Engine/Core/MathUtil.h"
+#include "../../../Engine/Audio/Audio.h"
 #include "BulletController.h"
 
 namespace {

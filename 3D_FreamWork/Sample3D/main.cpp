@@ -1,7 +1,7 @@
 ﻿#include <windows.h>
-#include "../Engine/GameEngine.h"
-#include "../Engine/Input.h"
-#include "../Engine/SceneManager.h"
+#include "../Engine/Core/GameEngine.h"
+#include "../Engine/Core/Input.h"
+#include "../Engine/Core/SceneManager.h"
 #include "Game/Scenes/TitleScene.h"
 
 #define WINDOW_CLASS_NAME (L"GameWindow")

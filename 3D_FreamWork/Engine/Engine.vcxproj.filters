@@ -1,127 +1,400 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <ClCompile Include="AccelerateChaseComponent.cpp" />
-    <ClCompile Include="Anchor.cpp" />
-    <ClCompile Include="Audio.cpp" />
-    <ClCompile Include="AudioListenerComponent.cpp" />
-    <ClCompile Include="AudioSourceComponent.cpp" />
-    <ClCompile Include="ButtonComponent.cpp" />
-    <ClCompile Include="CameraFollowComponent.cpp" />
-    <ClCompile Include="CameraShake.cpp" />
-    <ClCompile Include="FadeTransition.cpp" />
-    <ClCompile Include="ChaseComponent.cpp" />
-    <ClCompile Include="Collider.cpp" />
-    <ClCompile Include="Csv.cpp" />
-    <ClCompile Include="Effect.cpp" />
-    <ClCompile Include="GameEngine.cpp" />
-    <ClCompile Include="GaugeRenderer.cpp" />
-    <ClCompile Include="Graphics.cpp" />
-    <ClCompile Include="HomingComponent.cpp" />
-    <ClCompile Include="Image.cpp" />
-    <ClCompile Include="Input.cpp" />
-    <ClCompile Include="LightComponent.cpp" />
-    <ClCompile Include="Lighting.cpp" />
-    <ClCompile Include="Shadow.cpp" />
-    <ClCompile Include="MathUtil.cpp" />
-    <ClCompile Include="Mesh.cpp" />
-    <ClCompile Include="Model.cpp" />
-    <ClCompile Include="ModelAnimationComponent.cpp" />
-    <ClCompile Include="ModelRenderer.cpp" />
-    <ClCompile Include="MoveComponent.cpp" />
-    <ClCompile Include="ParticleRenderer.cpp" />
-    <ClCompile Include="Physics.cpp" />
-    <ClCompile Include="Resources.cpp" />
-    <ClCompile Include="RigidbodyComponent.cpp" />
-    <ClCompile Include="SaveData.cpp" />
-    <ClCompile Include="Scene.cpp" />
-    <ClCompile Include="SceneManager.cpp" />
-    <ClCompile Include="SceneTransition.cpp" />
-    <ClCompile Include="ScreenEffect.cpp" />
-    <ClCompile Include="SkinMesh.cpp" />
-    <ClCompile Include="SliderComponent.cpp" />
-    <ClCompile Include="Sprite.cpp" />
-    <ClCompile Include="SpriteAnimationComponent.cpp" />
-    <ClCompile Include="SpriteRenderer.cpp" />
-    <ClCompile Include="SpriteTransition.cpp" />
-    <ClCompile Include="Terrain.cpp" />
-    <ClCompile Include="TerrainRenderer.cpp" />
-    <ClCompile Include="Text.cpp" />
-    <ClCompile Include="TextRenderer.cpp" />
-    <ClCompile Include="Texture.cpp" />
-    <ClCompile Include="Time.cpp" />
-    <ClCompile Include="TweenComponent.cpp" />
-    <ClCompile Include="Visibility.cpp" />
-    <ClCompile Include="VisionComponent.cpp" />
-    <ClCompile Include="WaterRenderer.cpp" />
-    <ClCompile Include="WICTextureLoader11.cpp" />
+    <Filter Include="Core">
+      <UniqueIdentifier>{0d8d7326-36eb-4ce5-885e-b631c4d2d5dc}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Render">
+      <UniqueIdentifier>{0432c1af-d8af-4597-bc2d-e441dcb9c478}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Render3D">
+      <UniqueIdentifier>{f96760a2-95ea-4157-87a4-1a2ffab27942}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Physics">
+      <UniqueIdentifier>{aa609e00-25b4-4ef6-8b2b-8f3db1606696}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Audio">
+      <UniqueIdentifier>{876f3c84-329d-49d9-80de-fa6e3790ac63}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="UI">
+      <UniqueIdentifier>{133981d3-7e13-4c78-b910-63152d1a51d9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Animation">
+      <UniqueIdentifier>{95762b88-a344-463c-b45f-feaa310d9c49}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Transition">
+      <UniqueIdentifier>{620fa80a-4035-4e76-976a-2df3f42ae8bf}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Behavior">
+      <UniqueIdentifier>{1dc218b4-9644-4ee7-9965-d4ff6821f105}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Data">
+      <UniqueIdentifier>{279f2bb6-93c2-4790-b6b8-2071839c2f35}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ThirdParty">
+      <UniqueIdentifier>{117695fd-744c-40e1-a28c-02510e480f15}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="Behavior\AccelerateChaseComponent.cpp">
+      <Filter>Behavior</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\Anchor.cpp">
+      <Filter>UI</Filter>
+    </ClCompile>
+    <ClCompile Include="Audio\Audio.cpp">
+      <Filter>Audio</Filter>
+    </ClCompile>
+    <ClCompile Include="Audio\AudioListenerComponent.cpp">
+      <Filter>Audio</Filter>
+    </ClCompile>
+    <ClCompile Include="Audio\AudioSourceComponent.cpp">
+      <Filter>Audio</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\ButtonComponent.cpp">
+      <Filter>UI</Filter>
+    </ClCompile>
+    <ClCompile Include="Render\CameraFollowComponent.cpp">
+      <Filter>Render</Filter>
+    </ClCompile>
+    <ClCompile Include="Render\CameraShake.cpp">
+      <Filter>Render</Filter>
+    </ClCompile>
+    <ClCompile Include="Transition\FadeTransition.cpp">
+      <Filter>Transition</Filter>
+    </ClCompile>
+    <ClCompile Include="Behavior\ChaseComponent.cpp">
+      <Filter>Behavior</Filter>
+    </ClCompile>
+    <ClCompile Include="Physics\Collider.cpp">
+      <Filter>Physics</Filter>
+    </ClCompile>
+    <ClCompile Include="Data\Csv.cpp">
+      <Filter>Data</Filter>
+    </ClCompile>
+    <ClCompile Include="Render\Effect.cpp">
+      <Filter>Render</Filter>
+    </ClCompile>
+    <ClCompile Include="Core\GameEngine.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\GaugeRenderer.cpp">
+      <Filter>UI</Filter>
+    </ClCompile>
+    <ClCompile Include="Render\Graphics.cpp">
+      <Filter>Render</Filter>
+    </ClCompile>
+    <ClCompile Include="Behavior\HomingComponent.cpp">
+      <Filter>Behavior</Filter>
+    </ClCompile>
+    <ClCompile Include="Render\Image.cpp">
+      <Filter>Render</Filter>
+    </ClCompile>
+    <ClCompile Include="Core\Input.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="Render3D\LightComponent.cpp">
+      <Filter>Render3D</Filter>
+    </ClCompile>
+    <ClCompile Include="Render3D\Lighting.cpp">
+      <Filter>Render3D</Filter>
+    </ClCompile>
+    <ClCompile Include="Render3D\Shadow.cpp">
+      <Filter>Render3D</Filter>
+    </ClCompile>
+    <ClCompile Include="Core\MathUtil.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="Render3D\Mesh.cpp">
+      <Filter>Render3D</Filter>
+    </ClCompile>
+    <ClCompile Include="Render3D\Model.cpp">
+      <Filter>Render3D</Filter>
+    </ClCompile>
+    <ClCompile Include="Animation\ModelAnimationComponent.cpp">
+      <Filter>Animation</Filter>
+    </ClCompile>
+    <ClCompile Include="Render3D\ModelRenderer.cpp">
+      <Filter>Render3D</Filter>
+    </ClCompile>
+    <ClCompile Include="Behavior\MoveComponent.cpp">
+      <Filter>Behavior</Filter>
+    </ClCompile>
+    <ClCompile Include="Render\ParticleRenderer.cpp">
+      <Filter>Render</Filter>
+    </ClCompile>
+    <ClCompile Include="Physics\Physics.cpp">
+      <Filter>Physics</Filter>
+    </ClCompile>
+    <ClCompile Include="Core\Resources.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="Physics\RigidbodyComponent.cpp">
+      <Filter>Physics</Filter>
+    </ClCompile>
+    <ClCompile Include="Data\SaveData.cpp">
+      <Filter>Data</Filter>
+    </ClCompile>
+    <ClCompile Include="Core\Scene.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="Core\SceneManager.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="Transition\SceneTransition.cpp">
+      <Filter>Transition</Filter>
+    </ClCompile>
+    <ClCompile Include="Render\ScreenEffect.cpp">
+      <Filter>Render</Filter>
+    </ClCompile>
+    <ClCompile Include="Render3D\SkinMesh.cpp">
+      <Filter>Render3D</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\SliderComponent.cpp">
+      <Filter>UI</Filter>
+    </ClCompile>
+    <ClCompile Include="Render\Sprite.cpp">
+      <Filter>Render</Filter>
+    </ClCompile>
+    <ClCompile Include="Animation\SpriteAnimationComponent.cpp">
+      <Filter>Animation</Filter>
+    </ClCompile>
+    <ClCompile Include="Render\SpriteRenderer.cpp">
+      <Filter>Render</Filter>
+    </ClCompile>
+    <ClCompile Include="Transition\SpriteTransition.cpp">
+      <Filter>Transition</Filter>
+    </ClCompile>
+    <ClCompile Include="Render3D\Terrain.cpp">
+      <Filter>Render3D</Filter>
+    </ClCompile>
+    <ClCompile Include="Render3D\TerrainRenderer.cpp">
+      <Filter>Render3D</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\Text.cpp">
+      <Filter>UI</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\TextRenderer.cpp">
+      <Filter>UI</Filter>
+    </ClCompile>
+    <ClCompile Include="Render\Texture.cpp">
+      <Filter>Render</Filter>
+    </ClCompile>
+    <ClCompile Include="Core\Time.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="Animation\TweenComponent.cpp">
+      <Filter>Animation</Filter>
+    </ClCompile>
+    <ClCompile Include="Render\Visibility.cpp">
+      <Filter>Render</Filter>
+    </ClCompile>
+    <ClCompile Include="Behavior\VisionComponent.cpp">
+      <Filter>Behavior</Filter>
+    </ClCompile>
+    <ClCompile Include="Render3D\WaterRenderer.cpp">
+      <Filter>Render3D</Filter>
+    </ClCompile>
+    <ClCompile Include="ThirdParty\WICTextureLoader11.cpp">
+      <Filter>ThirdParty</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\ThirdParty\ufbx\ufbx.c" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="AccelerateChaseComponent.h" />
-    <ClInclude Include="Anchor.h" />
-    <ClInclude Include="Audio.h" />
-    <ClInclude Include="AudioListenerComponent.h" />
-    <ClInclude Include="AudioSourceComponent.h" />
-    <ClInclude Include="ButtonComponent.h" />
-    <ClInclude Include="Camera.h" />
-    <ClInclude Include="CameraFollowComponent.h" />
-    <ClInclude Include="CameraShake.h" />
-    <ClInclude Include="ChaseComponent.h" />
-    <ClInclude Include="Collider.h" />
-    <ClInclude Include="Component.h" />
-    <ClInclude Include="Csv.h" />
-    <ClInclude Include="Ease.h" />
-    <ClInclude Include="Effect.h" />
-    <ClInclude Include="EventBus.h" />
-    <ClInclude Include="FadeTransition.h" />
-    <ClInclude Include="GameEngine.h" />
-    <ClInclude Include="GameObject.h" />
-    <ClInclude Include="GaugeRenderer.h" />
-    <ClInclude Include="Graphics.h" />
-    <ClInclude Include="HomingComponent.h" />
-    <ClInclude Include="Image.h" />
-    <ClInclude Include="Input.h" />
-    <ClInclude Include="Light.h" />
-    <ClInclude Include="LightComponent.h" />
-    <ClInclude Include="Lighting.h" />
-    <ClInclude Include="Shadow.h" />
-    <ClInclude Include="MathUtil.h" />
-    <ClInclude Include="Material.h" />
-    <ClInclude Include="Mesh.h" />
-    <ClInclude Include="MeshRenderer.h" />
-    <ClInclude Include="Model.h" />
-    <ClInclude Include="ModelAnimationComponent.h" />
-    <ClInclude Include="ModelRenderer.h" />
-    <ClInclude Include="MoveComponent.h" />
-    <ClInclude Include="ObjectPool.h" />
-    <ClInclude Include="ParticleRenderer.h" />
-    <ClInclude Include="Physics.h" />
-    <ClInclude Include="Resources.h" />
-    <ClInclude Include="RigidbodyComponent.h" />
-    <ClInclude Include="SaveData.h" />
-    <ClInclude Include="Scene.h" />
-    <ClInclude Include="SceneManager.h" />
-    <ClInclude Include="SceneTransition.h" />
-    <ClInclude Include="ScreenEffect.h" />
-    <ClInclude Include="SkinMesh.h" />
-    <ClInclude Include="SliderComponent.h" />
-    <ClInclude Include="Sprite.h" />
-    <ClInclude Include="SpriteAnimationComponent.h" />
-    <ClInclude Include="SpriteRenderer.h" />
-    <ClInclude Include="SpriteTransition.h" />
-    <ClInclude Include="Terrain.h" />
-    <ClInclude Include="TerrainRenderer.h" />
-    <ClInclude Include="Text.h" />
-    <ClInclude Include="TextRenderer.h" />
-    <ClInclude Include="Texture.h" />
-    <ClInclude Include="Time.h" />
-    <ClInclude Include="Timer.h" />
-    <ClInclude Include="Transform.h" />
-    <ClInclude Include="TweenComponent.h" />
-    <ClInclude Include="Visibility.h" />
-    <ClInclude Include="VisionComponent.h" />
-    <ClInclude Include="WaterRenderer.h" />
-    <ClInclude Include="WICTextureLoader11.h" />
+    <ClInclude Include="Behavior\AccelerateChaseComponent.h">
+      <Filter>Behavior</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\Anchor.h">
+      <Filter>UI</Filter>
+    </ClInclude>
+    <ClInclude Include="Audio\Audio.h">
+      <Filter>Audio</Filter>
+    </ClInclude>
+    <ClInclude Include="Audio\AudioListenerComponent.h">
+      <Filter>Audio</Filter>
+    </ClInclude>
+    <ClInclude Include="Audio\AudioSourceComponent.h">
+      <Filter>Audio</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\ButtonComponent.h">
+      <Filter>UI</Filter>
+    </ClInclude>
+    <ClInclude Include="Render\Camera.h">
+      <Filter>Render</Filter>
+    </ClInclude>
+    <ClInclude Include="Render\CameraFollowComponent.h">
+      <Filter>Render</Filter>
+    </ClInclude>
+    <ClInclude Include="Render\CameraShake.h">
+      <Filter>Render</Filter>
+    </ClInclude>
+    <ClInclude Include="Behavior\ChaseComponent.h">
+      <Filter>Behavior</Filter>
+    </ClInclude>
+    <ClInclude Include="Physics\Collider.h">
+      <Filter>Physics</Filter>
+    </ClInclude>
+    <ClInclude Include="Core\Component.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="Data\Csv.h">
+      <Filter>Data</Filter>
+    </ClInclude>
+    <ClInclude Include="Animation\Ease.h">
+      <Filter>Animation</Filter>
+    </ClInclude>
+    <ClInclude Include="Render\Effect.h">
+      <Filter>Render</Filter>
+    </ClInclude>
+    <ClInclude Include="Core\EventBus.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="Transition\FadeTransition.h">
+      <Filter>Transition</Filter>
+    </ClInclude>
+    <ClInclude Include="Core\GameEngine.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="Core\GameObject.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\GaugeRenderer.h">
+      <Filter>UI</Filter>
+    </ClInclude>
+    <ClInclude Include="Render\Graphics.h">
+      <Filter>Render</Filter>
+    </ClInclude>
+    <ClInclude Include="Behavior\HomingComponent.h">
+      <Filter>Behavior</Filter>
+    </ClInclude>
+    <ClInclude Include="Render\Image.h">
+      <Filter>Render</Filter>
+    </ClInclude>
+    <ClInclude Include="Core\Input.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="Render3D\Light.h">
+      <Filter>Render3D</Filter>
+    </ClInclude>
+    <ClInclude Include="Render3D\LightComponent.h">
+      <Filter>Render3D</Filter>
+    </ClInclude>
+    <ClInclude Include="Render3D\Lighting.h">
+      <Filter>Render3D</Filter>
+    </ClInclude>
+    <ClInclude Include="Render3D\Shadow.h">
+      <Filter>Render3D</Filter>
+    </ClInclude>
+    <ClInclude Include="Core\MathUtil.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="Render3D\Material.h">
+      <Filter>Render3D</Filter>
+    </ClInclude>
+    <ClInclude Include="Render3D\Mesh.h">
+      <Filter>Render3D</Filter>
+    </ClInclude>
+    <ClInclude Include="Render3D\MeshRenderer.h">
+      <Filter>Render3D</Filter>
+    </ClInclude>
+    <ClInclude Include="Render3D\Model.h">
+      <Filter>Render3D</Filter>
+    </ClInclude>
+    <ClInclude Include="Animation\ModelAnimationComponent.h">
+      <Filter>Animation</Filter>
+    </ClInclude>
+    <ClInclude Include="Render3D\ModelRenderer.h">
+      <Filter>Render3D</Filter>
+    </ClInclude>
+    <ClInclude Include="Behavior\MoveComponent.h">
+      <Filter>Behavior</Filter>
+    </ClInclude>
+    <ClInclude Include="Core\ObjectPool.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="Render\ParticleRenderer.h">
+      <Filter>Render</Filter>
+    </ClInclude>
+    <ClInclude Include="Physics\Physics.h">
+      <Filter>Physics</Filter>
+    </ClInclude>
+    <ClInclude Include="Core\Resources.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="Physics\RigidbodyComponent.h">
+      <Filter>Physics</Filter>
+    </ClInclude>
+    <ClInclude Include="Data\SaveData.h">
+      <Filter>Data</Filter>
+    </ClInclude>
+    <ClInclude Include="Core\Scene.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="Core\SceneManager.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="Transition\SceneTransition.h">
+      <Filter>Transition</Filter>
+    </ClInclude>
+    <ClInclude Include="Render\ScreenEffect.h">
+      <Filter>Render</Filter>
+    </ClInclude>
+    <ClInclude Include="Render3D\SkinMesh.h">
+      <Filter>Render3D</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\SliderComponent.h">
+      <Filter>UI</Filter>
+    </ClInclude>
+    <ClInclude Include="Render\Sprite.h">
+      <Filter>Render</Filter>
+    </ClInclude>
+    <ClInclude Include="Animation\SpriteAnimationComponent.h">
+      <Filter>Animation</Filter>
+    </ClInclude>
+    <ClInclude Include="Render\SpriteRenderer.h">
+      <Filter>Render</Filter>
+    </ClInclude>
+    <ClInclude Include="Transition\SpriteTransition.h">
+      <Filter>Transition</Filter>
+    </ClInclude>
+    <ClInclude Include="Render3D\Terrain.h">
+      <Filter>Render3D</Filter>
+    </ClInclude>
+    <ClInclude Include="Render3D\TerrainRenderer.h">
+      <Filter>Render3D</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\Text.h">
+      <Filter>UI</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\TextRenderer.h">
+      <Filter>UI</Filter>
+    </ClInclude>
+    <ClInclude Include="Render\Texture.h">
+      <Filter>Render</Filter>
+    </ClInclude>
+    <ClInclude Include="Core\Time.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="Core\Timer.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="Core\Transform.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="Animation\TweenComponent.h">
+      <Filter>Animation</Filter>
+    </ClInclude>
+    <ClInclude Include="Render\Visibility.h">
+      <Filter>Render</Filter>
+    </ClInclude>
+    <ClInclude Include="Behavior\VisionComponent.h">
+      <Filter>Behavior</Filter>
+    </ClInclude>
+    <ClInclude Include="Render3D\WaterRenderer.h">
+      <Filter>Render3D</Filter>
+    </ClInclude>
+    <ClInclude Include="ThirdParty\WICTextureLoader11.h">
+      <Filter>ThirdParty</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

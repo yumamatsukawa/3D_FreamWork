@@ -1,9 +1,9 @@
 ﻿#include "Cube.h"
-#include "../../../Engine/Scene.h"
-#include "../../../Engine/GameObject.h"
-#include "../../../Engine/MeshRenderer.h"
+#include "../../../Engine/Core/Scene.h"
+#include "../../../Engine/Core/GameObject.h"
+#include "../../../Engine/Render3D/MeshRenderer.h"
 #include "../Components/SpinComponent.h"
-#include "../../../Engine/RigidbodyComponent.h"
+#include "../../../Engine/Physics/RigidbodyComponent.h"
 
 GameObject* CreateCube(Scene& scene) {
     GameObject* cube = scene.CreateObject("Cube");

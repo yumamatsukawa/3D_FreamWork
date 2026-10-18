@@ -1,9 +1,9 @@
 ﻿#include "TitleController.h"
-#include "../../../Engine/Audio.h"
-#include "../../../Engine/Text.h"
-#include "../../../Engine/SaveData.h"
-#include "../../../Engine/MathUtil.h"
-#include "../../../Engine/Image.h"
+#include "../../../Engine/Audio/Audio.h"
+#include "../../../Engine/UI/Text.h"
+#include "../../../Engine/Data/SaveData.h"
+#include "../../../Engine/Core/MathUtil.h"
+#include "../../../Engine/Render/Image.h"
 
 namespace {
     constexpr const char* musicVolumeKey = "MusicVolume";   // BGMの音量を保存するSaveDataのキー(Sample2DとSample3Dで共通)

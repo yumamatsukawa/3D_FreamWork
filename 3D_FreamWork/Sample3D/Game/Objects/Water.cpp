@@ -1,7 +1,7 @@
 ﻿#include "Water.h"
-#include "../../../Engine/Scene.h"
-#include "../../../Engine/GameObject.h"
-#include "../../../Engine/WaterRenderer.h"
+#include "../../../Engine/Core/Scene.h"
+#include "../../../Engine/Core/GameObject.h"
+#include "../../../Engine/Render3D/WaterRenderer.h"
 
 GameObject* CreateWater(Scene& scene, DirectX::XMFLOAT3 position) {
     GameObject* water = scene.CreateObject("Water");
