@@ -7,8 +7,10 @@
 #include <vector>
 
 class GameObject;
+class NavGridComponent;
 
 // 敵の出現を担当する(実行中にCSVを保存すると、そのまま反映される。Waves.csvの表のとおりにtargetの周囲に出し、Playerが倒れたら止める。敵の速さはEnemies.csv)
+// 出した敵は、格子(navigation)で壁を避けながらtargetを追いかける
 class EnemyManager : public Component {
 private:
     // 出現ウェーブ(Waves.csvの1行)。Time秒後から、Interval秒ごとにCount体ずつ出す
@@ -21,6 +23,7 @@ private:
 
     ObjectPool pool;                  // 敵のプール
     GameObject* target = nullptr;     // 敵が追いかける相手
+    NavGridComponent* navigation = nullptr;   // 敵が壁を避けるための格子
 
     // 表が読めなかった時に使う値(今までの動き: 1秒後に最初の1体、その後2.5秒ごとに1体)
     static constexpr float defaultFirstSpawnDelay = 1.0f;   // 最初の1体が出るまでの時間(秒)
@@ -53,8 +56,8 @@ private:
     void ScheduleNext();
 
 public:
-    // 敵が追いかける相手(Player)を、CreateEnemySpawner()から渡してもらう
-    void Setup(GameObject* targetObject) { target = targetObject; }
+    // 敵が追いかける相手(Player)と、壁を避けるための格子を、CreateEnemySpawner()から渡してもらう
+    void Setup(GameObject* targetObject, NavGridComponent* navGrid) { target = targetObject; navigation = navGrid; }
 
     void Init() override;
     void Update(float dt) override;

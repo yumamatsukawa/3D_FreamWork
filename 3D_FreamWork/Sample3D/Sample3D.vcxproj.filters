@@ -46,6 +46,9 @@
     <ClCompile Include="Game\Objects\EnemySpawner.cpp">
       <Filter>Game\Objects</Filter>
     </ClCompile>
+    <ClCompile Include="Game\Objects\Navigation.cpp">
+      <Filter>Game\Objects</Filter>
+    </ClCompile>
     <ClCompile Include="Game\Objects\Explosion.cpp">
       <Filter>Game\Objects</Filter>
     </ClCompile>
@@ -166,6 +169,9 @@
       <Filter>Game\Objects</Filter>
     </ClInclude>
     <ClInclude Include="Game\Objects\EnemySpawner.h">
+      <Filter>Game\Objects</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\Objects\Navigation.h">
       <Filter>Game\Objects</Filter>
     </ClInclude>
     <ClInclude Include="Game\Objects\Explosion.h">

@@ -99,6 +99,10 @@
     <ClCompile Include="Animation\ModelAnimationComponent.cpp" />
     <ClCompile Include="Render3D\ModelRenderer.cpp" />
     <ClCompile Include="Behavior\MoveComponent.cpp" />
+    <ClCompile Include="Behavior\NavGrid.cpp" />
+    <ClCompile Include="Behavior\NavGridComponent.cpp" />
+    <ClCompile Include="Behavior\PathFinder.cpp" />
+    <ClCompile Include="Behavior\PathFollowComponent.cpp" />
     <ClCompile Include="Render\ParticleRenderer.cpp" />
     <ClCompile Include="Physics\Physics.cpp" />
     <ClCompile Include="Core\Resources.cpp" />
@@ -177,6 +181,10 @@
     <ClInclude Include="Animation\ModelAnimationComponent.h" />
     <ClInclude Include="Render3D\ModelRenderer.h" />
     <ClInclude Include="Behavior\MoveComponent.h" />
+    <ClInclude Include="Behavior\NavGrid.h" />
+    <ClInclude Include="Behavior\NavGridComponent.h" />
+    <ClInclude Include="Behavior\PathFinder.h" />
+    <ClInclude Include="Behavior\PathFollowComponent.h" />
     <ClInclude Include="Core\ObjectPool.h" />
     <ClInclude Include="Render\ParticleRenderer.h" />
     <ClInclude Include="Physics\Physics.h" />

@@ -4,6 +4,7 @@
 #include "../Objects/Wall.h"
 #include "../Objects/Guard.h"
 #include "../Objects/GameSystem.h"
+#include "../Objects/Navigation.h"
 #include "../Objects/EnemySpawner.h"
 #include "../Objects/BulletSpawner.h"
 #include "../Objects/HUD.h"
@@ -20,7 +21,8 @@ void GameScene::Init()
     CreateWall(*this, { 400.0f, -350.0f }, { 300.0f, 40.0f });
     CreateGuard(*this, player);
     GameManager* gameManager = CreateGameSystem(*this);
-    CreateEnemySpawner(*this, player);
+    NavGridComponent* navigation = CreateNavigation(*this);   // 壁をすべて置いた後に置く(敵が壁を避けるための格子)
+    CreateEnemySpawner(*this, player, navigation);
     CreateBulletSpawner(*this);
     CreateHUD(*this, gameManager, player->GetComponent<PlayerController>());
 }

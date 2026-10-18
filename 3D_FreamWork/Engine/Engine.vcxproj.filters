@@ -120,6 +120,18 @@
     <ClCompile Include="Behavior\MoveComponent.cpp">
       <Filter>Behavior</Filter>
     </ClCompile>
+    <ClCompile Include="Behavior\NavGrid.cpp">
+      <Filter>Behavior</Filter>
+    </ClCompile>
+    <ClCompile Include="Behavior\NavGridComponent.cpp">
+      <Filter>Behavior</Filter>
+    </ClCompile>
+    <ClCompile Include="Behavior\PathFinder.cpp">
+      <Filter>Behavior</Filter>
+    </ClCompile>
+    <ClCompile Include="Behavior\PathFollowComponent.cpp">
+      <Filter>Behavior</Filter>
+    </ClCompile>
     <ClCompile Include="Render\ParticleRenderer.cpp">
       <Filter>Render</Filter>
     </ClCompile>
@@ -307,6 +319,18 @@
       <Filter>Render3D</Filter>
     </ClInclude>
     <ClInclude Include="Behavior\MoveComponent.h">
+      <Filter>Behavior</Filter>
+    </ClInclude>
+    <ClInclude Include="Behavior\NavGrid.h">
+      <Filter>Behavior</Filter>
+    </ClInclude>
+    <ClInclude Include="Behavior\NavGridComponent.h">
+      <Filter>Behavior</Filter>
+    </ClInclude>
+    <ClInclude Include="Behavior\PathFinder.h">
+      <Filter>Behavior</Filter>
+    </ClInclude>
+    <ClInclude Include="Behavior\PathFollowComponent.h">
       <Filter>Behavior</Filter>
     </ClInclude>
     <ClInclude Include="Core\ObjectPool.h">

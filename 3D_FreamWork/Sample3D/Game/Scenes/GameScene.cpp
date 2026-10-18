@@ -12,6 +12,7 @@
 #include "../Objects/GlassPanel.h"
 #include "../Objects/Lantern.h"
 #include "../Objects/GameSystem.h"
+#include "../Objects/Navigation.h"
 #include "../Objects/EnemySpawner.h"
 #include "../Objects/BulletSpawner.h"
 #include "../Objects/HUD.h"
@@ -25,7 +26,7 @@ void GameScene::Init()
     CreateSkybox(*this);
     CreateSun(*this);   // 影を有効にする(影を落とす・受ける物は、各オブジェクトの Material で決める)
     CreateGround(*this);
-    CreateHills(*this, { 1500.0f, -50.0f, -2000.0f });   // 遠くの起伏のある地形(東の方。歩ける)
+    GameObject* hills = CreateHills(*this, { 1500.0f, -50.0f, -2000.0f });   // 遠くの起伏のある地形(東の方。歩ける)
     CreateWater(*this, { 2075.0f, -16.0f, 1350.0f });   // 丘の谷(北西のくぼみ)に張った池(波打つ半透明の水面。通り抜けられる)
     CreateModelDisplay(*this);
     CreateSkinDisplay(*this);
@@ -36,7 +37,8 @@ void GameScene::Init()
     CreateGlassPanel(*this, { 400.0f, 50.0f, 300.0f }, { 300.0f, 200.0f, 10.0f });   // 半透明で光沢のある板
     CreateLantern(*this, { 0.0f, 0.0f, 0.0f });   // 周りを照らしながら回るランタン(点光源)
     GameManager* gameManager = CreateGameSystem(*this);
-    CreateEnemySpawner(*this, player);
+    NavGridComponent* navigation = CreateNavigation(*this, hills);   // 壁と丘をすべて置いた後に置く(敵が壁と急な坂を避けるための格子)
+    CreateEnemySpawner(*this, player, navigation);
     CreateBulletSpawner(*this);
     CreateHUD(*this, gameManager, player->GetComponent<PlayerController>());
 }

@@ -4,6 +4,8 @@
 #include "../../../Engine/Core/SceneManager.h"
 #include "../../../Engine/Physics/RigidbodyComponent.h"
 #include "../../../Engine/Behavior/VisionComponent.h"
+#include "../../../Engine/Behavior/NavGridComponent.h"
+#include "../../../Engine/Behavior/PathFollowComponent.h"
 #include "../../../Engine/Data/SaveData.h"
 #include "../Scenes/TitleScene.h"
 
@@ -15,6 +17,8 @@ void GameManager::Init() {
     // Colliderの枠を表示する(デバッグ用。不要ならfalseに)
     RigidbodyComponent::SetDebugDrawEnabled(true);
     VisionComponent::SetDebugDrawEnabled(true);   // 見張り役の視野(扇形)を線で表示する(デバッグ用。不要ならfalseに)
+    NavGridComponent::SetDebugDrawEnabled(true);
+    PathFollowComponent::SetDebugDrawEnabled(true);
 
     // ※ラムダがthisを使うので、シーン終了時にGameScene::Uninit()で登録を消している
 

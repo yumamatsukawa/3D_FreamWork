@@ -43,7 +43,7 @@ DirectX11製の、Unity風のコンポーネント指向ゲームフレームワ
 | `UI\` | 文字・ゲージ・スライダー・ボタンなど、画面に出す部品 |
 | `Animation\` | 動きの時間変化。Tween・イージング・スプライトやモデルのアニメーション |
 | `Transition\` | シーン切り替えの演出(フェード・スプライトを使った切り替え) |
-| `Behavior\` | 動きの部品。移動・追いかけ・ホーミング・視界判定など、そのまま付けて使うComponent |
+| `Behavior\` | 動きの部品。移動・追いかけ・ホーミング・視界判定・経路探索(壁を避けて追いかける。§36)など、そのまま付けて使うComponent |
 | `Data\` | データの読み書き。CSVの表・セーブデータ |
 | `ThirdParty\` | 外部のコード(WICTextureLoader11)をそのまま置く場所 |
 
@@ -668,11 +668,12 @@ chase->SetPlane(MovePlane::XZ);    // 3Dの地面の上を動く時(2Dなら不�
 
 | Component | 動き |
 |---|---|
-| `ChaseComponent` | 一定の速さでまっすぐ向かう(両サンプルの敵) |
+| `ChaseComponent` | 一定の速さでまっすぐ向かう |
+| `PathFollowComponent` | 壁・障害物を避けて、一定の速さで向かう(経路探索つきの `ChaseComponent`。両サンプルの敵。§36) |
 | `AccelerateChaseComponent` | 加速しながら向かう。勢いがあるので行き過ぎて戻ってくる |
 | `HomingComponent` | 曲がれる角度に上限がある追尾(ミサイル・車・魚向け)。急に向きを変えない |
 
-3つとも、親クラス `MoveComponent` の次の関数が使えます(`MoveComponent` 単体ではAddComponentしません)。
+`ChaseComponent` / `PathFollowComponent` / `AccelerateChaseComponent` / `HomingComponent` のどれも、親クラス `MoveComponent` の次の関数が使えます(`MoveComponent` 単体ではAddComponentしません)。
 
 | 関数 | 内容 |
 |---|---|
@@ -701,7 +702,7 @@ chase->SetPlane(MovePlane::XZ);    // 3Dの地面の上を動く時(2Dなら不�
 - `HomingComponent` の進行方向は `rotate` と同じ向きです(XYは `rotate.z` = `Math::Forward2D`、XZは `rotate.y` = `Math::Forward3D`)。最初の進行方向は、出した時の `rotate` の向きです(出す時に向きを決めておけば、その向きへ飛び出してから曲がっていく)。`SetFaceMovement(true)` をDynamicの剛体で使う時は、`SetFreezeRotation(true)` にしておきます(PhysXの回転で上書きされないように)。
 - `AccelerateChaseComponent` は、Dynamicなら `AddForce(..., ForceMode::Acceleration)`(§23)で加速します(ぶつかって跳ね返った勢いも残る)。1フレーム分の加速だけ、最高速度を少し超えることがあります。
 
-**実例**: 両サンプルの `EnemyManager` が、敵に `ChaseComponent` を付けて(`SetupEnemy`)、出す時に追いかける相手(Player)と速さを渡しています(`Spawn`)。Sample3Dは `SetPlane(MovePlane::XZ)` で、地面の上を重力で落ちながら追いかけます。
+**実例**: 両サンプルの `EnemyManager` が、敵に `PathFollowComponent`(`ChaseComponent` に経路探索を足したもの。§36)を付けて(`SetupEnemy`)、出す時に追いかける相手(Player)・速さ・地図を渡しています(`Spawn`)。Sample3Dは `SetPlane(MovePlane::XZ)` で、地面の上を重力で落ちながら追いかけます。`ChaseComponent` はそのまま残してあり、壁を避けなくてよい時(ごく近くの敵など)に使えます。
 
 ---
 
@@ -1307,14 +1308,14 @@ Claude Code で作業する場合は、`.claude/`の設定で、メインの会�
 
 ```
 Sample2D/Game/Objects/     Title, Button, StartButton, VolumeSlider, Background, Player, GameSystem, HUD,
-                            EnemySpawner, BulletSpawner, ScorePopup, Explosion, Guard, Wall
+                            EnemySpawner, BulletSpawner, ScorePopup, Explosion, Guard, Wall, Navigation
 Sample2D/Game/Components/  TitleController, BackgroundController, PlayerController,
                             BulletController, EnemyController, GameManager, HUDController,
                             EnemyManager, BulletManager, GuardController
 Sample2D/Game/Scenes/      TitleScene, GameScene
 
 Sample3D/Game/Objects/     Title, Button, StartButton, VolumeSlider, Skybox, Ground, Player, GameSystem, HUD,
-                            EnemySpawner, BulletSpawner, Explosion, ModelDisplay, SkinDisplay, Guard, Wall, GlassPanel, Lantern, Sun, Hills, Water, Cube(未使用), Sphere(未使用)
+                            EnemySpawner, BulletSpawner, Explosion, ModelDisplay, SkinDisplay, Guard, Wall, GlassPanel, Lantern, Sun, Hills, Water, Navigation, Cube(未使用), Sphere(未使用)
 Sample3D/Game/Components/  TitleController, GroundController, PlayerController,
                             CameraController, BulletController, EnemyController, GameManager,
                             HUDController, EnemyManager, BulletManager, SkyboxFollowComponent,
@@ -1322,8 +1323,8 @@ Sample3D/Game/Components/  TitleController, GroundController, PlayerController,
 Sample3D/Game/Scenes/      TitleScene, GameScene
 ```
 
-- **Sample2D**: トップダウン視点のアリーナシューター。タイトル画面のSTARTボタン(出る時に`TweenComponent`でぴょこっと大きくなる)をクリックすると、画面が暗転してからゲーム開始(ゲーム画面に入ると明転する。`FadeTransition`。§16)(ボタンは`CreateButton(scene, 文字, 位置, クリックされた時の処理)`で作れる汎用部品で、動きはEngineの`ButtonComponent`。他の画面のボタンにも使い回せる。§20)。WASDで移動、Playerは常にマウスの方を向き、左クリックでその方向へ弾を発射。背景はタイル状に敷き詰めた床(`BackgroundController`)で、移動するとスクロールする(カメラはPlayerに付けた`CameraFollowComponent`が追いかける。§14)。敵(`EnemyManager`が一定間隔でPlayerの周囲にランダムスポーンさせる)がゆっくり追いかけてきて(`ChaseComponent`。§13)、弾を当てると倒せる(`EventBus`で`"EnemyDefeated"`イベントを発行しスコア加算。倒した位置に「+10」が出て、上に動きながら消える=`CreateScorePopup`。§19。爆発のパーティクルも出る=`CreateExplosion`。§26)。敵に触れるとHPが減り(1秒間の無敵時間つき)、敵から離れる向きに弾かれる(ノックバック。`AddForce`で衝撃を加え、0.2秒間は移動キーが効かない。§23)、画面が少し揺れて(`CameraShake`。§14)、画面の端が赤く点滅する(`ScreenEffect::Vignette`。§15)。HPが0になるとゲームオーバー画面が出てSPACEでタイトルに戻る(黒い丸が閉じて開く`SpriteTransition`。§16)。スコアがハイスコアを超えていたら、ゲームオーバーの時に保存され(`SaveData`。キーは`"Sample2DHighScore"`で、Sample3Dの記録とは別。§18)、画面左上のスコアの下に出る(次に起動しても残る)。タイトル画面の下にはBGMの音量スライダー(`CreateVolumeSlider`。つまみをドラッグして0〜1で変えられ、離すと保存されて次に起動した時も残る。§20)がある。画面左上のHPの文字の下にはHPゲージ(減った分が少し遅れて縮む)、Playerの頭上にも小さなHPバーが出る(`GaugeRenderer`。§20)。当たり判定・物理はPhysXを使い(Player=`CircleRigidbodyComponent`、敵=`SquareRigidbodyComponent`、弾=`CircleRigidbodyComponent`)、Player・敵はDynamic(`SetVelocity()`で速度を渡して動かす。重力なし・回転なし・`SetFreezePositionZ(true)`で奥行き方向に固定)、弾はKinematicのトリガー。3Dカメラは使わない(`CameraController`なし)。画面の左上のHPゲージの下には、画面の外なので描かずに省いた数「Culled」が出る(敵の `SpriteRenderer` は `SetFrustumCulling(true)`。§28)。マップには見張り役の `Guard`(青い `Player` 画像がゆっくり回り、扇形の視野に `Player` が入って壁にさえぎられていなければ赤くなる。視野は線で表示)と、視線をさえぎる壁 `Wall` が2枚置いてある(`VisionComponent`。§28)。
-- **Sample3D**: Sample2Dと同じアリーナシューターを3D空間で遊べるようにしたもの。タイトル画面のボタン(Sample2Dと同じく、出る時に`TweenComponent`でぴょこっと大きくなる)をクリックすると、Sample2Dと同じく暗転してからゲーム開始(Sample3Dの`CreateButton()`は、位置と大きさをまとめて`Transform`で受け取る形になっている: `CreateButton(scene, 文字, transform, クリックされた時の処理)`)。Player(立方体)は三人称カメラ(`CameraController`。マウス移動で視点回転。カーソルは画面中心に固定され、ESCで解除・左クリックで再固定。TABで一人称に切り替え)と同じ向きを向き、WASDもカメラ基準(W=カメラの前、D=カメラの右)で移動する。左クリックでPlayerの向いている方向へ、地面と水平に弾(球)を発射。敵を倒すと、その位置に爆発のパーティクルが出る(`CreateExplosion`。§26)。敵は2Dの画像(Worldモードの`SpriteRenderer`。Y軸だけカメラの方を向く立て看板)で、地面の上をPlayerに向かって歩いてくる(`ChaseComponent`を`SetPlane(MovePlane::XZ)`で使う。§13)。歩く間は、敵に付けた`SpriteAnimationComponent`がスプライトシートのコマ(4番と5番)を0.3秒ごとに切り替えて、歩きアニメーションにしている(始まるコマはランダムなので、何体いても足踏みがそろわない。§17)。スコア・ハイスコア(保存先のファイルはSample2Dと同じだが、キーは`"Sample3DHighScore"`で、記録はSample2Dとは別。§18)・HP・無敵時間・被弾時に画面の端が赤く点滅すること・ゲームオーバー(SPACEでタイトルへ。Sample3Dは、黒い帯が左から覆って右へ抜けていく`SpriteTransition(...).SetSwitchFrame(7)`。§16)・`EventBus`のイベント名はSample2Dと同じ。タイトル画面の下のBGMの音量スライダーと、画面左上のHPゲージ(Sample2Dと同じ)、三人称の間だけ出るPlayerの頭上のHPバー(`SetUse3DCamera(true)`の`GaugeRenderer`)もある(§20)。Playerは立方体の見た目とDynamicの`BoxRigidbodyComponent`、敵はDynamicの`CapsuleRigidbodyComponent`(半径40・高さ100の立ったカプセル。§29)(どちらも重力あり・回転なし。Y速度は`GetVelocity().y`を維持したまま`SetVelocity()`で動かす。敵は`ChaseComponent`がこれをしている)、弾はKinematicのトリガー(`SphereRigidbodyComponent`)。地面は、1000四方のタイルを3Dカメラの描画距離(farZ)の範囲だけ敷き詰めて描く`GroundController`(見た目)と、見えない大きなStaticの板(当たり判定)の組み合わせ。遠景はスカイボックス。地面の端(Playerから斜めに離れた所)には、FBXモデルの見本(`CreateModelDisplay`。`Assets/Models/TestAnim.fbx` の立方体2つ=親と子のパーツ。子の「Top」が、「Spin」(回る)と「Bob」(上下)のアニメーションを3秒ごとに切り替えて再生する。§27)が置いてある(FBXが無い時は何も置かない)。そのとなり(位置 `(1000, -50, 800)`)には、骨2本で曲がる細長い箱(`CreateSkinDisplay`。`Assets/Models/TestSkin.fbx` のアニメーション「Bend」を再生。§27)も置いてある。地面のタイルは、カメラに映る物だけ描く(`Visibility::IsSphereInView3D`)。敵の画像は `SetFrustumCulling(true)` で、画面の外にいる間は描かない。画面の左上のHPゲージの下には、描かずに省いた数「Culled」が出る。`Player` の近く(位置 `(-800, 0, 600)`)には見張り役 `Guard`(青い立方体がゆっくり回り、扇形の視野に `Player` が入って壁にさえぎられていなければ赤くなる。視野は線で表示)と、視線をさえぎる壁 `Wall` が2枚置いてある(`VisionComponent`。§28)。そのとなり(位置 `(400, 50, 300)`)には、半透明で光沢のある水色の板 `GlassPanel`(マテリアルの使用例。当たり判定は無いので通り抜けられる。§30)も置いてある。原点の周りでは、オレンジ色の光(ポイントライト)を持った小さな光る球 `Lantern` が、ふわふわ上下しながらゆっくり回っていて、近くの地面や壁を照らす。`Guard` は、視線の向きに懐中電灯(スポットライト)を持っていて、回ると地面の光の輪が一緒に動く(`LightComponent`。§31)。さらに、太陽の影が有効で(`CreateSun`。`ShadowManager`)、地面に `Player`・壁・FBXモデルの影が落ち、`Guard` の懐中電灯の光は壁や `Player` でさえぎられる(§32)。Playerの東の遠く(位置 `(1500, -50, -2000)` から4000四方)には、高さの画像(`Assets/Terrain/heightmap.png`)から作った、なだらかな丘と谷の地形 `Hills`(`CreateHills`)が置いてある(`TerrainRenderer`。影を受ける。当たり判定の`TerrainRigidbodyComponent`も付いていて、丘の起伏の上を歩ける。Playerの歩く速さ(200)で、丘の最大の傾き(約37度)も越えられる。丘の端はなだらかなスロープなので、地面から歩いて丘に登れる。§34)。その丘の北西のくぼみ(位置 `(2075, -16, 1350)`、650 x 700)には、波打つ半透明の池 `Water`(`CreateWater`)が張ってあります(`WaterRenderer`。青緑の水が波でうねり、日が当たる所がきらっと光り、水の下の地面が透けて見えます。当たり判定は無いので通り抜けられます。§35)。
+- **Sample2D**: トップダウン視点のアリーナシューター。タイトル画面のSTARTボタン(出る時に`TweenComponent`でぴょこっと大きくなる)をクリックすると、画面が暗転してからゲーム開始(ゲーム画面に入ると明転する。`FadeTransition`。§16)(ボタンは`CreateButton(scene, 文字, 位置, クリックされた時の処理)`で作れる汎用部品で、動きはEngineの`ButtonComponent`。他の画面のボタンにも使い回せる。§20)。WASDで移動、Playerは常にマウスの方を向き、左クリックでその方向へ弾を発射。背景はタイル状に敷き詰めた床(`BackgroundController`)で、移動するとスクロールする(カメラはPlayerに付けた`CameraFollowComponent`が追いかける。§14)。敵(`EnemyManager`が一定間隔でPlayerの周囲にランダムスポーンさせる)が壁を避けながらゆっくり追いかけてきて(`PathFollowComponent`。§36)、弾を当てると倒せる(`EventBus`で`"EnemyDefeated"`イベントを発行しスコア加算。倒した位置に「+10」が出て、上に動きながら消える=`CreateScorePopup`。§19。爆発のパーティクルも出る=`CreateExplosion`。§26)。敵に触れるとHPが減り(1秒間の無敵時間つき)、敵から離れる向きに弾かれる(ノックバック。`AddForce`で衝撃を加え、0.2秒間は移動キーが効かない。§23)、画面が少し揺れて(`CameraShake`。§14)、画面の端が赤く点滅する(`ScreenEffect::Vignette`。§15)。HPが0になるとゲームオーバー画面が出てSPACEでタイトルに戻る(黒い丸が閉じて開く`SpriteTransition`。§16)。スコアがハイスコアを超えていたら、ゲームオーバーの時に保存され(`SaveData`。キーは`"Sample2DHighScore"`で、Sample3Dの記録とは別。§18)、画面左上のスコアの下に出る(次に起動しても残る)。タイトル画面の下にはBGMの音量スライダー(`CreateVolumeSlider`。つまみをドラッグして0〜1で変えられ、離すと保存されて次に起動した時も残る。§20)がある。画面左上のHPの文字の下にはHPゲージ(減った分が少し遅れて縮む)、Playerの頭上にも小さなHPバーが出る(`GaugeRenderer`。§20)。当たり判定・物理はPhysXを使い(Player=`CircleRigidbodyComponent`、敵=`SquareRigidbodyComponent`、弾=`CircleRigidbodyComponent`)、Player・敵はDynamic(`SetVelocity()`で速度を渡して動かす。重力なし・回転なし・`SetFreezePositionZ(true)`で奥行き方向に固定)、弾はKinematicのトリガー。3Dカメラは使わない(`CameraController`なし)。画面の左上のHPゲージの下には、画面の外なので描かずに省いた数「Culled」が出る(敵の `SpriteRenderer` は `SetFrustumCulling(true)`。§28)。マップには見張り役の `Guard`(青い `Player` 画像がゆっくり回り、扇形の視野に `Player` が入って壁にさえぎられていなければ赤くなる。視野は線で表示)と、視線をさえぎる壁 `Wall` が2枚置いてある(`VisionComponent`。§28)。敵が壁を避けるための地図として、原点の周りの6000四方の格子 `Navigation`(`CreateNavigation`。`NavGridComponent`。壁は自動で読まれる)が置いてある(§36)。
+- **Sample3D**: Sample2Dと同じアリーナシューターを3D空間で遊べるようにしたもの。タイトル画面のボタン(Sample2Dと同じく、出る時に`TweenComponent`でぴょこっと大きくなる)をクリックすると、Sample2Dと同じく暗転してからゲーム開始(Sample3Dの`CreateButton()`は、位置と大きさをまとめて`Transform`で受け取る形になっている: `CreateButton(scene, 文字, transform, クリックされた時の処理)`)。Player(立方体)は三人称カメラ(`CameraController`。マウス移動で視点回転。カーソルは画面中心に固定され、ESCで解除・左クリックで再固定。TABで一人称に切り替え)と同じ向きを向き、WASDもカメラ基準(W=カメラの前、D=カメラの右)で移動する。左クリックでPlayerの向いている方向へ、地面と水平に弾(球)を発射。敵を倒すと、その位置に爆発のパーティクルが出る(`CreateExplosion`。§26)。敵は2Dの画像(Worldモードの`SpriteRenderer`。Y軸だけカメラの方を向く立て看板)で、地面の上をPlayerに向かって歩いてくる(壁と急な坂を避けて追いかける`PathFollowComponent`を`SetPlane(MovePlane::XZ)`で使う。§36)。歩く間は、敵に付けた`SpriteAnimationComponent`がスプライトシートのコマ(4番と5番)を0.3秒ごとに切り替えて、歩きアニメーションにしている(始まるコマはランダムなので、何体いても足踏みがそろわない。§17)。スコア・ハイスコア(保存先のファイルはSample2Dと同じだが、キーは`"Sample3DHighScore"`で、記録はSample2Dとは別。§18)・HP・無敵時間・被弾時に画面の端が赤く点滅すること・ゲームオーバー(SPACEでタイトルへ。Sample3Dは、黒い帯が左から覆って右へ抜けていく`SpriteTransition(...).SetSwitchFrame(7)`。§16)・`EventBus`のイベント名はSample2Dと同じ。タイトル画面の下のBGMの音量スライダーと、画面左上のHPゲージ(Sample2Dと同じ)、三人称の間だけ出るPlayerの頭上のHPバー(`SetUse3DCamera(true)`の`GaugeRenderer`)もある(§20)。Playerは立方体の見た目とDynamicの`BoxRigidbodyComponent`、敵はDynamicの`CapsuleRigidbodyComponent`(半径40・高さ100の立ったカプセル。§29)(どちらも重力あり・回転なし。Y速度は`GetVelocity().y`を維持したまま`SetVelocity()`で動かす。敵は`PathFollowComponent`がこれをしている)、弾はKinematicのトリガー(`SphereRigidbodyComponent`)。地面は、1000四方のタイルを3Dカメラの描画距離(farZ)の範囲だけ敷き詰めて描く`GroundController`(見た目)と、見えない大きなStaticの板(当たり判定)の組み合わせ。遠景はスカイボックス。地面の端(Playerから斜めに離れた所)には、FBXモデルの見本(`CreateModelDisplay`。`Assets/Models/TestAnim.fbx` の立方体2つ=親と子のパーツ。子の「Top」が、「Spin」(回る)と「Bob」(上下)のアニメーションを3秒ごとに切り替えて再生する。§27)が置いてある(FBXが無い時は何も置かない)。そのとなり(位置 `(1000, -50, 800)`)には、骨2本で曲がる細長い箱(`CreateSkinDisplay`。`Assets/Models/TestSkin.fbx` のアニメーション「Bend」を再生。§27)も置いてある。地面のタイルは、カメラに映る物だけ描く(`Visibility::IsSphereInView3D`)。敵の画像は `SetFrustumCulling(true)` で、画面の外にいる間は描かない。画面の左上のHPゲージの下には、描かずに省いた数「Culled」が出る。`Player` の近く(位置 `(-800, 0, 600)`)には見張り役 `Guard`(青い立方体がゆっくり回り、扇形の視野に `Player` が入って壁にさえぎられていなければ赤くなる。視野は線で表示)と、視線をさえぎる壁 `Wall` が2枚置いてある(`VisionComponent`。§28)。そのとなり(位置 `(400, 50, 300)`)には、半透明で光沢のある水色の板 `GlassPanel`(マテリアルの使用例。当たり判定は無いので通り抜けられる。§30)も置いてある。原点の周りでは、オレンジ色の光(ポイントライト)を持った小さな光る球 `Lantern` が、ふわふわ上下しながらゆっくり回っていて、近くの地面や壁を照らす。`Guard` は、視線の向きに懐中電灯(スポットライト)を持っていて、回ると地面の光の輪が一緒に動く(`LightComponent`。§31)。さらに、太陽の影が有効で(`CreateSun`。`ShadowManager`)、地面に `Player`・壁・FBXモデルの影が落ち、`Guard` の懐中電灯の光は壁や `Player` でさえぎられる(§32)。Playerの東の遠く(位置 `(1500, -50, -2000)` から4000四方)には、高さの画像(`Assets/Terrain/heightmap.png`)から作った、なだらかな丘と谷の地形 `Hills`(`CreateHills`)が置いてある(`TerrainRenderer`。影を受ける。当たり判定の`TerrainRigidbodyComponent`も付いていて、丘の起伏の上を歩ける。Playerの歩く速さ(200)で、丘の最大の傾き(約37度)も越えられる。丘の端はなだらかなスロープなので、地面から歩いて丘に登れる。§34)。その丘の北西のくぼみ(位置 `(2075, -16, 1350)`、650 x 700)には、波打つ半透明の池 `Water`(`CreateWater`)が張ってあります(`WaterRenderer`。青緑の水が波でうねり、日が当たる所がきらっと光り、水の下の地面が透けて見えます。当たり判定は無いので通り抜けられます。§35)。敵が壁と急な坂を避けるための地図として、9000四方の格子 `Navigation`(`CreateNavigation`。丘の高さと傾きも取り込む)が置いてある(池は通れるまま。§36)。
 
 **Sample3Dの実装メモ**: 向きはすべて`transform.rotate.y`(度)で表し、`rotate.y`の時の正面(ローカルの+Z)は`(sin, 0, cos)`の方向になる(`CameraController::GetYaw()`の式と同じ。`Math::Forward3D()`で求められる)。Worldモードの`SpriteRenderer`は`rotate.y`を使わない(ビルボードの向きとZ軸回転だけを使う)ので、敵の画像の向きは`SetBillboardLock(true, false, true)`でカメラの方へ向けている。Playerは`SetFreezeRotation(true)`で、`RigidbodyComponent`は位置しか同期しないため、`PlayerController`が`rotate.y`が変わった時に`GetActor()`の`setGlobalPose`で当たり判定の箱の回転も合わせている(デバッグ表示の枠と実際の判定が同じ向きになる)。一人称の間は、カメラが立方体の内側に入るのでPlayerの`MeshRenderer`と頭上のHPバー(`GaugeRenderer`)を非表示にしている。
 
@@ -1335,7 +1336,7 @@ Sample3D/Game/Scenes/      TitleScene, GameScene
 |---|---|
 | `PlayerController` | HP・無敵時間・ノックバック(HPが0になったら`EventBus`で`"PlayerDied"`を発行し、以後は移動・向き・発射を受け付けない。ポーズ中・シーン切り替え中も`Time::IsPaused()`で受け付けない) |
 | `GameManager` | スコア(`"EnemyDefeated"`で加算)・ゲームオーバー判定(`"PlayerDied"`を受けて)・ハイスコアの更新と保存(ゲームオーバーの時。ハイスコアの値そのものは`SaveData`が持ち、`GetHighScore()`はそれを読むだけ。§18)・タイトルへの遷移。表示は一切しない |
-| `EnemyManager` | 敵のプールと出現の予定。`Init()`で`Assets/Data/Enemies.csv`(敵の速さ)と`Assets/Data/Waves.csv`(出現ウェーブ)を読み(§25)、表の時間にPlayerの周囲に敵を出し(追いかける動きは敵に付けた`ChaseComponent`に、相手と速さを渡す)、`"PlayerDied"`を受けたら出現を止める |
+| `EnemyManager` | 敵のプールと出現の予定。`Init()`で`Assets/Data/Enemies.csv`(敵の速さ)と`Assets/Data/Waves.csv`(出現ウェーブ)を読み(§25)、表の時間にPlayerの周囲に敵を出し(追いかける動きは敵に付けた`PathFollowComponent`に、相手・速さ・格子を渡す。格子は`CreateEnemySpawner`の引数で受け取る)、`"PlayerDied"`を受けたら出現を止める |
 | `BulletManager` | 弾のプール。`"FireBullet"`を受けて、撃った本人の向きへ弾を出す(出す時に発射音`shot.wav`を`Audio::PlayOneShotAt`で鳴らす。§24) |
 | `HUDController` | 画面表示(Score/High Score/HP/GAME OVER)だけ。値は自分で持たず、`GameManager::GetScore()`/`GameManager::GetHighScore()`/`PlayerController::GetHp()`などで毎フレーム読む。文字は`Init()`で`Text::LoadFont`したNoto Sans JPで、左上の文字は左寄せ+黒い縁取り(`TextStyle`。§19)。位置は`GetAnchoredPosition`で画面の隅・中央から決める(§20)。HUDオブジェクトに付けた`GaugeRenderer`のHPゲージも、`SetValueSource`で`PlayerController`のHPを読んで描くだけ(§20) |
 | `TitleController` | タイトルの表示とBGMの再生。起動時に、BGMグループの音量(`"MusicVolume"`)と効果音(SE)グループの音量(`"SoundEffectVolume"`。変えるUIはまだ無い)を`SaveData`から読んで適用する(§24)。BGMの音量の持ち主(`GetVolume()`/`SetVolume()`。`SaveData`の`"MusicVolume"`に書く)。音量スライダー(`SliderComponent`)は、`CreateVolumeSlider`でここへつないで、動かしてもらうだけ(§20) |
@@ -1360,7 +1361,8 @@ GameManager/HUD/EnemyManager/BulletManagerのような「見た目の無い管�
 | 敵を倒した位置に爆発を出す | `EnemyController::OnTriggerEnter2D()`から`CreateExplosion()`を呼ぶ(両サンプル。粒の設定は各サンプルの`Objects/Explosion.cpp`、粒の動き・描画はEngineの`ParticleRenderer`。§26) |
 | FBXモデルの見本を置く、Topパーツのアニメーションを切り替える(Sample3D) | `Objects/ModelDisplay.cpp`(`ModelRenderer`と`ModelAnimationComponent`を付ける)と `ModelDisplayController::Update()`(3秒ごとに`CrossFade`。§27) |
 | 骨で曲げるFBXモデルの見本を置いて "Bend" を再生する(Sample3D) | `Objects/SkinDisplay.cpp`(`ModelRenderer`と`ModelAnimationComponent`を付け、`Play("Bend")`。§27) |
-| 敵がPlayerを追いかける | 敵に付けた`ChaseComponent`(Engine。§13)。相手と速さは`EnemyManager::Spawn()`が渡す |
+| 敵がPlayerを追いかける(壁を避ける) | 敵に付けた`PathFollowComponent`(Engine。§36)。相手・速さ・格子は`EnemyManager::Spawn()`が渡す |
+| 敵が壁を避けるための地図(格子)を置く | `Objects/Navigation.cpp`(`NavGridComponent`を付ける。壁は最初のフレームの後に自動で読まれる。Sample3Dは丘の`TerrainRenderer`も渡す。§36)。`GameScene`で壁・丘の後に置く |
 | 敵の歩きアニメーション(Sample3D) | 敵に付けた`SpriteAnimationComponent`(Engine。§17)。クリップの登録と再生は`EnemyManager`の`SetupEnemy` |
 | 敵に当たったら弾かれる(Sample2D) | `PlayerController::OnCollisionStay2D()`(`AddForce`。§23) |
 | 敵に当たったら画面が揺れる(Sample2D) | `PlayerController::OnCollisionStay2D()`(`CameraShake::Shake`。§14) |
@@ -1743,7 +1745,7 @@ if (reloadTimer.Update(dt) && table.IsFileUpdated()) {
 - **`Reload()` は呼んだ `Csv` の中身だけ入れ替えます**。先にコピーした `Csv` は古い中身のままなので、`Csv` を持つComponentが自分で `Reload` してください
 - Excelでは「CSV UTF-8(コンマ区切り)」で保存してください(Shift-JISのままだと、日本語が文字化けします)
 - Sampleの `EnemyManager` の場合:
-  - `Enemies.csv`: 敵の速さを取り直し、**すでに出ている敵にも新しい速さを渡します**(`ChaseComponent::SetSpeed`。出ている敵は `ObjectPool::GetObjects()` で調べます)
+  - `Enemies.csv`: 敵の速さを取り直し、**すでに出ている敵にも新しい速さを渡します**(`PathFollowComponent::SetSpeed`。出ている敵は `ObjectPool::GetObjects()` で調べます)
   - `Waves.csv`: 経過時間はそのままにして、新しい表で「今の経過時間より前に出るはずだった回」を**出した扱い**にし、次に出す時間だけを決め直します。そのため、すでに出した分を二重に出さず、これから出す分も飛ばしません(例: 12.3秒の時に表を変えると、12.3秒より後の回から新しい表になります)。先に出ている敵はそのままです
 
 ### 実例: 敵の速さと出現ウェーブ(両サンプルの `EnemyManager`)
@@ -1753,7 +1755,7 @@ if (reloadTimer.Update(dt) && table.IsFileUpdated()) {
 Name,Speed
 Slime,60
 ```
-`EnemyManager::Init()` が `Name` が `Slime` の行の `Speed` を読み、敵に付けた `ChaseComponent` に渡します。
+`EnemyManager::Init()` が `Name` が `Slime` の行の `Speed` を読み、敵に付けた `PathFollowComponent`(§36)に渡します。
 
 `Assets/Data/Waves.csv`(出現ウェーブ。1行が1ウェーブ):
 ```
@@ -2864,3 +2866,166 @@ renderer->GetSettings().color.w = 0.3f;
 - 水に入ると遅くなる・物が自動で浮かぶ処理(`GetHeightAt` で調べて、自分で作ります)
 - 水の中専用の見た目(霧・色の変化)
 - 波の本数や形(波の割合・向きのずれ)を設定で変えること
+
+---
+
+## 36. 経路探索(NavGrid / PathFollowComponent)
+
+敵が**壁・障害物を避けながら**目的地(Player)へ向かうための部品です。`ChaseComponent`(§13)は「まっすぐ向かう」だけなので、壁の向こうにPlayerがいると壁に張り付いて止まります。`PathFollowComponent` は、地面を升目(格子)にして**最短の道を探し**(A\*=エースター)、その道に沿って歩きます。2D(Sample2D)でも3Dの地面(Sample3D)でも、同じ部品で使えます。
+
+| 部品 | 役割 | 置き方 |
+|---|---|---|
+| `NavGridComponent` | 地面の地図。壁(タグ `"Wall"`)を自動で読み、通れるマス・通れないマスを覚える。経路を探す役(`PathFinder`)も持つ | シーンに**1つ**置く(`Objects/Navigation.cpp`) |
+| `PathFollowComponent` | 地図を見て経路を探し、その道を歩く。`MoveComponent` の子なので `ChaseComponent` と同じ呼び方 | 敵などに付ける |
+| `NavGrid` / `PathFinder` | 地図のデータと探す処理そのもの(Componentではない。`NavGridComponent` の中にある) | 直接使うのは、自分で経路だけ欲しい時 |
+
+### 使い方
+
+```cpp
+#include "../../../Engine/Behavior/NavGridComponent.h"
+#include "../../../Engine/Behavior/PathFollowComponent.h"
+
+// ① シーンに地図を1つ置く(壁をすべて置いた後、Scene::Init の最後の方で)
+GameObject* navigation = scene.CreateObject("Navigation");
+NavGridSettings settings;
+settings.origin = { -3000.f, -3000.f, 0.f };   // 地図の左手前の角
+settings.size = { 6000.f, 6000.f };            // 地図の大きさ
+settings.cellSize = 50.f;                      // 1マスの大きさ
+settings.plane = MovePlane::XY;                // 2D=XY、3Dの地面=XZ
+settings.agentRadius = 50.f;                   // 歩く物の半径
+NavGridComponent* nav = navigation->AddComponent<NavGridComponent>(settings);   // 壁(タグ "Wall")は自動で読まれる
+
+// ② 敵に PathFollowComponent を付ける(ChaseComponent の代わり)
+auto* path = enemy->AddComponent<PathFollowComponent>();
+path->SetTarget(player);          // 追いかける相手(MoveComponent と同じ)
+path->SetSpeed(60.f);
+path->SetPlane(MovePlane::XZ);    // 3Dの地面の上を動く時
+path->SetNavigation(nav);         // 地図(ObjectPool の敵は Spawn の度に渡す)
+```
+
+壁は、置くだけで地図に反映されます(Staticな `BoxRigidbodyComponent` で、タグが `"Wall"` の物。`Wall` の工場関数がこれをしています)。
+
+### 設定(`NavGridSettings`)
+
+| 項目 | 既定値 | 内容 |
+|---|---|---|
+| `origin` | 0 | 地図の左手前の角(ワールド座標)。2Dは x,y,z、3Dは x,z(高さは各マスが覚える) |
+| `size` | 6000 x 6000 | 地図の大きさ(2Dは横とたて、3DはXとZ)。**地図の外では敵は経路を探せません(止まります)** |
+| `cellSize` | 50 | 1マスの辺の長さ。大きいほど軽くて粗い。**歩く物の半径くらい**がおすすめ。上限(512 x 512 = 262,144マス)を超えると、自動で大きくして出力ウィンドウに知らせる |
+| `plane` | `XZ` | 歩く平面(`MoveComponent` と同じ) |
+| `agentRadius` | 40 | 歩く物の半径。障害物をこの分だけ太らせる(下) |
+| `obstacleTag` | `"Wall"` | このタグの物が障害物。`""` にすると物理の障害物は無し |
+| `baseHeight` | 0 | (3D)地形の無い所の地面の高さ(Sample3D の `Ground` なら `-50`) |
+| `agentHeight` | 100 | (3D)歩く物の背の高さ。壁を探す高さの上の端 |
+| `maxStepHeight` | 30 | (3D)登れる段差の高さ。壁を探す高さの下の端(これより低い物は障害物にしない) |
+| `maxSlopeDegrees` | 40 | (3D)登れる坂の角度。これより急なマスは通れない |
+
+**`agentRadius` で障害物を太らせます**: 壁から半径ぶん離れたマスも「通れない」ことにします。こうすると、歩く物を**1つの点**として歩かせても、体が壁にこすりません。半径が大きいと、狭い通路が全部ふさがります(体が入らないので正しい動きですが、「通れそうなのに遠回りする」ように見えます)。
+
+### 障害物の取り込み
+
+| 取り込み方 | 内容 | 使い所 |
+|---|---|---|
+| **物理から(自動)** | 全マスについて、`Physics::OverlapBox`(マスの大きさ + 2 x `agentRadius`)でタグ `"Wall"` の物を探し、見つかったマスを通れなくする。Staticでも、動く(Kinematic)壁でも同じ | 壁を置くだけ |
+| **手で登録** | `nav->GetGrid().SetBlockedBox(中心, 大きさ)`(`SetBlocked(cellX, cellZ, true)` は1マス)。高さは見ずに、`agentRadius` ぶん太らせる | 物理の無い障害物(池・見えない柵など) |
+| **地形から(3D)** | `nav->SetTerrain(TerrainRenderer*)`。各マスの地面の高さを覚え、**急な坂**(傾きが `maxSlopeDegrees` 超え)と**大きな段差**のマスを通れなくする | Sample3D の `Hills`(§34) |
+
+- **読まれるのは2回目の `Update`**: 物理に出したばかりの物は次のフレームから見つかるので、`Init` では読めません。`NavGridComponent` が2回目の `Update` で1回だけ焼きます(`IsBaked()` が true になる)。焼き終わるまで、`PathFollowComponent` は止まって待ちます。
+- **2D(XY)**: 壁の奥行き(Z)が100あり、敵は `z = 0` にいます。壁を探す箱はZを10の薄さにしてあります(Zが離れた壁は2Dの敵には関係ない)。
+- **3D(XZ)**: 壁を探す箱の高さは「地面の高さ + `maxStepHeight` から 地面の高さ + `agentHeight` まで」です。**地面そのもの(`Ground`)や低い段差は障害物になりません**(タグが `"Wall"` の大きな床があっても平気)。
+- **回転した壁**も正しく見つかります(PhysXが形で調べる)。
+- 池(`Water`)は当たり判定が無いので、**そのままでは通れます**。通れなくしたい時は `SetBlockedBox` で手で登録します(Sampleでは通れるまま)。
+- 他の敵や Player は地図に入れません(敵どうしは物理で押し合います)。
+
+### 3Dの地形(高さ・坂・段差)
+
+3Dは「平面の升目 + 各マスの地面の高さ」(2.5次元)です。洞窟・橋の下のような、**同じ場所に床が複数ある所は扱えません**。
+
+- 地形があるマスは `TerrainRenderer::GetHeightAt`、無いマスは `baseHeight`。
+- 傾き: マスの中心と4つの角の `GetNormalAt` を調べ、1つでも `maxSlopeDegrees` を超えたらそのマスを通れなくします。
+- 段差: 隣のマスとの高さの差が、「`maxStepHeight`」と「坂の傾き(`tan(maxSlopeDegrees)` x マスの距離)」の大きい方を超えたら、そのマスを通れなくします(ゆるやかな坂が段差と間違われないように)。
+- 敵が動くのは平面(XZ)の上だけで、**高さ(Y)は重力と地形の当たり判定に任せます**(丘の斜面を登る時は、物理が足元を押し上げる)。経路の点の高さは、デバッグの線のためです。
+- Sample3D の `Hills` の三角形の傾きは**最大で約33度、平均で約13度**です(実測)。`maxSlopeDegrees = 40`(既定)では**丘の坂は1マスも通れなくなりません**。20度にすると丘のマスの約15%、30度にすると約1%が通れなくなります。坂を避けさせたい時は、この値を下げてください。
+
+### 動く壁(扉・動く壁)
+
+壁のオブジェクトに `"Wall"` タグを付けておけば、焼き直しで反映されます。
+
+| 方法 | 内容 |
+|---|---|
+| `nav->SetAutoRebakeInterval(1.f)` | 1秒ごとに全体を焼き直す(0=焼き直さない。既定) |
+| `nav->RequestRebake()` | 次のフレームで全体を焼き直す |
+| `nav->RebakeRegion(中心, 大きさ)` | 次のフレームで、範囲だけ焼き直す(軽い。壁を動かした側が呼ぶ) |
+
+焼き直しはどれも**次のフレームの `Update`** で行います(Kinematicの壁は、動かしたフレームの次の `Physics::Update` で物理の位置が変わるため)。焼き直しで障害物が変わると格子の `GetVersion()` が増えるので、歩く側が気付いて経路を引き直します(変わらなければ増えません)。
+
+### 歩き方の決まり(`PathFollowComponent`)
+
+- **経路が見つからない時は、止まります**(速度0)。次の場合です: 敵または目的地が地図の外 / 壁で囲まれていて行けない / 地図がまだ焼けていない / 1回の探索で調べるマスの上限(20000)を超えた。**止まっている間も探し直す**ので、目的地や障害物が変わって行けるようになったら、また動き出します。
+- 経路は「見通せる限り先の点へ飛ばす」直線化をしてあるので、カクカクしません。壁の角を斜めに抜ける道は探しません。
+- **探し直す時**: 一定の間隔(`SetRepathInterval`。既定0.5秒。同じフレームに集中しないよう±20%ばらす)/ 目的地が1マス以上動いた時 / 格子が変わった時 / **詰まった時**(1秒間に「速さ x 0.2」ぶんも進めなかった時。敵どうしの押し合いの保険)。経路が見つからない間は、目的地が1マス動いても間隔の下限(4倍=約2秒)を守ります(行けない所の探索は重いため。格子が変わった時=壁が動いた時は、すぐ探し直します。行けない敵50体で、目的地が動き続けても探索は10秒で約260回=1フレーム平均0.4回)。
+- **1フレームに探索する回数は8回まで**(`nav->SetMaxSearchesPerFrame`)。超えた敵は次のフレームにまわります。
+- **途中の点**は `SetWaypointRadius` の距離(既定: `cellSize` の半分)に近づいたら次へ進みます。最後の点は目的地です。
+- **目的地が壁際**(太らせた障害物の中)の時は、近くの通れるマスの中心まで行き、**残りは目的地へまっすぐ**向かいます(Playerが壁にくっついていても、敵は体が壁に当たる所まで近づく)。**出発点が壁際**の時も、近くの通れるマスへ出てから探します。
+- 目的地の相手が非アクティブの間は止まります(`MoveComponent` の決まり)。`ObjectPool` で使い回された時(`SetActive(true)`)は、経路・タイマーをリセットします(相手・速さ・地図の設定は残る)。
+- 動かし方は `MoveComponent` と同じです(§13。DynamicはSetVelocity、XZならYの速度は残る)。
+
+### デバッグ表示
+
+```cpp
+NavGridComponent::SetDebugDrawEnabled(true);      // 通れないマスの境目を赤い線で描く(壁を太らせた範囲が見える)
+PathFollowComponent::SetDebugDrawEnabled(true);   // 今の経路を緑の線で描く(敵がたくさんいると線が増える)
+```
+
+`RigidbodyComponent::SetDebugDrawEnabled`(§23)と同じ使い方です(`GameManager::Init()` の `VisionComponent::SetDebugDrawEnabled` の近くに書くと切り替えやすい。Sampleでは、どちらもOFFです)。線を描く部分は、OFFの時は何もしません。赤い線は、障害物が変わった時(焼き直し)だけ作り直します。
+
+### 制限・気を付けること
+
+- 地図は**有限の範囲**です。Playerが地図の外まで歩くと、敵は経路を探せず**止まります**(敵の出現位置は `NavGrid::ClampToGrid` で地図の中に収めるので、外で出て止まる敵は出ません。Playerが外にいる間は、地図の縁に出て止まります)。地図は、Playerが歩き回る範囲より広くしてください(Sampleは Sample2D が 6000 四方、Sample3D が 9000 四方)。
+- 経路は**他の敵やPlayerを避けません**(壁などの動かない物だけ)。敵どうしは物理で押し合います。
+- 敵の体が大きいと、狭い通路は通れません(`agentRadius` ぶん太らせるため)。通れるはずなのに回り道をする時は、`agentRadius` と `cellSize` を見直してください。
+- 目的地が壁際で、寄せ先から目的地までの間が狭い極端な場合、敵が寄せ先と目的地の間を行き来することがあります(目的地が動くまで探し直さない決まりで抑えてありますが、完全には防げません)。
+- マスより細い隙間・薄い障害物でも、`agentRadius` ぶん太らせるので塞がります。逆に、マスより細かい動きはできません(`cellSize` が大きいと粗くなる)。
+- 地形のマスより `cellSize` が大きいと、細い谷・尾根を見逃します(`cellSize` 50〜100なら Sample3D の丘は十分に拾える)。
+- 同じ場所に床が複数ある所(橋の下など)は扱えません。
+- 「フローフィールド」(目的地が同じ敵が何百体もいる時に、一度の計算で全員の向きを決める方式)は作っていません。必要になったら同じ格子の上に足せます。
+
+### 性能(実測。Release、このPCの値)
+
+| 項目 | 時間 |
+|---|---|
+| Sample2D の格子(120 x 120 = 14,400マス)を焼く(物理) | 約 0.1〜0.25ミリ秒 |
+| Sample3D の格子(180 x 180 = 32,400マス)を焼く(物理) | 約 0.2ミリ秒 |
+| Sample3D の丘の高さ・傾きを取り込む(`BakeFromTerrain`) | 約 12ミリ秒(Debugビルドでは約 200ミリ秒)。シーンの読み込み時に1回 |
+| 1回の探索: 見通せる(探さずに済む) | 約 0.008ミリ秒 |
+| 1回の探索: 壁を回り込む | 約 0.01〜0.04ミリ秒 |
+| 1回の探索: 丘をまたぐ長い道(約5,900マスを調べる) | 約 1.1〜1.3ミリ秒 |
+| 1回の探索: 行けない(上限20000マスまで調べて諦める) | 約 4.6〜4.8ミリ秒 |
+
+- 物理の問い合わせは、まず 8 x 8 マスをまとめた大きな箱で調べ、何も無ければそのまとまりを飛ばします(1マスずつ調べると、同じ格子で約3倍かかる)。
+- メモリ: 格子は1マス約5バイト、探索の作業用が1マス約16バイト(格子ごとに1組で、敵ごとには持たない)。Sample3D の格子で、合わせて約700KBです。
+- 敵が100体、探し直しが0.5秒ごとなら、1秒に約200回(1フレームに約3回)。見通せる・壁を回り込む程度なら、1フレームあたり 0.1ミリ秒に満たない計算です。**重くなるのは「行けない」探索が多い時**(間隔を4倍にして、1フレーム8回までに抑えてある)。
+
+### Sampleでの使われ方
+
+- **Sample2D**: `Objects/Navigation.cpp` の `CreateNavigation(scene)` が、原点の周りの 6000 x 6000(`cellSize` 50、`agentRadius` 50=敵は一辺100の四角)の格子を置きます。壁は既存の `Wall` 2枚(タグ `"Wall"`)がそのまま読まれます。`GameScene::Init()` では、壁を置いた後に `CreateNavigation(*this)` を1行並べ、できた格子を `CreateEnemySpawner(*this, player, navigation)` に渡します。
+- **Sample3D**: `CreateNavigation(scene, hills)` が、`(-3000, -3000)` から 9000 x 9000(`cellSize` 50、`agentRadius` 40=敵は半径40のカプセル、`baseHeight` -50)の格子を置き、`CreateHills` が返した丘の `TerrainRenderer` を `SetTerrain` で渡します(`maxSlopeDegrees` は既定の40度)。池(`Water`)は通れるままです。
+- **両サンプルの敵**: `EnemyManager` が、`ChaseComponent` の代わりに `PathFollowComponent` を付けます(置き換えたのは `SetupEnemy`・`Spawn`・`ApplySpeedToEnemies` の3か所だけ。`Spawn` で `SetNavigation` も渡す)。プール・`Enemies.csv` の速さの反映(`ApplySpeedToEnemies`)・倒した時の返却は今までどおりです。
+- **ゲームの難しさが変わります**: 敵が壁を避けて回り込んで来るので、壁の陰に隠れても追いつかれます(今までは敵が壁に張り付いて止まった)。逆に、Playerが地図の外に出ると敵は止まります(敵は地図の縁に出る)。
+
+### 仕組み(Engineを触る人向け)
+
+- **ファイル**: 新しく `Engine/Behavior/NavGrid.h/.cpp`・`PathFinder.h/.cpp`・`NavGridComponent.h/.cpp`・`PathFollowComponent.h/.cpp` を足しました(`Engine.vcxproj` と `.filters` に登録)。**既存のEngineファイル・`Shader*.hlsl`・`PhysX.props` は変えていません**(`MoveComponent` / `ChaseComponent` / `Physics` / `Terrain*` は読むだけ)。
+- **障害物は3種類を別のビットで覚えます**(手で登録 / 物理から / 地形から)。焼き直しは自分の種類だけ作り直すので、`SetBlockedBox` で手で登録した分は消えません。`Clear()` は全部消します。
+- **A\***: 8方向(斜めは、隣り合う2マスの両方が通れる時だけ)。ゴールまでの見込みは「斜めも使える時の最短」で、実際より大きくならない=必ず最短の道になります(別に書いたDijkstraと、ランダムな迷路で比べて一致を確かめました)。作業用の配列は探索の番号(`stamp`)で「今の探索で見たか」を見分けるので、毎回塗り直しません。
+- **直線化**: 経路の点を先から順に、`NavGrid::HasLineOfWalk`(線が通るマスを順にたどる)で見通せる限り飛ばします。線がマスの角をちょうど通る時は、両脇のマスも通れなければ不可にします。`Physics::Raycast` は使いません(太らせた障害物が自動で入り、物理を呼ばないので速い)。
+- **まっすぐ行けるなら探さない**: `smooth` の時は、出発点から目的地に `HasLineOfWalk` が通れば、A\*を呼ばずに `[目的地]` だけを返します(広い所ではほとんどこれで済む)。
+- **デバッグの線**: `Mesh`(LINELIST)で描きます。格子の赤い線は、境目の辺だけをまとめて1つの `Mesh` にします。経路の緑の線は、長さ1の線の `Mesh` を全員で1つ共有し、`Transform` の `scale`(長さ)と `rotate`(向き)で点と点の間に置きます(`VisionComponent` の扇形と同じ工夫)。
+- **確認(物理あり、Debug・Release の両方)**: ①ランダムな迷路600個で、A\*の最短の長さがDijkstraと一致、到達不能は空、直線化した経路が壁を通らない・長くならない ②斜めのすき間は抜けない・上限を超えたら空・格子の外・壁の中の出発点/目的地 ③物理から取り込んだマスが、「マスを半径ぶん太らせた箱が壁と重なるか」の計算と全マス一致(タグ違い・Zが離れた壁・タグ付きの床・低い段差は障害物にならない)④Dynamicの箱(2D)・カプセル(3D)に `PathFollowComponent` を付けて物理の中で動かし、壁を回り込んで目的地に着く(`ChaseComponent` は壁で止まる) ⑤動く壁(扉)が開くと止まっていた敵が動き出す ⑥Hills の上を、傾き上限30度の格子で歩く ⑦一時停止(dt=0)・`ObjectPool` の再利用。(実際のゲームでの見え方・遊んだ時の難しさは、まだ確かめていません。)
+
+### まだ無いもの
+
+- **フローフィールド**(目的地が同じ敵が非常に多い時の方式)・ナビメッシュ・Playerを中心に動く地図
+- 他の敵を避ける動き(群れの分離)
+- 経路が見つからない時に「まっすぐ追う」ことを選ぶ設定(今は止まる)
+- 探索を複数のフレームに分けること(分割A\*)・別スレッドでの探索

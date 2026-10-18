@@ -5,7 +5,8 @@
 #include "../../../Engine/Physics/RigidbodyComponent.h"
 #include "../../../Engine/Core/EventBus.h"
 #include "../../../Engine/Core/MathUtil.h"
-#include "../../../Engine/Behavior/ChaseComponent.h"
+#include "../../../Engine/Behavior/PathFollowComponent.h"
+#include "../../../Engine/Behavior/NavGridComponent.h"
 #include "../../../Engine/Data/Csv.h"
 #include "EnemyController.h"
 #include <algorithm>
@@ -39,8 +40,8 @@ namespace {
         rigidbody->SetFreezeRotation(true);
         rigidbody->SetFreezePositionZ(true);
 
-        // 動き(追いかける相手と速さはSpawnで渡す)
-        obj->AddComponent<ChaseComponent>();
+        // 動き: 壁を避けて追いかける(追いかける相手・速さ・格子はSpawnで渡す)
+        obj->AddComponent<PathFollowComponent>();
 
         // 弾に当たった時の処理
         obj->AddComponent<EnemyController>();
@@ -141,8 +142,8 @@ void EnemyManager::ApplySpeedToEnemies() {
     // 出ている敵(プールの中のアクティブな敵)に、新しい速さを渡す。出ていない敵は、Spawnの時に渡される
     for (GameObject* enemy : pool.GetObjects()) {
         if (!enemy->GetIsActive()) continue;
-        ChaseComponent* chase = enemy->GetComponent<ChaseComponent>();
-        if (chase) chase->SetSpeed(enemySpeed);
+        PathFollowComponent* path = enemy->GetComponent<PathFollowComponent>();
+        if (path) path->SetSpeed(enemySpeed);
     }
 }
 
@@ -196,6 +197,7 @@ void EnemyManager::Update(float dt) {
                 target->transform.position.y + offset.y,
                 0.0f
             };
+            if (navigation) pos = navigation->GetGrid().ClampToGrid(pos);   // 格子の外では敵が止まるので、格子の中に収める(Playerが外にいる時は、格子の縁に出る)
             Spawn(pos);
         }
         spawnedCount++;
@@ -211,11 +213,12 @@ GameObject* EnemyManager::Spawn(XMFLOAT3 position) {
     SpriteRenderer* sprite = enemy->GetComponent<SpriteRenderer>();
     if (sprite) sprite->SetColor(1.0f, 0.0f, 1.0f, 1.0f);
 
-    // 追いかける相手と速さを渡す
-    ChaseComponent* chase = enemy->GetComponent<ChaseComponent>();
-    if (chase) {
-        chase->SetTarget(target);
-        chase->SetSpeed(enemySpeed);
+    // 追いかける相手・速さ・格子を渡す
+    PathFollowComponent* path = enemy->GetComponent<PathFollowComponent>();
+    if (path) {
+        path->SetTarget(target);
+        path->SetSpeed(enemySpeed);
+        path->SetNavigation(navigation);
     }
 
     // 倒された時の返却先を渡す
