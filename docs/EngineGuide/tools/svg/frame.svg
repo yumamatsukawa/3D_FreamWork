@@ -1,0 +1,48 @@
+﻿<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 770" width="880" role="img" aria-label="GameEngine::Run の 1 フレームの流れ">
+<defs><marker id="ah-frame" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ahead"/></marker></defs>
+<text class="lb" x="10" y="22" text-anchor="start"><tspan x="10" dy="0">前半: 動かす（更新）</tspan></text>
+<text class="lb" x="450" y="22" text-anchor="start"><tspan x="450" dy="0">後半: 描く</tspan></text>
+<g class="box n"><rect x="10" y="36" width="410" height="44" rx="6"/><text x="215" y="52" text-anchor="middle" font-size="13">ウィンドウのメッセージ処理</text><text x="215" y="69" text-anchor="middle" font-size="13">PeekMessage ... 閉じられたら終了</text></g>
+<line class="ln" x1="215" y1="80" x2="215" y2="94" marker-end="url(#ah-frame)"/>
+<g class="box g-core"><rect x="10" y="94" width="410" height="44" rx="6"/><text x="215" y="110" text-anchor="middle" font-size="13">Time::Update</text><text x="215" y="127" text-anchor="middle" font-size="13">このフレームの時間（dt）を計算する</text></g>
+<line class="ln" x1="215" y1="138" x2="215" y2="152" marker-end="url(#ah-frame)"/>
+<g class="box g-core"><rect x="10" y="152" width="410" height="44" rx="6"/><text x="215" y="168" text-anchor="middle" font-size="13">Input::Update</text><text x="215" y="185" text-anchor="middle" font-size="13">キー・マウス・パッドの今の状態を読む</text></g>
+<line class="ln" x1="215" y1="196" x2="215" y2="210" marker-end="url(#ah-frame)"/>
+<g class="box g-render"><rect x="10" y="210" width="410" height="44" rx="6"/><text x="215" y="226" text-anchor="middle" font-size="13">CameraShake::Update</text><text x="215" y="243" text-anchor="middle" font-size="13">画面の揺れを進める（ポーズ中も進む）</text></g>
+<line class="ln" x1="215" y1="254" x2="215" y2="268" marker-end="url(#ah-frame)"/>
+<g class="box g-render"><rect x="10" y="268" width="410" height="44" rx="6"/><text x="215" y="284" text-anchor="middle" font-size="13">ScreenEffect::Update</text><text x="215" y="301" text-anchor="middle" font-size="13">Flash / Vignette / Fade を進める（Fade の onComplete はここ）</text></g>
+<line class="ln" x1="215" y1="312" x2="215" y2="326" marker-end="url(#ah-frame)"/>
+<g class="box g-physics"><rect x="10" y="326" width="410" height="44" rx="6"/><text x="215" y="342" text-anchor="middle" font-size="13">Physics::Update(dt)</text><text x="215" y="359" text-anchor="middle" font-size="13">物理を進め、OnCollision / OnTrigger を呼ぶ</text></g>
+<line class="ln" x1="215" y1="370" x2="215" y2="384" marker-end="url(#ah-frame)"/>
+<g class="box g-core"><rect x="10" y="384" width="410" height="44" rx="6"/><text x="215" y="400" text-anchor="middle" font-size="13">SceneManager::Update(dt)</text><text x="215" y="417" text-anchor="middle" font-size="13">シーンの切り替え ＋ Scene::Update（全 Component の Update）</text></g>
+<line class="ln" x1="215" y1="428" x2="215" y2="442" marker-end="url(#ah-frame)"/>
+<g class="box g-audio"><rect x="10" y="442" width="410" height="44" rx="6"/><text x="215" y="458" text-anchor="middle" font-size="13">Audio::Update</text><text x="215" y="475" text-anchor="middle" font-size="13">動いた後の位置で、音の聞こえ方を決める</text></g>
+<g class="box g-render"><rect x="450" y="36" width="420" height="44" rx="6"/><text x="660" y="52" text-anchor="middle" font-size="13">Image::BeginFrame</text><text x="660" y="69" text-anchor="middle" font-size="13">3D カメラを 2D カメラに合わせ、画面と深度を消す</text></g>
+<line class="ln" x1="660" y1="80" x2="660" y2="94" marker-end="url(#ah-frame)"/>
+<g class="box g-render"><rect x="450" y="94" width="420" height="44" rx="6"/><text x="660" y="110" text-anchor="middle" font-size="13">CameraShake::BeginDraw</text><text x="660" y="127" text-anchor="middle" font-size="13">揺れの分だけカメラをずらす（描き終わったら戻す）</text></g>
+<line class="ln" x1="660" y1="138" x2="660" y2="152" marker-end="url(#ah-frame)"/>
+<g class="box g-render"><rect x="450" y="152" width="420" height="44" rx="6"/><text x="660" y="168" text-anchor="middle" font-size="13">Visibility::BeginFrame</text><text x="660" y="185" text-anchor="middle" font-size="13">揺れ込みのカメラで視錐台を作る</text></g>
+<line class="ln" x1="660" y1="196" x2="660" y2="210" marker-end="url(#ah-frame)"/>
+<g class="box g-render3d"><rect x="450" y="210" width="420" height="44" rx="6"/><text x="660" y="226" text-anchor="middle" font-size="13">RenderStats::BeginFrame</text><text x="660" y="243" text-anchor="middle" font-size="13">描画命令・三角形の数を数え直す</text></g>
+<line class="ln" x1="660" y1="254" x2="660" y2="268" marker-end="url(#ah-frame)"/>
+<g class="box g-render3d"><rect x="450" y="268" width="420" height="44" rx="6"/><text x="660" y="284" text-anchor="middle" font-size="13">Lighting::Update</text><text x="660" y="301" text-anchor="middle" font-size="13">点光源・スポットライトを集める</text></g>
+<line class="ln" x1="660" y1="312" x2="660" y2="326" marker-end="url(#ah-frame)"/>
+<g class="box g-render3d"><rect x="450" y="326" width="420" height="44" rx="6"/><text x="660" y="342" text-anchor="middle" font-size="13">Shadow::Render</text><text x="660" y="359" text-anchor="middle" font-size="13">影のパス（有効な時だけ）</text></g>
+<line class="ln" x1="660" y1="370" x2="660" y2="384" marker-end="url(#ah-frame)"/>
+<g class="box g-ui"><rect x="450" y="384" width="420" height="44" rx="6"/><text x="660" y="400" text-anchor="middle" font-size="13">Text::BeginDraw</text><text x="660" y="417" text-anchor="middle" font-size="13">文字（Direct2D）の描画を始める</text></g>
+<line class="ln" x1="660" y1="428" x2="660" y2="442" marker-end="url(#ah-frame)"/>
+<g class="box g-core"><rect x="450" y="442" width="420" height="44" rx="6"/><text x="660" y="458" text-anchor="middle" font-size="13">SceneManager::Draw → Scene::Draw</text><text x="660" y="475" text-anchor="middle" font-size="13">3 つのパス: ① UI 以外 → ② UI スプライト → ③ 文字・四角</text></g>
+<line class="ln" x1="660" y1="486" x2="660" y2="500" marker-end="url(#ah-frame)"/>
+<g class="box g-animation"><rect x="450" y="500" width="420" height="44" rx="6"/><text x="660" y="516" text-anchor="middle" font-size="13">ScreenEffect::Draw</text><text x="660" y="533" text-anchor="middle" font-size="13">画面エフェクト（文字より手前）</text></g>
+<line class="ln" x1="660" y1="544" x2="660" y2="558" marker-end="url(#ah-frame)"/>
+<g class="box g-transition"><rect x="450" y="558" width="420" height="44" rx="6"/><text x="660" y="574" text-anchor="middle" font-size="13">SceneManager::DrawTransition</text><text x="660" y="591" text-anchor="middle" font-size="13">シーン切り替えの演出（一番手前）</text></g>
+<line class="ln" x1="660" y1="602" x2="660" y2="616" marker-end="url(#ah-frame)"/>
+<g class="box g-ui"><rect x="450" y="616" width="420" height="44" rx="6"/><text x="660" y="632" text-anchor="middle" font-size="13">Text::EndDraw</text><text x="660" y="649" text-anchor="middle" font-size="13">文字の描画を終える</text></g>
+<line class="ln" x1="660" y1="660" x2="660" y2="674" marker-end="url(#ah-frame)"/>
+<g class="box g-render"><rect x="450" y="674" width="420" height="44" rx="6"/><text x="660" y="690" text-anchor="middle" font-size="13">CameraShake::EndDraw</text><text x="660" y="707" text-anchor="middle" font-size="13">カメラを元の位置に戻す</text></g>
+<line class="ln" x1="660" y1="718" x2="660" y2="732" marker-end="url(#ah-frame)"/>
+<g class="box g-render"><rect x="450" y="732" width="420" height="44" rx="6"/><text x="660" y="748" text-anchor="middle" font-size="13">Image::EndFrame</text><text x="660" y="765" text-anchor="middle" font-size="13">画面に出す（Present）。次のフレームへ</text></g>
+<path class="ln" fill="none" d="M 420 464 L 435 464 L 435 29 L 660 29 L 660 36" marker-end="url(#ah-frame)"/>
+<text class="lb" x="20" y="520" text-anchor="start"><tspan x="20" dy="0">※ 描画は、更新がすべて終わってから行います。</tspan></text>
+<text class="lb" x="20" y="540" text-anchor="start"><tspan x="20" dy="0">※ Scene::Draw の中では、各 GameObject の Draw が drawPriority の順に呼ばれます。</tspan></text>
+</svg>

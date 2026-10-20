@@ -1,0 +1,277 @@
+﻿=page Render
+=title Render(2D描画・カメラ・画面効果)
+=lead
+`Engine/Render/` は、画面に絵を出す仕組みの土台です。スプライト(画像)の描画、カメラ、カメラの揺れ、画面全体の演出(フラッシュ・暗転)、パーティクル(粒)、「カメラに映っているか」の判定が入っています。
+スプライトの描き方は **3つのモード** があります(`SpriteMode`)。迷ったらこの表を見てください。
+=p
+**スプライトの3モード(SpriteMode)**: `UI`(既定)= HUD・ボタン・背景。z で大きさが変わらず、必ず最前面。 / `World2D` = 2D ゲームの物。遠近なしで、2D カメラでスクロール。z が小さいほど手前。 / `World3D` = 3D 空間に立てる板(ビルボード)。3D カメラの遠近で、3D メッシュと同じ深度で前後が決まる。
+=p
+**Demo で見る**: Demo プロジェクトの **Render カテゴリ**に、Sprite / SpriteAnim / Camera / ScreenEffect / Transition / Particle / Tween / Coord の8個のデモがあります(Visibility は Render3D カテゴリ)。
+
+=file Engine/Render/SpriteRenderer.h, SpriteRenderer.cpp
+=class SpriteRenderer
+=role
+GameObject に「画像を描く見た目」を持たせる Component です。Unity の `SpriteRenderer` に相当します。`transform.scale` が画像の大きさ(2D ではピクセル)になります。
+=table
+SpriteRenderer(const std::wstring& filepath, int cols, int rows) | コンストラクタ | 画像のパスと、横・縦の分割数(`cols` / `rows`、既定は 1)。分割したコマの絵(スプライトシート)として使える
+SetTexture(const std::wstring& filepath, int cols, int rows) | void | 後から画像を変える
+SetSpriteIndex(int index) | void | 何コマ目を描くか(左上が 0。右へ、下の段へ)
+SetColor(float r, float g, float b, float a) | void | 画像にかける色(白 1,1,1,1 でそのまま)
+GetColor() | XMFLOAT4 | 今の色
+SetMode(SpriteMode value) | void | 描き方を選ぶ(`UI` / `World2D` / `World3D`)
+GetMode() | SpriteMode | 今の描き方
+SetWorldSpace(bool v) | void | 互換用。`true` = `World3D`、`false` = `UI`。新しく書く時は `SetMode`
+SetBillboardLock(bool lockX, bool lockY, bool lockZ) | void | 3D モードのビルボード回転を軸ごとに止める(`true` の軸は回らない)
+SetBillboardLockX / SetBillboardLockY / SetBillboardLockZ | void | 1軸ずつ設定する版
+SetFrustumCulling(bool enabled) | void | `true` で、画面の外にある時は描かない(物理は止まらない)
+IsFrustumCulling() | bool | 画面の外を省く設定か
+=code Sample2D/Game/Objects/Player.cpp:19-22
+=code Sample3D/Game/Components/EnemyManager.cpp:32-40
+=notes
+- 既定の `mode` は **UI** です。UI も 2D カメラの位置でスクロールしますが、**深度を使わず必ず最前面**に描かれ、z では前後が決まりません(UI どうしは `drawPriority` → 作った順)。2D ゲームで「z で前後を決めたい物」(背景・壁・敵・Player・弾)は `SetMode(SpriteMode::World2D)` にします(Sample2D が実例)。画面に固定したい UI は、カメラの位置の分を足して置きます(Demo の `DemoScreenFixController` が実例)。
+- 3 モードの描画順は[設計図の描画の順番](architecture.html#draw)を見てください。UI モードは「`drawPriority` → 作った順」で、z は使いません。
+- World2D の z は、**3D カメラの z(既定 -500)より +5 以上奥** にします(Sprite.h のコメント)。z が小さいほど手前です。
+- 3D モード(ビルボード)は `transform.rotate.y` を使いません。向きを変える代わりに `SetBillboardLock` で軸を止めます。
+- `SetFrustumCulling(true)` は、HP バーや文字のように「画面に固定する物」には使いません。
+- `GetDepthScale2D` は **廃止** されました(2D では z で大きさが変わらないため)。古い資料にあっても使いません。
+=demo Render カテゴリの「Sprite」(2D / 3D のビルボード)、「SpriteAnim」
+=readme §4
+
+=file Engine/Render/Image.h, Image.cpp
+=class Image(名前空間)
+=role
+描画の窓口です。2D 用カメラ・3D 用カメラ・ライトを持ち、座標の変換(ワールド ⇔ 画面)、画面に四角を塗る `DrawRect`、スプライト 1 枚を描く `Draw` を提供します。`SpriteRenderer` などが中で使うので、普段よく使うのは「カメラ」「座標の変換」「DrawRect」の3つです。
+=table カメラ・ライト
+GetCamera() | Camera& | 2D スプライト用のカメラ。`position` の x, y を動かすと画面がスクロールする
+GetCamera3D() | Camera& | 3D メッシュ用のカメラ(2D とは別のもの)
+GetLight() | Light& | 3D メッシュのライティングに使う、シーン共通の平行光源
+SetCamera3DAutoSync(bool enabled) | void | 3D カメラを 2D カメラに自動で追従させるか(既定 `true`)。3D カメラを自分で操作する時は `false`
+GetAspectRatio() | float | 3D 描画の縦横比(幅 ÷ 高さ)
+=table 座標の変換(画面座標は、画面中央が (0,0)・Y+ が上・単位はピクセル)
+WorldToScreen2D(XMFLOAT3 worldPosition) | XMFLOAT2 | 2D カメラで、ワールド座標 → 画面座標
+ScreenToWorld2D(XMFLOAT2 screenPosition) | XMFLOAT3 | 2D カメラで、画面座標 → ワールド座標(z は 0)
+WorldToScreen3D(XMFLOAT3 worldPosition) | XMFLOAT3 | 3D カメラで、ワールド → 画面。`z` はカメラからの奥行き(**0 以下はカメラの後ろ**で x, y は使えない)
+ScreenPointToRay3D(XMFLOAT2 screenPosition, XMFLOAT3& origin, XMFLOAT3& direction) | void | 画面の点から奥へ伸びる線を求める(`Physics::Raycast` と組み合わせる)
+=table 描く
+DrawRect(XMFLOAT2 position, XMFLOAT2 size, XMFLOAT4 color) | void | 画面に四角を1つ塗る(中心の画面座標、幅と高さ、色)。HP バーの帯など。カメラの影響を受けない
+Draw(Transform transform, unsigned int texID, XMFLOAT4 color, const SpriteSheet& sheet, SpriteMode mode, bool lockX, bool lockY, bool lockZ, BlendMode blend, bool depthWrite) | void | 画像(texID)を1枚描く(`SpriteMode` 版。引数の `lockX` 以降は省略可)。`bool worldSpace` 版もある
+GetTextureView(unsigned int texID) | ID3D11ShaderResourceView* | Mesh などで画像を使い回したい時に、生の SRV を取り出す
+=table 内部用(ゲーム側からは呼ばない)
+Init(HWND, int width, int height) | bool | 描画の初期化(GameEngine が呼ぶ)
+BeginFrame() / EndFrame() / Uninit() | void | フレームの始め・終わり・終了(GameEngine が呼ぶ)
+BeginUiQueue() / SetDrawOrder(int priority, int order) / FlushUiQueue() | void | UI モードの描画を積んで、最後にまとめて描く仕組み(Scene::Draw が呼ぶ)
+DeferOverlay(std::function<void()> command) | bool | 文字・四角などをオーバーレイキューに積む(Text / DrawRect が使う)。Scene::Draw の外では積まずに `false`
+FlushOverlayQueue() | void | 積んだ文字・四角を呼んだ順に描く(Scene::Draw が呼ぶ)
+LoadTexture(path) / ReleaseTexture(id) / ReleaseAllTextures() | unsigned int / void | 画像の読み込み。**ゲーム側は `Resources::LoadTexture` を使う**(こちらは共有されない)
+ReleaseDrawRectBrush() | void | DrawRect のブラシの解放(GameEngine が呼ぶ)
+=code Demo/Game/Components/Common/DemoMarker.cpp:7-21
+=code Sample2D/Game/Components/BackgroundController.cpp:26-31
+=notes
+- 画面座標の **Y+ は上** です。`Input::GetMousePosition()` は Y+ が下なので、ここへ渡す時は Y の符号を反転します(`Input::GetMouseWorldPosition()` は反転済み)。
+- `WorldToScreen3D` の結果は、使う前に必ず `z > 0` を確かめます(カメラの後ろの点は画面に映りません)。
+- `Draw` の中で `WorldToScreen○○` を呼ぶと、`CameraShake` の揺れが入ったカメラで計算されます(描いた絵と一緒に揺れる)。`Update` の中では揺れは入りません。
+- `DrawRect` は文字と同じ Direct2D で描き、**UI スプライトより手前**に出ます。`Text::Draw` とは呼んだ順に重なります。
+- 深度バッファは 2D・3D の物と 3D メッシュで使います。2D と 3D を同じシーンで混ぜることは想定していません。
+=demo Render カテゴリの「Coord」(座標の変換と Raycast)、UI カテゴリの「Rect」
+=readme §4, §14, §20
+
+=file Engine/Render/Sprite.h, Sprite.cpp
+=class Sprite, SpriteSheet, SpriteMode, BlendMode, Vertex, ConstantBuffer
+=role
+スプライト 1 種類ぶんの描画の中身(シェーダー・頂点バッファ・合成の設定)です。`Image::Draw` が中で使うので、ゲーム側が直接触ることはほとんどありません。ここにある `SpriteMode` と `SpriteSheet` と `BlendMode` は、ゲーム側からも使います。
+=table 型
+SpriteMode | enum class | `UI`(zで大きさが変わらず最前面)/ `World2D`(遠近なし・2D カメラでスクロール)/ `World3D`(3D カメラの遠近のビルボード)
+BlendMode | enum class | 重ね方。`Normal`(普通)/ `Additive`(加算。炎・光向け)/ `Soft`(ふわっと。煙向け)
+SpriteSheet | struct | 画像の分割の指定。`cols`(横)・`rows`(縦)・`index`(何コマ目)
+Vertex / ConstantBuffer | struct | 描画の内部で使うデータ(頂点・定数バッファ)。内部用
+=table Sprite クラス(内部用)
+Init() / Uninit() | bool / void | シェーダーなどの作成と解放(Image が呼ぶ)
+Draw(Transform transform, XMFLOAT4 color, const SpriteSheet& sheet, SpriteMode mode, bool lockX, bool lockY, bool lockZ, BlendMode blend, bool depthWrite) | void | 1 枚描く(`bool worldSpace` 版もある)
+SetTexture(srv) / SetTextureSize(w, h) / GetTextureWidth() / GetTextureHeight() | void / int | 使う画像と大きさの設定・取得
+SetCamera(const Camera*) / SetCamera3D(const Camera*) | void | 2D 用 / 3D 用のカメラを渡す
+=notes
+- `Additive` / `Soft` は、画像の **明るさ(RGB)で形と濃さ** を表します(`Shader.hlsl` は「アルファ 0.5 未満は描かない」ため、アルファで半透明にする普通の方法ではふわっとなりません)。
+- `SpriteRenderer` の 2D / UI / 3D の選択は `SetMode` で行い、`Sprite` を直接使う場面はほぼありません。
+=demo (内部クラスのため専用のデモはありません。Render カテゴリの「Sprite」で `SpriteMode` が見られます)
+=readme §4
+
+=file Engine/Render/Camera.h
+=class Camera
+=role
+「どこから・どう見るか」を表すカメラです。2D 用(`Image::GetCamera()`)と 3D 用(`Image::GetCamera3D()`)の 2 つがあります。Unity の `Camera` の位置と投影の設定にあたります。
+=table
+position | XMFLOAT3 | カメラ自身のワールド座標(既定 0, 0, -500)
+target | XMFLOAT3 | 注視点(どこを見ているか)
+up | XMFLOAT3 | 上方向の基準(既定 0,1,0)
+fovY | float | 縦方向の視野角(ラジアン、既定 45 度)
+nearZ | float | これより手前は描かない(既定 5)
+farZ | float | これより奥は描かない(既定 10000)
+focalLength | float | 3D カメラの視野角を 2D の画面と合わせるための基準距離(既定 500)。この距離にある 3D の物が 2D と同じ大きさに見える
+GetViewMatrix() | XMMATRIX | ワールド → カメラ空間の行列
+GetProjectionMatrix(float aspectRatio) | XMMATRIX | 透視投影の行列
+GetOrthographicMatrix(float width, float height, float nearZ, float farZ) | static XMMATRIX | 正射影の行列(2D / UI 向け)
+=code Sample3D/Game/Components/CameraController.cpp:79-96
+=notes
+- 2D カメラは普通 `position` の x, y だけ動かします(`CameraFollowComponent` が追いかけます)。
+- 3D カメラは既定では 2D カメラに自動で追従します。自分で `GetCamera3D()` を操作する時は `Image::SetCamera3DAutoSync(false)` にして、終わったら `true` に戻します(上の例の `CameraController` は Init と Uninit でそうしています)。
+- `nearZ` を極端に小さくすると、遠くの描画がちらつく(Z-fighting)ので 5 にしてあります。
+=demo Render カテゴリの「Camera」(2D の追従・揺れ、3D の三人称・一人称)
+=readme §5
+
+=file Engine/Render/CameraFollowComponent.h, CameraFollowComponent.cpp
+=class CameraFollowComponent
+=role
+付けた GameObject を 2D カメラが追いかける Component です。Player などに付けます。Unity でいう Cinemachine の簡単版です。カメラの `position` の x, y だけを動かします。
+=table
+SetOffset(XMFLOAT2 value) | void | 対象からどれだけずらして映すか
+SetSmoothTime(float seconds) | void | 追いつくまでの時間(秒)。0 = ピッタリ追従。負の値は 0
+SetBounds(XMFLOAT2 minCorner, XMFLOAT2 maxCorner) | void | 画面に映してよい範囲(Z=0 平面の左下・右上)。外は映さない
+SetDeadZone(XMFLOAT2 size) | void | この大きさの四角の中で対象が動いても、カメラは動かさない
+Update(float dt) / OnActiveChanged(bool active) | void | 内部で追従する処理(ゲーム側は呼ばない)
+=code Sample2D/Game/Objects/Player.cpp:30-31
+=code Demo/Game/Components/Render/CameraDemoController.cpp:80-87
+=notes
+- **Component は付けた順に Update されます。** DynamicのRigidbody より **後**(PhysX の結果の位置で追う)、`Input::GetMouseWorldPosition()` を使う Component より **前** に `AddComponent` します(Sample2D の `Objects/Player.cpp` が実例)。
+- 最初の Update と、`SetActive(true)` で戻った時は、なめらかに追わず一気に合わせます。2 つ以上のオブジェクトに付けると、後から Update された方が勝ちます。
+- なめらかな追従は `dt` で進むので、ポーズ中はカメラも止まります。
+=demo Render カテゴリの「Camera」(2D)
+=readme §14
+
+=file Engine/Render/CameraShake.h, CameraShake.cpp
+=class CameraShake(名前空間)
+=role
+画面を揺らします(2D カメラと 3D カメラの両方)。カメラの `position` を直接は変えず、「描画している間だけ」ずらして、描き終わったら元に戻します。
+=table
+Shake(float strength, float duration) | void | 強さ(2D はピクセル、3D はワールドの単位)と秒数で揺らす。揺れはだんだん弱まる。どちらかが 0 以下なら何もしない
+IsShaking() | bool | 揺れている途中か
+Stop() | void | 揺れをすぐ止める
+Update(float unscaledDt) / BeginDraw() / EndDraw() | void | 内部用: GameEngine が毎フレーム呼ぶ
+=code Sample2D/Game/Components/PlayerController.cpp:80-82
+=notes
+- Update の中で読むカメラの値・`Input::GetMouseWorldPosition()`・`CameraFollowComponent` の計算には揺れが入りません。`Draw` の中で読む値と `Image::WorldToScreen○○` には揺れが入ります。
+- 揺れの時間はポーズ中も進みます。シーンを切り替えると揺れは止まります。
+- 揺れている途中に `Shake` を呼ぶと、「今の(弱まった後の)強さ」より新しい方が強いか同じなら置き換え、弱ければ無視します。
+=demo Render カテゴリの「Camera」(SPACE で揺れる)
+=readme §14
+
+=file Engine/Render/ScreenEffect.h, ScreenEffect.cpp
+=class ScreenEffect(名前空間)
+=role
+画面全体に色の演出(フラッシュ・ビネット・フェード)を重ねます。文字も含めて画面の一番上に描かれます。
+=table
+Flash(XMFLOAT4 color, float duration) | void | 画面全体が一瞬光る。`color.w` の濃さから `duration` 秒で 0 になる
+Vignette(XMFLOAT4 color, float duration, int blinkCount) | void | 画面の端だけが色付きで点滅する(被弾の表現)
+Fade(XMFLOAT4 color, float toAlpha, float duration, std::function<void()> onComplete) | void | 今の濃さから `toAlpha`(0〜1)へ `duration` 秒で変える(暗転・明転)。`onComplete` は変わり終わった時に1回呼ばれる
+IsFading() | bool | Fade の濃さが変わっている途中か
+Stop() | void | Flash と Vignette をすぐ消す(Fade は消さない)
+Update(float unscaledDt) / Draw() / OnSceneChanged() / Uninit() | void | 内部用: GameEngine / SceneManager が呼ぶ
+=code Demo/Game/Components/Render/ScreenEffectDemoController.cpp:34-37
+=code Sample2D/Game/Components/PlayerController.cpp:80-82
+=notes
+- 3つは別々に動き、同時に出せます。重なる順は下から Vignette → Flash → Fade です。
+- 時間はポーズ中も進みます(`Time::GetUnscaledDeltaTime()`)。
+- シーンを切り替えると Flash と Vignette は消え、Fade の濃さは残ります(暗転したまま次のシーンへ行き、そこで明転できる)。ただし **Fade の `onComplete` は、まだ呼ばれていなければ捨てられます**。
+- `onComplete` は `ScreenEffect::Update`(シーンの Update の前)の中で呼ばれるので、中で `ChangeScene` してよい(同じフレームのうちに切り替わる)。
+- シーン切り替えの演出そのものは [Transition](Transition.html) の `SceneTransition` を使います(`ScreenEffect::Fade` は画面の色を変えるだけです)。
+=demo Render カテゴリの「ScreenEffect」
+=readme §15
+
+=file Engine/Render/ParticleRenderer.h, ParticleRenderer.cpp
+=class ParticleRenderer, ParticleSettings
+=role
+小さい粒をたくさん出して描く Component です(爆発・煙・火花・炎)。Unity の `ParticleSystem` に相当します。粒 1 つ 1 つは GameObject ではなく、この Component の中のデータです。
+=table ParticleSettings の主な項目
+texture | std::wstring | 粒の画像(空なら `Assets/particle.png`)。中心が白・外が黒の白黒画像
+emitRate | float | 1秒に出す数(`Play` している間だけ。既定 10)
+lifetimeMin / lifetimeMax | float | 粒が消えるまでの時間(この間でランダム)
+speedMin / speedMax | float | 粒の速さ(この間でランダム)
+direction | XMFLOAT3 | 出る向き(既定 0,1,0)
+spreadAngle | float | 向きのばらつき(度)。360 なら全方向
+gravity | XMFLOAT3 | 重力(粒が落ちていく)
+startSize / endSize | float | 出た時と消える時の大きさ
+startColor / endColor | XMFLOAT4 | 出た時と消える時の色(w は濃さ)
+additive | bool | `true` で加算合成(炎・光)。`false` はふわっとした合成(煙)
+worldSpace | bool | `true` = 出た場所に残る(煙)/ `false` = オブジェクトと一緒に動く(オーラ)
+use3D | bool | `false` = 2D 画面、`true` = 3D 空間(粒は常にカメラを向く板)
+=table ParticleRenderer
+ParticleRenderer(const ParticleSettings& settings) | コンストラクタ | 設定を渡して作る。作った直後は粒を出していない
+Play() | void | 出し始める(`emitRate` の数ずつ。`Stop` するまで)
+Stop() | void | 新しく出すのをやめる(出ている粒は寿命まで残る)
+Burst(int count) | void | 一度に `count` 個出す(爆発)
+IsPlaying() | bool | 出している、または粒が残っているか
+GetParticleCount() | int | 今出ている粒の数
+SetDestroyWhenFinished(bool v) | void | 粒がすべて消えたらオブジェクトを自動で Destroy する(CreateEffect が使う)
+maxParticles | static constexpr int | 1つの ParticleRenderer が持てる粒の最大数(2000)
+=code Sample2D/Game/Objects/Explosion.cpp:11-25
+=code Demo/Game/Objects/Render/Campfire.cpp:24-27
+=notes
+- 粒の数は最大 2000 個。超える分は出ません。
+- 粒の動きはシーンの時間(`Time::GetDeltaTime`)で進むので、ポーズ中は止まり、スローでは遅くなります。
+- **2D(`use3D=false`)の粒は UI モードのスプライトと同じ扱い**で、必ず最前面に出ます(drawPriority → 作った順)。3D の粒は `World3D` で、手前の物に隠れます。2D の粒を `World2D` にする設定は今はありません。
+- 粒の画像のアルファは不透明のまま、**明るさで形と濃さ**を表します(`Assets/particle.png` が例)。
+=demo Render カテゴリの「Particle」
+=readme §26
+
+=file Engine/Render/Effect.h, Effect.cpp
+=class CreateEffect(関数)
+=role
+使い捨てのパーティクルのエフェクト(爆発など)を作る工場関数です。粒がすべて消えたら、オブジェクトも自動で消えます。
+=table
+CreateEffect(Scene& scene, const ParticleSettings& settings, XMFLOAT3 position) | GameObject* | `ParticleRenderer` が付いたオブジェクトを作る(粒はまだ出ていない)。手前に描かれるよう drawPriority は大きい値
+=code Sample2D/Game/Objects/Explosion.cpp:23-26
+=notes
+- 作ったら **すぐ `Burst` します**。`Burst` の前に Update が回ると、粒が 0 のままなのですぐ消えます。
+- `Play()` で出し続けた場合は、`Stop()` して粒がすべて消えるまで残ります(`Stop` しないと消えません)。
+=demo Render カテゴリの「Particle」(クリックで爆発)
+=readme §26
+
+=file Engine/Render/Visibility.h, Visibility.cpp
+=class Visibility(名前空間)
+=role
+「カメラに映っているか」を調べる関数です(画面の外の物を描かない・処理を省く時に使います)。敵の視野(扇形)は [VisionComponent](Behavior.html#f-VisionComponent) を使います。
+=table
+IsSphereInView3D(XMFLOAT3 center, float radius) | bool | 3D カメラの視錐台に、球が少しでも入っているか
+IsBoxInView3D(XMFLOAT3 center, XMFLOAT3 halfSize) | bool | 同じく箱(回転しない。`halfSize` は辺の長さの半分)
+IsCircleInView2D(XMFLOAT3 position, float radius) | bool | 2D カメラの画面に円が少しでも入っているか
+IsRectInView2D(XMFLOAT3 position, XMFLOAT2 halfSize) | bool | 同じく四角(回転しない)
+GetCulledCount() | int | 前のフレームで、描かずに省いた数(確認用)
+BeginFrame() / CountCulled() / IsTransformedSphereInView3D(world, localRadius) | void / bool | 内部用: GameEngine と各 Renderer が使う
+=code Sample3D/Game/Components/GroundController.cpp:36-41
+=notes
+- 描画を省くだけで、**物理(当たり判定)は止まりません**。物が突然消えて見えたら、半径が小さすぎます(`GetCulledCount` で確認)。
+- 3D の視錐台は 1 フレームに 1 回(`GameEngine` が作る)。最初のフレームなど準備前は「映っている(`true`)」を返します。
+- `Update` の中で呼ぶと 1 つ前のフレームのカメラで判定します(敵の AI を省く程度なら問題ありません)。
+=demo Render3D カテゴリの「Visibility」
+=readme §28
+
+=file Engine/Render/Graphics.h, Graphics.cpp
+=class Graphics(名前空間)
+=role
+DirectX11 の土台です(デバイス・描画先・深度バッファ・画面の大きさ)。`Image::Init` が中で初期化するので、ゲーム側は **画面の大きさ(`Graphics::width` / `height`)を読む** くらいです。
+=table
+width | extern float | ゲーム画面の幅(ピクセル)
+height | extern float | ゲーム画面の高さ(ピクセル)
+device | extern ID3D11Device* | DirectX11 のデバイス(内部用)
+context | extern ID3D11DeviceContext* | 描画命令を出すコンテキスト(内部用)
+swapChain | extern IDXGISwapChain* | 画面に出すための仕組み(内部用)
+renderTarget | extern ID3D11RenderTargetView* | 描画先(内部用)
+depthStencilView | extern ID3D11DepthStencilView* | 3D の前後関係のための深度バッファ(内部用)
+Init(HWND hwnd, int w, int h) | bool | 初期化(内部用)
+Uninit() | void | 解放(内部用)
+=code Sample3D/Game/Components/CameraController.cpp:9-11
+=notes
+- `Graphics::width` / `height` は、ウィンドウの大きさではなく **ゲーム画面の解像度** です(`main.cpp` で渡した値)。マウス座標や UI の座標はこの単位です。
+=demo (専用のデモはありません)
+=readme §0
+
+=file Engine/Render/Texture.h, Texture.cpp
+=class Texture(名前空間)
+=role
+画像ファイルを読み込む小さな道具です。`Image::LoadTexture` が使います。ゲーム側は `Resources::LoadTexture` を使うので、直接触りません。
+=table
+Load(const std::wstring& filepath) | LoadResult | 画像を読む。大きさ(`width`, `height`)と、描画用の `srv` を返す
+LoadResult | struct | `srv`(描画で使う画像)・`width`・`height`
+=notes
+- 読み込めるのは RGBA 形式の png です(`Image::LoadTexture` のコメント)。
+=demo (専用のデモはありません)
+=readme §11

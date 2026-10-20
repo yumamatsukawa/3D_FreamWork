@@ -1,0 +1,158 @@
+﻿<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Audio(音) - Engine解説</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="layout">
+<nav class="side">
+<div class="brand"><a href="index.html">Engine解説</a></div>
+<div class="search"><input type="search" id="q" placeholder="関数名・クラス名・ファイル名を検索" autocomplete="off"><ul id="results"></ul></div>
+<ul class="menu">
+<li><a href="index.html">トップ</a></li>
+<li><a href="architecture.html">設計図(図解)</a></li>
+<li><a href="Core.html">Core</a></li>
+<li><a href="Render.html">Render</a></li>
+<li><a href="Render3D.html">Render3D</a></li>
+<li><a href="Physics.html">Physics</a></li>
+<li><a href="UI.html">UI</a></li>
+<li><a href="Animation.html">Animation</a></li>
+<li><a href="Transition.html">Transition</a></li>
+<li><a href="Behavior.html">Behavior</a></li>
+<li><a href="Audio.html" class="current">Audio</a></li>
+<li><a href="Data.html">Data</a></li>
+<li><a href="ThirdParty.html">ThirdParty</a></li>
+<li><a href="files.html">ファイル索引</a></li>
+<li><a href="glossary.html">用語集</a></li>
+</ul>
+<p class="sidenote">3D_FreamWork の Engine を、初心者向けに解説したページです。</p>
+</nav>
+<main>
+<h1>Audio(音)</h1>
+<div class="lead"><code>Engine/Audio/</code> は音を鳴らす仕組みです(XAudio2 を使用)。鳴らし方は 3 通りあります。</div>
+<div class="toc"><strong>このページのファイル</strong><ul>
+<li><a href="#f-Audio">Audio.h / Audio.cpp</a></li>
+<li><a href="#f-AudioSourceComponent">AudioSourceComponent.h / AudioSourceComponent.cpp</a></li>
+<li><a href="#f-AudioListenerComponent">AudioListenerComponent.h / AudioListenerComponent.cpp</a></li>
+</ul></div>
+<p><strong>1. <code>Audio::Load</code> → <code>Play</code>(ID で鳴らす)</strong>: 長く鳴らす BGM 向け。 / <strong>2. <code>Audio::PlayOneShot</code> / <code>PlayOneShotAt</code>(鳴らしっぱなし)</strong>: 効果音(SE)向け。重ねて鳴らせて、鳴り終われば自動で片付く。 / <strong>3. <code>AudioSourceComponent</code>(物に付ける音)</strong>: 音を出す物(敵・焚き火など)に付ける。位置で聞こえ方が変わる。</p>
+<p>音のグループ(<code>AudioGroup::BGM</code> / <code>SE</code>)ごとに音量を変えられます(<code>SetGroupVolume</code>)。音は <strong>WAV ファイルだけ</strong> 読み込めます。</p>
+<p><strong>Demo で見る</strong>: Demo プロジェクトの <strong>Audio カテゴリ</strong>に、Sound(BGM・SE・音量グループ・フェード)と Sound3D(位置で聞こえ方が変わる音)の 2 個のデモがあります。</p>
+<section class="file" id="f-Audio">
+<h3><code>Engine/Audio/Audio.h</code> <code>Engine/Audio/Audio.cpp</code></h3>
+<p class="role">音の窓口です。BGM を ID で鳴らす関数、効果音を鳴らしっぱなしにする関数、グループごとの音量があります。</p>
+<h4>ID で鳴らす(BGM 向け)</h4>
+<div class="tw"><table class="api"><thead><tr><th>名前</th><th>引数・戻り値</th><th>何をするか</th></tr></thead><tbody>
+<tr><td class="fn"><code>Load(const std::wstring&amp; filepath, bool loop, AudioGroup group)</code></td><td class="sig"><code>unsigned int</code></td><td>WAV を読んで ID を返す。<code>loop</code> の既定は <code>false</code>、<code>group</code> の既定は <code>BGM</code></td></tr>
+<tr><td class="fn"><code>Play(unsigned int id, float volume)</code></td><td class="sig"><code>void</code></td><td>再生する(<code>volume</code> の既定は 1)</td></tr>
+<tr><td class="fn"><code>Stop(unsigned int id)</code></td><td class="sig"><code>void</code></td><td>停止する</td></tr>
+<tr><td class="fn"><code>Pause(unsigned int id)</code></td><td class="sig"><code>void</code></td><td>一時停止する</td></tr>
+<tr><td class="fn"><code>Resume(unsigned int id)</code></td><td class="sig"><code>void</code></td><td>再開する</td></tr>
+<tr><td class="fn"><code>SetVolume(unsigned int id, float volume)</code></td><td class="sig"><code>void</code></td><td>その音の音量</td></tr>
+<tr><td class="fn"><code>SetLoop(unsigned int id, bool loop)</code></td><td class="sig"><code>void</code></td><td>ループするかを変える</td></tr>
+<tr><td class="fn"><code>Release(unsigned int id)</code></td><td class="sig"><code>void</code></td><td>その音を削除する</td></tr>
+<tr><td class="fn"><code>ReleaseAll()</code></td><td class="sig"><code>void</code></td><td>すべて削除する</td></tr>
+</tbody></table></div>
+<h4>鳴らしっぱなしの効果音</h4>
+<div class="tw"><table class="api"><thead><tr><th>名前</th><th>引数・戻り値</th><th>何をするか</th></tr></thead><tbody>
+<tr><td class="fn"><code>PlayOneShot(const std::wstring&amp; path, float volume)</code></td><td class="sig"><code>void</code></td><td>位置に関係なく鳴らす(UI の音など)</td></tr>
+<tr><td class="fn"><code>PlayOneShotAt(const std::wstring&amp; path, XMFLOAT3 position, float volume)</code></td><td class="sig"><code>void</code></td><td>その場所で鳴らす。聞く位置からの距離で小さくなり、左右で聞こえる向きが変わる</td></tr>
+</tbody></table></div>
+<h4>グループの音量</h4>
+<div class="tw"><table class="api"><thead><tr><th>名前</th><th>引数・戻り値</th><th>何をするか</th></tr></thead><tbody>
+<tr><td class="fn"><code>SetGroupVolume(AudioGroup group, float volume)</code></td><td class="sig"><code>void</code></td><td>グループの音量(0〜1。範囲外は収める)</td></tr>
+<tr><td class="fn"><code>GetGroupVolume(AudioGroup group)</code></td><td class="sig"><code>float</code></td><td>グループの音量</td></tr>
+</tbody></table></div>
+<h4>定数</h4>
+<div class="tw"><table class="api"><thead><tr><th>名前</th><th>引数・戻り値</th><th>何をするか</th></tr></thead><tbody>
+<tr><td class="fn"><code>maxVoices</code></td><td class="sig"><code>constexpr int</code></td><td>同時に鳴らせる数の上限(32)</td></tr>
+<tr><td class="fn"><code>defaultMinDistance</code></td><td class="sig"><code>constexpr float</code></td><td>この距離までは最大音量(300)</td></tr>
+<tr><td class="fn"><code>defaultMaxDistance</code></td><td class="sig"><code>constexpr float</code></td><td>この距離で聞こえなくなる(2500。その間は直線的に小さくなる)</td></tr>
+</tbody></table></div>
+<h4>内部用(GameEngine・Resources・AudioListenerComponent・AudioSourceComponent だけが呼ぶ)</h4>
+<div class="tw"><table class="api"><thead><tr><th>名前</th><th>引数・戻り値</th><th>何をするか</th></tr></thead><tbody>
+<tr><td class="fn"><code>Init() / Uninit() / Update()</code></td><td class="sig"><code>bool / void</code></td><td>初期化・終了・毎フレームの更新(鳴り終わった再生口を返す)</td></tr>
+<tr><td class="fn"><code>LoadWave(const std::wstring&amp; filepath) / ReleaseWave(unsigned int waveID)</code></td><td class="sig"><code>unsigned int / void</code></td><td>音の波形データの読み込み・解放(<code>Resources::LoadSound</code> が呼ぶ)</td></tr>
+<tr><td class="fn"><code>SetListener(position, front, up)</code></td><td class="sig"><code>void</code></td><td>聞く位置と向きを伝える(AudioListenerComponent が呼ぶ)</td></tr>
+<tr><td class="fn"><code>StartVoice(waveID, params) / UpdateVoice(handle, params) / StopVoice(handle) / IsVoicePlaying(handle)</code></td><td class="sig"><code>VoiceHandle / void / bool</code></td><td>再生口を借りて鳴らす・変える・止める・鳴っているか</td></tr>
+<tr><td class="fn"><code>VoiceHandle / VoiceParams</code></td><td class="sig"><code>struct</code></td><td>再生口の借り番号 / 鳴らす時の設定(音量・ループ・位置・距離・グループ)</td></tr>
+</tbody></table></div>
+<div class="ex"><div class="exhead">使い方の例 <span class="src">出典: <code>Sample2D/Game/Components/TitleController.cpp:18-26</code></span></div><pre><code>// 音量の適用(BGM・効果音とも前に設定した値。保存されていなければ最大。Sample2DとSample3Dで同じ設定を使う)
+// グループの音量なので、ここで決めれば、ゲーム画面の効果音(PlayOneShotAt)にも効く
+volume = Math::Clamp(SaveData::GetFloat(musicVolumeKey, 1.f), 0.f, 1.f);
+Audio::SetGroupVolume(AudioGroup::BGM, volume);
+Audio::SetGroupVolume(AudioGroup::SE, Math::Clamp(SaveData::GetFloat(soundEffectVolumeKey, 1.f), 0.f, 1.f));
+
+// BGMの再生(BGMグループなので、音量はグループ音量で決まる)
+audioID = Audio::Load(L&quot;Assets/TitleBGM.wav&quot;, true);
+Audio::Play(audioID);</code></pre></div>
+<div class="ex"><div class="exhead">使い方の例 <span class="src">出典: <code>Sample2D/Game/Components/BulletManager.cpp:48-49</code></span></div><pre><code>// 発射音(その場所で鳴らす。連射しても重なって鳴る)
+Audio::PlayOneShotAt(L&quot;Assets/Sounds/shot.wav&quot;, position);</code></pre></div>
+<div class="notes"><strong>気を付ける点</strong><ul>
+<li><strong>WAV ファイルだけ</strong> 読み込めます。音が鳴らない時は、WAV の中身(形式)を疑います(README &#167;21)。</li>
+<li><code>Audio::Load</code> の音は <code>Release</code> で返すのを忘れずに(シーンの <code>Uninit</code> で)。<code>PlayOneShot</code> は鳴り終われば自動で片付きます。</li>
+<li>同時に鳴らせるのは 32 個までです。超えた分は鳴らされず、出力ウィンドウに 1 回知らせます。</li>
+<li>同じファイルは <code>Resources</code> で 1 回だけ読み込まれます(2 回目以降は読み直さない)。</li>
+<li><code>PlayOneShotAt</code> の「聞く位置」は <code>AudioListenerComponent</code> の位置です。無ければ 2D カメラの位置です。</li>
+<li><strong>ポーズ中も音は止まらず</strong> 鳴り続けます。</li>
+<li>音量を保存したい時は <code>SaveData</code> に書きます(Sample の <code>TitleController</code> が実例)。</li>
+</ul></div>
+</section>
+<section class="file" id="f-AudioSourceComponent">
+<h3><code>Engine/Audio/AudioSourceComponent.h</code> <code>Engine/Audio/AudioSourceComponent.cpp</code></h3>
+<p class="role">音を鳴らす側を表す Component です。音を出す物(敵・機械・焚き火など)に付けます。Unity の <code>AudioSource</code> と同じです。位置で聞こえ方が変わります(遠いほど小さく、左にあれば左から聞こえる)。</p>
+<div class="tw"><table class="api"><thead><tr><th>名前</th><th>引数・戻り値</th><th>何をするか</th></tr></thead><tbody>
+<tr><td class="fn"><code>AudioSourceComponent(const std::wstring&amp; path)</code></td><td class="sig"><code>コンストラクタ</code></td><td>鳴らす音のファイル(WAV)</td></tr>
+<tr><td class="fn"><code>Play()</code></td><td class="sig"><code>void</code></td><td>最初から鳴らす(鳴っていれば鳴らし直す)</td></tr>
+<tr><td class="fn"><code>Stop()</code></td><td class="sig"><code>void</code></td><td>止める</td></tr>
+<tr><td class="fn"><code>IsPlaying()</code></td><td class="sig"><code>bool</code></td><td>鳴っているか(ループしない音が鳴り終わったら <code>false</code>)</td></tr>
+<tr><td class="fn"><code>SetVolume(float newVolume)</code></td><td class="sig"><code>void</code></td><td>音量(0〜1)</td></tr>
+<tr><td class="fn"><code>SetLoop(bool enabled)</code></td><td class="sig"><code>void</code></td><td>繰り返すか(次の <code>Play</code> から)</td></tr>
+<tr><td class="fn"><code>SetSpatial(bool enabled)</code></td><td class="sig"><code>void</code></td><td>位置で聞こえ方を変えるか(<code>false</code> = BGM・UI の音)</td></tr>
+<tr><td class="fn"><code>SetDistance(float newMin, float newMax)</code></td><td class="sig"><code>void</code></td><td><code>newMin</code> までは最大音量、<code>newMax</code> で聞こえなくなる</td></tr>
+<tr><td class="fn"><code>SetGroup(AudioGroup newGroup)</code></td><td class="sig"><code>void</code></td><td>音量を変えるグループ(次の <code>Play</code> から。既定は <code>SE</code>)</td></tr>
+<tr><td class="fn"><code>Init() / Update(float dt) / Uninit() / OnActiveChanged(bool active)</code></td><td class="sig"><code>void (override)</code></td><td>内部の処理</td></tr>
+</tbody></table></div>
+<div class="ex"><div class="exhead">使い方の例 <span class="src">出典: <code>Demo/Game/Objects/Audio/SoundDemo.cpp:31-39</code></span></div><pre><code>// BGM: ループする音。位置は使わず(SetSpatial(false))、グループは BGM
+auto* bgm = demo-&gt;AddComponent&lt;AudioSourceComponent&gt;(L&quot;Assets/TitleBGM.wav&quot;);
+bgm-&gt;SetGroup(AudioGroup::BGM);
+bgm-&gt;SetSpatial(false);
+bgm-&gt;SetLoop(true);
+
+// SE: 1回鳴る音。グループは SE(既定)
+auto* hit = demo-&gt;AddComponent&lt;AudioSourceComponent&gt;(L&quot;Assets/Sounds/hit.wav&quot;);
+hit-&gt;SetSpatial(false);</code></pre></div>
+<div class="notes"><strong>気を付ける点</strong><ul>
+<li><code>SetActive(false)</code> になると止まります(ObjectPool に返した時など)。<strong>自動では再開しない</strong> ので、必要なら <code>Play</code> し直します。</li>
+<li><code>SetLoop</code> と <code>SetGroup</code> は <strong>次の <code>Play</code> から</strong> 効きます。<code>SetVolume</code> / <code>SetDistance</code> / <code>SetSpatial</code> は鳴っている間でも変えられます。</li>
+<li>同じ音のデータ(WAV)は <code>Resources</code> で共有されます。GameObject を破棄すると、鳴りっぱなしの音は残りません(再生口を返します)。</li>
+<li>ポーズ中も止まりません。</li>
+</ul></div>
+</section>
+<section class="file" id="f-AudioListenerComponent">
+<h3><code>Engine/Audio/AudioListenerComponent.h</code> <code>Engine/Audio/AudioListenerComponent.cpp</code></h3>
+<p class="role">音を「聞く側」を表す Component です。Player(かカメラ)に 1 つだけ付けます。Unity の <code>AudioListener</code> と同じです。付けたオブジェクトのワールド位置が「聞く位置」になります。</p>
+<div class="tw"><table class="api"><thead><tr><th>名前</th><th>引数・戻り値</th><th>何をするか</th></tr></thead><tbody>
+<tr><td class="fn"><code>SetUse3DCamera(bool enabled)</code></td><td class="sig"><code>void</code></td><td>向きを 3D 用カメラ(<code>Image::GetCamera3D()</code>)に合わせる(3D ゲーム用)。位置はいつもこのオブジェクトの位置</td></tr>
+<tr><td class="fn"><code>Init() / Update(float dt) / Uninit() / OnActiveChanged(bool active)</code></td><td class="sig"><code>void (override)</code></td><td>内部の処理</td></tr>
+</tbody></table></div>
+<div class="ex"><div class="exhead">使い方の例 <span class="src">出典: <code>Sample3D/Game/Objects/Player.cpp:33-34</code></span></div><pre><code>// 音を聞く位置(Playerの位置で、向きは3D用カメラに合わせる)
+player-&gt;AddComponent&lt;AudioListenerComponent&gt;()-&gt;SetUse3DCamera(true);</code></pre></div>
+<div class="notes"><strong>気を付ける点</strong><ul>
+<li>2D では付けるだけで、画面の上が正面・右が右(向きは固定)です。3D では <code>SetUse3DCamera(true)</code> でカメラの向きで聞きます。</li>
+<li>2 つ以上ある時は、最後に有効になった 1 つだけが使われます(出力ウィンドウで 1 回知らせます)。</li>
+<li><strong>1 つも無い時は、2D カメラの x, y が聞く位置</strong> になります。2D ゲームは付けなくても動きますが、<strong>3D ゲームは付けないと 2D カメラの位置で聞いてしまう</strong> ので、必ず Player などに付けます。</li>
+<li>非アクティブの間と、破棄された後は聞く位置になりません。</li>
+</ul></div>
+</section>
+
+<footer class="foot">この解説は <code>docs/EngineGuide/tools/build.ps1</code> で作っています。表の内容は Engine のヘッダーから拾っています。コード例は Sample2D / Sample3D / Demo の実際のソースを読み込んで載せています。</footer>
+</main>
+</div>
+<script src="search-index.js"></script>
+<script src="search.js"></script>
+</body>
+</html>

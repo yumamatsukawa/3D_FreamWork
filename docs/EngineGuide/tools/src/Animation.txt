@@ -1,0 +1,105 @@
+﻿=page Animation
+=title Animation(動きと絵のアニメーション)
+=lead
+`Engine/Animation/` は、動きに表情を付ける仕組みです。動きの「速さの変化」(Ease)、位置・大きさ・色を滑らかに変える `TweenComponent`、スプライトのコマ送り(`SpriteAnimationComponent`)、FBX モデルのアニメーション(`ModelAnimationComponent`)が入っています。
+=p
+**Demo で見る**: Render カテゴリの **Tween**(Ease の 8 種類を並べて比べる)と **SpriteAnim**(コマ送り)、Render3D カテゴリの **SkinAnim**(モデルのアニメ)と **Model**。
+
+=file Engine/Animation/Ease.h
+=class Ease(名前空間), EaseFunction
+=role
+イージング関数(動きの「速さの変化」)です。どれも `t`(進み具合 0〜1)を受け取って 0〜1 の値を返します。Unity の DOTween の `Ease` や、CSS の `ease-in-out` と同じ考え方で、式は easings.net と同じです。
+=table
+Linear(float t) | float | 一定の速さ
+InQuad(float t) | float | ゆっくり始まる
+OutQuad(float t) | float | ゆっくり止まる(`TweenComponent` の既定)
+InOutQuad(float t) | float | ゆっくり始まって、ゆっくり止まる
+OutCubic(float t) | float | OutQuad より強くゆっくり止まる
+OutBack(float t) | float | 少し行き過ぎてから戻る(途中で 1 を超える)
+OutElastic(float t) | float | ばねのように揺れて止まる(途中で 0〜1 をはみ出す)
+OutBounce(float t) | float | ボールのように跳ねて止まる
+EaseFunction | using float(*)(float) | イージング関数の型。例: `EaseFunction ease = Ease::OutBack;`
+=code Demo/Game/Components/Render/EaseRunnerController.cpp:60-62
+=notes
+- `t` が 0〜1 の外でも、0〜1 に収めて(Clamp して)から計算します(`t<0` は 0、`t>1` は 1)。
+- 自分で使う時は `Math::Lerp(from, to, Ease::OutQuad(t))` のように、`Lerp` の `t` に渡します。
+- `TweenComponent` の関数の引数に `Ease::OutBack` のように関数名を渡すと、その速さの変化で動きます。
+=demo Render カテゴリの「Tween」(8 種類を並べて比べる)
+=readme §12
+
+=file Engine/Animation/TweenComponent.h, TweenComponent.cpp
+=class TweenComponent
+=role
+GameObject の位置・大きさ・回転・色(と好きな値)を、イージングを付けて目標値まで動かす Component です。UI のぴょこっと出る演出や、ふわっと消える文字などに使います。関数は全部自分自身を返すので、`.SetDelay(0.5f).SetOnComplete(...)` のようにつなげて書けます。
+=table 動きを始める
+MoveTo(XMFLOAT3 target, float duration, EaseFunction ease) | TweenComponent& | 位置を動かす(`ease` の既定は `Ease::OutQuad`)
+ScaleTo(XMFLOAT3 target, float duration, EaseFunction ease) | TweenComponent& | 大きさを変える
+RotateTo(XMFLOAT3 target, float duration, EaseFunction ease) | TweenComponent& | 回転させる(度。近い方向ではなく、数値をそのまま補間する)
+ColorTo(XMFLOAT4 target, float duration, EaseFunction ease) | TweenComponent& | 色を変える(`SpriteRenderer`、無ければ `MeshRenderer`)
+TweenValue(float from, float to, float duration, std::function<void(float)> onUpdate, EaseFunction ease) | TweenComponent& | 好きな値を動かす(毎フレーム `onUpdate` に今の値を渡す)
+=table 直前に始めた動きの設定
+SetDelay(float seconds) | TweenComponent& | 動き出すまで待つ時間
+SetLoop(bool loop, bool pingPong) | TweenComponent& | 繰り返す。`pingPong=true` で行って戻る(`loop=false` かつ `pingPong=true` なら 1 回だけ行って戻る)
+SetUnscaled(bool unscaled) | TweenComponent& | `true` でポーズ・スローの影響を受けない時間で動く
+SetOnComplete(std::function<void()> callback) | TweenComponent& | 終わった時に呼ぶ(ループの動きでは呼ばれない)
+=table 止める
+Stop() | void | すべての動きを今の値のまま止める(`OnComplete` は呼ばない)
+Update(float dt) / Uninit() | void (override) | 内部の処理
+=code Sample2D/Game/Objects/StartButton.cpp:16-20
+=code Sample2D/Game/Objects/ScorePopup.cpp:28-37
+=notes
+- 開始値は「動き出した時(`SetDelay` の待ち時間が終わった時)の今の値」です。`TweenValue` だけは引数の `from` から始まります。
+- `SetDelay` / `SetLoop` / `SetUnscaled` / `SetOnComplete` は **直前に始めた動き** に効きます(つなげて書く)。
+- 位置・大きさ・回転・色は、同じ種類を 2 つ始めると前の動きは消えて **後から始めた方だけ** が動きます(上書き)。`TweenValue` は上書きされず、いくつでも同時に動かせます。
+- **`SetLoop(true, ...)` の動きは終わらない** ので、`SetOnComplete` は呼ばれません(止める時は `Stop()`)。
+- **PhysX の Dynamic な剛体が付いた物には `MoveTo` / `RotateTo` を使わない**(PhysX の位置で上書きされます)。
+- `SetOnComplete` や `TweenValue` のコールバックの中で、新しい動きを始めても、`Stop()` しても、オブジェクトを `Destroy()` しても大丈夫です(上の `ScorePopup` の例)。
+- GameObject が非アクティブの間は、動きも止まります。`duration` が 0 以下の動きは、次の Update で 1 周終わった状態になります。
+=demo Render カテゴリの「Tween」、Audio カテゴリの「Sound」(フェード)
+=readme §12
+
+=file Engine/Animation/SpriteAnimationComponent.h, SpriteAnimationComponent.cpp
+=class SpriteAnimationComponent
+=role
+スプライトシート(1 枚の画像を格子に分けたもの)のコマを、時間に合わせて送る Component です。同じ GameObject の `SpriteRenderer` のコマ番号を毎フレーム変えます。Unity の Animator + Sprite アニメーションの簡単版です。
+=table
+AddClip(const std::string& name, std::vector<int> frames, float frameDuration, bool loop) | void | アニメーションを登録する(名前、コマ番号の並び、1 コマの秒数、繰り返すか)
+Play(const std::string& name) | void | 再生する。今と同じ名前なら何もしない(毎フレーム呼んでよい)
+Stop() | void | 止める(コマは今のまま)
+IsFinished() | bool | ループしないクリップが最後まで行って止まったか(ループするものは常に `false`)
+SetSpeed(float newSpeed) | void | 再生の速さ(1=通常、2=倍速、0=一時停止。負の値は 0)
+SetRandomStart(bool enabled) | void | 始まるコマをランダムにする(ループするクリップだけ。敵の足踏みがそろわないように)
+GetCurrentClip() | const std::string& | 再生中のクリップの名前(止まっていれば空)
+GetSpeed() | float | 今の速さ
+Update(float dt) / OnActiveChanged(bool active) | void (override) | 内部の処理
+=code Sample3D/Game/Components/EnemyManager.cpp:42-47
+=code Demo/Game/Objects/Render/SpriteAnimDemo.cpp:62-65
+=notes
+- **`SpriteRenderer` の後に付けます**(同じ GameObject に `SpriteRenderer` が無ければ何もしません)。
+- `Play` に今と同じ名前を渡しても最初に戻りません。ループしないクリップを同じ名前で最初からやり直したい時は、`Stop()` してから `Play` します。
+- 登録されていない名前の `Play` は何もしません(出力ウィンドウに名前ごとに 1 回知らせます)。`frames` が空、`frameDuration` が 0 以下のクリップは登録されません。止め絵にしたい時は、コマを 1 つだけにします。
+- ObjectPool で使い回した時(`SetActive(true)`)は、今のクリップを最初のコマから(`SetRandomStart` ならランダムなコマから)やり直します。
+- 時間は `Update` の `dt` で進みます(ポーズ中は止まります)。
+=demo Render カテゴリの「SpriteAnim」(再生・停止・速さ)
+=readme §17
+
+=file Engine/Animation/ModelAnimationComponent.h, ModelAnimationComponent.cpp
+=class ModelAnimationComponent
+=role
+FBX モデルのパーツの動き(Maya で付けたキーフレーム)を再生する Component です。同じオブジェクトの `ModelRenderer` に付けます。位置・スケールは線形、回転はクォータニオンで補間して、毎フレーム `ModelRenderer` のパーツの動きに書き込みます。
+=table
+Play(const std::string& clipName, bool loopPlay) | void | クリップを最初から再生する(Maya で付けたクリップ名)。再生中の同じクリップなら何もしない。名前が無い時は何もしない
+CrossFade(const std::string& clipName, float seconds) | void | 今のポーズから新しいクリップへ `seconds` 秒かけて滑らかに切り替える
+IsFinished() | bool | ループしない動きが最後まで終わったか(最後のポーズで止まる)
+SetSpeed(float newSpeed) | void | 再生の速さ(1=等倍、0=止まる)
+GetClipNames() | std::vector<std::string> | 入っているクリップ名の一覧(確認用)
+Init() / Update(float dt) | void (override) | 内部の処理
+=code Sample3D/Game/Objects/ModelDisplay.cpp:36-41
+=code Sample3D/Game/Components/ModelDisplayController.cpp:12-12
+=notes
+- **`ModelRenderer` の後に** `AddComponent` します(`Init` で `ModelRenderer` を探すため)。
+- アニメーションを再生している間は、手で `GetNodeTransform` の値を動かしても、アニメが動かすパーツは次のフレームに戻ります。
+- 骨で曲がるモデル(スキン)も、Demo の SkinAnim と Sample3D の SkinDisplay で再生できます。
+- (ヘッダーの先頭コメントには「スキンはまだ対応していない」と残っていますが、これは古い記述です。実際のコードと Demo では対応しています。)
+=demo Render3D カテゴリの「SkinAnim」(Play・CrossFade)、「Model」
+=readme §27

@@ -1,0 +1,21 @@
+﻿<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 520" width="800" role="img" aria-label="Physics::Update から OnCollision / OnTrigger のコールバックまで">
+<defs><marker id="ah-physics" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ahead"/></marker></defs>
+<g class="box g-physics"><rect x="20" y="15" width="760" height="36" rx="6"/><text x="400" y="36" text-anchor="middle" font-size="14">GameEngine::Run の1フレーム:  Physics::Update(dt)   （ポーズ中などで dt が 0 なら何もしない）</text></g>
+<g class="box n"><rect x="40" y="70" width="340" height="44" rx="6"/><text x="210" y="86" text-anchor="middle" font-size="14">① simulate(dt) → fetchResults()</text><text x="210" y="104" text-anchor="middle" font-size="14">PhysX が動かして、当たりを調べる</text></g>
+<g class="box n"><rect x="420" y="70" width="340" height="44" rx="6"/><text x="590" y="86" text-anchor="middle" font-size="14">② fetchResults の中でコールバックが届く</text><text x="590" y="104" text-anchor="middle" font-size="14">（Engine が PhysX の通知を変換する）</text></g>
+<line class="ln" x1="380" y1="92" x2="420" y2="92" marker-end="url(#ah-physics)"/>
+<g class="box g-physics"><rect x="420" y="135" width="340" height="56" rx="6"/><text x="590" y="157" text-anchor="middle" font-size="13">接触（すり抜けない）:</text><text x="590" y="174" text-anchor="middle" font-size="13">OnCollisionEnter / Stay / Exit(CollisionInfo)</text></g>
+<g class="box g-physics"><rect x="420" y="200" width="340" height="56" rx="6"/><text x="590" y="222" text-anchor="middle" font-size="13">トリガー（すり抜ける）:</text><text x="590" y="239" text-anchor="middle" font-size="13">OnTriggerEnter / Stay / Exit(Collider2D* other)</text></g>
+<line class="ln" x1="590" y1="114" x2="590" y2="135" marker-end="url(#ah-physics)"/>
+<line class="ln" x1="590" y1="191" x2="590" y2="200"/>
+<g class="box n"><rect x="40" y="135" width="340" height="121" rx="6"/><text x="210" y="155.5" text-anchor="middle" font-size="13">届く先は、ぶつかった2つの GameObject</text><text x="210" y="172.5" text-anchor="middle" font-size="13">それぞれの全 Component</text><text x="210" y="189.5" text-anchor="middle" font-size="13">（override した Component だけが反応する）</text><text x="210" y="206.5" text-anchor="middle" font-size="13"></text><text x="210" y="223.5" text-anchor="middle" font-size="13">Kinematic 同士の押し戻しは</text><text x="210" y="240.5" text-anchor="middle" font-size="13">Engine が position を手でずらす</text></g>
+<g class="box n"><rect x="40" y="280" width="340" height="50" rx="6"/><text x="210" y="299" text-anchor="middle" font-size="13">③ 予約された addActor / removeActor を実行</text><text x="210" y="316" text-anchor="middle" font-size="13">（コールバック中は直接できないため）</text></g>
+<g class="box n"><rect x="420" y="280" width="340" height="50" rx="6"/><text x="590" y="299" text-anchor="middle" font-size="13">④ コールバック中の AddForce を加える</text><text x="590" y="316" text-anchor="middle" font-size="13">⑤ トリガーに重なっている間: OnTriggerStay</text></g>
+<line class="ln" x1="380" y1="305" x2="420" y2="305" marker-end="url(#ah-physics)"/>
+<path class="ln" fill="none" d="M 210 256 L 210 280" marker-end="url(#ah-physics)"/>
+<g class="box g-core"><rect x="20" y="360" width="760" height="36" rx="6"/><text x="400" y="381" text-anchor="middle" font-size="14">そのあと SceneManager::Update(dt) → Scene::Update → 各 Component の Update</text></g>
+<g class="box g-physics"><rect x="40" y="415" width="340" height="66" rx="6"/><text x="210" y="433.5" text-anchor="middle" font-size="13">RigidbodyComponent::Update</text><text x="210" y="450.5" text-anchor="middle" font-size="13">Dynamic: PhysX の結果 → transform</text><text x="210" y="467.5" text-anchor="middle" font-size="13">Kinematic: transform → PhysX の目標</text></g>
+<g class="box g-core"><rect x="420" y="415" width="340" height="66" rx="6"/><text x="590" y="433.5" text-anchor="middle" font-size="13">あなたの Controller::Update</text><text x="590" y="450.5" text-anchor="middle" font-size="13">SetVelocity() / AddForce() を呼ぶ</text><text x="590" y="467.5" text-anchor="middle" font-size="13">（効くのは次の Physics::Update）</text></g>
+<line class="ln" x1="380" y1="448" x2="420" y2="448"/>
+<path class="ln" fill="none" d="M 400 396 L 400 415"/>
+</svg>

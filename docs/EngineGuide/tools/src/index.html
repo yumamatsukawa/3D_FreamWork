@@ -1,0 +1,113 @@
+﻿<!--title: トップ-->
+<h1>Engine 解説</h1>
+<div class="lead">
+<strong>3D_FreamWork</strong> の Engine(DirectX11 + PhysX 4.1 で作った、Unity 風の C++ ゲームフレームワーク)を、<strong>どのファイルに・どんな関数があって・どう使うか</strong>まで説明するページです。C++ やゲームエンジンに慣れていない人向けに書いています。
+このフォルダの <code>index.html</code> をダブルクリックして開けば、インターネットが無くても見られます。
+</div>
+
+<h2>まず読む順番(おすすめ)</h2>
+<ol class="flow">
+<li>この<strong>トップページ</strong>で、全体像と「1 フレームの流れ」をつかむ。</li>
+<li><a href="architecture.html">設計図(図解)</a>で、継承・持ち合い・描画の順番・物理・シーン切り替えの図を見る。</li>
+<li><a href="Core.html">Core</a>(<code>Component</code> → <code>GameObject</code> → <code>Scene</code> → <code>SceneManager</code>)を読む。ここが一番大事です。</li>
+<li>作りたいものに合わせて、<a href="Render.html">Render</a>(2D)/ <a href="Render3D.html">Render3D</a>(3D)/ <a href="Physics.html">Physics</a>(当たり判定)/ <a href="UI.html">UI</a> などを読む。</li>
+<li>分からない言葉は<a href="glossary.html">用語集</a>、関数名やクラス名は左のメニューの<strong>検索</strong>や<a href="files.html">ファイル索引</a>で探す。</li>
+<li>実際に動くものは、<strong>Demo プロジェクト</strong>(下の「Demo の開き方」)で見て、触って確かめる。</li>
+</ol>
+
+<h2>Engine の目的と、4 つのプロジェクト</h2>
+<p><strong>Engine</strong> は「ゲームを作るための共通の部品」を集めた静的ライブラリ(<code>Engine.lib</code>)です。それだけでは動かず、下の 3 つの実行ファイルが同じ Engine を使います。Unity でいう「Unity 本体」にあたります。</p>
+<div class="tw"><table class="plain">
+<tr><th>プロジェクト</th><th>種類</th><th>中身</th></tr>
+<tr><td><code>Engine</code></td><td>静的ライブラリ</td><td>全員が共通で使う機能(この解説の対象)。基本的にはみんなで触る場所ではありません。</td></tr>
+<tr><td><code>Sample2D</code></td><td>実行ファイル</td><td>トップダウンの 2D アリーナシューター。2D ゲームの作り方の見本。</td></tr>
+<tr><td><code>Sample3D</code></td><td>実行ファイル</td><td>3D 空間のショーケース(影・ライト・地形・水・モデルなど)。3D の作り方の見本。</td></tr>
+<tr><td><code>Demo</code></td><td>実行ファイル</td><td>Engine の機能を機能ごとに小さなシーンで見せるデモ集(46 個)。見て・触って分かる。</td></tr>
+</table></div>
+<p>Sample2D / Sample3D / Demo の中身は、どれも <code>Game/Objects/</code>(工場関数)・<code>Game/Components/</code>(動き・ルール)・<code>Game/Scenes/</code>(配置)に分かれています。この解説のコード例は、これらの実際のソースから引用しています(出典のファイル名と行番号つき)。</p>
+
+<h2 id="frame">1 フレームの流れ(GameEngine::Run)</h2>
+<p>ゲームは「1 フレーム(約 1/60 秒)ごとに、更新して、描く」を繰り返します。その順番は <code>GameEngine::Run</code>(<code>Engine/Core/GameEngine.cpp</code>)に書かれていて、次のとおりです。順番には意味があります(例: 物理 → シーンの Update → 音、描く直前にカメラを揺らす、など)。</p>
+<div class="diagram">
+<!--include:frame-->
+<p class="cap">GameEngine::Run の 1 フレーム。前半が「更新」、後半が「描画」。</p>
+</div>
+<ul>
+<li><code>dt</code>(前のフレームからの秒数)は <code>Time::GetDeltaTime()</code>。ポーズ中は 0 です。画面の揺れ・画面エフェクトだけは、止まらない時間(<code>GetUnscaledDeltaTime</code>)で進みます。</li>
+<li>各 Component の <code>Update(dt)</code> は、図の <code>SceneManager::Update</code> の中の <code>Scene::Update</code> で、付けた順に呼ばれます。</li>
+<li>描画の 3 つのパスの詳しい説明は<a href="architecture.html#draw">設計図の「描画の順番」</a>にあります。</li>
+</ul>
+
+<h2 id="folders">Engine の 11 フォルダ</h2>
+<p><code>Engine/</code> の中は機能ごとに 11 個のフォルダに分かれています(<code>.h</code> と <code>.cpp</code> は同じフォルダ)。合計 131 ファイル。各ページに、ファイルごとの関数の表・使い方・気を付ける点があります。</p>
+<div class="tw"><table class="plain">
+<tr><th>フォルダ</th><th>役割</th><th>主な中身</th><th>ファイル数</th></tr>
+<tr><td><a href="Core.html">Core</a></td><td>フレームワークの土台</td><td>Component / GameObject / Scene / SceneManager / Transform / Input / Time / Timer / Resources / EventBus / ObjectPool / MathUtil</td><td>20</td></tr>
+<tr><td><a href="Render.html">Render</a></td><td>2D の描画と画面まわり</td><td>SpriteRenderer / Image / Camera / CameraFollowComponent / CameraShake / ScreenEffect / ParticleRenderer / Visibility</td><td>23</td></tr>
+<tr><td><a href="Render3D.html">Render3D</a></td><td>3D の描画</td><td>MeshRenderer / Mesh / Material / LightComponent / Shadow / Lod / ModelRenderer / TerrainRenderer / WaterRenderer</td><td>27</td></tr>
+<tr><td><a href="Physics.html">Physics</a></td><td>物理演算(PhysX)</td><td>RigidbodyComponent(と形ごとの子クラス) / Physics(Raycast・Overlap) / Collider</td><td>6</td></tr>
+<tr><td><a href="Audio.html">Audio</a></td><td>音の再生</td><td>Audio / AudioSourceComponent / AudioListenerComponent</td><td>6</td></tr>
+<tr><td><a href="UI.html">UI</a></td><td>画面に出す部品</td><td>Text / TextRenderer / Anchor / ButtonComponent / GaugeRenderer / SliderComponent</td><td>12</td></tr>
+<tr><td><a href="Animation.html">Animation</a></td><td>動きの時間変化</td><td>Ease / TweenComponent / SpriteAnimationComponent / ModelAnimationComponent</td><td>7</td></tr>
+<tr><td><a href="Transition.html">Transition</a></td><td>シーン切り替えの演出</td><td>SceneTransition / FadeTransition / SpriteTransition</td><td>6</td></tr>
+<tr><td><a href="Behavior.html">Behavior</a></td><td>動きの部品(追跡・視野・経路探索)</td><td>MoveComponent と子クラス / NavGridComponent / PathFollowComponent / VisionComponent</td><td>18</td></tr>
+<tr><td><a href="Data.html">Data</a></td><td>データの読み書き</td><td>Csv(表) / SaveData(セーブ)</td><td>4</td></tr>
+<tr><td><a href="ThirdParty.html">ThirdParty</a></td><td>外部のコード</td><td>WICTextureLoader11(画像を読む部品。Microsoft 製)</td><td>2</td></tr>
+</table></div>
+<p><strong>ThirdParty について</strong>: <code>Engine/ThirdParty/</code> には他の人が作ったコードをそのまま置いているだけで、書き換えません(詳しくは <a href="ThirdParty.html">ThirdParty のページ</a>)。PhysX と ufbx(FBX の読み込み)は、リポジトリ直下の <code>ThirdParty/</code> にあります。</p>
+
+<h2 id="first">はじめの一歩: GameObject を置いて Component を付ける</h2>
+<p>Engine の基本の形は 3 段階です。実際の Sample2D のコードで見てみましょう。</p>
+<h3>1. シーンに「何を置くか」だけを書く</h3>
+<p><code>Scene</code> を継承したクラスの <code>Init()</code> に、<code>Create○○(*this)</code> を並べます。動きやルールは書きません。</p>
+<!--code:Sample2D/Game/Scenes/GameScene.cpp:15-28-->
+<h3>2. 工場関数で、GameObject を作って Component を付ける</h3>
+<p><code>scene.CreateObject("名前", "タグ")</code> で GameObject を作り、<code>AddComponent&lt;T&gt;()</code> で見た目や当たり判定を付けます。<code>transform</code> に位置と大きさを入れます。</p>
+<!--code:Sample2D/Game/Objects/Wall.cpp:11-25-->
+<h3>3. 動きは Component に書く</h3>
+<p><code>Component</code> を継承したクラスを作って、<code>Update(float dt)</code> などを <code>override</code> します。<code>GetOwner()</code> で付いている GameObject が分かります。</p>
+<!--code:Sample2D/Game/Components/BulletController.h:10-28-->
+<!--code:Sample2D/Game/Components/BulletController.cpp:5-16-->
+<h3>4. 起動と最初のシーン</h3>
+<p>ウィンドウを作ったあと、<code>GameEngine</code> を初期化して、最初のシーンを指定して、<code>Run</code> します(<code>main.cpp</code>)。</p>
+<!--code:Sample2D/main.cpp:53-65-->
+<div class="notes"><strong>気を付ける点(はじめのうちに)</strong><ul>
+<li><code>GetComponent&lt;T&gt;()</code> の結果は、必ず <code>nullptr</code> かどうか調べてから使います。</li>
+<li>Dynamic な物理の物は、<code>transform</code> を直接書き換えず、<code>SetVelocity()</code> で動かします。</li>
+<li>他の Component の情報が必要な時は、工場関数の引数でポインタを受け取ります。<code>Get()</code> を使うシングルトンは、EventBus / SceneManager だけです。</li>
+<li>新しいファイルを足したら、<code>.vcxproj</code> と <code>.vcxproj.filters</code> の両方に登録します(チームのルール: <code>CLAUDE.md</code>)。</li>
+</ul></div>
+
+<h2 id="demo">Demo プロジェクトの開き方</h2>
+<p>Demo は、Engine の機能を「見て・触って分かる」ようにした専用の実行ファイル(<code>Demo.exe</code>)です。ゲーム(Sample2D / Sample3D)には影響しません。詳しくは README の §38 にあります。</p>
+<ol class="flow">
+<li>Visual Studio でソリューション(<code>3D_FreamWork.sln</code>)を開き、<code>Demo</code> を右クリック →「スタートアッププロジェクトに設定」して、F5 で実行する。</li>
+<li>または、ビルド済みの <code>x64\Debug\Demo.exe</code>(<code>Release\</code> も)をダブルクリックする。</li>
+<li>起動すると<strong>カテゴリ一覧</strong>(Core / Render / UI / Render3D / Physics / Behavior / Audio / Data の 8 個)が出る → 機能を選ぶ → デモが始まる。</li>
+<li><strong>Tab</strong> キー(または右下のボタン)で、2D 版と 3D 版を切り替えられる(起動した時は 3D)。<strong>Esc</strong> で一つ前の画面へ戻る。</li>
+</ol>
+<p>各ページの「<strong>Demo で見られる所</strong>」は、このカテゴリと機能名の案内です(例: 「Render カテゴリの Sprite」)。全 46 個のデモは、Demo の <code>Game/Scenes/Common/DemoRegistry.cpp</code> の一覧に並んでいます。</p>
+<div class="tw"><table class="plain">
+<tr><th>カテゴリ</th><th>デモ(機能名)</th></tr>
+<tr><td>Core</td><td>Object / Transform / Time / Input / Math / Pool / EventBus / Resources</td></tr>
+<tr><td>Render</td><td>Sprite / SpriteAnim / Camera / ScreenEffect / Transition / Particle / Tween / Coord</td></tr>
+<tr><td>UI</td><td>UI / Rect / Text / WorldUI</td></tr>
+<tr><td>Render3D</td><td>Shapes / Light / Shadow / Outline / Terrain / Water / Model / SkinAnim / LOD / Visibility</td></tr>
+<tr><td>Physics</td><td>Collider / Force / RigidbodySettings / Trigger / Query / TerrainCollider</td></tr>
+<tr><td>Behavior</td><td>Move / Homing / Vision / Path / MovingWall / TerrainPath</td></tr>
+<tr><td>Audio</td><td>Sound / Sound3D</td></tr>
+<tr><td>Data</td><td>Csv / Save</td></tr>
+</table></div>
+<p>2D 版と 3D 版の両方がある機能と、片方だけの機能があります(例: Shapes・Light・Terrain などの Render3D の多くは 3D だけ)。</p>
+
+<h2>このガイドの使い方</h2>
+<ul>
+<li><strong>検索</strong>: 左のメニューの検索欄に、関数名・クラス名・ファイル名・説明の一部を入れると、全ページから探せます(インターネットは使いません)。</li>
+<li><strong>ファイル索引</strong>: <a href="files.html">files.html</a> に、Engine の全ファイルの一覧があります。</li>
+<li><strong>用語集</strong>: <a href="glossary.html">glossary.html</a> に、Component・Rigidbody・Raycast などの用語を、Unity の同じ概念と対応させて説明しています。</li>
+<li>各ファイルの節に、<strong>主な関数の表</strong>(実際のヘッダーから拾っています)・<strong>使い方</strong>(Sample / Demo の実際のコード。出典の場所つき)・<strong>気を付ける点</strong>・<strong>Demo で見られる所</strong>・<strong>README の節番号</strong>があります。</li>
+<li>表に「内部用」と書いてある関数は、Engine の中だけで使う関数です。ゲーム側からは呼びません。</li>
+<li>もっと詳しい説明や、決まりごと(命名規則・コメントの書き方)は、<a href="../../README.md">README.md</a> と <code>CLAUDE.md</code> にあります。</li>
+</ul>
+<h3>このガイドを更新するには</h3>
+<p>ページの元データは <code>docs/EngineGuide/tools/src/</code>(<code>.txt</code> が各フォルダのページ、<code>.html</code> がトップ・設計図・用語集)、図は <code>tools/make-diagrams.ps1</code> で作っています。Engine を変えたら、元データを直して <code>tools/build.ps1</code> を実行します。コード例は「ファイル:行番号」から実際のソースを読み込むので、行がずれたら警告が出ます。</p>

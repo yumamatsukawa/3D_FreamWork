@@ -1,0 +1,93 @@
+﻿=page Audio
+=title Audio(音)
+=lead
+`Engine/Audio/` は音を鳴らす仕組みです(XAudio2 を使用)。鳴らし方は 3 通りあります。
+=p
+**1. `Audio::Load` → `Play`(ID で鳴らす)**: 長く鳴らす BGM 向け。 / **2. `Audio::PlayOneShot` / `PlayOneShotAt`(鳴らしっぱなし)**: 効果音(SE)向け。重ねて鳴らせて、鳴り終われば自動で片付く。 / **3. `AudioSourceComponent`(物に付ける音)**: 音を出す物(敵・焚き火など)に付ける。位置で聞こえ方が変わる。
+=p
+音のグループ(`AudioGroup::BGM` / `SE`)ごとに音量を変えられます(`SetGroupVolume`)。音は **WAV ファイルだけ** 読み込めます。
+=p
+**Demo で見る**: Demo プロジェクトの **Audio カテゴリ**に、Sound(BGM・SE・音量グループ・フェード)と Sound3D(位置で聞こえ方が変わる音)の 2 個のデモがあります。
+
+=file Engine/Audio/Audio.h, Audio.cpp
+=class Audio(名前空間), AudioGroup, VoiceHandle, VoiceParams
+=role
+音の窓口です。BGM を ID で鳴らす関数、効果音を鳴らしっぱなしにする関数、グループごとの音量があります。
+=table ID で鳴らす(BGM 向け)
+Load(const std::wstring& filepath, bool loop, AudioGroup group) | unsigned int | WAV を読んで ID を返す。`loop` の既定は `false`、`group` の既定は `BGM`
+Play(unsigned int id, float volume) | void | 再生する(`volume` の既定は 1)
+Stop(unsigned int id) | void | 停止する
+Pause(unsigned int id) | void | 一時停止する
+Resume(unsigned int id) | void | 再開する
+SetVolume(unsigned int id, float volume) | void | その音の音量
+SetLoop(unsigned int id, bool loop) | void | ループするかを変える
+Release(unsigned int id) | void | その音を削除する
+ReleaseAll() | void | すべて削除する
+=table 鳴らしっぱなしの効果音
+PlayOneShot(const std::wstring& path, float volume) | void | 位置に関係なく鳴らす(UI の音など)
+PlayOneShotAt(const std::wstring& path, XMFLOAT3 position, float volume) | void | その場所で鳴らす。聞く位置からの距離で小さくなり、左右で聞こえる向きが変わる
+=table グループの音量
+SetGroupVolume(AudioGroup group, float volume) | void | グループの音量(0〜1。範囲外は収める)
+GetGroupVolume(AudioGroup group) | float | グループの音量
+=table 定数
+maxVoices | constexpr int | 同時に鳴らせる数の上限(32)
+defaultMinDistance | constexpr float | この距離までは最大音量(300)
+defaultMaxDistance | constexpr float | この距離で聞こえなくなる(2500。その間は直線的に小さくなる)
+=table 内部用(GameEngine・Resources・AudioListenerComponent・AudioSourceComponent だけが呼ぶ)
+Init() / Uninit() / Update() | bool / void | 初期化・終了・毎フレームの更新(鳴り終わった再生口を返す)
+LoadWave(const std::wstring& filepath) / ReleaseWave(unsigned int waveID) | unsigned int / void | 音の波形データの読み込み・解放(`Resources::LoadSound` が呼ぶ)
+SetListener(position, front, up) | void | 聞く位置と向きを伝える(AudioListenerComponent が呼ぶ)
+StartVoice(waveID, params) / UpdateVoice(handle, params) / StopVoice(handle) / IsVoicePlaying(handle) | VoiceHandle / void / bool | 再生口を借りて鳴らす・変える・止める・鳴っているか
+VoiceHandle / VoiceParams | struct | 再生口の借り番号 / 鳴らす時の設定(音量・ループ・位置・距離・グループ)
+=code Sample2D/Game/Components/TitleController.cpp:18-26
+=code Sample2D/Game/Components/BulletManager.cpp:48-49
+=notes
+- **WAV ファイルだけ** 読み込めます。音が鳴らない時は、WAV の中身(形式)を疑います(README §21)。
+- `Audio::Load` の音は `Release` で返すのを忘れずに(シーンの `Uninit` で)。`PlayOneShot` は鳴り終われば自動で片付きます。
+- 同時に鳴らせるのは 32 個までです。超えた分は鳴らされず、出力ウィンドウに 1 回知らせます。
+- 同じファイルは `Resources` で 1 回だけ読み込まれます(2 回目以降は読み直さない)。
+- `PlayOneShotAt` の「聞く位置」は `AudioListenerComponent` の位置です。無ければ 2D カメラの位置です。
+- **ポーズ中も音は止まらず** 鳴り続けます。
+- 音量を保存したい時は `SaveData` に書きます(Sample の `TitleController` が実例)。
+=demo Audio カテゴリの「Sound」「Sound3D」
+=readme §24
+
+=file Engine/Audio/AudioSourceComponent.h, AudioSourceComponent.cpp
+=class AudioSourceComponent
+=role
+音を鳴らす側を表す Component です。音を出す物(敵・機械・焚き火など)に付けます。Unity の `AudioSource` と同じです。位置で聞こえ方が変わります(遠いほど小さく、左にあれば左から聞こえる)。
+=table
+AudioSourceComponent(const std::wstring& path) | コンストラクタ | 鳴らす音のファイル(WAV)
+Play() | void | 最初から鳴らす(鳴っていれば鳴らし直す)
+Stop() | void | 止める
+IsPlaying() | bool | 鳴っているか(ループしない音が鳴り終わったら `false`)
+SetVolume(float newVolume) | void | 音量(0〜1)
+SetLoop(bool enabled) | void | 繰り返すか(次の `Play` から)
+SetSpatial(bool enabled) | void | 位置で聞こえ方を変えるか(`false` = BGM・UI の音)
+SetDistance(float newMin, float newMax) | void | `newMin` までは最大音量、`newMax` で聞こえなくなる
+SetGroup(AudioGroup newGroup) | void | 音量を変えるグループ(次の `Play` から。既定は `SE`)
+Init() / Update(float dt) / Uninit() / OnActiveChanged(bool active) | void (override) | 内部の処理
+=code Demo/Game/Objects/Audio/SoundDemo.cpp:31-39
+=notes
+- `SetActive(false)` になると止まります(ObjectPool に返した時など)。**自動では再開しない** ので、必要なら `Play` し直します。
+- `SetLoop` と `SetGroup` は **次の `Play` から** 効きます。`SetVolume` / `SetDistance` / `SetSpatial` は鳴っている間でも変えられます。
+- 同じ音のデータ(WAV)は `Resources` で共有されます。GameObject を破棄すると、鳴りっぱなしの音は残りません(再生口を返します)。
+- ポーズ中も止まりません。
+=demo Audio カテゴリの「Sound」「Sound3D」
+=readme §24
+
+=file Engine/Audio/AudioListenerComponent.h, AudioListenerComponent.cpp
+=class AudioListenerComponent
+=role
+音を「聞く側」を表す Component です。Player(かカメラ)に 1 つだけ付けます。Unity の `AudioListener` と同じです。付けたオブジェクトのワールド位置が「聞く位置」になります。
+=table
+SetUse3DCamera(bool enabled) | void | 向きを 3D 用カメラ(`Image::GetCamera3D()`)に合わせる(3D ゲーム用)。位置はいつもこのオブジェクトの位置
+Init() / Update(float dt) / Uninit() / OnActiveChanged(bool active) | void (override) | 内部の処理
+=code Sample3D/Game/Objects/Player.cpp:33-34
+=notes
+- 2D では付けるだけで、画面の上が正面・右が右(向きは固定)です。3D では `SetUse3DCamera(true)` でカメラの向きで聞きます。
+- 2 つ以上ある時は、最後に有効になった 1 つだけが使われます(出力ウィンドウで 1 回知らせます)。
+- **1 つも無い時は、2D カメラの x, y が聞く位置** になります。2D ゲームは付けなくても動きますが、**3D ゲームは付けないと 2D カメラの位置で聞いてしまう** ので、必ず Player などに付けます。
+- 非アクティブの間と、破棄された後は聞く位置になりません。
+=demo Audio カテゴリの「Sound3D」
+=readme §24

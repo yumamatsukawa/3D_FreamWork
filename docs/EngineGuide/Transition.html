@@ -1,0 +1,117 @@
+﻿<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Transition(シーン切り替えの演出) - Engine解説</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="layout">
+<nav class="side">
+<div class="brand"><a href="index.html">Engine解説</a></div>
+<div class="search"><input type="search" id="q" placeholder="関数名・クラス名・ファイル名を検索" autocomplete="off"><ul id="results"></ul></div>
+<ul class="menu">
+<li><a href="index.html">トップ</a></li>
+<li><a href="architecture.html">設計図(図解)</a></li>
+<li><a href="Core.html">Core</a></li>
+<li><a href="Render.html">Render</a></li>
+<li><a href="Render3D.html">Render3D</a></li>
+<li><a href="Physics.html">Physics</a></li>
+<li><a href="UI.html">UI</a></li>
+<li><a href="Animation.html">Animation</a></li>
+<li><a href="Transition.html" class="current">Transition</a></li>
+<li><a href="Behavior.html">Behavior</a></li>
+<li><a href="Audio.html">Audio</a></li>
+<li><a href="Data.html">Data</a></li>
+<li><a href="ThirdParty.html">ThirdParty</a></li>
+<li><a href="files.html">ファイル索引</a></li>
+<li><a href="glossary.html">用語集</a></li>
+</ul>
+<p class="sidenote">3D_FreamWork の Engine を、初心者向けに解説したページです。</p>
+</nav>
+<main>
+<h1>Transition(シーン切り替えの演出)</h1>
+<div class="lead"><code>Engine/Transition/</code> は、シーンを切り替える時の演出です。「画面を覆う → シーンを切り替える → 開く」の順に進みます。ゲーム側は <code>SceneManager::Get().ChangeScene&lt;GameScene&gt;(FadeTransition());</code> のように、演出を作って渡すだけです。
+演出は Component ではありません(<code>SceneTransition</code> を継承したただのクラス)。種類は 2 つ: 色で暗転する <code>FadeTransition</code> と、スプライトシートの絵を再生する <code>SpriteTransition</code>。</div>
+<div class="toc"><strong>このページのファイル</strong><ul>
+<li><a href="#f-SceneTransition">SceneTransition.h / SceneTransition.cpp</a></li>
+<li><a href="#f-FadeTransition">FadeTransition.h / FadeTransition.cpp</a></li>
+<li><a href="#f-SpriteTransition">SpriteTransition.h / SpriteTransition.cpp</a></li>
+</ul></div>
+<p><strong>演出の間の約束</strong>: 覆っている間・開いている間は、<strong>ゲームの時間が止まります</strong>(<code>Time</code> の倍率 0。演出自体は止まらない時間で進む)。演出は文字や <code>ScreenEffect</code> よりさらに上に描かれます。切り替えを頼んでから終わるまでの間の <code>ChangeScene</code> は無視されます。</p>
+<p><strong>Demo で見る</strong>: Demo プロジェクトの <strong>Render カテゴリ</strong>の「Transition」(演出を見比べる)。</p>
+<section class="file" id="f-SceneTransition">
+<h3><code>Engine/Transition/SceneTransition.h</code> <code>Engine/Transition/SceneTransition.cpp</code></h3>
+<p class="role">シーン切り替えの演出の親クラスです。どの種類も「覆う → 切り替える → 開く」の順に進みます。覆い方・開き方は子クラスが <code>override</code> します。ゲーム側はこのクラスの関数を呼びません(<code>SceneManager</code> が呼びます)。</p>
+<h4>子クラスが override する(新しい演出を作る人向け)</h4>
+<div class="tw"><table class="api"><thead><tr><th>名前</th><th>引数・戻り値</th><th>何をするか</th></tr></thead><tbody>
+<tr><td class="fn"><code>GetCoverDuration()</code></td><td class="sig"><code>float (純粋仮想)</code></td><td>覆うのにかかる時間(秒)</td></tr>
+<tr><td class="fn"><code>GetOpenDuration()</code></td><td class="sig"><code>float (純粋仮想)</code></td><td>開くのにかかる時間(秒)</td></tr>
+<tr><td class="fn"><code>OnBegin()</code></td><td class="sig"><code>void (virtual)</code></td><td>覆い始める時に 1 回呼ばれる(画像の読み込みなど)</td></tr>
+<tr><td class="fn"><code>DrawCover(ID2D1RenderTarget* target, float progress)</code></td><td class="sig"><code>void (純粋仮想)</code></td><td>覆っている途中を描く。<code>progress</code>: 0=まだ何も覆っていない → 1=全体を覆った</td></tr>
+<tr><td class="fn"><code>DrawOpen(ID2D1RenderTarget* target, float progress)</code></td><td class="sig"><code>void (純粋仮想)</code></td><td>開いている途中を描く。<code>progress</code>: 0=全体を覆っている → 1=全部見えている</td></tr>
+</tbody></table></div>
+<h4>内部用(SceneManager だけが呼ぶ。ゲーム側からは呼ばない)</h4>
+<div class="tw"><table class="api"><thead><tr><th>名前</th><th>引数・戻り値</th><th>何をするか</th></tr></thead><tbody>
+<tr><td class="fn"><code>Begin()</code></td><td class="sig"><code>void</code></td><td>覆い始める(ChangeScene が呼ばれた時)</td></tr>
+<tr><td class="fn"><code>Update(float unscaledDt)</code></td><td class="sig"><code>void</code></td><td>毎フレーム 1 回、時間を進める</td></tr>
+<tr><td class="fn"><code>BeginOpen()</code></td><td class="sig"><code>void</code></td><td>シーンを切り替えた後、開き始める</td></tr>
+<tr><td class="fn"><code>Draw()</code></td><td class="sig"><code>void</code></td><td>今の様子を画面の一番上に描く</td></tr>
+<tr><td class="fn"><code>IsCovered()</code></td><td class="sig"><code>bool</code></td><td>覆い終わって、シーンの切り替え待ちか</td></tr>
+<tr><td class="fn"><code>IsFinished()</code></td><td class="sig"><code>bool</code></td><td>開き終わったか</td></tr>
+</tbody></table></div>
+<div class="ex"><div class="exhead">使い方の例 <span class="src">出典: <code>Sample2D/Game/Objects/StartButton.cpp:10-14</code></span></div><pre><code>GameObject* button = CreateButton(scene, L&quot;START&quot;, { 0.f, -150.f }, [] {
+    // 黒で0.5秒かけて暗転 → GameSceneへ切り替え → 0.5秒かけて明転
+    // (切り替え中にもう一度押されても、SceneManagerが無視するので二重に切り替わらない)
+    SceneManager::Get().ChangeScene&lt;GameScene&gt;(FadeTransition());
+});</code></pre></div>
+<div class="notes"><strong>気を付ける点</strong><ul>
+<li>継承の関係は <code>SceneTransition</code> ← <code>FadeTransition</code> / <code>SpriteTransition</code> です(<a href="architecture.html#inherit">設計図の継承図</a>)。</li>
+<li>演出の時間は <code>Time::GetUnscaledDeltaTime()</code> で進みます(ゲームの時間は止まっています)。</li>
+<li>シーンの読み込みで長くなったフレームの分は、演出の時間として進めません(<code>skipNextUpdate</code>)。</li>
+</ul></div>
+</section>
+<section class="file" id="f-FadeTransition">
+<h3><code>Engine/Transition/FadeTransition.h</code> <code>Engine/Transition/FadeTransition.cpp</code></h3>
+<p class="role">暗転 → シーンを切り替える → 明転、の演出です(画面全体を 1 色で塗ります)。</p>
+<div class="tw"><table class="api"><thead><tr><th>名前</th><th>引数・戻り値</th><th>何をするか</th></tr></thead><tbody>
+<tr><td class="fn"><code>FadeTransition(XMFLOAT4 color, float duration)</code></td><td class="sig"><code>コンストラクタ</code></td><td>色(既定は黒 <code>{0,0,0,1}</code>)と、覆う時間・開く時間(どちらも同じ秒数。既定 0.5)</td></tr>
+<tr><td class="fn"><code>FadeTransition(const FadeTransition&amp; other)</code></td><td class="sig"><code>コピーコンストラクタ</code></td><td>色と時間だけを写す(ブラシは写さない)</td></tr>
+</tbody></table></div>
+<div class="ex"><div class="exhead">使い方の例 <span class="src">出典: <code>Sample2D/Game/Objects/StartButton.cpp:13-13</code></span></div><pre><code>SceneManager::Get().ChangeScene&lt;GameScene&gt;(FadeTransition());</code></pre></div>
+<div class="notes"><strong>気を付ける点</strong><ul>
+<li>色は <code>color</code> の x, y, z だけを使います(w は使いません。切り替える時は必ず画面全体を塗りつぶす)。</li>
+<li><code>duration</code> が 0 以下なら一瞬で切り替わります。</li>
+<li>白い暗転にする例: <code>FadeTransition({ 1.f, 1.f, 1.f, 1.f }, 1.f)</code>。</li>
+</ul></div>
+</section>
+<section class="file" id="f-SpriteTransition">
+<h3><code>Engine/Transition/SpriteTransition.h</code> <code>Engine/Transition/SpriteTransition.cpp</code></h3>
+<p class="role">スプライトシート(1 枚の画像に並べたコマ)を画面全体に引き伸ばして再生する演出です。普段は、覆う時はコマ 0 → 最後のコマ、開く時は最後のコマ → コマ 0 へ逆に再生します。</p>
+<div class="tw"><table class="api"><thead><tr><th>名前</th><th>引数・戻り値</th><th>何をするか</th></tr></thead><tbody>
+<tr><td class="fn"><code>SpriteTransition(const std::wstring&amp; path, int columns, int rows, float frameDuration)</code></td><td class="sig"><code>コンストラクタ</code></td><td>シートの画像・列数と行数・1 コマの時間(秒)</td></tr>
+<tr><td class="fn"><code>SetOpenSheet(const std::wstring&amp; path, int columns, int rows, float frameDuration)</code></td><td class="sig"><code>SpriteTransition&amp;</code></td><td>開く時だけ別の画像を使う(これも逆再生)。続けて書けるよう自分を返す</td></tr>
+<tr><td class="fn"><code>SetSwitchFrame(int frame)</code></td><td class="sig"><code>SpriteTransition&amp;</code></td><td>シーンを切り替えるコマを決める。コマ 0〜frame で覆い、frame+1〜最後で開く(順再生だけ)</td></tr>
+<tr><td class="fn"><code>UnloadAll()</code></td><td class="sig"><code>static void</code></td><td>内部用: 読み込んだ画像をすべて解放する(GameEngine が呼ぶ)</td></tr>
+</tbody></table></div>
+<div class="ex"><div class="exhead">使い方の例 <span class="src">出典: <code>Sample2D/Game/Components/GameManager.cpp:43-45</code></span></div><pre><code>if (gameOver &amp;&amp; Input::GetKeyDown(KEY_SPACE)) {
+    SceneManager::Get().ChangeScene&lt;TitleScene&gt;(SpriteTransition(L&quot;Assets/transition_circle.png&quot;, 8, 2, 0.04f));
+}</code></pre></div>
+<div class="ex"><div class="exhead">使い方の例 <span class="src">出典: <code>Sample3D/Game/Components/GameManager.cpp:47-47</code></span></div><pre><code>SceneManager::Get().ChangeScene&lt;TitleScene&gt;(SpriteTransition(L&quot;Assets/transition_wipe.png&quot;, 8, 2, 0.04f).SetSwitchFrame(7));</code></pre></div>
+<div class="notes"><strong>気を付ける点</strong><ul>
+<li>画像の作り方: コマは <strong>左上から右へ、行の終わりまで行ったら次の行へ</strong> 並べます(<code>SpriteRenderer</code> のコマ番号と同じ)。最後のコマで画面全体が覆われるように描き、コマ 0 は全部透明にすると自然につながります。</li>
+<li>各コマは画面全体に引き伸ばされるので、1 コマの縦横比は画面と同じ(16:9)にするとゆがみません。</li>
+<li><code>SetSwitchFrame</code> を使う時は、そのコマで画面全体が覆われるように描き、<strong>最後のコマは全部透明</strong> にします。<code>frame</code> は 0〜(コマ数 − 2) に収められます(範囲外は出力ウィンドウに知らせます)。</li>
+<li><code>SetSwitchFrame</code> と <code>SetOpenSheet</code> を一緒に使うと、<code>SetSwitchFrame</code> が優先されます。</li>
+<li>画像は Direct2D で読み込み、同じファイルは使い回します(終了時に解放)。読み込めなかった時は何も描かず、時間どおりに切り替えます。</li>
+</ul></div>
+</section>
+
+<footer class="foot">この解説は <code>docs/EngineGuide/tools/build.ps1</code> で作っています。表の内容は Engine のヘッダーから拾っています。コード例は Sample2D / Sample3D / Demo の実際のソースを読み込んで載せています。</footer>
+</main>
+</div>
+<script src="search-index.js"></script>
+<script src="search.js"></script>
+</body>
+</html>

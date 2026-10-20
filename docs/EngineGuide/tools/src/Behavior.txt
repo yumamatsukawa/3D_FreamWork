@@ -1,0 +1,225 @@
+﻿=page Behavior
+=title Behavior(動き・追跡・視野・経路探索)
+=lead
+`Engine/Behavior/` は、敵や物の「動きの頭脳」です。目的地へ向かう動き(Chase / AccelerateChase / Homing)、壁を避けて歩く経路探索(NavGrid / PathFinder / PathFollow)、見張り役の視野(Vision)が入っています。
+動く平面は 2 種類です(`MovePlane`): **XY**(2D の画面)と **XZ**(3D の地面)。どちらも `SetPlane` で選びます(既定は XY)。
+=p
+**目的地へ向かう動きの継承**: `MoveComponent`(親。単体では付けない)← `ChaseComponent` / `AccelerateChaseComponent` / `HomingComponent` / `PathFollowComponent`。目的地は `SetTarget`(相手を追う)か `SetTargetPosition`(決まった場所)で決めます。
+=p
+**Demo で見る**: Demo プロジェクトの **Behavior カテゴリ**に、Move / Homing / Vision / Path / MovingWall / TerrainPath の6個のデモがあります。
+
+=file Engine/Behavior/MoveComponent.h, MoveComponent.cpp
+=class MoveComponent, MovePlane
+=role
+「目的地へ向かって動く」Component の親クラスです。**単体では `AddComponent` しません**(コンストラクタが protected)。目的地・速さ・止まる距離・動く平面の共通の決まりを持ちます。
+=table
+SetTarget(GameObject* newTarget) | void | 追いかける相手(`nullptr` で外す)
+SetTargetPosition(XMFLOAT3 position) | void | 決まった場所へ向かう(相手がいない時に使う)
+SetSpeed(float newSpeed) | void | 速さ(1 秒に進む距離)。負の値は 0
+SetStopDistance(float distance) | void | これより近づいたら止まる
+SetPlane(MovePlane newPlane) | void | 動く平面(`MovePlane::XY` か `XZ`。既定は XY)
+HasArrived() | bool | 着いたか(目的地が `StopDistance` より近いか)
+GetTarget() | GameObject* | 追いかけている相手
+GetSpeed() | float | 速さ
+MovePlane | enum class | 動く平面: `XY`(2D)/ `XZ`(3D の地面)
+=code Demo/Game/Objects/Behavior/MoveDemo.cpp:40-42
+=code Demo/Game/Objects/Behavior/MoveDemo.cpp:51-53
+=notes
+- 目的地は、`SetTarget` の相手がいればその位置、いなければ `SetTargetPosition` の位置。どちらも無ければ止まります(速度 0)。
+- 相手が非アクティブ(`SetActive(false)` / Destroy 済み)の間は、追わずに止まります。**相手の GameObject が Destroy されて本当に消えた後はポインタが消えた物を指したままになる** ので、相手を消す時は、先に追いかけている側で `SetTarget(nullptr)` します。
+- 距離・向きは動く平面の上だけで考えます(XY なら Z の差、XZ なら Y の差は無視)。
+- 動かし方: **Dynamic の `RigidbodyComponent` があれば `SetVelocity`**。Kinematic か Rigidbody が無ければ `transform.position` を直接動かします。**Static なら動かしません**(出力ウィンドウに 1 回知らせます)。
+- XZ の時は Y 方向の速度(重力で落ちる速さ)をそのまま残します。XY の時は Z 方向の速度を 0 にします。
+- 壁にぶつけたい物は **Dynamic** にします(Kinematic は Static の壁をすり抜けます)。
+- ObjectPool で再利用した時(`SetActive(true)`)に、速度などの状態がリセットされます(相手・速さなどの設定は残る)。
+=demo Behavior カテゴリの「Move」
+=readme §13
+
+=file Engine/Behavior/ChaseComponent.h, ChaseComponent.cpp
+=class ChaseComponent
+=role
+目的地(相手・場所)へ、**一定の速さでまっすぐ** 向かう Component です。`StopDistance`(既定 1.0)より近づいたら止まります。壁は避けません(壁を避けたい時は `PathFollowComponent`)。
+=table
+(専用の関数はありません) | MoveComponent の関数を使う | `SetTarget` / `SetTargetPosition` / `SetSpeed` / `SetStopDistance` / `SetPlane` / `HasArrived`
+Update(float dt) | void (override) | 内部の処理
+=code Demo/Game/Objects/Behavior/HomingDemo.cpp:46-49
+=notes
+- 壁を避けなくてよい時(ごく近くの敵など)に向きます。
+- 2D の画面なら `SetPlane` は不要(既定が XY)。3D の地面の上を動く時は `SetPlane(MovePlane::XZ)`。
+=demo Behavior カテゴリの「Move」「Homing」
+=readme §13
+
+=file Engine/Behavior/AccelerateChaseComponent.h, AccelerateChaseComponent.cpp
+=class AccelerateChaseComponent
+=role
+目的地へ **加速しながら** 向かう Component です。勢いがあるので、行き過ぎて戻ってきます。
+=table
+SetAcceleration(float value) | void | 加速の強さ(1 秒に速さがいくつ増えるか)
+SetMaxSpeed(float maxSpeed) | void | 最高速度(`SetSpeed` と同じ)
+SetDrag(float value) | void | 空気抵抗(0 で減速しない。大きいほどすぐ減速)。負の値は 0
+Update(float dt) / OnActiveChanged(bool active) | void (override) | 内部の処理
+=code Demo/Game/Components/Behavior/HomingDemoController.cpp:66-69
+=notes
+- `StopDistance` より近い間は加速をやめます(勢いのまま進み、空気抵抗で遅くなる)。
+- Dynamic の Rigidbody があれば `AddForce(ForceMode::Acceleration)` で加速します(ぶつかった時の跳ね返りも残る)。1 フレーム分の加速だけ、最高速度を少し超えることがあります(次のフレームで戻す)。
+- Kinematic か Rigidbody が無ければ、自分で速度を持って動かします。
+=demo Behavior カテゴリの「Homing」
+=readme §13
+
+=file Engine/Behavior/HomingComponent.h, HomingComponent.cpp
+=class HomingComponent
+=role
+曲がれる角度に上限がある追尾です(ミサイル・車・魚向け)。今の進行方向を持ち、目的地の方へ 1 秒に最大 `turnSpeed` 度だけ曲がりながら、`speed` の速さで進みます。
+=table
+SetTurnSpeed(float degreesPerSecond) | void | 1 秒に何度まで曲がれるか(既定 180。負の値は 0)
+SetFaceMovement(bool enabled) | void | 見た目の向き(`rotate`)も進行方向に合わせる
+Update(float dt) / OnActiveChanged(bool active) | void (override) | 内部の処理
+=code Demo/Game/Objects/Behavior/HomingDemo.cpp:53-56
+=notes
+- 最初の進行方向は、出した時の `rotate` の向きです。出す時に `rotate` を決めておけば、その向きへ飛び出してから曲がっていきます。
+- 進行方向の角度は `rotate` と同じ向きです(XY は `rotate.z` = `Math::Forward2D`、XZ は `rotate.y` = `Math::Forward3D`)。
+- **Dynamic の剛体で `SetFaceMovement(true)` を使う時は `SetFreezeRotation(true)` にします**(しないと PhysX の回転で上書きされます)。
+- 曲がれる角度に上限があるので、`StopDistance` を 0 に近くすると、目標の周りを回り続けることがあります。
+=demo Behavior カテゴリの「Homing」(追いかけ方 3 種)
+=readme §13
+
+=file Engine/Behavior/PathFollowComponent.h, PathFollowComponent.cpp
+=class PathFollowComponent
+=role
+壁・障害物を避けながら、目的地へ一定の速さで向かう Component です。`ChaseComponent` の「まっすぐ向かう」を、経路探索つきにしたものです。経路は `NavGridComponent` の格子の上で探します(A* + 直線化)。
+=table
+SetNavigation(NavGridComponent* newNavigation) | void | どの格子で探すか(Spawn の度に渡す)
+SetRepathInterval(float seconds) | void | 探し直す間隔(既定 0.5 秒。±20% ばらす。0.1 未満は 0.1)
+SetWaypointRadius(float distance) | void | 次の点へ進む距離(既定は `cellSize` の半分)
+HasPath() | bool | 経路が見つかっているか(止まっている時は `false`)
+GetPath() | const std::vector<XMFLOAT3>& | 今の経路(確認・デバッグ用)
+SetDebugDrawEnabled(bool enabled) | static void | `true` で今の経路を緑の線で描く
+Init() / Update(float dt) / Draw() / Uninit() / OnActiveChanged(bool active) | void (override) | 内部の処理
+=code Sample2D/Game/Components/EnemyManager.cpp:218-224
+=code Sample2D/Game/Components/EnemyManager.cpp:45-46
+=notes
+- `SetTarget` / `SetSpeed` / `SetStopDistance` / `SetPlane` は `MoveComponent` と同じです。
+- **経路が見つからない時は、止まります**(格子の外にいる・目的地が格子の外・壁で囲まれている・格子がまだ焼けていない)。止まっている間も探し直すので、行けるようになったらまた動き出します。
+- 探し直すのは、一定の間隔・目的地が 1 マス以上動いた時・格子が変わった時・詰まった時(1 秒間に 速さ × 0.2 より進めなかった時)です。
+- 最後の点は目的地。目的地が通れないマスの中(壁際)なら、近くの通れるマスの中心まで行ってから、残りをまっすぐ向かいます。
+- ObjectPool で再利用した時に、経路・タイマーがリセットされます(相手・速さ・格子の設定は残る)。
+=demo Behavior カテゴリの「Path」「MovingWall」「TerrainPath」
+=readme §36
+
+=file Engine/Behavior/NavGridComponent.h, NavGridComponent.cpp
+=class NavGridComponent
+=role
+格子(`NavGrid`)と探索役(`PathFinder`)を持つ Component です。**シーンに 1 つ置いて、`PathFollowComponent` に渡します**。障害物(タグ "Wall" の Static な物)は、置くだけで自動で読み込まれます。
+=table
+NavGridComponent(const NavGridSettings& settings) | コンストラクタ | 格子の設定を渡して作る
+GetGrid() | NavGrid& | 格子(障害物の登録・調べる)
+GetPathFinder() | PathFinder& | 探索役
+SetTerrain(TerrainRenderer* newTerrain) | void | 地形の高さ・傾きを取り込む(焼く前に渡す。焼いた後なら焼き直す)
+SetAutoRebakeInterval(float seconds) | void | 自動で焼き直す間隔(0 = 焼き直さない。既定)。動く壁がある時だけ
+RequestRebake() | void | 次のフレームで全体を焼き直す
+RebakeRegion(XMFLOAT3 center, XMFLOAT3 size) | void | 範囲だけ、次のフレームの Update で焼き直す(動く壁を動かした側が呼ぶ。全体より軽い)
+SetMaxSearchesPerFrame(int count) | void | 1 フレームの探索回数の上限(既定 8)
+IsBaked() | bool | 最初の焼きが済んだか
+GetLastBakeMilliseconds() | float | 直前の焼きにかかった時間(ミリ秒)
+TryBeginSearch() | bool | 探索してよいか(PathFollowComponent が呼ぶ。上限に達していたら `false`)
+SetDebugDrawEnabled(bool enabled) | static void | `true` で通れないマスの輪郭を赤い線で描く
+Update(float dt) / Draw() / Uninit() | void (override) | 内部の処理
+=code Sample2D/Game/Objects/Navigation.cpp:9-16
+=code Sample3D/Game/Objects/Navigation.cpp:10-21
+=notes
+- 障害物を読む(焼く)のは **2 回目の Update** です。物理に出したばかりの物は次のフレームから見つかるため、`Init` では読めません。焼き終わるまでは `IsBaked()` が `false` で、歩く側は待ちます。
+- **壁は先に置いてから** `NavGridComponent` を置きます(Sample2D の GameScene は「壁をすべて置いた後に置く」)。
+- 動く壁(Kinematic)があるなら、`SetAutoRebakeInterval` で定期的に焼き直すか、動かした側が `RequestRebake` / `RebakeRegion` を呼びます。焼き直しは次のフレームの Update で行われます。
+- 探索の回数は 1 フレームに `maxSearchesPerFrame` までです(敵が多くても、探索が同じフレームに集中して重くならない)。
+- 3D の地形は `SetTerrain` で取り込むと、急な坂・大きな段差が通れないマスになります。
+=demo Behavior カテゴリの「Path」「MovingWall」「TerrainPath」
+=readme §36
+
+=file Engine/Behavior/NavGrid.h, NavGrid.cpp
+=class NavGrid, NavGridSettings
+=role
+地面を升目に区切って、各マスが「通れるか」(3D なら地面の高さも)を覚えておきます。経路探索(`PathFinder`)の土台です。2D(XY)でも 3D の地面(XZ)でも同じ形で使います。
+=table NavGridSettings
+origin | XMFLOAT3 | 格子の左手前の角のワールド座標
+size | XMFLOAT2 | 格子の大きさ(既定 6000 x 6000)
+cellSize | float | 1 マスの辺の長さ(既定 50。歩く物の半径くらいがおすすめ)
+plane | MovePlane | 歩く平面(既定 XZ)
+agentRadius | float | 歩く物の半径(既定 40)。この分だけ障害物を太らせる
+obstacleTag | std::string | このタグの物が障害物(既定 "Wall")
+baseHeight / agentHeight / maxStepHeight / maxSlopeDegrees | float | 3D の高さの設定(地形の無い所の地面の高さ・背の高さ・登れる段差・登れる坂の角度)
+=table NavGrid
+NavGrid(const NavGridSettings& newSettings) | コンストラクタ | 設定を渡して作る
+maxCells | static constexpr int | 格子のマスの数の上限(512 x 512)
+Clear() | void | 全部の種類の障害物を消す
+SetBlocked(int cellX, int cellZ, bool blocked) | void | 手で 1 マスを通れなくする / 戻す
+SetBlockedBox(XMFLOAT3 center, XMFLOAT3 size, bool blocked) | void | 手で箱の範囲(池・柵など物理の無い障害物)
+BakeFromPhysics() | void | 全マスを `Physics::OverlapBox(obstacleTag)` で調べる
+BakeRegionFromPhysics(XMFLOAT3 center, XMFLOAT3 size) | void | 範囲だけ調べ直す(動く壁用)
+BakeFromTerrain(const TerrainRenderer& terrain) | void | 地形の高さを各マスに覚え、急な坂・大きな段差を通れなくする(XZ だけ)
+WorldToCell(XMFLOAT3 position, int& cellX, int& cellZ) | bool | ワールド座標 → マス。格子の外なら `false`
+CellToWorld(int cellX, int cellZ) | XMFLOAT3 | マスの中心
+ClampToGrid(XMFLOAT3 position) | XMFLOAT3 | 格子の外なら、中の一番近い点にする
+IsInside(int cellX, int cellZ) | bool | 格子の中のマスか
+IsWalkable(int cellX, int cellZ) | bool | 通れるか(格子の外は通れない)。座標版もある
+HasLineOfWalk(XMFLOAT3 from, XMFLOAT3 to) | bool | 2 点の間を、通れるマスだけでまっすぐ行けるか
+FindNearestWalkable(XMFLOAT3 position, XMFLOAT3& result, int maxRing) | bool | 通れないマスの中にいる時に、近くの通れるマスを探す
+GetCellCountX() / GetCellCountZ() | int | マスの数
+GetSettings() | const NavGridSettings& | 設定
+GetVersion() | int | 障害物や高さが変わる度に増える番号(歩く側が「経路が古くなった」と気付く)
+=code Demo/Game/Components/Behavior/MovingWallDemoController.cpp:59-60
+=notes
+- 障害物は 3 種類を別々に覚えます: 手で登録(`SetBlocked` / `SetBlockedBox`)・物理から(`BakeFromPhysics`)・地形から(`BakeFromTerrain`)。どれか 1 つでも塞いでいれば通れません。焼き直しは、その種類の分だけを作り直します(手で登録した分は消えません)。
+- 障害物は `agentRadius` だけ太らせます(歩く物を「1 つの点」として扱うため)。
+- 格子は有限の範囲です。上限を超える設定は `cellSize` を自動で大きくして出力ウィンドウに知らせます。
+- 3D(XZ)は「平面の升目 + 各マスの地面の高さ」の 2.5 次元です。同じ XZ に床が複数ある場所(橋の下など)は扱えません。
+=demo Behavior カテゴリの「MovingWall」(`SetBlockedBox` で柵を置く)
+=readme §36
+
+=file Engine/Behavior/PathFinder.h, PathFinder.cpp
+=class PathFinder, PathOptions
+=role
+格子(`NavGrid`)の上で、A*(エースター)で最短の経路を探します。作業用の配列を 1 組だけ持って使い回します。ゲーム側が直接使うことは少なく、普通は `PathFollowComponent` が使います。
+=table
+PathFinder(const NavGrid* newGrid) | コンストラクタ | 探す格子を渡す
+FindPath(XMFLOAT3 start, XMFLOAT3 goal, const PathOptions& options) | std::vector<XMFLOAT3> | 経路(ワールド座標の点の並び。先頭は start の次の点、最後は goal)。見つからなければ空
+GetLastExpandedCount() | int | 直前の探索で調べたマスの数(確認用)
+PathOptions::smooth | bool | 経路を直線化する(見通せる限り先の点へ飛ばす。既定 `true`)
+PathOptions::allowDiagonal | bool | 斜めの移動を使う(8 方向。既定 `true`)。壁の角を斜めに抜けるのは禁止
+PathOptions::maxExpandedCells | int | 1 回の探索で調べるマスの上限(既定 20000。超えたら諦めて空の経路)
+=notes
+- 1 つの `PathFinder` を同時に別々の探索には使えません(同じスレッドで順に呼びます)。
+- start / goal が通れないマス(太らせた障害物の中)なら、近くの通れるマスの中心に寄せてから探します。
+- start / goal が格子の外、寄せられる場所が無い、つながっていない、上限を超えた時は、空の経路になります。
+- `smooth` の時は、まっすぐ行けるなら探さずに `[goal]` だけを返します。
+=demo Behavior カテゴリの「Path」
+=readme §36
+
+=file Engine/Behavior/VisionComponent.h, VisionComponent.cpp
+=class VisionComponent
+=role
+見張り役の「視野」を持たせる Component です(扇形の中にいて、壁にさえぎられていなければ見える)。見えたかどうかを調べるだけで、見えた後の動き(追いかける・色を変える)は付けた側の Component が決めます。
+=table
+SetFieldOfView(float degrees) | void | 視野の角度(全体。90 なら左右 45 度ずつ。0〜360)
+SetRange(float distance) | void | 見える距離
+SetPlane(MovePlane newPlane) | void | 見る平面(2D = XY、3D の地面 = XZ。既定 XY)
+SetEyeOffset(XMFLOAT3 offset) | void | 目の位置(足元ではなく胸の高さなど)
+SetObstacleTag(const std::string& tag) | void | このタグの物は壁(既定 "Wall"。`""` なら壁は考えない)
+SetFacing(XMFLOAT3 direction) | void | 正面を手で指定する(長さ 0 に戻すと transform の向き)
+SetCheckInterval(float seconds) | void | 壁の判定をやり直す間隔(既定 0.1 秒。0 なら毎回)
+GetFieldOfView() / GetRange() | float | 設定を返す
+GetFacing() | XMFLOAT3 | 今の正面(長さ 1)
+IsInCone(XMFLOAT3 point) | bool | 扇形(角度と距離)の中か。壁は考えない
+CanSee(XMFLOAT3 point) | bool | 扇形の中で壁にさえぎられていないか(呼ぶ度に Raycast する)
+CanSee(GameObject* target) | bool | 同じ(相手の位置を使う。壁の判定は `SetCheckInterval` の間隔で覚える)
+SetDebugDrawEnabled(bool enabled) | static void | `true` で全 Vision の扇形を線で描く(見えている時は赤、見えていない時は緑)
+Update(float dt) / Draw() / Uninit() | void (override) | 内部の処理
+=code Sample2D/Game/Objects/Guard.cpp:22-26
+=code Sample2D/Game/Components/GuardController.cpp:16-21
+=notes
+- **壁に `"Wall"` のタグを付け忘れると素通しになります**(視線がさえぎられない)。地面・ほかの敵・弾は壁になりません。
+- 相手の「1 点(位置)」だけを見ます。相手の中心が壁の陰なら、体が少しはみ出していても見えません。
+- 正面は `SetFacing` が最優先。無ければ XZ は `Math::Forward3D`(`rotate.y`)、XY は `Math::Forward2D`(`rotate.z`)。追いかける敵のように `rotate` を使わない物は、毎フレーム `SetFacing` で進む向きを渡します。
+- `Raycast` は 1 つ前の `Physics::Update` の位置を使うので、動いたばかりの壁には 1 フレーム遅れて反映されます。
+- 「カメラに映っているか」は [Visibility](Render.html#f-Visibility) の担当です(視野とは別)。
+=demo Behavior カテゴリの「Vision」
+=readme §28

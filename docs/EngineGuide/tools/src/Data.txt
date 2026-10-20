@@ -1,0 +1,61 @@
+﻿=page Data
+=title Data(CSV の表とセーブデータ)
+=lead
+`Engine/Data/` は、ゲームの「データ」を扱う仕組みです。敵の強さや出現の順番を Excel で調整するための **CSV の読み込み**(`Csv`)と、ハイスコアや音量を次の起動でも残す **セーブデータ**(`SaveData`)が入っています。
+=p
+**Demo で見る**: Demo プロジェクトの **Data カテゴリ**に、Csv(表を読む。保存し直すと実行中に反映)と Save(整数・小数・文字を保存して、開き直しても残す)の 2 個のデモがあります。
+
+=file Engine/Data/Csv.h, Csv.cpp
+=class Csv
+=role
+表(CSV ファイル)を読んで、列の名前で値を取り出します。敵の強さや出現の順番を、コードではなく Excel で調整するための仕組みです。
+=table
+Load(const std::wstring& path) | static Csv | 読み込む(毎回ファイルを読む。キャッシュしない)。1 行目は列の名前として扱う
+IsValid() | bool | 読み込めたか
+GetRowCount() | int | 行の数(1 行目の列の名前は数えない)
+GetColumnCount() | int | 列の数
+HasColumn(const std::string& column) | bool | その名前の列があるか
+GetString(int row, const std::string& column) | std::wstring | 文字として読む(無ければ空文字列)
+GetInt(int row, const std::string& column, int defaultValue) | int | 整数として読む(読めなければ `defaultValue`)
+GetFloat(int row, const std::string& column, float defaultValue) | float | 小数として読む(読めなければ `defaultValue`)
+FindRow(const std::string& column, const std::wstring& value) | int | その列の値が `value` と同じ最初の行を探す(無ければ -1)
+IsFileUpdated() | bool | 読み込んだ後にファイルが変わったか(更新日時か大きさが違えば `true`)
+Reload() | bool | 同じパスを読み直す。成功したら中身を入れ替えて `true`。失敗したら今の中身のまま `false`
+=code Sample2D/Game/Components/EnemyManager.cpp:166-172
+=code Sample2D/Game/Components/EnemyManager.cpp:152-158
+=notes
+- **`Load` は `Init` で 1 回だけ**呼びます(毎フレーム呼ばない。毎回ファイルを読み直すため)。
+- 列は名前で取り出すので、Excel で列の順番を入れ替えても壊れません。列の名前は半角英数字(Name, Hp, Speed)にします。**列の名前は大文字小文字を区別します**("name" と "Name" は別)。
+- 行の番号は 0 から数えます(表の 2 行目が `row=0`)。
+- 列が無い・行が範囲外・値が空・数に読めない時は、`defaultValue` を返し、出力ウィンドウに知らせます(列ごと・ファイルごとに 1 回だけ)。読めない時(ファイルが無い等)は `IsValid()` が `false` で、`Get` 系はいつも `defaultValue` を返します。
+- 文字コードは UTF-8 です。Excel では「**CSV UTF-8(コンマ区切り)**」で保存します(UTF-16 は読めません)。
+- 実行中の反映(ホットリロード): 0.5 秒ごとなどに `IsFileUpdated()` を調べ、`true` なら `Reload()` します。毎フレームは呼びません。Excel で開いたままでも読めます。
+- `Csv` は値として持てます(コピーしても、表の中身は共有するので軽い)。
+=demo Data カテゴリの「Csv」
+=readme §25
+
+=file Engine/Data/SaveData.h, SaveData.cpp
+=class SaveData(名前空間)
+=role
+ハイスコア・音量などを保存して、次に起動した時も残します。Unity の `PlayerPrefs` と同じ使い方です。`Set` / `Get` で読み書きして、`Save` でファイルに書きます。
+=table
+SetInt(const std::string& key, int value) | void | 整数を書く
+GetInt(const std::string& key, int defaultValue) | int | 整数を読む(無い・読めなければ `defaultValue`)
+SetFloat(const std::string& key, float value) | void | 小数を書く(無限大・NaN は書かない)
+GetFloat(const std::string& key, float defaultValue) | float | 小数を読む
+SetString(const std::string& key, const std::wstring& value) | void | 文字を書く(日本語・改行・= もそのまま使える)
+GetString(const std::string& key, const std::wstring& defaultValue) | std::wstring | 文字を読む
+HasKey(const std::string& key) | bool | そのキーがあるか
+DeleteKey(const std::string& key) | void | そのキーを消す
+Save(int slot) | bool | ファイルに書き出す(成功したら `true`)。一時ファイルに書いてから差し替えるので、前のデータは壊れない
+Load(int slot) | bool | ファイルから読み込む(今の値は捨てて置き換わる)。ファイルが無いのは正常(`true`)
+Init() / Uninit() | void | 内部用: GameEngine が呼ぶ(起動時に `Load(0)`、終了時に書き換えていれば自動 `Save`)
+=code Sample2D/Game/Components/GameManager.cpp:27-39
+=notes
+- 保存先は `%LOCALAPPDATA%\3D_FreamWork\save{slot}.txt`(例: `save0.txt`)です。**Sample2D と Sample3D は同じファイルを使う** ので、ハイスコアのキーは `"Sample2DHighScore"` / `"Sample3DHighScore"` のようにサンプルごとに別にします。
+- **キーに使える文字は英字・数字・`_` だけ**(PascalCase の英語にする: `"HighScore"`)。それ以外の文字を含むキー・空のキーは保存されず、`Get` はいつも `defaultValue` を返します。
+- 値は型を覚えずに文字で持ちます。同じキーに別の型で `Set` すると、後に書いた値で上書きされます。`GetInt` は整数として読めない値("1.5" など)なら `defaultValue`(小数を切り捨てたりしない)。
+- 起動時にEngineが自動で `Load(0)`、終了時に書き換えていれば自動で `Save` します(呼び忘れても消えません)。ただし起動時の `Load(0)` が読めなかった時は、そのファイルを上書きしないよう、終了時の自動保存はしません。
+- 中身を消して最初からやり直したい時は、ゲームを閉じてから `save0.txt` を消します。
+=demo Data カテゴリの「Save」
+=readme §18

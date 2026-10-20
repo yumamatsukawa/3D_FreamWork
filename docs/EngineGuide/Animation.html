@@ -1,0 +1,178 @@
+﻿<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Animation(動きと絵のアニメーション) - Engine解説</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="layout">
+<nav class="side">
+<div class="brand"><a href="index.html">Engine解説</a></div>
+<div class="search"><input type="search" id="q" placeholder="関数名・クラス名・ファイル名を検索" autocomplete="off"><ul id="results"></ul></div>
+<ul class="menu">
+<li><a href="index.html">トップ</a></li>
+<li><a href="architecture.html">設計図(図解)</a></li>
+<li><a href="Core.html">Core</a></li>
+<li><a href="Render.html">Render</a></li>
+<li><a href="Render3D.html">Render3D</a></li>
+<li><a href="Physics.html">Physics</a></li>
+<li><a href="UI.html">UI</a></li>
+<li><a href="Animation.html" class="current">Animation</a></li>
+<li><a href="Transition.html">Transition</a></li>
+<li><a href="Behavior.html">Behavior</a></li>
+<li><a href="Audio.html">Audio</a></li>
+<li><a href="Data.html">Data</a></li>
+<li><a href="ThirdParty.html">ThirdParty</a></li>
+<li><a href="files.html">ファイル索引</a></li>
+<li><a href="glossary.html">用語集</a></li>
+</ul>
+<p class="sidenote">3D_FreamWork の Engine を、初心者向けに解説したページです。</p>
+</nav>
+<main>
+<h1>Animation(動きと絵のアニメーション)</h1>
+<div class="lead"><code>Engine/Animation/</code> は、動きに表情を付ける仕組みです。動きの「速さの変化」(Ease)、位置・大きさ・色を滑らかに変える <code>TweenComponent</code>、スプライトのコマ送り(<code>SpriteAnimationComponent</code>)、FBX モデルのアニメーション(<code>ModelAnimationComponent</code>)が入っています。</div>
+<div class="toc"><strong>このページのファイル</strong><ul>
+<li><a href="#f-Ease">Ease.h</a></li>
+<li><a href="#f-TweenComponent">TweenComponent.h / TweenComponent.cpp</a></li>
+<li><a href="#f-SpriteAnimationComponent">SpriteAnimationComponent.h / SpriteAnimationComponent.cpp</a></li>
+<li><a href="#f-ModelAnimationComponent">ModelAnimationComponent.h / ModelAnimationComponent.cpp</a></li>
+</ul></div>
+<p><strong>Demo で見る</strong>: Render カテゴリの <strong>Tween</strong>(Ease の 8 種類を並べて比べる)と <strong>SpriteAnim</strong>(コマ送り)、Render3D カテゴリの <strong>SkinAnim</strong>(モデルのアニメ)と <strong>Model</strong>。</p>
+<section class="file" id="f-Ease">
+<h3><code>Engine/Animation/Ease.h</code></h3>
+<p class="role">イージング関数(動きの「速さの変化」)です。どれも <code>t</code>(進み具合 0〜1)を受け取って 0〜1 の値を返します。Unity の DOTween の <code>Ease</code> や、CSS の <code>ease-in-out</code> と同じ考え方で、式は easings.net と同じです。</p>
+<div class="tw"><table class="api"><thead><tr><th>名前</th><th>引数・戻り値</th><th>何をするか</th></tr></thead><tbody>
+<tr><td class="fn"><code>Linear(float t)</code></td><td class="sig"><code>float</code></td><td>一定の速さ</td></tr>
+<tr><td class="fn"><code>InQuad(float t)</code></td><td class="sig"><code>float</code></td><td>ゆっくり始まる</td></tr>
+<tr><td class="fn"><code>OutQuad(float t)</code></td><td class="sig"><code>float</code></td><td>ゆっくり止まる(<code>TweenComponent</code> の既定)</td></tr>
+<tr><td class="fn"><code>InOutQuad(float t)</code></td><td class="sig"><code>float</code></td><td>ゆっくり始まって、ゆっくり止まる</td></tr>
+<tr><td class="fn"><code>OutCubic(float t)</code></td><td class="sig"><code>float</code></td><td>OutQuad より強くゆっくり止まる</td></tr>
+<tr><td class="fn"><code>OutBack(float t)</code></td><td class="sig"><code>float</code></td><td>少し行き過ぎてから戻る(途中で 1 を超える)</td></tr>
+<tr><td class="fn"><code>OutElastic(float t)</code></td><td class="sig"><code>float</code></td><td>ばねのように揺れて止まる(途中で 0〜1 をはみ出す)</td></tr>
+<tr><td class="fn"><code>OutBounce(float t)</code></td><td class="sig"><code>float</code></td><td>ボールのように跳ねて止まる</td></tr>
+<tr><td class="fn"><code>EaseFunction</code></td><td class="sig"><code>using float(*)(float)</code></td><td>イージング関数の型。例: <code>EaseFunction ease = Ease::OutBack;</code></td></tr>
+</tbody></table></div>
+<div class="ex"><div class="exhead">使い方の例 <span class="src">出典: <code>Demo/Game/Components/Render/EaseRunnerController.cpp:60-62</code></span></div><pre><code>tween-&gt;MoveTo({ endX, y, 0.f }, duration, ease).SetLoop(true, true);
+tween-&gt;ColorTo(movedColor, duration, ease).SetLoop(true, true);
+tween-&gt;TweenValue(0.f, 1.f, duration, [this](float value) { progress = value; }, ease).SetLoop(true, true);</code></pre></div>
+<div class="notes"><strong>気を付ける点</strong><ul>
+<li><code>t</code> が 0〜1 の外でも、0〜1 に収めて(Clamp して)から計算します(<code>t&lt;0</code> は 0、<code>t&gt;1</code> は 1)。</li>
+<li>自分で使う時は <code>Math::Lerp(from, to, Ease::OutQuad(t))</code> のように、<code>Lerp</code> の <code>t</code> に渡します。</li>
+<li><code>TweenComponent</code> の関数の引数に <code>Ease::OutBack</code> のように関数名を渡すと、その速さの変化で動きます。</li>
+</ul></div>
+</section>
+<section class="file" id="f-TweenComponent">
+<h3><code>Engine/Animation/TweenComponent.h</code> <code>Engine/Animation/TweenComponent.cpp</code></h3>
+<p class="role">GameObject の位置・大きさ・回転・色(と好きな値)を、イージングを付けて目標値まで動かす Component です。UI のぴょこっと出る演出や、ふわっと消える文字などに使います。関数は全部自分自身を返すので、<code>.SetDelay(0.5f).SetOnComplete(...)</code> のようにつなげて書けます。</p>
+<h4>動きを始める</h4>
+<div class="tw"><table class="api"><thead><tr><th>名前</th><th>引数・戻り値</th><th>何をするか</th></tr></thead><tbody>
+<tr><td class="fn"><code>MoveTo(XMFLOAT3 target, float duration, EaseFunction ease)</code></td><td class="sig"><code>TweenComponent&amp;</code></td><td>位置を動かす(<code>ease</code> の既定は <code>Ease::OutQuad</code>)</td></tr>
+<tr><td class="fn"><code>ScaleTo(XMFLOAT3 target, float duration, EaseFunction ease)</code></td><td class="sig"><code>TweenComponent&amp;</code></td><td>大きさを変える</td></tr>
+<tr><td class="fn"><code>RotateTo(XMFLOAT3 target, float duration, EaseFunction ease)</code></td><td class="sig"><code>TweenComponent&amp;</code></td><td>回転させる(度。近い方向ではなく、数値をそのまま補間する)</td></tr>
+<tr><td class="fn"><code>ColorTo(XMFLOAT4 target, float duration, EaseFunction ease)</code></td><td class="sig"><code>TweenComponent&amp;</code></td><td>色を変える(<code>SpriteRenderer</code>、無ければ <code>MeshRenderer</code>)</td></tr>
+<tr><td class="fn"><code>TweenValue(float from, float to, float duration, std::function&lt;void(float)&gt; onUpdate, EaseFunction ease)</code></td><td class="sig"><code>TweenComponent&amp;</code></td><td>好きな値を動かす(毎フレーム <code>onUpdate</code> に今の値を渡す)</td></tr>
+</tbody></table></div>
+<h4>直前に始めた動きの設定</h4>
+<div class="tw"><table class="api"><thead><tr><th>名前</th><th>引数・戻り値</th><th>何をするか</th></tr></thead><tbody>
+<tr><td class="fn"><code>SetDelay(float seconds)</code></td><td class="sig"><code>TweenComponent&amp;</code></td><td>動き出すまで待つ時間</td></tr>
+<tr><td class="fn"><code>SetLoop(bool loop, bool pingPong)</code></td><td class="sig"><code>TweenComponent&amp;</code></td><td>繰り返す。<code>pingPong=true</code> で行って戻る(<code>loop=false</code> かつ <code>pingPong=true</code> なら 1 回だけ行って戻る)</td></tr>
+<tr><td class="fn"><code>SetUnscaled(bool unscaled)</code></td><td class="sig"><code>TweenComponent&amp;</code></td><td><code>true</code> でポーズ・スローの影響を受けない時間で動く</td></tr>
+<tr><td class="fn"><code>SetOnComplete(std::function&lt;void()&gt; callback)</code></td><td class="sig"><code>TweenComponent&amp;</code></td><td>終わった時に呼ぶ(ループの動きでは呼ばれない)</td></tr>
+</tbody></table></div>
+<h4>止める</h4>
+<div class="tw"><table class="api"><thead><tr><th>名前</th><th>引数・戻り値</th><th>何をするか</th></tr></thead><tbody>
+<tr><td class="fn"><code>Stop()</code></td><td class="sig"><code>void</code></td><td>すべての動きを今の値のまま止める(<code>OnComplete</code> は呼ばない)</td></tr>
+<tr><td class="fn"><code>Update(float dt) / Uninit()</code></td><td class="sig"><code>void (override)</code></td><td>内部の処理</td></tr>
+</tbody></table></div>
+<div class="ex"><div class="exhead">使い方の例 <span class="src">出典: <code>Sample2D/Game/Objects/StartButton.cpp:16-20</code></span></div><pre><code>// 出る時の演出: 大きさ0から本来の大きさへ、0.4秒でぴょこっと大きくする
+// (クリック判定もtransform.scaleを使うので、大きくなる途中も見た目と判定が合う)
+DirectX::XMFLOAT3 size = button-&gt;transform.scale;
+button-&gt;transform.scale = { 0.f, 0.f, size.z };
+button-&gt;AddComponent&lt;TweenComponent&gt;()-&gt;ScaleTo(size, 0.4f, Ease::OutBack);</code></pre></div>
+<div class="ex"><div class="exhead">使い方の例 <span class="src">出典: <code>Sample2D/Game/Objects/ScorePopup.cpp:28-37</code></span></div><pre><code>// 動き: 上へ動きながら、文字をだんだん透明にする。消え終わったら自分を消す
+auto* tween = popup-&gt;AddComponent&lt;TweenComponent&gt;();
+tween-&gt;MoveTo({ position.x, position.y + riseHeight, position.z }, duration, Ease::OutQuad);
+tween-&gt;TweenValue(1.0f, 0.0f, duration, [text](float alpha) {
+    DirectX::XMFLOAT4 color = text-&gt;GetStyle().color;
+    color.w = alpha;
+    text-&gt;SetColor(color);
+}, Ease::InQuad).SetOnComplete([popup]() {
+    popup-&gt;Destroy();
+});</code></pre></div>
+<div class="notes"><strong>気を付ける点</strong><ul>
+<li>開始値は「動き出した時(<code>SetDelay</code> の待ち時間が終わった時)の今の値」です。<code>TweenValue</code> だけは引数の <code>from</code> から始まります。</li>
+<li><code>SetDelay</code> / <code>SetLoop</code> / <code>SetUnscaled</code> / <code>SetOnComplete</code> は <strong>直前に始めた動き</strong> に効きます(つなげて書く)。</li>
+<li>位置・大きさ・回転・色は、同じ種類を 2 つ始めると前の動きは消えて <strong>後から始めた方だけ</strong> が動きます(上書き)。<code>TweenValue</code> は上書きされず、いくつでも同時に動かせます。</li>
+<li><strong><code>SetLoop(true, ...)</code> の動きは終わらない</strong> ので、<code>SetOnComplete</code> は呼ばれません(止める時は <code>Stop()</code>)。</li>
+<li><strong>PhysX の Dynamic な剛体が付いた物には <code>MoveTo</code> / <code>RotateTo</code> を使わない</strong>(PhysX の位置で上書きされます)。</li>
+<li><code>SetOnComplete</code> や <code>TweenValue</code> のコールバックの中で、新しい動きを始めても、<code>Stop()</code> しても、オブジェクトを <code>Destroy()</code> しても大丈夫です(上の <code>ScorePopup</code> の例)。</li>
+<li>GameObject が非アクティブの間は、動きも止まります。<code>duration</code> が 0 以下の動きは、次の Update で 1 周終わった状態になります。</li>
+</ul></div>
+</section>
+<section class="file" id="f-SpriteAnimationComponent">
+<h3><code>Engine/Animation/SpriteAnimationComponent.h</code> <code>Engine/Animation/SpriteAnimationComponent.cpp</code></h3>
+<p class="role">スプライトシート(1 枚の画像を格子に分けたもの)のコマを、時間に合わせて送る Component です。同じ GameObject の <code>SpriteRenderer</code> のコマ番号を毎フレーム変えます。Unity の Animator + Sprite アニメーションの簡単版です。</p>
+<div class="tw"><table class="api"><thead><tr><th>名前</th><th>引数・戻り値</th><th>何をするか</th></tr></thead><tbody>
+<tr><td class="fn"><code>AddClip(const std::string&amp; name, std::vector&lt;int&gt; frames, float frameDuration, bool loop)</code></td><td class="sig"><code>void</code></td><td>アニメーションを登録する(名前、コマ番号の並び、1 コマの秒数、繰り返すか)</td></tr>
+<tr><td class="fn"><code>Play(const std::string&amp; name)</code></td><td class="sig"><code>void</code></td><td>再生する。今と同じ名前なら何もしない(毎フレーム呼んでよい)</td></tr>
+<tr><td class="fn"><code>Stop()</code></td><td class="sig"><code>void</code></td><td>止める(コマは今のまま)</td></tr>
+<tr><td class="fn"><code>IsFinished()</code></td><td class="sig"><code>bool</code></td><td>ループしないクリップが最後まで行って止まったか(ループするものは常に <code>false</code>)</td></tr>
+<tr><td class="fn"><code>SetSpeed(float newSpeed)</code></td><td class="sig"><code>void</code></td><td>再生の速さ(1=通常、2=倍速、0=一時停止。負の値は 0)</td></tr>
+<tr><td class="fn"><code>SetRandomStart(bool enabled)</code></td><td class="sig"><code>void</code></td><td>始まるコマをランダムにする(ループするクリップだけ。敵の足踏みがそろわないように)</td></tr>
+<tr><td class="fn"><code>GetCurrentClip()</code></td><td class="sig"><code>const std::string&amp;</code></td><td>再生中のクリップの名前(止まっていれば空)</td></tr>
+<tr><td class="fn"><code>GetSpeed()</code></td><td class="sig"><code>float</code></td><td>今の速さ</td></tr>
+<tr><td class="fn"><code>Update(float dt) / OnActiveChanged(bool active)</code></td><td class="sig"><code>void (override)</code></td><td>内部の処理</td></tr>
+</tbody></table></div>
+<div class="ex"><div class="exhead">使い方の例 <span class="src">出典: <code>Sample3D/Game/Components/EnemyManager.cpp:42-47</code></span></div><pre><code>// 歩きアニメーション: コマ4と5を0.3秒ごとに(何体いても足踏みがそろわないように、始まるコマはランダム)
+// 再利用された時は、SpriteAnimationComponentが自分で最初からやり直す
+auto* anim = obj-&gt;AddComponent&lt;SpriteAnimationComponent&gt;();
+anim-&gt;AddClip(&quot;Walk&quot;, { 4, 5 }, 0.3f, true);
+anim-&gt;SetRandomStart(true);
+anim-&gt;Play(&quot;Walk&quot;);</code></pre></div>
+<div class="ex"><div class="exhead">使い方の例 <span class="src">出典: <code>Demo/Game/Objects/Render/SpriteAnimDemo.cpp:62-65</code></span></div><pre><code>auto* anim = ghost-&gt;AddComponent&lt;SpriteAnimationComponent&gt;();
+anim-&gt;AddClip(&quot;Walk&quot;, { 0, 1 }, 0.25f, true);
+anim-&gt;SetRandomStart(true);
+anim-&gt;Play(&quot;Walk&quot;);</code></pre></div>
+<div class="notes"><strong>気を付ける点</strong><ul>
+<li><strong><code>SpriteRenderer</code> の後に付けます</strong>(同じ GameObject に <code>SpriteRenderer</code> が無ければ何もしません)。</li>
+<li><code>Play</code> に今と同じ名前を渡しても最初に戻りません。ループしないクリップを同じ名前で最初からやり直したい時は、<code>Stop()</code> してから <code>Play</code> します。</li>
+<li>登録されていない名前の <code>Play</code> は何もしません(出力ウィンドウに名前ごとに 1 回知らせます)。<code>frames</code> が空、<code>frameDuration</code> が 0 以下のクリップは登録されません。止め絵にしたい時は、コマを 1 つだけにします。</li>
+<li>ObjectPool で使い回した時(<code>SetActive(true)</code>)は、今のクリップを最初のコマから(<code>SetRandomStart</code> ならランダムなコマから)やり直します。</li>
+<li>時間は <code>Update</code> の <code>dt</code> で進みます(ポーズ中は止まります)。</li>
+</ul></div>
+</section>
+<section class="file" id="f-ModelAnimationComponent">
+<h3><code>Engine/Animation/ModelAnimationComponent.h</code> <code>Engine/Animation/ModelAnimationComponent.cpp</code></h3>
+<p class="role">FBX モデルのパーツの動き(Maya で付けたキーフレーム)を再生する Component です。同じオブジェクトの <code>ModelRenderer</code> に付けます。位置・スケールは線形、回転はクォータニオンで補間して、毎フレーム <code>ModelRenderer</code> のパーツの動きに書き込みます。</p>
+<div class="tw"><table class="api"><thead><tr><th>名前</th><th>引数・戻り値</th><th>何をするか</th></tr></thead><tbody>
+<tr><td class="fn"><code>Play(const std::string&amp; clipName, bool loopPlay)</code></td><td class="sig"><code>void</code></td><td>クリップを最初から再生する(Maya で付けたクリップ名)。再生中の同じクリップなら何もしない。名前が無い時は何もしない</td></tr>
+<tr><td class="fn"><code>CrossFade(const std::string&amp; clipName, float seconds)</code></td><td class="sig"><code>void</code></td><td>今のポーズから新しいクリップへ <code>seconds</code> 秒かけて滑らかに切り替える</td></tr>
+<tr><td class="fn"><code>IsFinished()</code></td><td class="sig"><code>bool</code></td><td>ループしない動きが最後まで終わったか(最後のポーズで止まる)</td></tr>
+<tr><td class="fn"><code>SetSpeed(float newSpeed)</code></td><td class="sig"><code>void</code></td><td>再生の速さ(1=等倍、0=止まる)</td></tr>
+<tr><td class="fn"><code>GetClipNames()</code></td><td class="sig"><code>std::vector&lt;std::string&gt;</code></td><td>入っているクリップ名の一覧(確認用)</td></tr>
+<tr><td class="fn"><code>Init() / Update(float dt)</code></td><td class="sig"><code>void (override)</code></td><td>内部の処理</td></tr>
+</tbody></table></div>
+<div class="ex"><div class="exhead">使い方の例 <span class="src">出典: <code>Sample3D/Game/Objects/ModelDisplay.cpp:36-41</code></span></div><pre><code>// アニメーションの再生役(ModelRendererの後に付ける)。最初は &quot;Spin&quot;
+ModelAnimationComponent* animation = nullptr;
+if (animated) {
+    animation = display-&gt;AddComponent&lt;ModelAnimationComponent&gt;();
+    animation-&gt;Play(&quot;Spin&quot;);
+}</code></pre></div>
+<div class="ex"><div class="exhead">使い方の例 <span class="src">出典: <code>Sample3D/Game/Components/ModelDisplayController.cpp:12-12</code></span></div><pre><code>animation-&gt;CrossFade(spinning ? &quot;Spin&quot; : &quot;Bob&quot;, fadeSeconds);</code></pre></div>
+<div class="notes"><strong>気を付ける点</strong><ul>
+<li><strong><code>ModelRenderer</code> の後に</strong> <code>AddComponent</code> します(<code>Init</code> で <code>ModelRenderer</code> を探すため)。</li>
+<li>アニメーションを再生している間は、手で <code>GetNodeTransform</code> の値を動かしても、アニメが動かすパーツは次のフレームに戻ります。</li>
+<li>骨で曲がるモデル(スキン)も、Demo の SkinAnim と Sample3D の SkinDisplay で再生できます。</li>
+<li>(ヘッダーの先頭コメントには「スキンはまだ対応していない」と残っていますが、これは古い記述です。実際のコードと Demo では対応しています。)</li>
+</ul></div>
+</section>
+
+<footer class="foot">この解説は <code>docs/EngineGuide/tools/build.ps1</code> で作っています。表の内容は Engine のヘッダーから拾っています。コード例は Sample2D / Sample3D / Demo の実際のソースを読み込んで載せています。</footer>
+</main>
+</div>
+<script src="search-index.js"></script>
+<script src="search.js"></script>
+</body>
+</html>

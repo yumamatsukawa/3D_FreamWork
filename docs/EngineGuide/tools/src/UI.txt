@@ -1,0 +1,157 @@
+﻿=page UI
+=title UI(文字・ボタン・ゲージ・スライダー)
+=lead
+`Engine/UI/` は、画面に文字や部品を出す仕組みです。文字(Text / TextRenderer)、画面の位置の決め方(Anchor)、ボタン、HP バーなどのゲージ、ドラッグで動かすスライダーが入っています。
+UI の座標は **画面の中央が (0,0)、Y+ が上、単位はゲーム画面のピクセル** です(`Text::Draw` も `Image::DrawRect` も `Anchor` も同じ)。
+=p
+**描かれる順番**: 文字と `Image::DrawRect` の四角は、**UI スプライトの後に、呼んだ順** に描かれます(Direct2D で描くため。[設計図の描画の順番](architecture.html#draw))。
+=p
+**Demo で見る**: Demo プロジェクトの **UI カテゴリ**に、UI(ボタン・スライダー・ゲージ・TextRenderer)/ Rect / Text / WorldUI の4個のデモがあります。
+
+=file Engine/UI/Text.h, Text.cpp
+=class Text(名前空間), TextStyle, TextAlign
+=role
+画面に文字を描きます(Direct2D / DirectWrite)。`Component::Draw` の中で `Text::Draw` を呼びます。文字の見た目は `TextStyle` にまとめます。
+=table
+Draw(const std::wstring& text, float x, float y, const TextStyle& style) | void | 文字を描く。`(x, y)` は `align` で決まる横の位置と、縦の中心(画面座標)
+Draw(text, x, y, float size, XMFLOAT4 color, const std::wstring& fontName) | void | 昔の書き方(中心に合わせて描く。縁取り・太字なし)
+Measure(const std::wstring& text, const TextStyle& style) | XMFLOAT2 | 描いた時の幅と高さ(ピクセル。縁取りは入らない)。`Update` の中で呼んでもよい
+LoadFont(const std::wstring& path) | std::wstring | フォントファイル(.ttf / .otf)を読み込み、`TextStyle::fontName` に入れる名前を返す。同じファイルは 2 回読まない。失敗したら空
+Init() / Uninit() / BeginDraw() / EndDraw() | bool / void | 内部用: GameEngine が呼ぶ
+GetRenderTarget() | ID2D1RenderTarget* | 内部用: Direct2D の描画先(ScreenEffect などが使う)
+=table TextStyle(文字の見た目)
+size | float | 文字の大きさ(ピクセル。既定 32)
+color | XMFLOAT4 | 色(w は濃さ。縁取りも一緒に薄くなる)
+fontName | std::wstring | フォントの名前(`LoadFont` が返した名前か、PC に入っているフォント名。既定 Arial)
+align | TextAlign | 横の寄せ方: `Left`(x が左端)/ `Center`(x が中心。既定)/ `Right`(x が右端)。縦はいつも中心
+bold | bool | 太字
+outlineColor | XMFLOAT4 | 縁取りの色(a=0 なら縁取り無し)
+outlineWidth | float | 縁取りの太さ(ピクセル。既定 2)
+=code Sample2D/Game/Components/HUDController.cpp:19-22
+=code Sample2D/Game/Components/HUDController.cpp:24-39
+=notes
+- `Text::Draw` は **`Component::Draw` の中**(GameEngine の `Text::BeginDraw` 〜 `EndDraw` の間)で呼びます。`Update` の中で呼んでも描かれません。
+- Scene::Draw の間に呼んだ `Text::Draw` は、その場では描かれず「オーバーレイキュー」に積まれ、**UI スプライトの後に、呼んだ順** で描かれます。そのため文字は UI のスプライトより必ず手前に出ます。
+- フォントは `Text::LoadFont(L"Assets/Fonts/○○.ttf")` で読むと、PC にインストールしていなくてもチーム全員で同じ見た目になります。フォントのライセンスファイルも一緒に置きます。
+- 日本語を含む文字は `L"..."` の文字列(`std::wstring`)で渡します。`.cpp` は UTF-8 の BOM 付きで保存します(CLAUDE.md)。
+- 画面座標は Y+ が上です。文字の位置は `GetAnchoredPosition` で画面の隅から決めると、画面サイズが変わってもずれません。
+=demo UI カテゴリの「Text」(大きさ・色・縁取り・寄せ方・フォント)
+=readme §19
+
+=file Engine/UI/TextRenderer.h, TextRenderer.cpp
+=class TextRenderer
+=role
+GameObject に付いて一緒に動く文字(ダメージの数字・キャラクターの名前など)を描く Component です。
+=table
+SetText(const std::wstring& value) | void | 表示する文字
+GetText() | const std::wstring& | 今の文字
+SetStyle(const TextStyle& value) | void | 見た目(大きさ・色・フォントなど)
+GetStyle() | const TextStyle& | 今の見た目
+SetColor(XMFLOAT4 color) | void | 文字の色だけ変える(w を下げると縁取りも薄くなる)
+SetOffset(XMFLOAT3 value) | void | オブジェクトの位置からずらす量(ワールド。頭の上など)
+SetUse3DCamera(bool value) | void | 3D のオブジェクトに付ける時は `true`
+SetSizeMode(TextSizeMode value) / GetSizeMode() | void / TextSizeMode | 大きさの決め方: `Screen`(既定。距離で変わらない)/ `World`(3D カメラからの奥行きで変わる)
+SetReferenceDistance(float value) | void | `World` で、`style.size` のピクセルになる奥行き(ワールド。既定 500。0 以下は 500 として扱う)
+SetSizeRange(float minPixels, float maxPixels) | void | `World` の大きさの限界(ピクセル。既定は最小 8、最大は `style.size` の 3 倍。最大に 0 以下を渡すと 3 倍)
+Draw() | void (override) | 内部の処理: 画面座標に直して描く
+=code Sample2D/Game/Objects/ScorePopup.cpp:17-26
+=notes
+- 2D は 2D カメラで画面座標に直します(`Image::WorldToScreen2D`)。カメラと一緒にスクロールします。3D のオブジェクトに付ける時は `SetUse3DCamera(true)`(カメラの後ろにある時は描かれません)。
+- 文字の大きさは、既定の `Screen` では **カメラからの距離では変わりません**(いつも `style.size` のピクセル)。
+- `SetSizeMode(TextSizeMode::World)` にすると、3D カメラからの奥行きに反比例して、遠いほど小さく近いほど大きくなります(`style.size × 基準の奥行き ÷ 奥行き`)。小さすぎ・大きすぎは `SetSizeRange` の限界で止まり、縁取りの太さも大きさに合わせて変わります。
+- `World` が効くのは **`SetUse3DCamera(true)` の時だけ** です。2D カメラには奥行きが無いので、2D で `World` を選んでも大きさは変わりません。
+- 文字は画面の一番上に出ます(画像や 3D の物の後ろには隠れません)。
+=demo UI カテゴリの「UI」「WorldUI」(物の頭上の名前と HP。WorldUI は M キーで名前の大きさの決め方を切り替え)
+=readme §19
+
+=file Engine/UI/Anchor.h, Anchor.cpp
+=class Anchor, GetAnchoredPosition, GetAnchoredCenter
+=role
+「画面のどこを基準に置くか」を決める道具です(9 か所)。画面サイズが変わっても、隅や中央からの距離は変わりません。CSS でいう `position: absolute; top/left` のような考え方です。
+=table
+Anchor | enum class | `TopLeft` `Top` `TopRight` `Left` `Center` `Right` `BottomLeft` `Bottom` `BottomRight` の9か所
+GetAnchoredPosition(Anchor anchor, XMFLOAT2 offset) | XMFLOAT2 | 基準の位置(隅・辺の真ん中・中央)に `offset` を足した画面座標。下へずらす時は Y をマイナスにする
+GetAnchoredCenter(Anchor anchor, XMFLOAT2 offset, XMFLOAT2 size) | XMFLOAT2 | 大きさ `size` の四角を anchor 側に合わせて置いた時の、四角の中心の画面座標(バーがはみ出さない)
+=code Sample2D/Game/Components/HUDController.cpp:38-39
+=notes
+- `offset` は画面座標系(Y+ が上)でのずらす量です。左上から「右へ 40、下へ 40」なら `{ 40.f, -40.f }`。
+- 画面の大きさは `Graphics::width` / `Graphics::height` から毎回計算するので、画面サイズが変わってもずれません。
+=demo UI カテゴリの「Rect」(画面の 9 か所に四角を置く)
+=readme §20
+
+=file Engine/UI/ButtonComponent.h, ButtonComponent.cpp
+=class ButtonComponent
+=role
+クリックできるボタン(見た目の変化・クリック判定・文字の表示)を担当する Component です。見た目の画像は、同じオブジェクトに付けた `SpriteRenderer` を使います(**先に付けておく**)。
+=table
+ButtonComponent(const std::wstring& label, float textSize, std::function<void()> onClick) | コンストラクタ | ボタンの文字・文字の大きさ(既定 48)・押された時の処理
+SetOnClick(std::function<void()> callback) | void | クリックされた時に呼ぶ関数を後から変える
+SetLabel(const std::wstring& text) | void | ボタンに表示する文字
+SetInteractable(bool enabled) | void | `false` で押せなくして灰色にする
+IsInteractable() | bool | 押せるか
+Init() / Update(float dt) / Draw() | void (override) | 内部の処理
+=code Sample2D/Game/Objects/Button.cpp:9-18
+=code Sample2D/Game/Objects/StartButton.cpp:10-14
+=notes
+- クリック判定は **ワールド座標** で行います(`Input::GetMouseWorldPosition` と `transform` の位置・大きさ・回転)。ボタンの大きさは `transform.scale`(クリック判定もこの大きさ)。
+- **`transform.scale` は `AddComponent` する前に決めておく**(文字の大きさの基準になるため)。
+- 押して、同じボタンの上で離した時だけ `onClick` が呼ばれます(途中でボタンの外に出たらキャンセル)。
+- 押している間は暗く、マウスが乗っている間は明るく、それ以外は少し暗めになります(`SpriteRenderer` の色を変えます)。
+- スライダーのつまみをつかんでいる間は、ボタンは反応しません。
+- `onClick` の中で `SceneManager::ChangeScene` を呼ぶと、切り替え中の二重押しは無視されます。
+=demo UI カテゴリの「UI」
+=readme §20
+
+=file Engine/UI/GaugeRenderer.h, GaugeRenderer.cpp
+=class GaugeRenderer
+=role
+HP バーなどの「帯のゲージ」を描く Component です。値を表示するだけで、値の持ち主にはなりません(HP は `PlayerController` などが持ち、ゲージは読んで表示するだけ)。
+=table
+SetValue(float current, float max) | void | 今の値と最大値(中身の割合 = current / max)
+SetValueSource(std::function<float()> currentGetter, std::function<float()> maxGetter) | void | 毎フレーム自動で読む関数を決める(値の持ち主のゲッターを渡す)
+GetRatio() | float | 中身の割合(0〜1)
+GetDelayedRatio() | float | 遅れて縮む帯の割合(0〜1)
+SetColors(XMFLOAT4 fill, XMFLOAT4 background) | void | 中身の色と背景の色
+SetDelayedBar(bool enabled, XMFLOAT4 color) | void | 減った分を少し遅れて縮める帯(ダメージ量が分かる)
+SetSize(float width, float height) | void | 幅と高さ(ピクセル。0 以下は無視)
+SetAnchor(Anchor anchorPoint, XMFLOAT2 offset) | void | 画面に固定して表示する(左上の HP など)
+SetFollowTarget(GameObject* followTarget, XMFLOAT2 offset) | void | オブジェクトの上に表示する(敵の頭上)。`offset` はワールドでずらす量
+SetUse3DCamera(bool enabled) | void | 3D のオブジェクトを追う時は `true`
+Update(float dt) / Draw() | void (override) | 内部の処理
+=code Sample2D/Game/Objects/HUD.cpp:14-24
+=code Sample2D/Game/Objects/Player.cpp:39-46
+=notes
+- 帯は `Image::DrawRect`(Direct2D)で描くので、カメラの影響を受けず、画像や 3D の後に重なります。
+- `SetFollowTarget` の **target は、このゲージより長く生きるオブジェクト** にします(ゲージを付けたオブジェクト自身なら安全)。別のオブジェクトを target にして、それが消えるなら、先に `SetFollowTarget(nullptr, ...)` するか、ゲージ側も Destroy します(ポインタだけでは消えたかが分からないため)。
+- 3D のオブジェクトの頭上に出す時は `SetUse3DCamera(true)`(カメラの後ろにある時は描かれません)。
+- 最大値が 0 以下なら、中身は空として描かれます。現在の値は 0〜最大値に収めて描きます。
+- 遅れて縮む帯の時間は `Update` の `dt` で進むので、ポーズ中は止まります。
+=demo UI カテゴリの「UI」「WorldUI」
+=readme §20
+
+=file Engine/UI/SliderComponent.h, SliderComponent.cpp
+=class SliderComponent
+=role
+マウスのドラッグで値を変えるスライダー(音量の設定など)を描いて動かす Component です。
+=table
+SetRange(float minimum, float maximum) | void | 値の範囲(逆なら入れ替える)
+SetValue(float newValue) | void | 値を設定する(範囲と刻み幅に合わせる)。`onChanged` は呼ばれない
+GetValue() | float | 今の値
+SetStep(float stepSize) | void | 刻み幅(0 = 刻まない)
+SetOnChanged(std::function<void(float)> callback) | void | つまみを動かして値が実際に変わった時に呼ぶ
+SetOnDragEnd(std::function<void(float)> callback) | void | つまみを離した時に 1 回呼ぶ(保存など)
+SetAnchor(Anchor anchorPoint, XMFLOAT2 anchorOffset) | void | 画面のどこに置くか
+SetSize(float width, float height) | void | 溝の幅と高さ(ピクセル)
+SetColors(XMFLOAT4 track, XMFLOAT4 fill, XMFLOAT4 handle) | void | 溝・左側・つまみの色
+SetLabel(const std::wstring& text, const TextStyle& style) | void | スライダーの上に出す文字
+IsDragging() | bool | つまみをつかんでいるか
+IsAnyDragging() | static bool | どれかのスライダーのつまみをつかんでいるか(ボタンが反応を止めるために使う)
+Update(float dt) / Draw() / OnActiveChanged(bool) / Uninit() | void (override) | 内部の処理
+=code Sample2D/Game/Objects/VolumeSlider.cpp:11-30
+=notes
+- `SetOnChanged` は、**つまみを動かして値が変わった時だけ** 呼ばれます。コードから `SetValue` / `SetRange` / `SetStep` で変えた時は呼ばれません(最初の値を決める時に保存が動かないように)。
+- ポーズ中・シーン切り替え中(`Time::IsPaused()`)は操作できません。
+- **つかんでいる間に、このコンポーネントだけを `SetEnabled(false)` しない**(`IsAnyDragging()` が `true` のままになり、ボタンが反応しなくなる)。止めたい時は GameObject ごと `SetActive(false)` にします。
+- 位置は `SetAnchor` で決めます(溝の anchor 側の角が合う)。画面に固定して表示し、カメラの影響を受けません。
+=demo UI カテゴリの「UI」、Audio カテゴリの「Sound」(音量スライダー)
+=readme §20

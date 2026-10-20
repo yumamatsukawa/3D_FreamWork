@@ -1,0 +1,113 @@
+﻿=page Physics
+=title Physics(物理と当たり判定)
+=lead
+`Engine/Physics/` は、物理エンジン **PhysX 4.1** を使った「動き」と「当たり判定」です。2D のゲームも 3D のゲームも、**当たり判定は全部 PhysX が計算しています**(2D 専用の物理があるわけではなく、2D 用の使いやすい形(Circle / Square)が用意されています)。
+物をぶつけたい時は、GameObject に `○○RigidbodyComponent` を付けます。ぶつかった時の反応は、Component の `OnCollisionEnter` / `OnTriggerEnter` などを `override` して書きます。
+=p
+**Demo で見る**: Demo プロジェクトの **Physics カテゴリ**に、Collider / Force / RigidbodySettings / Trigger / Query / TerrainCollider の6個のデモがあります。流れの図は[設計図の物理とコールバック](architecture.html#physics)にあります。
+
+=file Engine/Physics/RigidbodyComponent.h, RigidbodyComponent.cpp
+=class RigidbodyComponent, BoxRigidbodyComponent, SphereRigidbodyComponent, CircleRigidbodyComponent, SquareRigidbodyComponent, CapsuleRigidbodyComponent, Capsule2DRigidbodyComponent, TerrainRigidbodyComponent, BodyType
+=role
+物理の剛体(Unity の `Rigidbody` + `Collider` を1つにしたもの)です。親クラスの `RigidbodyComponent` に共通の機能があり、形ごとの子クラスを `AddComponent` します。Dynamic は PhysX の計算結果が `transform` に反映され、Kinematic は逆に `transform` の位置が PhysX に伝わります。
+=table 剛体の種類(BodyType)
+BodyType::Dynamic | enum class BodyType | 重力や衝突で物理的に動く。PhysX の計算結果が Transform に反映される。普通の動く物
+BodyType::Kinematic | enum class BodyType | 自分のコードが Transform を動かす。Dynamic を押せるが、自分は重力や力の影響を受けない
+BodyType::Static | enum class BodyType | 完全に動かない(床・壁など)
+=table 形ごとのクラス(どれも Component として AddComponent する)
+BoxRigidbodyComponent | (BodyType, XMFLOAT3 size, float density, bool isTrigger, bool isStaticForPush) | 3D の箱。`size` の既定(0)は Owner の `transform.scale`
+SphereRigidbodyComponent | (BodyType, float radius, float density, bool isTrigger, bool isStaticForPush) | 3D の球。`radius` の既定(0)は `transform.scale.x` の半分
+CircleRigidbodyComponent | (同上) | 2D 用の円。中身は Sphere と同じ(PhysX に2D専用の形は無い)
+SquareRigidbodyComponent | (BodyType, float size, float density, bool isTrigger, bool isStaticForPush) | 2D 用の四角。中身は Box(一辺 `size` の立方体)
+CapsuleRigidbodyComponent | (BodyType, float radius, float height, float density, bool isTrigger, bool isStaticForPush, CapsuleAxis axis) | 3D のカプセル(円柱の両端が半球)。人や敵向き。`axis` の既定は Y(立った形)
+Capsule2DRigidbodyComponent | (同上) | 2D 用のカプセル。デバッグ表示は断面だけ
+TerrainRigidbodyComponent | (const std::shared_ptr<Terrain>& terrain, bool isTrigger) | 地形(Terrain)の起伏に合わせた当たり判定。いつも Static
+=table 共通の関数(RigidbodyComponent)
+SetVelocity(XMFLOAT3 velocity) | void | 速度を設定する。Dynamic の時だけ意味がある。毎回3軸ぜんぶ上書きする
+GetVelocity() | XMFLOAT3 | 今の速度(Kinematic / Static では常に 0)
+SetUseGravity(bool useGravity) | void | 重力を受けるか。Dynamic だけ
+SetFreezeRotation(bool freeze) | void | `true` でぶつかっても回転しない。Dynamic だけ
+SetFreezePositionX(bool freeze) | void | `true` で X 方向に動かない。Dynamic だけ(`Y` / `Z` も同じ形)
+AddForce(XMFLOAT3 force, ForceMode mode) | void | 力を加える。既定の `mode` は `ForceMode::Force`。Dynamic だけ。コールバックの中で呼んでもよい
+AddTorque(XMFLOAT3 torque, ForceMode mode) | void | 回す力を加える。`SetFreezeRotation(true)` の時は回らない
+SetMass(float mass) | void | 重さを変える(作った時は 密度 × 体積)。0以下は無視。コールバックの中では呼ばない
+GetMass() | float | 今の重さ(Static は 0)
+SetDrag(float drag) | void | 空気抵抗。0で落ちない、大きいほどすぐ止まる。負の値は 0
+GetBodyType() | BodyType | 剛体の種類
+GetActor() | physx::PxRigidActor* | PhysX の生のアクター(PhysX を直接触りたい時だけ)
+SetDebugDrawEnabled(bool enabled) | static void | `true` で全剛体の当たり判定を枠線で描く(緑=通常、黄=トリガー)。見た目とのズレの確認用
+=code Sample2D/Game/Objects/Player.cpp:24-28
+=code Sample2D/Game/Objects/Wall.cpp:22-23
+=code Sample2D/Game/Components/PlayerController.cpp:91-96
+=code Sample3D/Game/Components/EnemyManager.cpp:49-52
+=code Sample3D/Game/Objects/Hills.cpp:33-34
+=notes
+- **Dynamic の `transform` を直接書き換えない**。動かす時は `SetVelocity()` か `AddForce()` を使います(直接書くと PhysX の計算とぶつかります)。Kinematic だけは `transform.position` を直接動かしてよい決まりです。
+- `SetVelocity` / `SetUseGravity` / `SetFreezeRotation` / `SetFreezePosition○` / `AddForce` / `AddTorque` / `SetMass` / `SetDrag` は **Dynamic にしか効きません**(Kinematic / Static では何もせず、出力ウィンドウに1回だけ知らせます)。
+- `SetVelocity` は **毎回3軸すべてを上書き**します。重力で落ちる Y の速さを残したい時は、`GetVelocity()` で今の値を読んで渡します。
+- **2D のゲームでは `SetUseGravity(false)` と `SetFreezePositionZ(true)`**(と、回したくなければ `SetFreezeRotation(true)`)を付けるのが決まりです。物理の重力はシーン全体で下向き(`(0,-981,0)`)に働くので、2D のトップダウンでは切っておきます(Sample2D の Player が実例)。`SquareRigidbodyComponent` は奥行きも一辺と同じ長さの立方体です。
+- **Kinematic の物と Static の物の間では、衝突のコールバックは来ません(すり抜けます)**。PhysX の既定では、Kinematic と Static の組はペアにならないためです(README §38 の記録と一致。Engine には `eENABLE_KINEMATIC_STATIC_PAIRS` などの設定がありません。実行して確かめたのではなく、PhysX の既定の動きから導いた結論です)。`Physics.cpp` の `CollisionFilterShader` のコメントは、ペアができた後の通知の話です。壁にぶつけたい物は Dynamic にして `SetVelocity` で動かすと、Static の壁と衝突します。
+- `isStaticForPush`: `true` だと、Kinematic 同士がぶつかった時に自分は押し戻されない側になります(`BodyType::Static` とは別の概念)。
+- カプセルを立てたまま回転ロック無しの Dynamic にすると、ぶつかった時に倒れて転がります。人・敵には `SetFreezeRotation(true)` を付けます。
+- `TerrainRigidbodyComponent` は、`TerrainRenderer` に渡したのと **同じ Terrain** を渡します(見た目と当たり判定がずれない)。位置は作った時に決まる(後で動かしても当たり判定は動かない)。地形の下側からは通り抜けます。`isTrigger` は効きません。
+- `ForceMode`(`Force` / `Impulse` / `Acceleration` / `VelocityChange`)の違いは次の `Physics.h` の節の表を見てください。`Impulse` は重さで割られるので、「速さ × 重さ」を渡すと思った速さで弾かれます。
+- 長さの感覚は **100 単位 = 約 1m** です(重力 981 もこのため)。
+=demo Physics カテゴリの「Collider」「Force」「RigidbodySettings」「TerrainCollider」(3D のみ)
+=readme §6, §23, §29, §34
+
+=file Engine/Physics/Physics.h, Physics.cpp
+=class Physics(名前空間), RaycastHit, ForceMode, QueryTriggers
+=role
+PhysX の初期化・毎フレームの更新・終了と、「この線の先に何があるか」「この範囲に何がいるか」を調べる問い合わせ(Raycast / Overlap)です。PhysX の結果を、Component の `OnCollisionEnter` / `OnTriggerEnter` などのコールバックに変換して届けるのもここです。
+=table 問い合わせ(ゲーム側から使う)
+Raycast(origin, direction, maxDistance, hit, tag, triggers) | bool | origin から direction の向きに最大 maxDistance まで線を飛ばし、最初に当たった物を `hit`(RaycastHit)に入れる。当たれば `true`
+OverlapSphere(center, radius, tag, triggers) | std::vector<GameObject*> | 中心 center・半径 radius の球に入っている物を全部探す(2D では円)
+OverlapBox(center, size, tag, triggers) | std::vector<GameObject*> | 中心 center・大きさ size(辺の長さ)の箱に入っている物を全部探す。箱は回転しない
+=table 型
+RaycastHit | struct | `object`(当たった GameObject)、`point`(当たった場所)、`normal`(面の向き)、`distance`(距離)
+ForceMode | enum class | `Force`(押し続ける)/ `Impulse`(一瞬の衝撃。ノックバック)/ `Acceleration`(質量を無視して押し続ける)/ `VelocityChange`(質量を無視して一瞬で速さを変える。ジャンプ)
+QueryTriggers | enum class | `Ignore`(トリガーを無視。既定)/ `Include`(トリガーも探す)
+=table エンジン内部用(ゲーム側からは呼ばない)
+Init() | bool | PhysX を初期化する(GameEngine が呼ぶ)。重力は `(0, -981, 0)`
+Update(float dt) | void | 1フレーム分シミュレーションを進め、当たり判定のコールバックを呼ぶ(GameEngine が呼ぶ)。`dt` が 0(ポーズ中)の時は何もしない
+Uninit() | void | PhysX の後片付け(GameEngine が呼ぶ)
+GetPhysics() / GetScene() / GetDefaultMaterial() / GetCooking() | PhysX のポインタ | RigidbodyComponent などが PhysX のアクターを作るために使う
+QueueSceneChange(actor, add) | void | PhysX のコールバック中は直接 add / remove できないので、予約して次の Update の安全なタイミングで実行する
+CancelQueuedSceneChange(actor) | void | 予約を取り消す(RigidbodyComponent の Uninit が呼ぶ)
+ForgetTriggerPairs(actor) | void | トリガーに重なっている記録を忘れる(RigidbodyComponent が呼ぶ)
+ApplyForce(actor, value, mode, torque) | void | AddForce / AddTorque の本体(コールバック中は預かって、あとでまとめて加える)
+=code Sample3D/Game/Components/HighlightController.cpp:14-16
+=code Demo/Game/Components/Physics/QueryDemoController.cpp:97-105
+=code Demo/Game/Components/Physics/ForceDemoController.cpp:75-79
+=notes
+- `tag` を指定すると、そのタグのオブジェクトだけを探します(`""` なら全部)。
+- **トリガー(`isTrigger=true`)は、`QueryTriggers::Include` を渡した時だけ探します**。`tag` を指定してもトリガーは無視されたままです。
+- 非アクティブ(ObjectPool に戻っている物)や `Destroy` 済みの物は返しません。
+- 位置は「最後に PhysX が計算した時(このフレームの始め)」のものです。このフレームに出したばかりの物や、動かした直後の Kinematic は、次のフレームから見つかります。
+- `Raycast` は、**origin が中に入っている物には当たりません**(自分の中心から飛ばしても、自分には当たらない。Unity と同じ)。`direction` は長さ 1 でなくてもよい(長さ 0 は `false`)。
+- 問い合わせは読むだけなので、コールバックの中から呼んでも大丈夫です。
+- PhysX のコールバック(`OnCollisionStay` など)の中で、アクターの追加・削除はできません。`AddForce` は呼んでよい(計算の直後にまとめて加わります)。
+- PhysX 4.1 は「トリガーに重なっている間」の通知を出さないため、Engine が組み合わせを覚えて、毎フレーム `OnTriggerStay` を呼んでいます。
+=demo Physics カテゴリの「Query」「Force」、Render カテゴリの「Coord」(マウスからの Raycast)
+=readme §23, §6
+
+=file Engine/Physics/Collider.h, Collider.cpp
+=class Collider2D, CollisionInfo
+=role
+コールバックで「誰と当たったか」を知らせるための、軽い札です(形や判定の計算は持ちません。判定は PhysX がやります)。型の名前に `2D` と付いていますが、3D の剛体でも同じ型が使われます(`OnTriggerEnter` などのコールバックは 2D・3D 共通)。
+=table
+Collider2D::owner | GameObject* | 相手の GameObject
+Collider2D::isTrigger | bool | 相手がトリガー(すり抜ける判定)か
+Collider2D::isStatic | bool | 相手が押し戻しで動かない側か(`isStaticForPush`)
+Collider2D::GetTag() | const std::string& | 相手の GameObject のタグ("Enemy" など)
+CollisionInfo::other | Collider2D* | 相手のコライダー
+CollisionInfo::normal | XMFLOAT2 | 押し戻しの向き
+CollisionInfo::depth | float | めり込んだ量
+IsPointInBox(XMFLOAT2 point, const Transform& transform) | bool | 点が Transform の四角形(回転を考慮)の中にあるか。当たり判定とは独立した、UI のクリック判定などに使う道具
+=code Sample2D/Game/Components/EnemyController.cpp:9-15
+=notes
+- 受け取る側(`OnTriggerEnter(Collider2D* other)` など)は、`other->GetTag()` で相手の種類を見分けます。相手の GameObject は `other->owner` です。
+- `OnCollisionEnter(CollisionInfo info)` の相手は `info.other` です。
+- 同じフレームに2発当たるなど、コールバックが重なることがあります。`GetIsActive()` で「もう倒された後か」を確かめてから処理します(上の例)。
+=demo Physics カテゴリの「Trigger」(すり抜けるトリガーと、ぶつかる判定の違い)
+=readme §6

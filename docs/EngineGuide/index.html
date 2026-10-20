@@ -1,0 +1,270 @@
+﻿<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>トップ - Engine解説</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="layout">
+<nav class="side">
+<div class="brand"><a href="index.html">Engine解説</a></div>
+<div class="search"><input type="search" id="q" placeholder="関数名・クラス名・ファイル名を検索" autocomplete="off"><ul id="results"></ul></div>
+<ul class="menu">
+<li><a href="index.html" class="current">トップ</a></li>
+<li><a href="architecture.html">設計図(図解)</a></li>
+<li><a href="Core.html">Core</a></li>
+<li><a href="Render.html">Render</a></li>
+<li><a href="Render3D.html">Render3D</a></li>
+<li><a href="Physics.html">Physics</a></li>
+<li><a href="UI.html">UI</a></li>
+<li><a href="Animation.html">Animation</a></li>
+<li><a href="Transition.html">Transition</a></li>
+<li><a href="Behavior.html">Behavior</a></li>
+<li><a href="Audio.html">Audio</a></li>
+<li><a href="Data.html">Data</a></li>
+<li><a href="ThirdParty.html">ThirdParty</a></li>
+<li><a href="files.html">ファイル索引</a></li>
+<li><a href="glossary.html">用語集</a></li>
+</ul>
+<p class="sidenote">3D_FreamWork の Engine を、初心者向けに解説したページです。</p>
+</nav>
+<main>
+<!--title: トップ-->
+<h1>Engine 解説</h1>
+<div class="lead">
+<strong>3D_FreamWork</strong> の Engine(DirectX11 + PhysX 4.1 で作った、Unity 風の C++ ゲームフレームワーク)を、<strong>どのファイルに・どんな関数があって・どう使うか</strong>まで説明するページです。C++ やゲームエンジンに慣れていない人向けに書いています。
+このフォルダの <code>index.html</code> をダブルクリックして開けば、インターネットが無くても見られます。
+</div>
+
+<h2>まず読む順番(おすすめ)</h2>
+<ol class="flow">
+<li>この<strong>トップページ</strong>で、全体像と「1 フレームの流れ」をつかむ。</li>
+<li><a href="architecture.html">設計図(図解)</a>で、継承・持ち合い・描画の順番・物理・シーン切り替えの図を見る。</li>
+<li><a href="Core.html">Core</a>(<code>Component</code> → <code>GameObject</code> → <code>Scene</code> → <code>SceneManager</code>)を読む。ここが一番大事です。</li>
+<li>作りたいものに合わせて、<a href="Render.html">Render</a>(2D)/ <a href="Render3D.html">Render3D</a>(3D)/ <a href="Physics.html">Physics</a>(当たり判定)/ <a href="UI.html">UI</a> などを読む。</li>
+<li>分からない言葉は<a href="glossary.html">用語集</a>、関数名やクラス名は左のメニューの<strong>検索</strong>や<a href="files.html">ファイル索引</a>で探す。</li>
+<li>実際に動くものは、<strong>Demo プロジェクト</strong>(下の「Demo の開き方」)で見て、触って確かめる。</li>
+</ol>
+
+<h2>Engine の目的と、4 つのプロジェクト</h2>
+<p><strong>Engine</strong> は「ゲームを作るための共通の部品」を集めた静的ライブラリ(<code>Engine.lib</code>)です。それだけでは動かず、下の 3 つの実行ファイルが同じ Engine を使います。Unity でいう「Unity 本体」にあたります。</p>
+<div class="tw"><table class="plain">
+<tr><th>プロジェクト</th><th>種類</th><th>中身</th></tr>
+<tr><td><code>Engine</code></td><td>静的ライブラリ</td><td>全員が共通で使う機能(この解説の対象)。基本的にはみんなで触る場所ではありません。</td></tr>
+<tr><td><code>Sample2D</code></td><td>実行ファイル</td><td>トップダウンの 2D アリーナシューター。2D ゲームの作り方の見本。</td></tr>
+<tr><td><code>Sample3D</code></td><td>実行ファイル</td><td>3D 空間のショーケース(影・ライト・地形・水・モデルなど)。3D の作り方の見本。</td></tr>
+<tr><td><code>Demo</code></td><td>実行ファイル</td><td>Engine の機能を機能ごとに小さなシーンで見せるデモ集(46 個)。見て・触って分かる。</td></tr>
+</table></div>
+<p>Sample2D / Sample3D / Demo の中身は、どれも <code>Game/Objects/</code>(工場関数)・<code>Game/Components/</code>(動き・ルール)・<code>Game/Scenes/</code>(配置)に分かれています。この解説のコード例は、これらの実際のソースから引用しています(出典のファイル名と行番号つき)。</p>
+
+<h2 id="frame">1 フレームの流れ(GameEngine::Run)</h2>
+<p>ゲームは「1 フレーム(約 1/60 秒)ごとに、更新して、描く」を繰り返します。その順番は <code>GameEngine::Run</code>(<code>Engine/Core/GameEngine.cpp</code>)に書かれていて、次のとおりです。順番には意味があります(例: 物理 → シーンの Update → 音、描く直前にカメラを揺らす、など)。</p>
+<div class="diagram">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 770" width="880" role="img" aria-label="GameEngine::Run の 1 フレームの流れ">
+<defs><marker id="ah-frame" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ahead"/></marker></defs>
+<text class="lb" x="10" y="22" text-anchor="start"><tspan x="10" dy="0">前半: 動かす（更新）</tspan></text>
+<text class="lb" x="450" y="22" text-anchor="start"><tspan x="450" dy="0">後半: 描く</tspan></text>
+<g class="box n"><rect x="10" y="36" width="410" height="44" rx="6"/><text x="215" y="52" text-anchor="middle" font-size="13">ウィンドウのメッセージ処理</text><text x="215" y="69" text-anchor="middle" font-size="13">PeekMessage ... 閉じられたら終了</text></g>
+<line class="ln" x1="215" y1="80" x2="215" y2="94" marker-end="url(#ah-frame)"/>
+<g class="box g-core"><rect x="10" y="94" width="410" height="44" rx="6"/><text x="215" y="110" text-anchor="middle" font-size="13">Time::Update</text><text x="215" y="127" text-anchor="middle" font-size="13">このフレームの時間（dt）を計算する</text></g>
+<line class="ln" x1="215" y1="138" x2="215" y2="152" marker-end="url(#ah-frame)"/>
+<g class="box g-core"><rect x="10" y="152" width="410" height="44" rx="6"/><text x="215" y="168" text-anchor="middle" font-size="13">Input::Update</text><text x="215" y="185" text-anchor="middle" font-size="13">キー・マウス・パッドの今の状態を読む</text></g>
+<line class="ln" x1="215" y1="196" x2="215" y2="210" marker-end="url(#ah-frame)"/>
+<g class="box g-render"><rect x="10" y="210" width="410" height="44" rx="6"/><text x="215" y="226" text-anchor="middle" font-size="13">CameraShake::Update</text><text x="215" y="243" text-anchor="middle" font-size="13">画面の揺れを進める（ポーズ中も進む）</text></g>
+<line class="ln" x1="215" y1="254" x2="215" y2="268" marker-end="url(#ah-frame)"/>
+<g class="box g-render"><rect x="10" y="268" width="410" height="44" rx="6"/><text x="215" y="284" text-anchor="middle" font-size="13">ScreenEffect::Update</text><text x="215" y="301" text-anchor="middle" font-size="13">Flash / Vignette / Fade を進める（Fade の onComplete はここ）</text></g>
+<line class="ln" x1="215" y1="312" x2="215" y2="326" marker-end="url(#ah-frame)"/>
+<g class="box g-physics"><rect x="10" y="326" width="410" height="44" rx="6"/><text x="215" y="342" text-anchor="middle" font-size="13">Physics::Update(dt)</text><text x="215" y="359" text-anchor="middle" font-size="13">物理を進め、OnCollision / OnTrigger を呼ぶ</text></g>
+<line class="ln" x1="215" y1="370" x2="215" y2="384" marker-end="url(#ah-frame)"/>
+<g class="box g-core"><rect x="10" y="384" width="410" height="44" rx="6"/><text x="215" y="400" text-anchor="middle" font-size="13">SceneManager::Update(dt)</text><text x="215" y="417" text-anchor="middle" font-size="13">シーンの切り替え ＋ Scene::Update（全 Component の Update）</text></g>
+<line class="ln" x1="215" y1="428" x2="215" y2="442" marker-end="url(#ah-frame)"/>
+<g class="box g-audio"><rect x="10" y="442" width="410" height="44" rx="6"/><text x="215" y="458" text-anchor="middle" font-size="13">Audio::Update</text><text x="215" y="475" text-anchor="middle" font-size="13">動いた後の位置で、音の聞こえ方を決める</text></g>
+<g class="box g-render"><rect x="450" y="36" width="420" height="44" rx="6"/><text x="660" y="52" text-anchor="middle" font-size="13">Image::BeginFrame</text><text x="660" y="69" text-anchor="middle" font-size="13">3D カメラを 2D カメラに合わせ、画面と深度を消す</text></g>
+<line class="ln" x1="660" y1="80" x2="660" y2="94" marker-end="url(#ah-frame)"/>
+<g class="box g-render"><rect x="450" y="94" width="420" height="44" rx="6"/><text x="660" y="110" text-anchor="middle" font-size="13">CameraShake::BeginDraw</text><text x="660" y="127" text-anchor="middle" font-size="13">揺れの分だけカメラをずらす（描き終わったら戻す）</text></g>
+<line class="ln" x1="660" y1="138" x2="660" y2="152" marker-end="url(#ah-frame)"/>
+<g class="box g-render"><rect x="450" y="152" width="420" height="44" rx="6"/><text x="660" y="168" text-anchor="middle" font-size="13">Visibility::BeginFrame</text><text x="660" y="185" text-anchor="middle" font-size="13">揺れ込みのカメラで視錐台を作る</text></g>
+<line class="ln" x1="660" y1="196" x2="660" y2="210" marker-end="url(#ah-frame)"/>
+<g class="box g-render3d"><rect x="450" y="210" width="420" height="44" rx="6"/><text x="660" y="226" text-anchor="middle" font-size="13">RenderStats::BeginFrame</text><text x="660" y="243" text-anchor="middle" font-size="13">描画命令・三角形の数を数え直す</text></g>
+<line class="ln" x1="660" y1="254" x2="660" y2="268" marker-end="url(#ah-frame)"/>
+<g class="box g-render3d"><rect x="450" y="268" width="420" height="44" rx="6"/><text x="660" y="284" text-anchor="middle" font-size="13">Lighting::Update</text><text x="660" y="301" text-anchor="middle" font-size="13">点光源・スポットライトを集める</text></g>
+<line class="ln" x1="660" y1="312" x2="660" y2="326" marker-end="url(#ah-frame)"/>
+<g class="box g-render3d"><rect x="450" y="326" width="420" height="44" rx="6"/><text x="660" y="342" text-anchor="middle" font-size="13">Shadow::Render</text><text x="660" y="359" text-anchor="middle" font-size="13">影のパス（有効な時だけ）</text></g>
+<line class="ln" x1="660" y1="370" x2="660" y2="384" marker-end="url(#ah-frame)"/>
+<g class="box g-ui"><rect x="450" y="384" width="420" height="44" rx="6"/><text x="660" y="400" text-anchor="middle" font-size="13">Text::BeginDraw</text><text x="660" y="417" text-anchor="middle" font-size="13">文字（Direct2D）の描画を始める</text></g>
+<line class="ln" x1="660" y1="428" x2="660" y2="442" marker-end="url(#ah-frame)"/>
+<g class="box g-core"><rect x="450" y="442" width="420" height="44" rx="6"/><text x="660" y="458" text-anchor="middle" font-size="13">SceneManager::Draw → Scene::Draw</text><text x="660" y="475" text-anchor="middle" font-size="13">3 つのパス: ① UI 以外 → ② UI スプライト → ③ 文字・四角</text></g>
+<line class="ln" x1="660" y1="486" x2="660" y2="500" marker-end="url(#ah-frame)"/>
+<g class="box g-animation"><rect x="450" y="500" width="420" height="44" rx="6"/><text x="660" y="516" text-anchor="middle" font-size="13">ScreenEffect::Draw</text><text x="660" y="533" text-anchor="middle" font-size="13">画面エフェクト（文字より手前）</text></g>
+<line class="ln" x1="660" y1="544" x2="660" y2="558" marker-end="url(#ah-frame)"/>
+<g class="box g-transition"><rect x="450" y="558" width="420" height="44" rx="6"/><text x="660" y="574" text-anchor="middle" font-size="13">SceneManager::DrawTransition</text><text x="660" y="591" text-anchor="middle" font-size="13">シーン切り替えの演出（一番手前）</text></g>
+<line class="ln" x1="660" y1="602" x2="660" y2="616" marker-end="url(#ah-frame)"/>
+<g class="box g-ui"><rect x="450" y="616" width="420" height="44" rx="6"/><text x="660" y="632" text-anchor="middle" font-size="13">Text::EndDraw</text><text x="660" y="649" text-anchor="middle" font-size="13">文字の描画を終える</text></g>
+<line class="ln" x1="660" y1="660" x2="660" y2="674" marker-end="url(#ah-frame)"/>
+<g class="box g-render"><rect x="450" y="674" width="420" height="44" rx="6"/><text x="660" y="690" text-anchor="middle" font-size="13">CameraShake::EndDraw</text><text x="660" y="707" text-anchor="middle" font-size="13">カメラを元の位置に戻す</text></g>
+<line class="ln" x1="660" y1="718" x2="660" y2="732" marker-end="url(#ah-frame)"/>
+<g class="box g-render"><rect x="450" y="732" width="420" height="44" rx="6"/><text x="660" y="748" text-anchor="middle" font-size="13">Image::EndFrame</text><text x="660" y="765" text-anchor="middle" font-size="13">画面に出す（Present）。次のフレームへ</text></g>
+<path class="ln" fill="none" d="M 420 464 L 435 464 L 435 29 L 660 29 L 660 36" marker-end="url(#ah-frame)"/>
+<text class="lb" x="20" y="520" text-anchor="start"><tspan x="20" dy="0">※ 描画は、更新がすべて終わってから行います。</tspan></text>
+<text class="lb" x="20" y="540" text-anchor="start"><tspan x="20" dy="0">※ Scene::Draw の中では、各 GameObject の Draw が drawPriority の順に呼ばれます。</tspan></text>
+</svg>
+
+<p class="cap">GameEngine::Run の 1 フレーム。前半が「更新」、後半が「描画」。</p>
+</div>
+<ul>
+<li><code>dt</code>(前のフレームからの秒数)は <code>Time::GetDeltaTime()</code>。ポーズ中は 0 です。画面の揺れ・画面エフェクトだけは、止まらない時間(<code>GetUnscaledDeltaTime</code>)で進みます。</li>
+<li>各 Component の <code>Update(dt)</code> は、図の <code>SceneManager::Update</code> の中の <code>Scene::Update</code> で、付けた順に呼ばれます。</li>
+<li>描画の 3 つのパスの詳しい説明は<a href="architecture.html#draw">設計図の「描画の順番」</a>にあります。</li>
+</ul>
+
+<h2 id="folders">Engine の 11 フォルダ</h2>
+<p><code>Engine/</code> の中は機能ごとに 11 個のフォルダに分かれています(<code>.h</code> と <code>.cpp</code> は同じフォルダ)。合計 131 ファイル。各ページに、ファイルごとの関数の表・使い方・気を付ける点があります。</p>
+<div class="tw"><table class="plain">
+<tr><th>フォルダ</th><th>役割</th><th>主な中身</th><th>ファイル数</th></tr>
+<tr><td><a href="Core.html">Core</a></td><td>フレームワークの土台</td><td>Component / GameObject / Scene / SceneManager / Transform / Input / Time / Timer / Resources / EventBus / ObjectPool / MathUtil</td><td>20</td></tr>
+<tr><td><a href="Render.html">Render</a></td><td>2D の描画と画面まわり</td><td>SpriteRenderer / Image / Camera / CameraFollowComponent / CameraShake / ScreenEffect / ParticleRenderer / Visibility</td><td>23</td></tr>
+<tr><td><a href="Render3D.html">Render3D</a></td><td>3D の描画</td><td>MeshRenderer / Mesh / Material / LightComponent / Shadow / Lod / ModelRenderer / TerrainRenderer / WaterRenderer</td><td>27</td></tr>
+<tr><td><a href="Physics.html">Physics</a></td><td>物理演算(PhysX)</td><td>RigidbodyComponent(と形ごとの子クラス) / Physics(Raycast・Overlap) / Collider</td><td>6</td></tr>
+<tr><td><a href="Audio.html">Audio</a></td><td>音の再生</td><td>Audio / AudioSourceComponent / AudioListenerComponent</td><td>6</td></tr>
+<tr><td><a href="UI.html">UI</a></td><td>画面に出す部品</td><td>Text / TextRenderer / Anchor / ButtonComponent / GaugeRenderer / SliderComponent</td><td>12</td></tr>
+<tr><td><a href="Animation.html">Animation</a></td><td>動きの時間変化</td><td>Ease / TweenComponent / SpriteAnimationComponent / ModelAnimationComponent</td><td>7</td></tr>
+<tr><td><a href="Transition.html">Transition</a></td><td>シーン切り替えの演出</td><td>SceneTransition / FadeTransition / SpriteTransition</td><td>6</td></tr>
+<tr><td><a href="Behavior.html">Behavior</a></td><td>動きの部品(追跡・視野・経路探索)</td><td>MoveComponent と子クラス / NavGridComponent / PathFollowComponent / VisionComponent</td><td>18</td></tr>
+<tr><td><a href="Data.html">Data</a></td><td>データの読み書き</td><td>Csv(表) / SaveData(セーブ)</td><td>4</td></tr>
+<tr><td><a href="ThirdParty.html">ThirdParty</a></td><td>外部のコード</td><td>WICTextureLoader11(画像を読む部品。Microsoft 製)</td><td>2</td></tr>
+</table></div>
+<p><strong>ThirdParty について</strong>: <code>Engine/ThirdParty/</code> には他の人が作ったコードをそのまま置いているだけで、書き換えません(詳しくは <a href="ThirdParty.html">ThirdParty のページ</a>)。PhysX と ufbx(FBX の読み込み)は、リポジトリ直下の <code>ThirdParty/</code> にあります。</p>
+
+<h2 id="first">はじめの一歩: GameObject を置いて Component を付ける</h2>
+<p>Engine の基本の形は 3 段階です。実際の Sample2D のコードで見てみましょう。</p>
+<h3>1. シーンに「何を置くか」だけを書く</h3>
+<p><code>Scene</code> を継承したクラスの <code>Init()</code> に、<code>Create○○(*this)</code> を並べます。動きやルールは書きません。</p>
+<div class="ex"><div class="exhead">コード例 <span class="src">出典: <code>Sample2D/Game/Scenes/GameScene.cpp:15-28</code></span></div><pre><code>void GameScene::Init()
+{
+    // オブジェクトを配置するだけ(動き・ルールは各Componentに書く)
+    CreateBackground(*this);
+    GameObject* player = CreatePlayer(*this);
+    CreateWall(*this, { -250.0f, 150.0f }, { 40.0f, 300.0f });   // 見張り役とPlayerの間の壁
+    CreateWall(*this, { 400.0f, -350.0f }, { 300.0f, 40.0f });
+    CreateGuard(*this, player);
+    GameManager* gameManager = CreateGameSystem(*this);
+    NavGridComponent* navigation = CreateNavigation(*this);   // 壁をすべて置いた後に置く(敵が壁を避けるための格子)
+    CreateEnemySpawner(*this, player, navigation);
+    CreateBulletSpawner(*this);
+    CreateHUD(*this, gameManager, player-&gt;GetComponent&lt;PlayerController&gt;());
+}</code></pre></div>
+<h3>2. 工場関数で、GameObject を作って Component を付ける</h3>
+<p><code>scene.CreateObject("名前", "タグ")</code> で GameObject を作り、<code>AddComponent&lt;T&gt;()</code> で見た目や当たり判定を付けます。<code>transform</code> に位置と大きさを入れます。</p>
+<div class="ex"><div class="exhead">コード例 <span class="src">出典: <code>Sample2D/Game/Objects/Wall.cpp:11-25</code></span></div><pre><code>GameObject* CreateWall(Scene&amp; scene, DirectX::XMFLOAT2 position, DirectX::XMFLOAT2 size) {
+    // タグを&quot;Wall&quot;にしておくと、VisionComponentの視線がさえぎられる(付け忘れると素通しになる)
+    GameObject* wall = scene.CreateObject(&quot;Wall&quot;, &quot;Wall&quot;);
+    wall-&gt;transform.position = { position.x, position.y, wallZ };
+    wall-&gt;transform.scale    = { size.x, size.y, 1.0f };
+
+    // 見た目(画像を引き伸ばして、灰色にする)
+    auto* sprite = wall-&gt;AddComponent&lt;SpriteRenderer&gt;(L&quot;Assets/bg_tile.png&quot;);
+    sprite-&gt;SetColor(0.5f, 0.5f, 0.5f, 1.0f);
+    sprite-&gt;SetMode(SpriteMode::World2D);   // 2Dモード: zで大きさは変わらず、zが小さいほど手前
+
+    // 物理演算(PhysX): 動かない壁(奥行きは、Zを固定した2Dの物と重なる厚みを持たせる)
+    wall-&gt;AddComponent&lt;BoxRigidbodyComponent&gt;(BodyType::Static, DirectX::XMFLOAT3{ size.x, size.y, 100.0f });
+
+    return wall;</code></pre></div>
+<h3>3. 動きは Component に書く</h3>
+<p><code>Component</code> を継承したクラスを作って、<code>Update(float dt)</code> などを <code>override</code> します。<code>GetOwner()</code> で付いている GameObject が分かります。</p>
+<div class="ex"><div class="exhead">コード例 <span class="src">出典: <code>Sample2D/Game/Components/BulletController.h:10-28</code></span></div><pre><code>class BulletController : public Component {
+private:
+    DirectX::XMFLOAT2 direction{ 0.f, -1.f };   // 進む方向
+    float speed = 500.0f;                       // 移動速度
+    static constexpr float lifeTime = 2.0f;     // 寿命(秒)
+    Timer lifeTimer{ lifeTime };                // 発射されてからの時間を数える
+    ObjectPool* pool = nullptr;                 // 自分が所属するプール(消える時に返す)
+
+public:
+    // 発射される度に呼ばれ、状態をリセットする
+    void Fire(DirectX::XMFLOAT2 dir, ObjectPool* ownerPool) {
+        direction = dir;
+        pool = ownerPool;
+        lifeTimer.Reset();
+    }
+
+    void Update(float dt) override;
+    void OnTriggerEnter(Collider2D* other) override;
+};</code></pre></div>
+<div class="ex"><div class="exhead">コード例 <span class="src">出典: <code>Sample2D/Game/Components/BulletController.cpp:5-16</code></span></div><pre><code>void BulletController::Update(float dt) {
+    Transform&amp; t = GetOwner()-&gt;transform;
+
+    // まっすぐ進む(Kinematicなので位置を直接動かしてよい)
+    t.position.x += direction.x * speed * dt;
+    t.position.y += direction.y * speed * dt;
+
+    // 寿命が来たらプールに返す
+    if (lifeTimer.Update(dt) &amp;&amp; pool) {
+        pool-&gt;Return(GetOwner());
+    }
+}</code></pre></div>
+<h3>4. 起動と最初のシーン</h3>
+<p>ウィンドウを作ったあと、<code>GameEngine</code> を初期化して、最初のシーンを指定して、<code>Run</code> します(<code>main.cpp</code>)。</p>
+<div class="ex"><div class="exhead">コード例 <span class="src">出典: <code>Sample2D/main.cpp:53-65</code></span></div><pre><code>// マウス座標をこのウィンドウ基準で取るため
+Input::SetHwnd(hwnd);
+
+// エンジンの初期化
+auto&amp; engine = GameEngine::Get();
+engine.Init(hwnd, WINDOW_W, WINDOW_H);
+
+// 最初のシーンの設定
+SceneManager::Get().ChangeScene&lt;TitleScene&gt;();
+
+// ゲームループ(ウィンドウが閉じられるまで)と終了処理
+engine.Run();
+engine.Uninit();</code></pre></div>
+<div class="notes"><strong>気を付ける点(はじめのうちに)</strong><ul>
+<li><code>GetComponent&lt;T&gt;()</code> の結果は、必ず <code>nullptr</code> かどうか調べてから使います。</li>
+<li>Dynamic な物理の物は、<code>transform</code> を直接書き換えず、<code>SetVelocity()</code> で動かします。</li>
+<li>他の Component の情報が必要な時は、工場関数の引数でポインタを受け取ります。<code>Get()</code> を使うシングルトンは、EventBus / SceneManager だけです。</li>
+<li>新しいファイルを足したら、<code>.vcxproj</code> と <code>.vcxproj.filters</code> の両方に登録します(チームのルール: <code>CLAUDE.md</code>)。</li>
+</ul></div>
+
+<h2 id="demo">Demo プロジェクトの開き方</h2>
+<p>Demo は、Engine の機能を「見て・触って分かる」ようにした専用の実行ファイル(<code>Demo.exe</code>)です。ゲーム(Sample2D / Sample3D)には影響しません。詳しくは README の §38 にあります。</p>
+<ol class="flow">
+<li>Visual Studio でソリューション(<code>3D_FreamWork.sln</code>)を開き、<code>Demo</code> を右クリック →「スタートアッププロジェクトに設定」して、F5 で実行する。</li>
+<li>または、ビルド済みの <code>x64\Debug\Demo.exe</code>(<code>Release\</code> も)をダブルクリックする。</li>
+<li>起動すると<strong>カテゴリ一覧</strong>(Core / Render / UI / Render3D / Physics / Behavior / Audio / Data の 8 個)が出る → 機能を選ぶ → デモが始まる。</li>
+<li><strong>Tab</strong> キー(または右下のボタン)で、2D 版と 3D 版を切り替えられる(起動した時は 3D)。<strong>Esc</strong> で一つ前の画面へ戻る。</li>
+</ol>
+<p>各ページの「<strong>Demo で見られる所</strong>」は、このカテゴリと機能名の案内です(例: 「Render カテゴリの Sprite」)。全 46 個のデモは、Demo の <code>Game/Scenes/Common/DemoRegistry.cpp</code> の一覧に並んでいます。</p>
+<div class="tw"><table class="plain">
+<tr><th>カテゴリ</th><th>デモ(機能名)</th></tr>
+<tr><td>Core</td><td>Object / Transform / Time / Input / Math / Pool / EventBus / Resources</td></tr>
+<tr><td>Render</td><td>Sprite / SpriteAnim / Camera / ScreenEffect / Transition / Particle / Tween / Coord</td></tr>
+<tr><td>UI</td><td>UI / Rect / Text / WorldUI</td></tr>
+<tr><td>Render3D</td><td>Shapes / Light / Shadow / Outline / Terrain / Water / Model / SkinAnim / LOD / Visibility</td></tr>
+<tr><td>Physics</td><td>Collider / Force / RigidbodySettings / Trigger / Query / TerrainCollider</td></tr>
+<tr><td>Behavior</td><td>Move / Homing / Vision / Path / MovingWall / TerrainPath</td></tr>
+<tr><td>Audio</td><td>Sound / Sound3D</td></tr>
+<tr><td>Data</td><td>Csv / Save</td></tr>
+</table></div>
+<p>2D 版と 3D 版の両方がある機能と、片方だけの機能があります(例: Shapes・Light・Terrain などの Render3D の多くは 3D だけ)。</p>
+
+<h2>このガイドの使い方</h2>
+<ul>
+<li><strong>検索</strong>: 左のメニューの検索欄に、関数名・クラス名・ファイル名・説明の一部を入れると、全ページから探せます(インターネットは使いません)。</li>
+<li><strong>ファイル索引</strong>: <a href="files.html">files.html</a> に、Engine の全ファイルの一覧があります。</li>
+<li><strong>用語集</strong>: <a href="glossary.html">glossary.html</a> に、Component・Rigidbody・Raycast などの用語を、Unity の同じ概念と対応させて説明しています。</li>
+<li>各ファイルの節に、<strong>主な関数の表</strong>(実際のヘッダーから拾っています)・<strong>使い方</strong>(Sample / Demo の実際のコード。出典の場所つき)・<strong>気を付ける点</strong>・<strong>Demo で見られる所</strong>・<strong>README の節番号</strong>があります。</li>
+<li>表に「内部用」と書いてある関数は、Engine の中だけで使う関数です。ゲーム側からは呼びません。</li>
+<li>もっと詳しい説明や、決まりごと(命名規則・コメントの書き方)は、<a href="../../README.md">README.md</a> と <code>CLAUDE.md</code> にあります。</li>
+</ul>
+<h3>このガイドを更新するには</h3>
+<p>ページの元データは <code>docs/EngineGuide/tools/src/</code>(<code>.txt</code> が各フォルダのページ、<code>.html</code> がトップ・設計図・用語集)、図は <code>tools/make-diagrams.ps1</code> で作っています。Engine を変えたら、元データを直して <code>tools/build.ps1</code> を実行します。コード例は「ファイル:行番号」から実際のソースを読み込むので、行がずれたら警告が出ます。</p>
+
+<footer class="foot">この解説は <code>docs/EngineGuide/tools/build.ps1</code> で作っています。表の内容は Engine のヘッダーから拾っています。コード例は Sample2D / Sample3D / Demo の実際のソースを読み込んで載せています。</footer>
+</main>
+</div>
+<script src="search-index.js"></script>
+<script src="search.js"></script>
+</body>
+</html>

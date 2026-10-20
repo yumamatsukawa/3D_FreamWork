@@ -1,0 +1,403 @@
+﻿=page Render3D
+=title Render3D(3D描画・ライト・影・地形・水)
+=lead
+`Engine/Render3D/` は、3D の見た目を作る仕組みです。立体の形(Mesh)、見た目の設定(Material)、ライトと影、FBX モデル、地形、水面、遠くの物を省く LOD が入っています。
+3D の物は `MeshRenderer`(自分で作った形)か `ModelRenderer`(FBX モデル)を GameObject に付けて描きます。
+=p
+**Demo で見る**: Demo プロジェクトの **Render3D カテゴリ**に、Shapes / Light / Shadow / Outline / Terrain / Water / Model / SkinAnim / LOD / Visibility の10個のデモがあります(Terrain の当たり判定は Physics カテゴリの TerrainCollider)。
+
+=file Engine/Render3D/MeshRenderer.h
+=class MeshRenderer
+=role
+GameObject に「3D メッシュを描く見た目」を持たせる Component です(`SpriteRenderer` の 3D 版)。見た目は `Material` にまとめて持ちます。影を落とす物としても登録されます(`Shadow::Caster`)。
+=table
+MeshRenderer(const std::vector<MeshVertex>& vertices) | コンストラクタ | 形(頂点データ)を渡して作る。例: `AddComponent<MeshRenderer>(Mesh::CreateCube())`
+SetMaterial(const Material& value) | void | マテリアルをまとめて設定する
+GetMaterial() | Material& | 手直し用。例: `GetMaterial().specularStrength = 0.8f;`
+SetTexture(const std::wstring& filepath) | void | 画像を貼る(`material.texture` を書き換える)
+SetColor(float r, float g, float b, float a) | void | 色(`material.color`)
+GetColor() | XMFLOAT4 | 今の色
+SetRimLight(XMFLOAT3 color, float strength, float power) | void | 縁の光(リム発光)。`strength=0` で消す。`power` は既定 3
+SetOutline(XMFLOAT4 color, float widthPixels, bool seeThrough) | void | 枠線。画面上で `widthPixels` の太さ。0 で消す。`seeThrough=true` で壁越しにも見える
+SetUnlit(bool value) | void | `true` で光の影響を受けない(スカイボックスなど)
+SetDepthWrite(bool value) | void | `false` で深度を書かない(自分より後ろの物を隠さない。スカイボックス用)
+SetFrustumCulling(bool enabled) | void | `true` で、画面の外にある時は描かない
+IsFrustumCulling() | bool | 画面の外を省く設定か
+SetLod(const LodSettings& settings) | void | 距離で省く設定をまとめて渡す
+GetLod() | LodSettings& | 手直し用(`drawDistance` など)
+Init() / Draw() / Uninit() / DrawShadow(...) | void (override) | 内部の処理(影の登録・描画・影のパス・後片付け)
+=code Demo/Game/Objects/Core/TransformDemo.cpp:18-21
+=code Sample3D/Game/Objects/Player.cpp:16-20
+=notes
+- 影を落とすには `GetMaterial().castShadow = true`、影を受けるには `receiveShadow = true`(どちらも既定は `false`)。さらに `Shadow::GetSettings().enabled = true` が必要です。
+- 枠線(`SetOutline`)は、`material.depthWrite = false` の物(スカイボックス・半透明の板)には描かれません。壁越しの枠線を使う時は、その物の `SetDrawPriority` を大きくします(あとで描かれる壁に上書きされないように)。
+- `SetFrustumCulling(true)` は、物が画面の端で消えて見えたら `false` に戻します(`Visibility::GetCulledCount` で確認)。`SetDepthWrite(false)` の物(画面全体を覆う)は判定しません。
+- 3D メッシュの描画は 3D 用カメラ(`Image::GetCamera3D()`)を使います。
+- 2D の `SpriteRenderer` には、ライト・影・枠線は効きません。
+=demo Render3D カテゴリの「Shapes」(図形と Material)、「Outline」
+=readme §4, §30, §33
+
+=file Engine/Render3D/Mesh.h, Mesh.cpp
+=class Mesh, MeshVertex, MeshConstantBuffer, MeshCameraBuffer, CapsuleAxis
+=role
+3D の頂点データを持って描くクラスです。立方体・球・カプセルなどの形を作る `Create○○` 関数もここにあります。普段は `MeshRenderer` 経由で使い、`Mesh` を直接触るのは Engine を触る人(や、`GroundController` のように自分で `Draw` する時)です。
+=table 形を作る(static、戻り値は std::vector<MeshVertex>)
+CreateCube() | 頂点データ | 単位立方体(-0.5〜0.5)。大きさは `transform.scale`
+CreateSphere(int rings, int segments) | 頂点データ | 半径 0.5 の球。分割数が多いほど滑らか(既定 16, 24)
+CreateCapsule(float radius, float height, int rings, int segments) | 頂点データ | カプセル(長い向きは Y)。**実際の大きさで作る**(`scale` は 1 のまま)
+LoadOBJ(const std::wstring& filepath) | 頂点データ | Wavefront OBJ ファイルから作る。失敗したら空
+CreateCubeOutline() / CreateSquareOutline() / CreateCircleOutline(int) / CreateSphereOutline(int) / CreateCapsuleOutline(...) | 頂点データ(線) | 輪郭の線だけのデータ(コライダーのデバッグ表示用。`LINELIST` で `Init` する)
+CreateSmoothNormals(positions, normals, indices) | std::vector<XMFLOAT3> | 内部用: 枠線のための、平均した法線
+=table 描く・作る
+Init(const std::vector<MeshVertex>& verts, D3D11_PRIMITIVE_TOPOLOGY topology) | bool | 頂点バッファを作る(1回だけ)。失敗したら `false`
+InitIndexed(verts, indices, topology) | bool | インデックス付きで作る(地形のように頂点が多い形向き)
+Draw(const Transform& transform, const Camera& camera, const Material& material, const Light& light) | void | マテリアル付きで描く。行列版・色だけの版もある
+DrawLines2D(transform, camera2D, color, light) | void | 2D(XY 平面)の線を描く(デバッグ表示用)
+DrawOutline(world, camera, color, widthPixels, seeThrough) | void | 枠線を描く(本物を `Draw` した直後に呼ぶ)
+DrawDepth(world, lightView, lightProj) | void | 影のパス用: 深度だけを描く
+SetTexture(ID3D11ShaderResourceView* s) | void | 貼る画像を渡す(`Image::GetTextureView(texID)` の結果)
+Uninit() | void | 解放する
+=table 型
+MeshVertex | struct | 頂点: `Position`・`Normal`・`Color`・`TexCoord`
+CapsuleAxis | enum class | カプセルの長い向き: `X` / `Y` / `Z`(`CapsuleRigidbodyComponent` でも使う)
+=code Sample3D/Game/Components/GroundController.cpp:30-43
+=notes
+- `Mesh::Init` が `false` の時は `Uninit` を呼びません。
+- 立方体・球は「大きさ 1 の形を `scale` で伸ばす」物ですが、**カプセルは伸ばすと半球が潰れる**ので実際の大きさで作ります。
+- `Draw` の `Material::texture`(パス)は、`Mesh` では使いません。画像は `SetTexture` で渡します(`MeshRenderer` / `ModelRenderer` が読んで渡します)。
+- `DrawOutline` は `material.depthWrite = false` の物には使いません(内側まで枠線の色になる)。
+- 頂点バッファは作る時に 1 回だけ作り、描くたびにコピーしません(変更不可)。
+=demo Render3D カテゴリの「Shapes」
+=readme §4, §30
+
+=file Engine/Render3D/Material.h
+=class Material, MaterialConstantBuffer
+=role
+3D メッシュの見た目の設定をまとめた構造体です(色・画像・光沢・自発光・影・縁の光・枠線)。`MeshRenderer` / `ModelRenderer` が 1 体ごとに持ちます。Unity の Material に近い考え方です。既定値のままなら、マテリアルが無かった頃と見た目は同じです。
+=table 基本
+color | XMFLOAT4 | 色(a が透明度。1=不透明)。1 より大きい値も使える(暗い画像を明るくする)
+texture | std::wstring | 画像のパス(空なら白)
+lit | bool | `false` で光の影響を受けない(スカイボックス)
+depthWrite | bool | `false` で自分より後ろの物を隠さない(半透明・スカイボックス)
+=table 光沢・自発光
+specularColor | XMFLOAT3 | 光沢の色
+specularStrength | float | 光沢の強さ。0=ハイライト無し(既定)
+shininess | float | 光沢の鋭さ(既定 32)
+emissiveColor | XMFLOAT3 | 自分で光る色
+emissiveStrength | float | 自発光の強さ。0=光らない(既定)
+=table 影・縁の光・枠線
+castShadow | bool | 影を落とすか(既定 `false`)
+receiveShadow | bool | 影を受けるか(既定 `false`)
+rimColor / rimStrength / rimPower | XMFLOAT3 / float / float | 縁の光の色・強さ(0=光らない)・集まり方(大きいほど細い線)
+outlineColor | XMFLOAT4 | 枠線の色
+outlineWidth | float | 枠線の太さ(画面のピクセル)。0=枠線なし(既定)
+outlineSeeThrough | bool | `true` で壁越しにも枠線を描く
+MakeMaterialConstantBuffer(const Material& material) | MaterialConstantBuffer | 内部用: シェーダーへ送る形に変換する
+=code Sample3D/Game/Components/GroundController.cpp:24-28
+=notes
+- 半透明にする時は `color.w` を下げ、`depthWrite = false` にします(後ろの物が隠れないように)。描く順番は `SetDrawPriority` で調整します。
+- 影は `Shadow::GetSettings().enabled = true` の時だけ意味があります。
+- `MaterialConstantBuffer` は、シェーダー(`Shader3DCommon.hlsli` の `MaterialBuffer`)と同じ並びです。Engine を触る人以外は触りません。
+=demo Render3D カテゴリの「Shapes」(材質の違い)
+=readme §30
+
+=file Engine/Render3D/Light.h
+=class Light
+=role
+平行光源(太陽のように、全体に同じ向きから当たる光)と環境光です。`Image::GetLight()` で 1 つだけ取り出して使います。
+=table
+direction | XMFLOAT3 | 光が進んでいく向き(既定 0, -1, 0.5)。長さは 1 でなくてよい
+color | XMFLOAT3 | 光の色・強さ(既定 1,1,1)
+ambient | XMFLOAT3 | 環境光(光が当たらない面の最低限の明るさ。既定 0.25)
+=code Demo/Game/Components/Render3D/ShadowDemoController.cpp:43-43
+=notes
+- 2D のスプライトには効きません(`Shader.hlsl` は光の計算をしません)。
+- 影が出る光は、この平行光源と、`SetCastShadow(true)` にしたスポットライト 1 つだけです。
+=demo Render3D カテゴリの「Light」
+=readme §4, §31
+
+=file Engine/Render3D/LightComponent.h, LightComponent.cpp
+=class LightComponent, LightType
+=role
+付けた物の位置から光る、点光源・スポットライトです。Unity の `Light` の Point / Spot にあたります。3D のメッシュだけに効きます。
+=table
+LightComponent(LightType lightType) | コンストラクタ | `LightType::Point`(ランタン)か `LightType::Spot`(懐中電灯)
+SetColor(float r, float g, float b) | void | 光の色(既定 白)
+SetIntensity(float value) | void | 強さ(既定 1)
+SetRange(float distance) | void | 光が届く距離(既定 800。100 単位 = 1m)
+SetDirection(XMFLOAT3 newDirection) | void | スポットの向き(長さ 0 に戻すとオーナーの正面)
+SetSpotAngle(float innerDegrees, float outerDegrees) | void | スポットの内側(全開)と外側(消える)の角度(既定 20 / 35)
+SetCastShadow(bool value) | void | 影を落とす光にする(スポットライトだけ)
+IsCastingShadow() | bool | 影を落とす設定か
+GetLightType() | LightType | 光の種類
+GetColor() / GetIntensity() / GetRange() / GetInnerAngle() / GetOuterAngle() | 値 | 各設定を返す
+GetWorldPosition() | XMFLOAT3 | 光の位置(オーナーのワールド座標)
+GetWorldDirection() | XMFLOAT3 | スポットの向き(長さ 1)
+Init() / Uninit() | void (override) | `Lighting` への登録・解除
+=code Sample3D/Game/Objects/Lantern.cpp:19-22
+=code Sample3D/Game/Objects/Guard.cpp:28-33
+=notes
+- **同時に使える光は 8 個**(`Lighting::maxLights`)。超えたら 3D カメラに近い 8 個だけが光ります。超えた時は出力ウィンドウに警告が 1 回出ます。
+- `SetActive(false)` / `SetEnabled(false)` / `Destroy` の光は使われません(ObjectPool で休んでいる光も光りません)。
+- スポットライトの影は、同時に 1 つだけ(影を落とす光が複数ある時は、3D カメラに近い 1 つ)。外側の角度が 60 度を超える部分には影が出ません。点光源の影は作れません。
+- 2D のスプライトには効きません。
+=demo Render3D カテゴリの「Light」
+=readme §31
+
+=file Engine/Render3D/Lighting.h, Lighting.cpp
+=class Lighting(名前空間)
+=role
+点光源・スポットライト(`LightComponent`)の一覧を集めて、シェーダーに送る仕組みです。ゲーム側は `LightComponent` を付けるだけで、この名前空間は直接呼びません。
+=table
+maxLights | constexpr int | 同時に使える光の数(8)
+Register(LightComponent* light) / Unregister(LightComponent* light) | void | 内部用: LightComponent の Init / Uninit が呼ぶ
+Update() | void | 内部用: 毎フレーム、カメラに近い順に `maxLights` 個を選ぶ(GameEngine が呼ぶ)
+Bind() | void | 内部用: Mesh / SkinMesh が描く時に光の定数バッファ(b4)をセットする
+Shutdown() | void | 内部用: 終了時の片付け
+Build(lights, lightCount, cameraX, cameraY, cameraZ, overflowed, shadowLight) | LightConstantBuffer | 光の一覧から、送る内容を作る(確認用に公開されている)
+GetActiveCount() | int | 今フレームに使っている光の数(確認用)
+GetShadowSpotLight() | const LightComponent* | 今フレームの、影を落とすスポットライト(無ければ `nullptr`)
+=notes
+- 1 つも光が無い時の見た目は、点光源が無かった頃と同じです。
+- 光の数を HUD に出したい時は `Lighting::GetActiveCount()` が使えます。
+=demo Render3D カテゴリの「Light」
+=readme §31
+
+=file Engine/Render3D/Shadow.h, Shadow.cpp
+=class Shadow(名前空間), Shadow::Settings, Shadow::Caster
+=role
+影(シャドウマップ)です。光から見た「深度」を専用のテクスチャに描き、本番の描画で「光から見て手前に別の物があるピクセル」を暗くします。既定は **無効** で、無効の間はコストが 0 です。
+=table 使う側(ゲーム側)
+GetSettings() | Settings& | 影の設定を取り出す。`enabled = true` で影が出る
+SetSettings(const Settings& settings) | void | 設定をまとめて入れる(`Shadow::Settings()` で既定に戻せる)
+Settings::enabled | bool | 影を使うか(既定 `false`)
+Settings::resolution | int | 影のテクスチャの大きさ(1024 / 2048 / 4096。既定 2048)。大きいほどくっきりして重い
+Settings::distance | float | カメラの前方、この大きさの範囲に影を作る(既定 3000)。広いほどぼやける
+Settings::depthBias / normalBias | float | 縞模様(シャドウアクネ)を防ぐゆとり。大きすぎると影が浮く
+Settings::strength | float | 影の濃さ(0=なし、1=真っ暗。既定 0.6)
+Settings::pcfRadius | int | 影の縁のぼかし(0=なし、1=3x3、2=5x5)
+Settings::spotResolution / spotDepthBias / spotStrength | int / float / float | スポットライトの影の設定
+GetCasterCount() / GetDrawnCount() / IsSpotShadowActive() | int / bool | 確認用の数
+=table 内部用(Engine を触る人向け)
+Caster | class | 影を落とす物(MeshRenderer / ModelRenderer / TerrainRenderer)が実装する。`DrawShadow(const LightView&)` を持つ
+Register(Component* component, Caster* caster) / Unregister(Caster* caster) | void | 影を落とす物の登録・解除
+Render() | void | 影のパス。深度テクスチャに描き、描画先を元に戻す(GameEngine が呼ぶ。無効の時は何もしない)
+Bind() | void | 描く時に影の定数バッファ・テクスチャをセットする(Mesh / SkinMesh が呼ぶ)
+Shutdown() | void | 終了時の片付け
+BuildSpotView(position, direction, outerAngleDegrees, range) | LightView | スポットライトから見る行列を作る
+BuildSunView(camera, light, distance, resolution) | LightView | 平行光源から見る行列を作る(カメラが動いても縁がちらつかないよう丸める)
+=code Sample3D/Game/Components/ShadowManager.cpp:4-14
+=notes
+- 影を落とせるのは `MeshRenderer` / `ModelRenderer`(スキンメッシュを含む)/ `TerrainRenderer`。**`SpriteRenderer`(画像)は影を落とせません**。
+- 影が出る光は、平行光源(`Image::GetLight()`)と、`SetCastShadow(true)` にしたスポットライト 1 つだけです。環境光と点光源は影で暗くなりません。
+- 影の範囲の外では影が出ません(範囲は 3D カメラの前方 `distance`)。
+- 設定は全シーンで共通です。使い終わったら `Shadow::SetSettings(Shadow::Settings())` で既定(影なし)に戻します(上の例の `Uninit`)。
+- 影のパスは Direct2D(文字)の描画の前に終えます(GameEngine の順番)。
+=demo Render3D カテゴリの「Shadow」
+=readme §32
+
+=file Engine/Render3D/Lod.h, Lod.cpp
+=class Lod(名前空間), LodSettings
+=role
+LOD(Level Of Detail)の段階 1 です。カメラから遠い物を「描かない・影を落とさない・枠線を描かない」で軽くします。距離は「カメラから物の球の表面まで」です。
+=table LodSettings(MeshRenderer などが 1 つずつ持つ)
+drawDistance | float | これより遠い物は描かない(0 = いつも描く)
+shadowDistance | float | これより遠い物は影を落とさない(0 = いつも落とす)
+outlineDistance | float | これより遠い物は枠線を描かない(0 = いつも描く)
+=table Lod 名前空間
+SetEnabled(bool enabled) | void | `false` で、すべての物の LOD 設定を無視する(LOD を使わない状態と比べる確認用。既定 `true`)
+IsEnabled() | bool | LOD が有効か
+SetGlobalScale(float scale) | void | すべての距離を何倍にするか(0.5 で半分。0 以下は 1 に戻す)
+GetGlobalScale() | float | 今の倍率
+GetCameraDistance(XMFLOAT3 position) | float | カメラから position までの距離
+IsBeyond(XMFLOAT3 center, float radius, float limit) | bool | 球の表面までの距離が limit を超えているか(`limit` が 0 以下なら `false`)
+IsBeyond(const XMMATRIX& world, float localRadius, float limit) | bool | ワールド行列を持つ物版
+=code Sample3D/Game/Objects/WallField.cpp:12-16
+=code Sample3D/Game/Objects/WallField.cpp:27-29
+=notes
+- 省くのは **見た目だけ** で、物理(当たり判定)は止まりません。
+- 影は「カメラからの距離」で判断します。光の向きによっては遠い物の影が近くの地面に落ちるので、`shadowDistance` を短くしすぎないこと。
+- 大きな物は、中心が遠くても手前の端が近ければ省かれません。ちょうど設定の距離なら省きません(超えたら省く)。
+- `MeshRenderer` / `ModelRenderer` / `TerrainRenderer` が使います(地形は `drawDistance` / `shadowDistance` のみ)。
+=demo Render3D カテゴリの「LOD」
+=readme §37
+
+=file Engine/Render3D/RenderStats.h, RenderStats.cpp
+=class RenderStats(名前空間)
+=role
+描画の重さを測るカウンタ(描画命令の数・三角形の数)です。LOD の効果を確かめるために使います。すべて **前のフレームの数** を返します。
+=table
+GetDrawCallCount() | int | 通常の描画命令の数
+GetDrawTriangleCount() | int | 通常の三角形の数
+GetShadowDrawCount() / GetShadowTriangleCount() | int | 影のパスの命令数・三角形数
+GetOutlineDrawCount() / GetOutlineTriangleCount() | int | 枠線の命令数・三角形数
+GetDrawCallTotal() | int | 合計の描画命令数(通常 + 影 + 枠線)
+GetTriangleCount() | int | 合計の三角形数
+GetLodCulledCount() | int | 距離で省いた回数の合計
+BeginFrame() | void | 内部用: 前のフレームの数を確定して数え直す(GameEngine が呼ぶ)
+AddDraw(int) / AddShadowDraw(int) / AddOutlineDraw(int) / AddLodCulled() | void | 内部用: 各 Renderer が数える
+=code Sample3D/Game/Components/HUDController.cpp:70-74
+=notes
+- 数えるのは 3D の描画だけ(Mesh / SkinMesh / 水面)です。2D のスプライトと文字は数えません。
+- 枠線は 1 つの物につき 3 回の命令を出すので、枠線の命令数は「物の数 × 3」になります。
+- 画面の外で省いた数は `Visibility::GetCulledCount()` で別に見ます。
+=demo Render3D カテゴリの「LOD」(描画の数の変化)
+=readme §37
+
+=file Engine/Render3D/Model.h, Model.cpp
+=class Model, ModelNode, ModelPose, ModelClip
+=role
+読み込んだ FBX / OBJ モデルのデータです(形・パーツの親子関係・アニメーション)。みんなで共有するデータで、ゲーム側は普通 `ModelRenderer` 経由で使います。
+=table
+Load(const std::wstring& path) | static std::shared_ptr<Model> | `.fbx` / `.obj` を読む。失敗したら `nullptr`。ゲーム側は普通 `Resources::LoadModel` を使う
+GetNodeCount() | int | パーツの数
+FindNode(const std::string& name) | int | 名前でパーツを探す(無ければ -1)
+GetNode(int index) | const ModelNode& | パーツのデータ
+GetPath() | const std::wstring& | 読み込んだファイルのパス
+GetBoundingRadius() | float | 原点から一番遠い頂点までの距離(画面判定の半径)
+GetClipCount() | int | アニメーションクリップの数
+GetClip(int index) | const ModelClip& | クリップのデータ
+FindClip(const std::string& name) | int | 名前でクリップを探す(無ければ -1)
+QuaternionToEuler(const XMFLOAT4& q) | static XMFLOAT3 | クォータニオンを `Transform::rotate` と同じ向きのオイラー角(度)にする
+GetMesh(int index) / GetSkinMesh(int index) | Mesh* / SkinMesh* | 内部用: ModelRenderer が描画用バッファを取り出す
+ModelNode | struct | パーツ 1 つ: `name`・`parent`・`position`・`rotate`・`scale`・`vertices`・`texturePath`、スキン用の `skinVertices` など。`IsSkinned()`
+ModelPose | struct | パーツの、ある時刻の位置・回転(クォータニオン)・スケール
+ModelClip | struct | クリップ 1 つ: `name`・`duration`・`fps`・`frameCount`・`nodePoses`
+=code Demo/Game/Components/Core/ResourcesDemoController.cpp:65-69
+=notes
+- 単位は **1 単位 = 1cm**、座標系は読み込む時に左手系へ変換されます(README §27)。
+- パーツの親は必ず自分より小さい番号です。
+- `Model` は形と親子関係だけを持ち、パーツの **今の動き** は `ModelRenderer` が 1 体ごとに持ちます。
+=demo Render3D カテゴリの「Model」
+=readme §27
+
+=file Engine/Render3D/ModelRenderer.h, ModelRenderer.cpp
+=class ModelRenderer
+=role
+FBX モデル(複数のパーツ)を描く Component です。パーツごとに親から子へ行列を累積して描きます。`MeshRenderer` と同じ `Material` で見た目を決められ、影・縁の光・枠線・LOD も同じように使えます。
+=table
+ModelRenderer(const std::wstring& path) | コンストラクタ | FBX / OBJ のパスを渡す。読めなかった時は何も描かない(出力ウィンドウに理由が出る)
+SetTexture(const std::wstring& path) | void | 全パーツに同じ画像を貼る(呼ばなければ FBX に書かれたパーツごとの画像を使う)
+SetColor(float r, float g, float b, float a) | void | 色
+GetColor() | XMFLOAT4 | 今の色
+SetMaterial(const Material& value) | void | 全パーツ共通のマテリアルを設定する
+GetMaterial() | Material& | 手直し用
+SetRimLight(XMFLOAT3 color, float strength, float power) | void | 縁の光
+SetOutline(XMFLOAT4 color, float widthPixels, bool seeThrough) | void | 枠線(スキンのパーツは曲げた後の形に付く)
+SetFrustumCulling(bool enabled) | void | 画面の外にある時は描かない
+SetLod(const LodSettings& settings) / GetLod() | void / LodSettings& | 距離で省く設定
+GetNodeTransform(const std::string& name) | Transform* | 名前でパーツを探して、その動き(Transform)を返す。無ければ `nullptr`
+GetNodeTransform(int index) | Transform* | 番号版(範囲外は `nullptr`)
+GetModel() | const std::shared_ptr<Model>& | 読み込んだモデル
+Init() / Draw() / Uninit() / DrawShadow(...) | void (override) | 内部の処理
+=code Sample3D/Game/Objects/ModelDisplay.cpp:31-34
+=code Sample3D/Game/Components/ModelDisplayController.cpp:17-19
+=notes
+- `GetNodeTransform` の値は「親のパーツからの相対」です。この Transform には親子関係を設定していないので、`GetWorldMatrix()` は使えません。
+- **アニメーションを再生している間は、`ModelAnimationComponent` が毎フレームその値を上書き** します。手で動かしても、アニメが動かすパーツは次のフレームに戻ります。
+- `ModelAnimationComponent` は **ModelRenderer の後に** `AddComponent` します。
+- 画面判定の半径は「止まっている姿の一番遠い頂点 × 1.5」です。アニメーションで大きくはみ出すモデルは、`SetFrustumCulling` を `false` のままにします。
+=demo Render3D カテゴリの「Model」「SkinAnim」
+=readme §27
+
+=file Engine/Render3D/SkinMesh.h, SkinMesh.cpp
+=class SkinMesh, SkinVertex
+=role
+骨の行列で頂点を動かして描く 3D メッシュです(`Mesh` のスキン版)。`ModelRenderer` が、骨で曲げるパーツに使います。ゲーム側が直接触ることはほとんどありません。
+=table
+maxBones | static constexpr int | 1 つのメッシュに使える骨の数の上限(64)
+Init(const std::vector<SkinVertex>& verts) | bool | 頂点バッファを作る。失敗したら `false`
+Draw(world, boneMatrices, boneCount, camera, material, light) | void | 骨の行列(スキン行列)で曲げて描く
+DrawOutline(world, boneMatrices, boneCount, camera, color, widthPixels, seeThrough) | void | 曲げた後の形に枠線を描く
+DrawDepth(world, boneMatrices, boneCount, lightView, lightProj) | void | 影のパス用: 曲げた形の深度だけを描く
+SetTexture(ID3D11ShaderResourceView* s) | void | 画像を渡す
+Uninit() | void | 解放する
+SkinVertex | struct | 頂点に `BoneIndices[4]`(影響する骨)と `BoneWeights`(影響度。合計 1)を足した形
+=notes
+- 骨は 1 つの頂点につき最大 4 本、1 つのメッシュにつき最大 64 本です。
+- 骨のパーツ自体は描かれず、メッシュが曲がります。
+=demo Render3D カテゴリの「SkinAnim」
+=readme §27
+
+=file Engine/Render3D/Terrain.h, Terrain.cpp
+=class Terrain, TerrainSettings
+=role
+地形の高さのデータです。高さの画像(PNG)か表(CSV)から作り、高さや面の向きを調べたり、描画用のメッシュを作ったりします。描画は `TerrainRenderer`、当たり判定は `TerrainRigidbodyComponent` が、同じデータから作ります。
+=table
+LoadFromImage(const std::wstring& path, const TerrainSettings& settings) | static std::shared_ptr<Terrain> | 高さの画像から作る(白=高い、黒=低い)。読めなければ `nullptr`
+LoadFromCsv(const std::wstring& path, const TerrainSettings& settings) | static std::shared_ptr<Terrain> | 表(CSV)から作る(1 マスに 0〜1 の数値)
+CreateFromSamples(values, sampleWidth, sampleHeight, settings) | static std::shared_ptr<Terrain> | 数値の並びから作る(プログラムで地形を作る時)
+GetHeightAt(float localX, float localZ) | float | その場所の高さ(地形の左手前の角が原点の座標)
+GetNormalAt(float localX, float localZ) | XMFLOAT3 | その場所の面の向き(長さ 1)
+Contains(float localX, float localZ) | bool | 地形の範囲内か
+GetSettings() | const TerrainSettings& | 設定
+GetHeights() | const std::vector<float>& | 頂点の高さ(`[x * GetVertexCountZ() + z]`)
+GetVertexCountX() / GetVertexCountZ() | int | 頂点の数(分割数 + 1)
+GetCellSizeX() / GetCellSizeZ() | float | 1 マスの長さ
+GetHeightAtVertex(int x, int z) | float | 頂点の高さ(範囲外は端)
+BuildMesh(vertices, indices) | void | 描画用の頂点とインデックスを作る(TerrainRenderer が使う)
+TerrainSettings::width / depth | float | X・Z 方向の大きさ(既定 10000)
+TerrainSettings::maxHeight | float | 高さのデータが 1(真っ白)の時の高さ(既定 1000)
+TerrainSettings::cellsX / cellsZ | int | 分割数(マスの数。1〜256)
+TerrainSettings::uvRepeat | float | 画像を地形全体に何回くり返して貼るか(既定 20)
+TerrainSettings::texture | std::wstring | 地形に貼る画像
+=code Sample3D/Game/Objects/Hills.cpp:16-26
+=notes
+- 地形の中は「左手前の角が原点 (0,0)、X・Z が増える向き」。高さ 0 が下、Y+ が上です。ワールドに置く位置は `TerrainRenderer` のオーナーの位置です。
+- 高さの画像は、左が X=0、**上が Z=最大**(上から見た地図と同じ向き)。16 ビットのグレースケールは 65536 段階、それ以外は赤(R)の 256 段階です。
+- `GetHeightAt` / `GetNormalAt` は描画のメッシュと同じ三角形の上で計算するので、物を地形の上に置いても浮かない・埋まらない。
+- `LoadFromImage` が `nullptr` を返したら(画像が無いなど)、必ずチェックします(上の例は `if (!terrain) return hills;`)。
+=demo Render3D カテゴリの「Terrain」、Physics カテゴリの「TerrainCollider」
+=readme §34
+
+=file Engine/Render3D/TerrainRenderer.h, TerrainRenderer.cpp
+=class TerrainRenderer
+=role
+地形(`Terrain`)を描く Component です。オーナーの Transform の位置が「地形の左手前の角」で、Y がそのまま高さ 0 です。見た目は `MeshRenderer` と同じ `Material` で決めます。
+=table
+TerrainRenderer(const std::shared_ptr<Terrain>& terrain) | コンストラクタ | 地形のデータを渡して作る
+SetMaterial(const Material& value) | void | マテリアルをまとめて設定
+GetMaterial() | Material& | 手直し用(`receiveShadow = true` など)
+SetFrustumCulling(bool enabled) / IsFrustumCulling() | void / bool | 画面の外にある時は描かない
+SetLod(const LodSettings& settings) / GetLod() | void / LodSettings& | 距離で省く(`drawDistance` / `shadowDistance` のみ)
+GetHeightAt(float worldX, float worldZ) | float | ワールド座標での、その場所の地面の Y
+GetNormalAt(float worldX, float worldZ) | XMFLOAT3 | その場所の面の向き(長さ 1)
+Contains(float worldX, float worldZ) | bool | 地形の範囲内か
+GetTerrain() | const std::shared_ptr<Terrain>& | 持っている地形のデータ
+=code Sample3D/Game/Objects/Hills.cpp:28-34
+=notes
+- オーナーの Transform は **位置(と親)だけ** を使います。拡大縮小・回転は使えません(`GetHeightAt` と見た目がずれる)。
+- 当たり判定は付きません。付ける時は同じ `Terrain` を `TerrainRigidbodyComponent` に渡します(Physics)。
+- 描画順は `SetDrawPriority(INT_MIN + 1)` のように、スカイボックスのすぐ後・他の物より先にします(半透明の物より後に描くと、透けた所に地面が出ないことがあるため)。
+- 枠線(`SetOutline`)は付けません(地形全体の枠線に意味が無い)。
+=demo Render3D カテゴリの「Terrain」
+=readme §34
+
+=file Engine/Render3D/WaterRenderer.h, WaterRenderer.cpp
+=class WaterRenderer, WaterSettings
+=role
+水面(波打つ半透明の面)を描く Component です。オーナーの Transform の位置が水面の中心で、Y が水位です。地形のくぼみに水を張る、池・湖・海のように使います。波は頂点シェーダーが時間から計算します。
+=table
+WaterRenderer(const WaterSettings& settings) | コンストラクタ | 設定を渡して作る(省略可)
+GetSettings() | WaterSettings& | 実行中に手直しできる(色・波・大きさ。次のフレームから反映)
+SetFrustumCulling(bool enabled) / IsFrustumCulling() | void / bool | 画面の外にある時は描かない
+GetHeightAt(float worldX, float worldZ) | float | その場所の水面のワールドの Y(波込み)。物を浮かべる時に使う
+GetHeightAt(float worldX, float worldZ, float time) | float | 時間を指定する版
+Contains(float worldX, float worldZ) | bool | 水面の範囲内か(XZ だけ。波の高さは見ない)
+WaterSettings::size | XMFLOAT2 | 水面の大きさ(X, Z)
+WaterSettings::cells | int | 格子の分割数(1〜512)
+WaterSettings::color | XMFLOAT4 | 水の色(w が透明度)
+WaterSettings::waveHeight / waveLength / waveSpeed | float | 波の高さ・長さ・進む速さ
+WaterSettings::waveDirection | XMFLOAT2 | 波の進む向き(X, Z)
+WaterSettings::specularStrength / shininess | float | 太陽のきらめきの強さ・鋭さ
+WaterSettings::fresnelPower | float | 浅い角度でどれだけ空が映るか
+WaterSettings::receiveShadow | bool | 他の物の影を受けるか(水面は影を落とさない)
+=code Sample3D/Game/Objects/Water.cpp:10-22
+=notes
+- 半透明で深度を書かないので、**オーナーの `drawPriority` を大きく**(例: `SetDrawPriority(100)`)して、不透明な物より後に描きます。
+- 水面と水面の中の半透明の物(敵の画像など)の前後は、正しくならないことがあります(`Scene::Draw` はカメラからの距離順ではないため)。
+- **当たり判定は付きません**(通り抜けられます)。物を浮かべるには `GetHeightAt` で波の高さを調べます。
+- 波の時間は `Time::GetTime()` なので、ポーズ中は波も止まります。
+- オーナーの Transform は位置(と親)だけを使います(拡大縮小・回転は使えない)。
+=demo Render3D カテゴリの「Water」
+=readme §35

@@ -1,0 +1,197 @@
+﻿<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Physics(物理と当たり判定) - Engine解説</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="layout">
+<nav class="side">
+<div class="brand"><a href="index.html">Engine解説</a></div>
+<div class="search"><input type="search" id="q" placeholder="関数名・クラス名・ファイル名を検索" autocomplete="off"><ul id="results"></ul></div>
+<ul class="menu">
+<li><a href="index.html">トップ</a></li>
+<li><a href="architecture.html">設計図(図解)</a></li>
+<li><a href="Core.html">Core</a></li>
+<li><a href="Render.html">Render</a></li>
+<li><a href="Render3D.html">Render3D</a></li>
+<li><a href="Physics.html" class="current">Physics</a></li>
+<li><a href="UI.html">UI</a></li>
+<li><a href="Animation.html">Animation</a></li>
+<li><a href="Transition.html">Transition</a></li>
+<li><a href="Behavior.html">Behavior</a></li>
+<li><a href="Audio.html">Audio</a></li>
+<li><a href="Data.html">Data</a></li>
+<li><a href="ThirdParty.html">ThirdParty</a></li>
+<li><a href="files.html">ファイル索引</a></li>
+<li><a href="glossary.html">用語集</a></li>
+</ul>
+<p class="sidenote">3D_FreamWork の Engine を、初心者向けに解説したページです。</p>
+</nav>
+<main>
+<h1>Physics(物理と当たり判定)</h1>
+<div class="lead"><code>Engine/Physics/</code> は、物理エンジン <strong>PhysX 4.1</strong> を使った「動き」と「当たり判定」です。2D のゲームも 3D のゲームも、<strong>当たり判定は全部 PhysX が計算しています</strong>(2D 専用の物理があるわけではなく、2D 用の使いやすい形(Circle / Square)が用意されています)。
+物をぶつけたい時は、GameObject に <code>○○RigidbodyComponent</code> を付けます。ぶつかった時の反応は、Component の <code>OnCollisionEnter</code> / <code>OnTriggerEnter</code> などを <code>override</code> して書きます。</div>
+<div class="toc"><strong>このページのファイル</strong><ul>
+<li><a href="#f-RigidbodyComponent">RigidbodyComponent.h / RigidbodyComponent.cpp</a></li>
+<li><a href="#f-Physics">Physics.h / Physics.cpp</a></li>
+<li><a href="#f-Collider">Collider.h / Collider.cpp</a></li>
+</ul></div>
+<p><strong>Demo で見る</strong>: Demo プロジェクトの <strong>Physics カテゴリ</strong>に、Collider / Force / RigidbodySettings / Trigger / Query / TerrainCollider の6個のデモがあります。流れの図は<a href="architecture.html#physics">設計図の物理とコールバック</a>にあります。</p>
+<section class="file" id="f-RigidbodyComponent">
+<h3><code>Engine/Physics/RigidbodyComponent.h</code> <code>Engine/Physics/RigidbodyComponent.cpp</code></h3>
+<p class="role">物理の剛体(Unity の <code>Rigidbody</code> + <code>Collider</code> を1つにしたもの)です。親クラスの <code>RigidbodyComponent</code> に共通の機能があり、形ごとの子クラスを <code>AddComponent</code> します。Dynamic は PhysX の計算結果が <code>transform</code> に反映され、Kinematic は逆に <code>transform</code> の位置が PhysX に伝わります。</p>
+<h4>剛体の種類(BodyType)</h4>
+<div class="tw"><table class="api"><thead><tr><th>名前</th><th>引数・戻り値</th><th>何をするか</th></tr></thead><tbody>
+<tr><td class="fn"><code>BodyType::Dynamic</code></td><td class="sig"><code>enum class BodyType</code></td><td>重力や衝突で物理的に動く。PhysX の計算結果が Transform に反映される。普通の動く物</td></tr>
+<tr><td class="fn"><code>BodyType::Kinematic</code></td><td class="sig"><code>enum class BodyType</code></td><td>自分のコードが Transform を動かす。Dynamic を押せるが、自分は重力や力の影響を受けない</td></tr>
+<tr><td class="fn"><code>BodyType::Static</code></td><td class="sig"><code>enum class BodyType</code></td><td>完全に動かない(床・壁など)</td></tr>
+</tbody></table></div>
+<h4>形ごとのクラス(どれも Component として AddComponent する)</h4>
+<div class="tw"><table class="api"><thead><tr><th>名前</th><th>引数・戻り値</th><th>何をするか</th></tr></thead><tbody>
+<tr><td class="fn"><code>BoxRigidbodyComponent</code></td><td class="sig"><code>(BodyType, XMFLOAT3 size, float density, bool isTrigger, bool isStaticForPush)</code></td><td>3D の箱。<code>size</code> の既定(0)は Owner の <code>transform.scale</code></td></tr>
+<tr><td class="fn"><code>SphereRigidbodyComponent</code></td><td class="sig"><code>(BodyType, float radius, float density, bool isTrigger, bool isStaticForPush)</code></td><td>3D の球。<code>radius</code> の既定(0)は <code>transform.scale.x</code> の半分</td></tr>
+<tr><td class="fn"><code>CircleRigidbodyComponent</code></td><td class="sig"><code>(同上)</code></td><td>2D 用の円。中身は Sphere と同じ(PhysX に2D専用の形は無い)</td></tr>
+<tr><td class="fn"><code>SquareRigidbodyComponent</code></td><td class="sig"><code>(BodyType, float size, float density, bool isTrigger, bool isStaticForPush)</code></td><td>2D 用の四角。中身は Box(一辺 <code>size</code> の立方体)</td></tr>
+<tr><td class="fn"><code>CapsuleRigidbodyComponent</code></td><td class="sig"><code>(BodyType, float radius, float height, float density, bool isTrigger, bool isStaticForPush, CapsuleAxis axis)</code></td><td>3D のカプセル(円柱の両端が半球)。人や敵向き。<code>axis</code> の既定は Y(立った形)</td></tr>
+<tr><td class="fn"><code>Capsule2DRigidbodyComponent</code></td><td class="sig"><code>(同上)</code></td><td>2D 用のカプセル。デバッグ表示は断面だけ</td></tr>
+<tr><td class="fn"><code>TerrainRigidbodyComponent</code></td><td class="sig"><code>(const std::shared_ptr&lt;Terrain&gt;&amp; terrain, bool isTrigger)</code></td><td>地形(Terrain)の起伏に合わせた当たり判定。いつも Static</td></tr>
+</tbody></table></div>
+<h4>共通の関数(RigidbodyComponent)</h4>
+<div class="tw"><table class="api"><thead><tr><th>名前</th><th>引数・戻り値</th><th>何をするか</th></tr></thead><tbody>
+<tr><td class="fn"><code>SetVelocity(XMFLOAT3 velocity)</code></td><td class="sig"><code>void</code></td><td>速度を設定する。Dynamic の時だけ意味がある。毎回3軸ぜんぶ上書きする</td></tr>
+<tr><td class="fn"><code>GetVelocity()</code></td><td class="sig"><code>XMFLOAT3</code></td><td>今の速度(Kinematic / Static では常に 0)</td></tr>
+<tr><td class="fn"><code>SetUseGravity(bool useGravity)</code></td><td class="sig"><code>void</code></td><td>重力を受けるか。Dynamic だけ</td></tr>
+<tr><td class="fn"><code>SetFreezeRotation(bool freeze)</code></td><td class="sig"><code>void</code></td><td><code>true</code> でぶつかっても回転しない。Dynamic だけ</td></tr>
+<tr><td class="fn"><code>SetFreezePositionX(bool freeze)</code></td><td class="sig"><code>void</code></td><td><code>true</code> で X 方向に動かない。Dynamic だけ(<code>Y</code> / <code>Z</code> も同じ形)</td></tr>
+<tr><td class="fn"><code>AddForce(XMFLOAT3 force, ForceMode mode)</code></td><td class="sig"><code>void</code></td><td>力を加える。既定の <code>mode</code> は <code>ForceMode::Force</code>。Dynamic だけ。コールバックの中で呼んでもよい</td></tr>
+<tr><td class="fn"><code>AddTorque(XMFLOAT3 torque, ForceMode mode)</code></td><td class="sig"><code>void</code></td><td>回す力を加える。<code>SetFreezeRotation(true)</code> の時は回らない</td></tr>
+<tr><td class="fn"><code>SetMass(float mass)</code></td><td class="sig"><code>void</code></td><td>重さを変える(作った時は 密度 &#215; 体積)。0以下は無視。コールバックの中では呼ばない</td></tr>
+<tr><td class="fn"><code>GetMass()</code></td><td class="sig"><code>float</code></td><td>今の重さ(Static は 0)</td></tr>
+<tr><td class="fn"><code>SetDrag(float drag)</code></td><td class="sig"><code>void</code></td><td>空気抵抗。0で落ちない、大きいほどすぐ止まる。負の値は 0</td></tr>
+<tr><td class="fn"><code>GetBodyType()</code></td><td class="sig"><code>BodyType</code></td><td>剛体の種類</td></tr>
+<tr><td class="fn"><code>GetActor()</code></td><td class="sig"><code>physx::PxRigidActor*</code></td><td>PhysX の生のアクター(PhysX を直接触りたい時だけ)</td></tr>
+<tr><td class="fn"><code>SetDebugDrawEnabled(bool enabled)</code></td><td class="sig"><code>static void</code></td><td><code>true</code> で全剛体の当たり判定を枠線で描く(緑=通常、黄=トリガー)。見た目とのズレの確認用</td></tr>
+</tbody></table></div>
+<div class="ex"><div class="exhead">使い方の例 <span class="src">出典: <code>Sample2D/Game/Objects/Player.cpp:24-28</code></span></div><pre><code>// 当たり判定+物理演算(PhysX)。
+auto* rigidbody = player-&gt;AddComponent&lt;CircleRigidbodyComponent&gt;(BodyType::Dynamic, 50.0f, 100.f);
+rigidbody-&gt;SetUseGravity(false);      // 重力を適用するか
+rigidbody-&gt;SetFreezeRotation(true);   // trueでぶつかっても回転しない
+rigidbody-&gt;SetFreezePositionZ(true);  // trueでZ方向に動かない(X/Yにも同じ関数がある)</code></pre></div>
+<div class="ex"><div class="exhead">使い方の例 <span class="src">出典: <code>Sample2D/Game/Objects/Wall.cpp:22-23</code></span></div><pre><code>// 物理演算(PhysX): 動かない壁(奥行きは、Zを固定した2Dの物と重なる厚みを持たせる)
+wall-&gt;AddComponent&lt;BoxRigidbodyComponent&gt;(BodyType::Static, DirectX::XMFLOAT3{ size.x, size.y, 100.0f });</code></pre></div>
+<div class="ex"><div class="exhead">使い方の例 <span class="src">出典: <code>Sample2D/Game/Components/PlayerController.cpp:91-96</code></span></div><pre><code>if (hp &gt; 0 &amp;&amp; rigidbody) {
+    DirectX::XMFLOAT2 away = Math::DirectionTo(
+        Math::ToXY(info.other-&gt;owner-&gt;transform.position), Math::ToXY(GetOwner()-&gt;transform.position));
+    float strength = knockbackSpeed * rigidbody-&gt;GetMass();
+    rigidbody-&gt;AddForce({ away.x * strength, away.y * strength, 0.f }, ForceMode::Impulse);
+    knockbackTimer.Reset();</code></pre></div>
+<div class="ex"><div class="exhead">使い方の例 <span class="src">出典: <code>Sample3D/Game/Components/EnemyManager.cpp:49-52</code></span></div><pre><code>// 当たり判定+物理演算(PhysX): 立った形のカプセル(半径40・高さ100)。箱と違い、角が段差に引っかからない
+auto* rigidbody = obj-&gt;AddComponent&lt;CapsuleRigidbodyComponent&gt;(BodyType::Dynamic, 40.0f, 100.0f, 1.0f);
+rigidbody-&gt;SetUseGravity(true);
+rigidbody-&gt;SetFreezeRotation(true);</code></pre></div>
+<div class="ex"><div class="exhead">使い方の例 <span class="src">出典: <code>Sample3D/Game/Objects/Hills.cpp:33-34</code></span></div><pre><code>// 当たり判定(PhysX): 見た目と同じ地形のデータから作るので、丘の起伏の上を歩ける。動かない
+hills-&gt;AddComponent&lt;TerrainRigidbodyComponent&gt;(terrain);</code></pre></div>
+<div class="notes"><strong>気を付ける点</strong><ul>
+<li><strong>Dynamic の <code>transform</code> を直接書き換えない</strong>。動かす時は <code>SetVelocity()</code> か <code>AddForce()</code> を使います(直接書くと PhysX の計算とぶつかります)。Kinematic だけは <code>transform.position</code> を直接動かしてよい決まりです。</li>
+<li><code>SetVelocity</code> / <code>SetUseGravity</code> / <code>SetFreezeRotation</code> / <code>SetFreezePosition○</code> / <code>AddForce</code> / <code>AddTorque</code> / <code>SetMass</code> / <code>SetDrag</code> は <strong>Dynamic にしか効きません</strong>(Kinematic / Static では何もせず、出力ウィンドウに1回だけ知らせます)。</li>
+<li><code>SetVelocity</code> は <strong>毎回3軸すべてを上書き</strong>します。重力で落ちる Y の速さを残したい時は、<code>GetVelocity()</code> で今の値を読んで渡します。</li>
+<li><strong>2D のゲームでは <code>SetUseGravity(false)</code> と <code>SetFreezePositionZ(true)</code></strong>(と、回したくなければ <code>SetFreezeRotation(true)</code>)を付けるのが決まりです。物理の重力はシーン全体で下向き(<code>(0,-981,0)</code>)に働くので、2D のトップダウンでは切っておきます(Sample2D の Player が実例)。<code>SquareRigidbodyComponent</code> は奥行きも一辺と同じ長さの立方体です。</li>
+<li><strong>Kinematic の物と Static の物の間では、衝突のコールバックは来ません(すり抜けます)</strong>。PhysX の既定では、Kinematic と Static の組はペアにならないためです(README &#167;38 の記録と一致。Engine には <code>eENABLE_KINEMATIC_STATIC_PAIRS</code> などの設定がありません。実行して確かめたのではなく、PhysX の既定の動きから導いた結論です)。<code>Physics.cpp</code> の <code>CollisionFilterShader</code> のコメントは、ペアができた後の通知の話です。壁にぶつけたい物は Dynamic にして <code>SetVelocity</code> で動かすと、Static の壁と衝突します。</li>
+<li><code>isStaticForPush</code>: <code>true</code> だと、Kinematic 同士がぶつかった時に自分は押し戻されない側になります(<code>BodyType::Static</code> とは別の概念)。</li>
+<li>カプセルを立てたまま回転ロック無しの Dynamic にすると、ぶつかった時に倒れて転がります。人・敵には <code>SetFreezeRotation(true)</code> を付けます。</li>
+<li><code>TerrainRigidbodyComponent</code> は、<code>TerrainRenderer</code> に渡したのと <strong>同じ Terrain</strong> を渡します(見た目と当たり判定がずれない)。位置は作った時に決まる(後で動かしても当たり判定は動かない)。地形の下側からは通り抜けます。<code>isTrigger</code> は効きません。</li>
+<li><code>ForceMode</code>(<code>Force</code> / <code>Impulse</code> / <code>Acceleration</code> / <code>VelocityChange</code>)の違いは次の <code>Physics.h</code> の節の表を見てください。<code>Impulse</code> は重さで割られるので、「速さ &#215; 重さ」を渡すと思った速さで弾かれます。</li>
+<li>長さの感覚は <strong>100 単位 = 約 1m</strong> です(重力 981 もこのため)。</li>
+</ul></div>
+</section>
+<section class="file" id="f-Physics">
+<h3><code>Engine/Physics/Physics.h</code> <code>Engine/Physics/Physics.cpp</code></h3>
+<p class="role">PhysX の初期化・毎フレームの更新・終了と、「この線の先に何があるか」「この範囲に何がいるか」を調べる問い合わせ(Raycast / Overlap)です。PhysX の結果を、Component の <code>OnCollisionEnter</code> / <code>OnTriggerEnter</code> などのコールバックに変換して届けるのもここです。</p>
+<h4>問い合わせ(ゲーム側から使う)</h4>
+<div class="tw"><table class="api"><thead><tr><th>名前</th><th>引数・戻り値</th><th>何をするか</th></tr></thead><tbody>
+<tr><td class="fn"><code>Raycast(origin, direction, maxDistance, hit, tag, triggers)</code></td><td class="sig"><code>bool</code></td><td>origin から direction の向きに最大 maxDistance まで線を飛ばし、最初に当たった物を <code>hit</code>(RaycastHit)に入れる。当たれば <code>true</code></td></tr>
+<tr><td class="fn"><code>OverlapSphere(center, radius, tag, triggers)</code></td><td class="sig"><code>std::vector&lt;GameObject*&gt;</code></td><td>中心 center・半径 radius の球に入っている物を全部探す(2D では円)</td></tr>
+<tr><td class="fn"><code>OverlapBox(center, size, tag, triggers)</code></td><td class="sig"><code>std::vector&lt;GameObject*&gt;</code></td><td>中心 center・大きさ size(辺の長さ)の箱に入っている物を全部探す。箱は回転しない</td></tr>
+</tbody></table></div>
+<h4>型</h4>
+<div class="tw"><table class="api"><thead><tr><th>名前</th><th>引数・戻り値</th><th>何をするか</th></tr></thead><tbody>
+<tr><td class="fn"><code>RaycastHit</code></td><td class="sig"><code>struct</code></td><td><code>object</code>(当たった GameObject)、<code>point</code>(当たった場所)、<code>normal</code>(面の向き)、<code>distance</code>(距離)</td></tr>
+<tr><td class="fn"><code>ForceMode</code></td><td class="sig"><code>enum class</code></td><td><code>Force</code>(押し続ける)/ <code>Impulse</code>(一瞬の衝撃。ノックバック)/ <code>Acceleration</code>(質量を無視して押し続ける)/ <code>VelocityChange</code>(質量を無視して一瞬で速さを変える。ジャンプ)</td></tr>
+<tr><td class="fn"><code>QueryTriggers</code></td><td class="sig"><code>enum class</code></td><td><code>Ignore</code>(トリガーを無視。既定)/ <code>Include</code>(トリガーも探す)</td></tr>
+</tbody></table></div>
+<h4>エンジン内部用(ゲーム側からは呼ばない)</h4>
+<div class="tw"><table class="api"><thead><tr><th>名前</th><th>引数・戻り値</th><th>何をするか</th></tr></thead><tbody>
+<tr><td class="fn"><code>Init()</code></td><td class="sig"><code>bool</code></td><td>PhysX を初期化する(GameEngine が呼ぶ)。重力は <code>(0, -981, 0)</code></td></tr>
+<tr><td class="fn"><code>Update(float dt)</code></td><td class="sig"><code>void</code></td><td>1フレーム分シミュレーションを進め、当たり判定のコールバックを呼ぶ(GameEngine が呼ぶ)。<code>dt</code> が 0(ポーズ中)の時は何もしない</td></tr>
+<tr><td class="fn"><code>Uninit()</code></td><td class="sig"><code>void</code></td><td>PhysX の後片付け(GameEngine が呼ぶ)</td></tr>
+<tr><td class="fn"><code>GetPhysics() / GetScene() / GetDefaultMaterial() / GetCooking()</code></td><td class="sig"><code>PhysX のポインタ</code></td><td>RigidbodyComponent などが PhysX のアクターを作るために使う</td></tr>
+<tr><td class="fn"><code>QueueSceneChange(actor, add)</code></td><td class="sig"><code>void</code></td><td>PhysX のコールバック中は直接 add / remove できないので、予約して次の Update の安全なタイミングで実行する</td></tr>
+<tr><td class="fn"><code>CancelQueuedSceneChange(actor)</code></td><td class="sig"><code>void</code></td><td>予約を取り消す(RigidbodyComponent の Uninit が呼ぶ)</td></tr>
+<tr><td class="fn"><code>ForgetTriggerPairs(actor)</code></td><td class="sig"><code>void</code></td><td>トリガーに重なっている記録を忘れる(RigidbodyComponent が呼ぶ)</td></tr>
+<tr><td class="fn"><code>ApplyForce(actor, value, mode, torque)</code></td><td class="sig"><code>void</code></td><td>AddForce / AddTorque の本体(コールバック中は預かって、あとでまとめて加える)</td></tr>
+</tbody></table></div>
+<div class="ex"><div class="exhead">使い方の例 <span class="src">出典: <code>Sample3D/Game/Components/HighlightController.cpp:14-16</code></span></div><pre><code>// 光る判定: 近くに&quot;Player&quot;タグの物がいれば、枠線を出す(離れたら消す)
+bool nearby = !Physics::OverlapSphere(GetOwner()-&gt;transform.position, radius, &quot;Player&quot;).empty();
+renderer-&gt;SetOutline(color, nearby ? width : 0.0f);</code></pre></div>
+<div class="ex"><div class="exhead">使い方の例 <span class="src">出典: <code>Demo/Game/Components/Physics/QueryDemoController.cpp:97-105</code></span></div><pre><code>case Query::Raycast: {
+    // 出発点からマウスの点へ、線を飛ばす(当たらなければ、届く限界までの線にする)
+    const DirectX::XMFLOAT3 direction = point - origin;
+    if (Math::Length(direction) &lt; 1.f) { rayEnd = origin; return; }
+    const float maxDistance = is2D ? rayMax2D : rayMax3D;
+    rayEnd = origin + Math::Normalize(direction) * maxDistance;
+    rayHit = Physics::Raycast(origin, direction, maxDistance, hit, tag, triggers);
+    if (rayHit) rayEnd = hit.point;
+    break;</code></pre></div>
+<div class="ex"><div class="exhead">使い方の例 <span class="src">出典: <code>Demo/Game/Components/Physics/ForceDemoController.cpp:75-79</code></span></div><pre><code>case ForceMode::Force:
+    box.rigidbody-&gt;AddForce({ lightMass * forceAcceleration, 0.f, 0.f }, ForceMode::Force);
+    break;
+case ForceMode::Impulse:
+    box.rigidbody-&gt;AddForce({ lightMass * kickSpeed, 0.f, 0.f }, ForceMode::Impulse);</code></pre></div>
+<div class="notes"><strong>気を付ける点</strong><ul>
+<li><code>tag</code> を指定すると、そのタグのオブジェクトだけを探します(<code>&quot;&quot;</code> なら全部)。</li>
+<li><strong>トリガー(<code>isTrigger=true</code>)は、<code>QueryTriggers::Include</code> を渡した時だけ探します</strong>。<code>tag</code> を指定してもトリガーは無視されたままです。</li>
+<li>非アクティブ(ObjectPool に戻っている物)や <code>Destroy</code> 済みの物は返しません。</li>
+<li>位置は「最後に PhysX が計算した時(このフレームの始め)」のものです。このフレームに出したばかりの物や、動かした直後の Kinematic は、次のフレームから見つかります。</li>
+<li><code>Raycast</code> は、<strong>origin が中に入っている物には当たりません</strong>(自分の中心から飛ばしても、自分には当たらない。Unity と同じ)。<code>direction</code> は長さ 1 でなくてもよい(長さ 0 は <code>false</code>)。</li>
+<li>問い合わせは読むだけなので、コールバックの中から呼んでも大丈夫です。</li>
+<li>PhysX のコールバック(<code>OnCollisionStay</code> など)の中で、アクターの追加・削除はできません。<code>AddForce</code> は呼んでよい(計算の直後にまとめて加わります)。</li>
+<li>PhysX 4.1 は「トリガーに重なっている間」の通知を出さないため、Engine が組み合わせを覚えて、毎フレーム <code>OnTriggerStay</code> を呼んでいます。</li>
+</ul></div>
+</section>
+<section class="file" id="f-Collider">
+<h3><code>Engine/Physics/Collider.h</code> <code>Engine/Physics/Collider.cpp</code></h3>
+<p class="role">コールバックで「誰と当たったか」を知らせるための、軽い札です(形や判定の計算は持ちません。判定は PhysX がやります)。型の名前に <code>2D</code> と付いていますが、3D の剛体でも同じ型が使われます(<code>OnTriggerEnter</code> などのコールバックは 2D・3D 共通)。</p>
+<div class="tw"><table class="api"><thead><tr><th>名前</th><th>引数・戻り値</th><th>何をするか</th></tr></thead><tbody>
+<tr><td class="fn"><code>Collider2D::owner</code></td><td class="sig"><code>GameObject*</code></td><td>相手の GameObject</td></tr>
+<tr><td class="fn"><code>Collider2D::isTrigger</code></td><td class="sig"><code>bool</code></td><td>相手がトリガー(すり抜ける判定)か</td></tr>
+<tr><td class="fn"><code>Collider2D::isStatic</code></td><td class="sig"><code>bool</code></td><td>相手が押し戻しで動かない側か(<code>isStaticForPush</code>)</td></tr>
+<tr><td class="fn"><code>Collider2D::GetTag()</code></td><td class="sig"><code>const std::string&amp;</code></td><td>相手の GameObject のタグ(&quot;Enemy&quot; など)</td></tr>
+<tr><td class="fn"><code>CollisionInfo::other</code></td><td class="sig"><code>Collider2D*</code></td><td>相手のコライダー</td></tr>
+<tr><td class="fn"><code>CollisionInfo::normal</code></td><td class="sig"><code>XMFLOAT2</code></td><td>押し戻しの向き</td></tr>
+<tr><td class="fn"><code>CollisionInfo::depth</code></td><td class="sig"><code>float</code></td><td>めり込んだ量</td></tr>
+<tr><td class="fn"><code>IsPointInBox(XMFLOAT2 point, const Transform&amp; transform)</code></td><td class="sig"><code>bool</code></td><td>点が Transform の四角形(回転を考慮)の中にあるか。当たり判定とは独立した、UI のクリック判定などに使う道具</td></tr>
+</tbody></table></div>
+<div class="ex"><div class="exhead">使い方の例 <span class="src">出典: <code>Sample2D/Game/Components/EnemyController.cpp:9-15</code></span></div><pre><code>void EnemyController::OnTriggerEnter(Collider2D* other) {
+    // もう倒されている(プールに返した後)なら何もしない(同じフレームに2発当たっても、倒した知らせは1回だけ)
+    if (!GetOwner()-&gt;GetIsActive()) return;
+
+    // 弾に当たったら倒される(スコア加算はGameManagerの仕事なので、ここでは知らせるだけ)
+    if (other-&gt;GetTag() == &quot;Bullet&quot; &amp;&amp; pool) {
+        EventBus::Get().Publish(&quot;EnemyDefeated&quot;);</code></pre></div>
+<div class="notes"><strong>気を付ける点</strong><ul>
+<li>受け取る側(<code>OnTriggerEnter(Collider2D* other)</code> など)は、<code>other-&gt;GetTag()</code> で相手の種類を見分けます。相手の GameObject は <code>other-&gt;owner</code> です。</li>
+<li><code>OnCollisionEnter(CollisionInfo info)</code> の相手は <code>info.other</code> です。</li>
+<li>同じフレームに2発当たるなど、コールバックが重なることがあります。<code>GetIsActive()</code> で「もう倒された後か」を確かめてから処理します(上の例)。</li>
+</ul></div>
+</section>
+
+<footer class="foot">この解説は <code>docs/EngineGuide/tools/build.ps1</code> で作っています。表の内容は Engine のヘッダーから拾っています。コード例は Sample2D / Sample3D / Demo の実際のソースを読み込んで載せています。</footer>
+</main>
+</div>
+<script src="search-index.js"></script>
+<script src="search.js"></script>
+</body>
+</html>

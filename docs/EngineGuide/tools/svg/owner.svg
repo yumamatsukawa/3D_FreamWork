@@ -1,0 +1,31 @@
+﻿<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 470" width="800" role="img" aria-label="GameEngine、SceneManager、Scene、GameObject、Component の持ち合い">
+<defs><marker id="ah-owner" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ahead"/></marker></defs>
+<a href="Core.html#f-GameEngine"><g class="box g-core"><rect x="40" y="15" width="240" height="40" rx="6"/><text x="160" y="38" text-anchor="middle" font-size="14">GameEngine::Run()</text></g></a>
+<a href="Core.html#f-SceneManager"><g class="box g-core"><rect x="40" y="100" width="240" height="44" rx="6"/><text x="160" y="125" text-anchor="middle" font-size="14">SceneManager（アプリに1つ）</text></g></a>
+<a href="Transition.html#f-SceneTransition"><g class="box g-transition"><rect x="340" y="100" width="250" height="44" rx="6"/><text x="465" y="124.5" text-anchor="middle" font-size="13">SceneTransition（演出中だけ持つ）</text></g></a>
+<a href="Core.html#f-Scene"><g class="box g-core"><rect x="40" y="190" width="240" height="44" rx="6"/><text x="160" y="215" text-anchor="middle" font-size="14">Scene（今のシーン 1つ）</text></g></a>
+<a href="Core.html#f-GameObject"><g class="box g-core"><rect x="40" y="285" width="240" height="44" rx="6"/><text x="160" y="310" text-anchor="middle" font-size="14">GameObject &#215; たくさん</text></g></a>
+<a href="Core.html#f-Transform"><g class="box g-core"><rect x="40" y="385" width="240" height="44" rx="6"/><text x="160" y="410" text-anchor="middle" font-size="14">Transform（必ず1つ）</text></g></a>
+<a href="Core.html#f-Component"><g class="box g-core"><rect x="340" y="385" width="250" height="44" rx="6"/><text x="465" y="410" text-anchor="middle" font-size="14">Component &#215; 付けた数だけ</text></g></a>
+<line class="ln" x1="160" y1="55" x2="160" y2="100" marker-end="url(#ah-owner)"/>
+<text class="lb" x="170" y="82" text-anchor="start"><tspan x="170" dy="0">Get() で使う</tspan></text>
+<line class="ln" x1="280" y1="122" x2="340" y2="122" marker-end="url(#ah-owner)"/>
+<text class="lb" x="310" y="114" text-anchor="middle"><tspan x="310" dy="0">持つ</tspan></text>
+<line class="ln" x1="160" y1="144" x2="160" y2="190" marker-end="url(#ah-owner)"/>
+<text class="lb" x="170" y="172" text-anchor="start"><tspan x="170" dy="0">持つ（unique_ptr）</tspan></text>
+<line class="ln" x1="160" y1="234" x2="160" y2="285" marker-end="url(#ah-owner)"/>
+<text class="lb" x="170" y="264" text-anchor="start"><tspan x="170" dy="0">持つ（unique_ptr の一覧）</tspan></text>
+<line class="ln" x1="160" y1="329" x2="160" y2="385" marker-end="url(#ah-owner)"/>
+<text class="lb" x="170" y="362" text-anchor="start"><tspan x="170" dy="0">持つ（メンバ）</tspan></text>
+<path class="ln" fill="none" d="M 280 307 L 465 307 L 465 385" marker-end="url(#ah-owner)"/>
+<text class="lb" x="345" y="299" text-anchor="start"><tspan x="345" dy="0">持つ（unique_ptr の一覧）</tspan></text>
+<path class="ln dash" fill="none" d="M 590 407 L 650 407 L 650 320 L 280 320" marker-end="url(#ah-owner)"/>
+<path class="ln dash" fill="none" d="M 280 296 L 330 296 L 330 205 L 280 205" marker-end="url(#ah-owner)"/>
+<text class="lb" x="338" y="255" text-anchor="start"><tspan x="338" dy="0">GetScene()</tspan></text>
+<text class="lb" x="655" y="360" text-anchor="start">GetOwner()</text>
+<text class="lb" x="640" y="20" text-anchor="start"><tspan x="640" dy="0">実線の矢印 = 持っている</tspan></text>
+<text class="lb" x="640" y="38" text-anchor="start"><tspan x="640" dy="0">（一緒に消える）</tspan></text>
+<text class="lb" x="640" y="62" text-anchor="start"><tspan x="640" dy="0">点線の矢印 = ポインタで</tspan></text>
+<text class="lb" x="640" y="80" text-anchor="start"><tspan x="640" dy="0">知っているだけ</tspan></text>
+<text class="lb" x="640" y="98" text-anchor="start"><tspan x="640" dy="0">（持ち主ではない）</tspan></text>
+</svg>

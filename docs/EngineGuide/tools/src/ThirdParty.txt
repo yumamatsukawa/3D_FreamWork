@@ -1,0 +1,21 @@
+﻿=page ThirdParty
+=title ThirdParty(外部のコード)
+=lead
+`Engine/ThirdParty/` には、**他の人が作ったコード**をそのまま置いています。自分たちで書き換えない決まりです。今は Microsoft の WICTextureLoader(画像を読む部品)だけです。
+PhysX(物理エンジン)と ufbx(FBX の読み込み)は、`Engine/ThirdParty/` ではなく、リポジトリ直下の `ThirdParty/PhysX/` と `ThirdParty/ufbx/` に置かれています(PhysX の設定は `3D_FreamWork/PhysX.props`)。
+
+=file Engine/ThirdParty/WICTextureLoader11.h, WICTextureLoader11.cpp
+=class WIC_LOADER_FLAGS
+=role
+Microsoft の DirectX Tool Kit にある、画像ファイルから Direct3D11 のテクスチャを作る部品です(MIT ライセンス)。`Engine/Render/Texture.cpp` の `Texture::Load` が `CreateWICTextureFromFile` を呼ぶために使っています。ゲーム側は直接使いません(画像は `Resources::LoadTexture` で読みます)。
+=table
+CreateWICTextureFromFile(...) | HRESULT | 画像ファイルから、テクスチャと SRV を作る(`Texture::Load` が使う)
+CreateWICTextureFromMemory(...) | HRESULT | メモリ上の画像データから作る
+CreateWICTextureFromFileEx(...) | HRESULT | 作り方の細かい指定付きの版
+CreateWICTextureFromMemoryEx(...) | HRESULT | 同じく、メモリ版
+WIC_LOADER_FLAGS | enum | 読み込み方の指定(`WIC_LOADER_DEFAULT` など)
+=notes
+- 外部のコードなので、**書き換えません**。バグ修正や更新は元のリポジトリ(DirectX Tool Kit)に合わせます。
+- 使う前に `CoInitializeEx` が呼ばれている前提です(ファイル先頭のコメント)。
+=demo (専用のデモはありません)
+=readme §0

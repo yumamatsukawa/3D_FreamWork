@@ -1,0 +1,62 @@
+﻿<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ThirdParty(外部のコード) - Engine解説</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="layout">
+<nav class="side">
+<div class="brand"><a href="index.html">Engine解説</a></div>
+<div class="search"><input type="search" id="q" placeholder="関数名・クラス名・ファイル名を検索" autocomplete="off"><ul id="results"></ul></div>
+<ul class="menu">
+<li><a href="index.html">トップ</a></li>
+<li><a href="architecture.html">設計図(図解)</a></li>
+<li><a href="Core.html">Core</a></li>
+<li><a href="Render.html">Render</a></li>
+<li><a href="Render3D.html">Render3D</a></li>
+<li><a href="Physics.html">Physics</a></li>
+<li><a href="UI.html">UI</a></li>
+<li><a href="Animation.html">Animation</a></li>
+<li><a href="Transition.html">Transition</a></li>
+<li><a href="Behavior.html">Behavior</a></li>
+<li><a href="Audio.html">Audio</a></li>
+<li><a href="Data.html">Data</a></li>
+<li><a href="ThirdParty.html" class="current">ThirdParty</a></li>
+<li><a href="files.html">ファイル索引</a></li>
+<li><a href="glossary.html">用語集</a></li>
+</ul>
+<p class="sidenote">3D_FreamWork の Engine を、初心者向けに解説したページです。</p>
+</nav>
+<main>
+<h1>ThirdParty(外部のコード)</h1>
+<div class="lead"><code>Engine/ThirdParty/</code> には、<strong>他の人が作ったコード</strong>をそのまま置いています。自分たちで書き換えない決まりです。今は Microsoft の WICTextureLoader(画像を読む部品)だけです。
+PhysX(物理エンジン)と ufbx(FBX の読み込み)は、<code>Engine/ThirdParty/</code> ではなく、リポジトリ直下の <code>ThirdParty/PhysX/</code> と <code>ThirdParty/ufbx/</code> に置かれています(PhysX の設定は <code>3D_FreamWork/PhysX.props</code>)。</div>
+<div class="toc"><strong>このページのファイル</strong><ul>
+<li><a href="#f-WICTextureLoader11">WICTextureLoader11.h / WICTextureLoader11.cpp</a></li>
+</ul></div>
+<section class="file" id="f-WICTextureLoader11">
+<h3><code>Engine/ThirdParty/WICTextureLoader11.h</code> <code>Engine/ThirdParty/WICTextureLoader11.cpp</code></h3>
+<p class="role">Microsoft の DirectX Tool Kit にある、画像ファイルから Direct3D11 のテクスチャを作る部品です(MIT ライセンス)。<code>Engine/Render/Texture.cpp</code> の <code>Texture::Load</code> が <code>CreateWICTextureFromFile</code> を呼ぶために使っています。ゲーム側は直接使いません(画像は <code>Resources::LoadTexture</code> で読みます)。</p>
+<div class="tw"><table class="api"><thead><tr><th>名前</th><th>引数・戻り値</th><th>何をするか</th></tr></thead><tbody>
+<tr><td class="fn"><code>CreateWICTextureFromFile(...)</code></td><td class="sig"><code>HRESULT</code></td><td>画像ファイルから、テクスチャと SRV を作る(<code>Texture::Load</code> が使う)</td></tr>
+<tr><td class="fn"><code>CreateWICTextureFromMemory(...)</code></td><td class="sig"><code>HRESULT</code></td><td>メモリ上の画像データから作る</td></tr>
+<tr><td class="fn"><code>CreateWICTextureFromFileEx(...)</code></td><td class="sig"><code>HRESULT</code></td><td>作り方の細かい指定付きの版</td></tr>
+<tr><td class="fn"><code>CreateWICTextureFromMemoryEx(...)</code></td><td class="sig"><code>HRESULT</code></td><td>同じく、メモリ版</td></tr>
+<tr><td class="fn"><code>WIC_LOADER_FLAGS</code></td><td class="sig"><code>enum</code></td><td>読み込み方の指定(<code>WIC_LOADER_DEFAULT</code> など)</td></tr>
+</tbody></table></div>
+<div class="notes"><strong>気を付ける点</strong><ul>
+<li>外部のコードなので、<strong>書き換えません</strong>。バグ修正や更新は元のリポジトリ(DirectX Tool Kit)に合わせます。</li>
+<li>使う前に <code>CoInitializeEx</code> が呼ばれている前提です(ファイル先頭のコメント)。</li>
+</ul></div>
+</section>
+
+<footer class="foot">この解説は <code>docs/EngineGuide/tools/build.ps1</code> で作っています。表の内容は Engine のヘッダーから拾っています。コード例は Sample2D / Sample3D / Demo の実際のソースを読み込んで載せています。</footer>
+</main>
+</div>
+<script src="search-index.js"></script>
+<script src="search.js"></script>
+</body>
+</html>

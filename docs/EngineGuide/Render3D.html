@@ -1,0 +1,548 @@
+﻿<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Render3D(3D描画・ライト・影・地形・水) - Engine解説</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="layout">
+<nav class="side">
+<div class="brand"><a href="index.html">Engine解説</a></div>
+<div class="search"><input type="search" id="q" placeholder="関数名・クラス名・ファイル名を検索" autocomplete="off"><ul id="results"></ul></div>
+<ul class="menu">
+<li><a href="index.html">トップ</a></li>
+<li><a href="architecture.html">設計図(図解)</a></li>
+<li><a href="Core.html">Core</a></li>
+<li><a href="Render.html">Render</a></li>
+<li><a href="Render3D.html" class="current">Render3D</a></li>
+<li><a href="Physics.html">Physics</a></li>
+<li><a href="UI.html">UI</a></li>
+<li><a href="Animation.html">Animation</a></li>
+<li><a href="Transition.html">Transition</a></li>
+<li><a href="Behavior.html">Behavior</a></li>
+<li><a href="Audio.html">Audio</a></li>
+<li><a href="Data.html">Data</a></li>
+<li><a href="ThirdParty.html">ThirdParty</a></li>
+<li><a href="files.html">ファイル索引</a></li>
+<li><a href="glossary.html">用語集</a></li>
+</ul>
+<p class="sidenote">3D_FreamWork の Engine を、初心者向けに解説したページです。</p>
+</nav>
+<main>
+<h1>Render3D(3D描画・ライト・影・地形・水)</h1>
+<div class="lead"><code>Engine/Render3D/</code> は、3D の見た目を作る仕組みです。立体の形(Mesh)、見た目の設定(Material)、ライトと影、FBX モデル、地形、水面、遠くの物を省く LOD が入っています。
+3D の物は <code>MeshRenderer</code>(自分で作った形)か <code>ModelRenderer</code>(FBX モデル)を GameObject に付けて描きます。</div>
+<div class="toc"><strong>このページのファイル</strong><ul>
+<li><a href="#f-MeshRenderer">MeshRenderer.h</a></li>
+<li><a href="#f-Mesh">Mesh.h / Mesh.cpp</a></li>
+<li><a href="#f-Material">Material.h</a></li>
+<li><a href="#f-Light">Light.h</a></li>
+<li><a href="#f-LightComponent">LightComponent.h / LightComponent.cpp</a></li>
+<li><a href="#f-Lighting">Lighting.h / Lighting.cpp</a></li>
+<li><a href="#f-Shadow">Shadow.h / Shadow.cpp</a></li>
+<li><a href="#f-Lod">Lod.h / Lod.cpp</a></li>
+<li><a href="#f-RenderStats">RenderStats.h / RenderStats.cpp</a></li>
+<li><a href="#f-Model">Model.h / Model.cpp</a></li>
+<li><a href="#f-ModelRenderer">ModelRenderer.h / ModelRenderer.cpp</a></li>
+<li><a href="#f-SkinMesh">SkinMesh.h / SkinMesh.cpp</a></li>
+<li><a href="#f-Terrain">Terrain.h / Terrain.cpp</a></li>
+<li><a href="#f-TerrainRenderer">TerrainRenderer.h / TerrainRenderer.cpp</a></li>
+<li><a href="#f-WaterRenderer">WaterRenderer.h / WaterRenderer.cpp</a></li>
+</ul></div>
+<p><strong>Demo で見る</strong>: Demo プロジェクトの <strong>Render3D カテゴリ</strong>に、Shapes / Light / Shadow / Outline / Terrain / Water / Model / SkinAnim / LOD / Visibility の10個のデモがあります(Terrain の当たり判定は Physics カテゴリの TerrainCollider)。</p>
+<section class="file" id="f-MeshRenderer">
+<h3><code>Engine/Render3D/MeshRenderer.h</code></h3>
+<p class="role">GameObject に「3D メッシュを描く見た目」を持たせる Component です(<code>SpriteRenderer</code> の 3D 版)。見た目は <code>Material</code> にまとめて持ちます。影を落とす物としても登録されます(<code>Shadow::Caster</code>)。</p>
+<div class="tw"><table class="api"><thead><tr><th>名前</th><th>引数・戻り値</th><th>何をするか</th></tr></thead><tbody>
+<tr><td class="fn"><code>MeshRenderer(const std::vector&lt;MeshVertex&gt;&amp; vertices)</code></td><td class="sig"><code>コンストラクタ</code></td><td>形(頂点データ)を渡して作る。例: <code>AddComponent&lt;MeshRenderer&gt;(Mesh::CreateCube())</code></td></tr>
+<tr><td class="fn"><code>SetMaterial(const Material&amp; value)</code></td><td class="sig"><code>void</code></td><td>マテリアルをまとめて設定する</td></tr>
+<tr><td class="fn"><code>GetMaterial()</code></td><td class="sig"><code>Material&amp;</code></td><td>手直し用。例: <code>GetMaterial().specularStrength = 0.8f;</code></td></tr>
+<tr><td class="fn"><code>SetTexture(const std::wstring&amp; filepath)</code></td><td class="sig"><code>void</code></td><td>画像を貼る(<code>material.texture</code> を書き換える)</td></tr>
+<tr><td class="fn"><code>SetColor(float r, float g, float b, float a)</code></td><td class="sig"><code>void</code></td><td>色(<code>material.color</code>)</td></tr>
+<tr><td class="fn"><code>GetColor()</code></td><td class="sig"><code>XMFLOAT4</code></td><td>今の色</td></tr>
+<tr><td class="fn"><code>SetRimLight(XMFLOAT3 color, float strength, float power)</code></td><td class="sig"><code>void</code></td><td>縁の光(リム発光)。<code>strength=0</code> で消す。<code>power</code> は既定 3</td></tr>
+<tr><td class="fn"><code>SetOutline(XMFLOAT4 color, float widthPixels, bool seeThrough)</code></td><td class="sig"><code>void</code></td><td>枠線。画面上で <code>widthPixels</code> の太さ。0 で消す。<code>seeThrough=true</code> で壁越しにも見える</td></tr>
+<tr><td class="fn"><code>SetUnlit(bool value)</code></td><td class="sig"><code>void</code></td><td><code>true</code> で光の影響を受けない(スカイボックスなど)</td></tr>
+<tr><td class="fn"><code>SetDepthWrite(bool value)</code></td><td class="sig"><code>void</code></td><td><code>false</code> で深度を書かない(自分より後ろの物を隠さない。スカイボックス用)</td></tr>
+<tr><td class="fn"><code>SetFrustumCulling(bool enabled)</code></td><td class="sig"><code>void</code></td><td><code>true</code> で、画面の外にある時は描かない</td></tr>
+<tr><td class="fn"><code>IsFrustumCulling()</code></td><td class="sig"><code>bool</code></td><td>画面の外を省く設定か</td></tr>
+<tr><td class="fn"><code>SetLod(const LodSettings&amp; settings)</code></td><td class="sig"><code>void</code></td><td>距離で省く設定をまとめて渡す</td></tr>
+<tr><td class="fn"><code>GetLod()</code></td><td class="sig"><code>LodSettings&amp;</code></td><td>手直し用(<code>drawDistance</code> など)</td></tr>
+<tr><td class="fn"><code>Init() / Draw() / Uninit() / DrawShadow(...)</code></td><td class="sig"><code>void (override)</code></td><td>内部の処理(影の登録・描画・影のパス・後片付け)</td></tr>
+</tbody></table></div>
+<div class="ex"><div class="exhead">使い方の例 <span class="src">出典: <code>Demo/Game/Objects/Core/TransformDemo.cpp:18-21</code></span></div><pre><code>if (is3D) {
+    parent-&gt;transform.position = { 0.f, 0.f, 300.f };
+    parent-&gt;AddComponent&lt;MeshRenderer&gt;(Mesh::CreateCube())-&gt;SetColor(0.4f, 0.6f, 0.9f, 1.0f);
+}</code></pre></div>
+<div class="ex"><div class="exhead">使い方の例 <span class="src">出典: <code>Sample3D/Game/Objects/Player.cpp:16-20</code></span></div><pre><code>// 見た目(3Dメッシュの立方体)
+auto* meshRenderer = player-&gt;AddComponent&lt;MeshRenderer&gt;(Mesh::CreateCube());
+meshRenderer-&gt;GetMaterial().castShadow = true;     // 影を落とす(地面に影が出る)
+meshRenderer-&gt;GetMaterial().receiveShadow = true;  // 壁などの影を受ける
+meshRenderer-&gt;SetRimLight({ 0.3f, 0.7f, 1.0f }, 1.0f);   // 縁が青く光る(斜めに見える面が少し青くなる)</code></pre></div>
+<div class="notes"><strong>気を付ける点</strong><ul>
+<li>影を落とすには <code>GetMaterial().castShadow = true</code>、影を受けるには <code>receiveShadow = true</code>(どちらも既定は <code>false</code>)。さらに <code>Shadow::GetSettings().enabled = true</code> が必要です。</li>
+<li>枠線(<code>SetOutline</code>)は、<code>material.depthWrite = false</code> の物(スカイボックス・半透明の板)には描かれません。壁越しの枠線を使う時は、その物の <code>SetDrawPriority</code> を大きくします(あとで描かれる壁に上書きされないように)。</li>
+<li><code>SetFrustumCulling(true)</code> は、物が画面の端で消えて見えたら <code>false</code> に戻します(<code>Visibility::GetCulledCount</code> で確認)。<code>SetDepthWrite(false)</code> の物(画面全体を覆う)は判定しません。</li>
+<li>3D メッシュの描画は 3D 用カメラ(<code>Image::GetCamera3D()</code>)を使います。</li>
+<li>2D の <code>SpriteRenderer</code> には、ライト・影・枠線は効きません。</li>
+</ul></div>
+</section>
+<section class="file" id="f-Mesh">
+<h3><code>Engine/Render3D/Mesh.h</code> <code>Engine/Render3D/Mesh.cpp</code></h3>
+<p class="role">3D の頂点データを持って描くクラスです。立方体・球・カプセルなどの形を作る <code>Create○○</code> 関数もここにあります。普段は <code>MeshRenderer</code> 経由で使い、<code>Mesh</code> を直接触るのは Engine を触る人(や、<code>GroundController</code> のように自分で <code>Draw</code> する時)です。</p>
+<h4>形を作る(static、戻り値は std::vector&lt;MeshVertex&gt;)</h4>
+<div class="tw"><table class="api"><thead><tr><th>名前</th><th>引数・戻り値</th><th>何をするか</th></tr></thead><tbody>
+<tr><td class="fn"><code>CreateCube()</code></td><td class="sig"><code>頂点データ</code></td><td>単位立方体(-0.5〜0.5)。大きさは <code>transform.scale</code></td></tr>
+<tr><td class="fn"><code>CreateSphere(int rings, int segments)</code></td><td class="sig"><code>頂点データ</code></td><td>半径 0.5 の球。分割数が多いほど滑らか(既定 16, 24)</td></tr>
+<tr><td class="fn"><code>CreateCapsule(float radius, float height, int rings, int segments)</code></td><td class="sig"><code>頂点データ</code></td><td>カプセル(長い向きは Y)。<strong>実際の大きさで作る</strong>(<code>scale</code> は 1 のまま)</td></tr>
+<tr><td class="fn"><code>LoadOBJ(const std::wstring&amp; filepath)</code></td><td class="sig"><code>頂点データ</code></td><td>Wavefront OBJ ファイルから作る。失敗したら空</td></tr>
+<tr><td class="fn"><code>CreateCubeOutline() / CreateSquareOutline() / CreateCircleOutline(int) / CreateSphereOutline(int) / CreateCapsuleOutline(...)</code></td><td class="sig"><code>頂点データ(線)</code></td><td>輪郭の線だけのデータ(コライダーのデバッグ表示用。<code>LINELIST</code> で <code>Init</code> する)</td></tr>
+<tr><td class="fn"><code>CreateSmoothNormals(positions, normals, indices)</code></td><td class="sig"><code>std::vector&lt;XMFLOAT3&gt;</code></td><td>内部用: 枠線のための、平均した法線</td></tr>
+</tbody></table></div>
+<h4>描く・作る</h4>
+<div class="tw"><table class="api"><thead><tr><th>名前</th><th>引数・戻り値</th><th>何をするか</th></tr></thead><tbody>
+<tr><td class="fn"><code>Init(const std::vector&lt;MeshVertex&gt;&amp; verts, D3D11_PRIMITIVE_TOPOLOGY topology)</code></td><td class="sig"><code>bool</code></td><td>頂点バッファを作る(1回だけ)。失敗したら <code>false</code></td></tr>
+<tr><td class="fn"><code>InitIndexed(verts, indices, topology)</code></td><td class="sig"><code>bool</code></td><td>インデックス付きで作る(地形のように頂点が多い形向き)</td></tr>
+<tr><td class="fn"><code>Draw(const Transform&amp; transform, const Camera&amp; camera, const Material&amp; material, const Light&amp; light)</code></td><td class="sig"><code>void</code></td><td>マテリアル付きで描く。行列版・色だけの版もある</td></tr>
+<tr><td class="fn"><code>DrawLines2D(transform, camera2D, color, light)</code></td><td class="sig"><code>void</code></td><td>2D(XY 平面)の線を描く(デバッグ表示用)</td></tr>
+<tr><td class="fn"><code>DrawOutline(world, camera, color, widthPixels, seeThrough)</code></td><td class="sig"><code>void</code></td><td>枠線を描く(本物を <code>Draw</code> した直後に呼ぶ)</td></tr>
+<tr><td class="fn"><code>DrawDepth(world, lightView, lightProj)</code></td><td class="sig"><code>void</code></td><td>影のパス用: 深度だけを描く</td></tr>
+<tr><td class="fn"><code>SetTexture(ID3D11ShaderResourceView* s)</code></td><td class="sig"><code>void</code></td><td>貼る画像を渡す(<code>Image::GetTextureView(texID)</code> の結果)</td></tr>
+<tr><td class="fn"><code>Uninit()</code></td><td class="sig"><code>void</code></td><td>解放する</td></tr>
+</tbody></table></div>
+<h4>型</h4>
+<div class="tw"><table class="api"><thead><tr><th>名前</th><th>引数・戻り値</th><th>何をするか</th></tr></thead><tbody>
+<tr><td class="fn"><code>MeshVertex</code></td><td class="sig"><code>struct</code></td><td>頂点: <code>Position</code>・<code>Normal</code>・<code>Color</code>・<code>TexCoord</code></td></tr>
+<tr><td class="fn"><code>CapsuleAxis</code></td><td class="sig"><code>enum class</code></td><td>カプセルの長い向き: <code>X</code> / <code>Y</code> / <code>Z</code>(<code>CapsuleRigidbodyComponent</code> でも使う)</td></tr>
+</tbody></table></div>
+<div class="ex"><div class="exhead">使い方の例 <span class="src">出典: <code>Sample3D/Game/Components/GroundController.cpp:30-43</code></span></div><pre><code>// 範囲内のタイルを並べて描く(カメラに映らないタイル=後ろや横、描画距離の外は描かない)
+Transform tile;
+tile.scale = { tileSize, tileThickness, tileSize };
+for (int z = minZ; z &lt;= maxZ; z++) {
+    for (int x = minX; x &lt;= maxX; x++) {
+        float centerX = (x + 0.5f) * tileSize;
+        float centerZ = (z + 0.5f) * tileSize;
+        XMFLOAT3 center = { centerX, topY - tileThickness * 0.5f, centerZ };
+        if (!Visibility::IsSphereInView3D(center, tileSize * 0.8f)) continue;   // 0.8 = 正方形の対角線の半分(約0.71)に余裕を足した値
+
+        tile.position = center;
+        mesh.Draw(tile, camera, material, Image::GetLight());
+    }
+}</code></pre></div>
+<div class="notes"><strong>気を付ける点</strong><ul>
+<li><code>Mesh::Init</code> が <code>false</code> の時は <code>Uninit</code> を呼びません。</li>
+<li>立方体・球は「大きさ 1 の形を <code>scale</code> で伸ばす」物ですが、<strong>カプセルは伸ばすと半球が潰れる</strong>ので実際の大きさで作ります。</li>
+<li><code>Draw</code> の <code>Material::texture</code>(パス)は、<code>Mesh</code> では使いません。画像は <code>SetTexture</code> で渡します(<code>MeshRenderer</code> / <code>ModelRenderer</code> が読んで渡します)。</li>
+<li><code>DrawOutline</code> は <code>material.depthWrite = false</code> の物には使いません(内側まで枠線の色になる)。</li>
+<li>頂点バッファは作る時に 1 回だけ作り、描くたびにコピーしません(変更不可)。</li>
+</ul></div>
+</section>
+<section class="file" id="f-Material">
+<h3><code>Engine/Render3D/Material.h</code></h3>
+<p class="role">3D メッシュの見た目の設定をまとめた構造体です(色・画像・光沢・自発光・影・縁の光・枠線)。<code>MeshRenderer</code> / <code>ModelRenderer</code> が 1 体ごとに持ちます。Unity の Material に近い考え方です。既定値のままなら、マテリアルが無かった頃と見た目は同じです。</p>
+<h4>基本</h4>
+<div class="tw"><table class="api"><thead><tr><th>名前</th><th>引数・戻り値</th><th>何をするか</th></tr></thead><tbody>
+<tr><td class="fn"><code>color</code></td><td class="sig"><code>XMFLOAT4</code></td><td>色(a が透明度。1=不透明)。1 より大きい値も使える(暗い画像を明るくする)</td></tr>
+<tr><td class="fn"><code>texture</code></td><td class="sig"><code>std::wstring</code></td><td>画像のパス(空なら白)</td></tr>
+<tr><td class="fn"><code>lit</code></td><td class="sig"><code>bool</code></td><td><code>false</code> で光の影響を受けない(スカイボックス)</td></tr>
+<tr><td class="fn"><code>depthWrite</code></td><td class="sig"><code>bool</code></td><td><code>false</code> で自分より後ろの物を隠さない(半透明・スカイボックス)</td></tr>
+</tbody></table></div>
+<h4>光沢・自発光</h4>
+<div class="tw"><table class="api"><thead><tr><th>名前</th><th>引数・戻り値</th><th>何をするか</th></tr></thead><tbody>
+<tr><td class="fn"><code>specularColor</code></td><td class="sig"><code>XMFLOAT3</code></td><td>光沢の色</td></tr>
+<tr><td class="fn"><code>specularStrength</code></td><td class="sig"><code>float</code></td><td>光沢の強さ。0=ハイライト無し(既定)</td></tr>
+<tr><td class="fn"><code>shininess</code></td><td class="sig"><code>float</code></td><td>光沢の鋭さ(既定 32)</td></tr>
+<tr><td class="fn"><code>emissiveColor</code></td><td class="sig"><code>XMFLOAT3</code></td><td>自分で光る色</td></tr>
+<tr><td class="fn"><code>emissiveStrength</code></td><td class="sig"><code>float</code></td><td>自発光の強さ。0=光らない(既定)</td></tr>
+</tbody></table></div>
+<h4>影・縁の光・枠線</h4>
+<div class="tw"><table class="api"><thead><tr><th>名前</th><th>引数・戻り値</th><th>何をするか</th></tr></thead><tbody>
+<tr><td class="fn"><code>castShadow</code></td><td class="sig"><code>bool</code></td><td>影を落とすか(既定 <code>false</code>)</td></tr>
+<tr><td class="fn"><code>receiveShadow</code></td><td class="sig"><code>bool</code></td><td>影を受けるか(既定 <code>false</code>)</td></tr>
+<tr><td class="fn"><code>rimColor / rimStrength / rimPower</code></td><td class="sig"><code>XMFLOAT3 / float / float</code></td><td>縁の光の色・強さ(0=光らない)・集まり方(大きいほど細い線)</td></tr>
+<tr><td class="fn"><code>outlineColor</code></td><td class="sig"><code>XMFLOAT4</code></td><td>枠線の色</td></tr>
+<tr><td class="fn"><code>outlineWidth</code></td><td class="sig"><code>float</code></td><td>枠線の太さ(画面のピクセル)。0=枠線なし(既定)</td></tr>
+<tr><td class="fn"><code>outlineSeeThrough</code></td><td class="sig"><code>bool</code></td><td><code>true</code> で壁越しにも枠線を描く</td></tr>
+<tr><td class="fn"><code>MakeMaterialConstantBuffer(const Material&amp; material)</code></td><td class="sig"><code>MaterialConstantBuffer</code></td><td>内部用: シェーダーへ送る形に変換する</td></tr>
+</tbody></table></div>
+<div class="ex"><div class="exhead">使い方の例 <span class="src">出典: <code>Sample3D/Game/Components/GroundController.cpp:24-28</code></span></div><pre><code>// 地面は影を受ける(Shadow が有効な時、Playerや壁の影が落ちる。無効なら今まで通りの見た目)
+Material material;
+material.receiveShadow = true;
+// 画像(bg_tile.png)がとても暗い(平均RGB約23,28,68)ので、色を掛けて明るい青灰色にする(1より大きくてよい。暗いままだと影が見えない)
+material.color = { 5.0f, 4.0f, 2.0f, 1.0f };</code></pre></div>
+<div class="notes"><strong>気を付ける点</strong><ul>
+<li>半透明にする時は <code>color.w</code> を下げ、<code>depthWrite = false</code> にします(後ろの物が隠れないように)。描く順番は <code>SetDrawPriority</code> で調整します。</li>
+<li>影は <code>Shadow::GetSettings().enabled = true</code> の時だけ意味があります。</li>
+<li><code>MaterialConstantBuffer</code> は、シェーダー(<code>Shader3DCommon.hlsli</code> の <code>MaterialBuffer</code>)と同じ並びです。Engine を触る人以外は触りません。</li>
+</ul></div>
+</section>
+<section class="file" id="f-Light">
+<h3><code>Engine/Render3D/Light.h</code></h3>
+<p class="role">平行光源(太陽のように、全体に同じ向きから当たる光)と環境光です。<code>Image::GetLight()</code> で 1 つだけ取り出して使います。</p>
+<div class="tw"><table class="api"><thead><tr><th>名前</th><th>引数・戻り値</th><th>何をするか</th></tr></thead><tbody>
+<tr><td class="fn"><code>direction</code></td><td class="sig"><code>XMFLOAT3</code></td><td>光が進んでいく向き(既定 0, -1, 0.5)。長さは 1 でなくてよい</td></tr>
+<tr><td class="fn"><code>color</code></td><td class="sig"><code>XMFLOAT3</code></td><td>光の色・強さ(既定 1,1,1)</td></tr>
+<tr><td class="fn"><code>ambient</code></td><td class="sig"><code>XMFLOAT3</code></td><td>環境光(光が当たらない面の最低限の明るさ。既定 0.25)</td></tr>
+</tbody></table></div>
+<div class="ex"><div class="exhead">使い方の例 <span class="src">出典: <code>Demo/Game/Components/Render3D/ShadowDemoController.cpp:43-43</code></span></div><pre><code>Image::GetLight().direction = { cosf(elevation) * sinf(yaw), -sinf(elevation), cosf(elevation) * cosf(yaw) };</code></pre></div>
+<div class="notes"><strong>気を付ける点</strong><ul>
+<li>2D のスプライトには効きません(<code>Shader.hlsl</code> は光の計算をしません)。</li>
+<li>影が出る光は、この平行光源と、<code>SetCastShadow(true)</code> にしたスポットライト 1 つだけです。</li>
+</ul></div>
+</section>
+<section class="file" id="f-LightComponent">
+<h3><code>Engine/Render3D/LightComponent.h</code> <code>Engine/Render3D/LightComponent.cpp</code></h3>
+<p class="role">付けた物の位置から光る、点光源・スポットライトです。Unity の <code>Light</code> の Point / Spot にあたります。3D のメッシュだけに効きます。</p>
+<div class="tw"><table class="api"><thead><tr><th>名前</th><th>引数・戻り値</th><th>何をするか</th></tr></thead><tbody>
+<tr><td class="fn"><code>LightComponent(LightType lightType)</code></td><td class="sig"><code>コンストラクタ</code></td><td><code>LightType::Point</code>(ランタン)か <code>LightType::Spot</code>(懐中電灯)</td></tr>
+<tr><td class="fn"><code>SetColor(float r, float g, float b)</code></td><td class="sig"><code>void</code></td><td>光の色(既定 白)</td></tr>
+<tr><td class="fn"><code>SetIntensity(float value)</code></td><td class="sig"><code>void</code></td><td>強さ(既定 1)</td></tr>
+<tr><td class="fn"><code>SetRange(float distance)</code></td><td class="sig"><code>void</code></td><td>光が届く距離(既定 800。100 単位 = 1m)</td></tr>
+<tr><td class="fn"><code>SetDirection(XMFLOAT3 newDirection)</code></td><td class="sig"><code>void</code></td><td>スポットの向き(長さ 0 に戻すとオーナーの正面)</td></tr>
+<tr><td class="fn"><code>SetSpotAngle(float innerDegrees, float outerDegrees)</code></td><td class="sig"><code>void</code></td><td>スポットの内側(全開)と外側(消える)の角度(既定 20 / 35)</td></tr>
+<tr><td class="fn"><code>SetCastShadow(bool value)</code></td><td class="sig"><code>void</code></td><td>影を落とす光にする(スポットライトだけ)</td></tr>
+<tr><td class="fn"><code>IsCastingShadow()</code></td><td class="sig"><code>bool</code></td><td>影を落とす設定か</td></tr>
+<tr><td class="fn"><code>GetLightType()</code></td><td class="sig"><code>LightType</code></td><td>光の種類</td></tr>
+<tr><td class="fn"><code>GetColor() / GetIntensity() / GetRange() / GetInnerAngle() / GetOuterAngle()</code></td><td class="sig"><code>値</code></td><td>各設定を返す</td></tr>
+<tr><td class="fn"><code>GetWorldPosition()</code></td><td class="sig"><code>XMFLOAT3</code></td><td>光の位置(オーナーのワールド座標)</td></tr>
+<tr><td class="fn"><code>GetWorldDirection()</code></td><td class="sig"><code>XMFLOAT3</code></td><td>スポットの向き(長さ 1)</td></tr>
+<tr><td class="fn"><code>Init() / Uninit()</code></td><td class="sig"><code>void (override)</code></td><td><code>Lighting</code> への登録・解除</td></tr>
+</tbody></table></div>
+<div class="ex"><div class="exhead">使い方の例 <span class="src">出典: <code>Sample3D/Game/Objects/Lantern.cpp:19-22</code></span></div><pre><code>auto* light = lantern-&gt;AddComponent&lt;LightComponent&gt;(LightType::Point);
+light-&gt;SetColor(1.0f, 0.7f, 0.35f);
+light-&gt;SetIntensity(1.5f);
+light-&gt;SetRange(800.0f);</code></pre></div>
+<div class="ex"><div class="exhead">使い方の例 <span class="src">出典: <code>Sample3D/Game/Objects/Guard.cpp:28-33</code></span></div><pre><code>auto* torch = guard-&gt;AddComponent&lt;LightComponent&gt;(LightType::Spot);
+torch-&gt;SetColor(1.0f, 0.95f, 0.8f);
+torch-&gt;SetIntensity(6.0f);
+torch-&gt;SetRange(1500.0f);
+torch-&gt;SetSpotAngle(15.0f, 30.0f);
+torch-&gt;SetCastShadow(true);   // 懐中電灯の光も影を作る(壁やPlayerの後ろは光が届かない。影を落とすスポットは1つだけ)</code></pre></div>
+<div class="notes"><strong>気を付ける点</strong><ul>
+<li><strong>同時に使える光は 8 個</strong>(<code>Lighting::maxLights</code>)。超えたら 3D カメラに近い 8 個だけが光ります。超えた時は出力ウィンドウに警告が 1 回出ます。</li>
+<li><code>SetActive(false)</code> / <code>SetEnabled(false)</code> / <code>Destroy</code> の光は使われません(ObjectPool で休んでいる光も光りません)。</li>
+<li>スポットライトの影は、同時に 1 つだけ(影を落とす光が複数ある時は、3D カメラに近い 1 つ)。外側の角度が 60 度を超える部分には影が出ません。点光源の影は作れません。</li>
+<li>2D のスプライトには効きません。</li>
+</ul></div>
+</section>
+<section class="file" id="f-Lighting">
+<h3><code>Engine/Render3D/Lighting.h</code> <code>Engine/Render3D/Lighting.cpp</code></h3>
+<p class="role">点光源・スポットライト(<code>LightComponent</code>)の一覧を集めて、シェーダーに送る仕組みです。ゲーム側は <code>LightComponent</code> を付けるだけで、この名前空間は直接呼びません。</p>
+<div class="tw"><table class="api"><thead><tr><th>名前</th><th>引数・戻り値</th><th>何をするか</th></tr></thead><tbody>
+<tr><td class="fn"><code>maxLights</code></td><td class="sig"><code>constexpr int</code></td><td>同時に使える光の数(8)</td></tr>
+<tr><td class="fn"><code>Register(LightComponent* light) / Unregister(LightComponent* light)</code></td><td class="sig"><code>void</code></td><td>内部用: LightComponent の Init / Uninit が呼ぶ</td></tr>
+<tr><td class="fn"><code>Update()</code></td><td class="sig"><code>void</code></td><td>内部用: 毎フレーム、カメラに近い順に <code>maxLights</code> 個を選ぶ(GameEngine が呼ぶ)</td></tr>
+<tr><td class="fn"><code>Bind()</code></td><td class="sig"><code>void</code></td><td>内部用: Mesh / SkinMesh が描く時に光の定数バッファ(b4)をセットする</td></tr>
+<tr><td class="fn"><code>Shutdown()</code></td><td class="sig"><code>void</code></td><td>内部用: 終了時の片付け</td></tr>
+<tr><td class="fn"><code>Build(lights, lightCount, cameraX, cameraY, cameraZ, overflowed, shadowLight)</code></td><td class="sig"><code>LightConstantBuffer</code></td><td>光の一覧から、送る内容を作る(確認用に公開されている)</td></tr>
+<tr><td class="fn"><code>GetActiveCount()</code></td><td class="sig"><code>int</code></td><td>今フレームに使っている光の数(確認用)</td></tr>
+<tr><td class="fn"><code>GetShadowSpotLight()</code></td><td class="sig"><code>const LightComponent*</code></td><td>今フレームの、影を落とすスポットライト(無ければ <code>nullptr</code>)</td></tr>
+</tbody></table></div>
+<div class="notes"><strong>気を付ける点</strong><ul>
+<li>1 つも光が無い時の見た目は、点光源が無かった頃と同じです。</li>
+<li>光の数を HUD に出したい時は <code>Lighting::GetActiveCount()</code> が使えます。</li>
+</ul></div>
+</section>
+<section class="file" id="f-Shadow">
+<h3><code>Engine/Render3D/Shadow.h</code> <code>Engine/Render3D/Shadow.cpp</code></h3>
+<p class="role">影(シャドウマップ)です。光から見た「深度」を専用のテクスチャに描き、本番の描画で「光から見て手前に別の物があるピクセル」を暗くします。既定は <strong>無効</strong> で、無効の間はコストが 0 です。</p>
+<h4>使う側(ゲーム側)</h4>
+<div class="tw"><table class="api"><thead><tr><th>名前</th><th>引数・戻り値</th><th>何をするか</th></tr></thead><tbody>
+<tr><td class="fn"><code>GetSettings()</code></td><td class="sig"><code>Settings&amp;</code></td><td>影の設定を取り出す。<code>enabled = true</code> で影が出る</td></tr>
+<tr><td class="fn"><code>SetSettings(const Settings&amp; settings)</code></td><td class="sig"><code>void</code></td><td>設定をまとめて入れる(<code>Shadow::Settings()</code> で既定に戻せる)</td></tr>
+<tr><td class="fn"><code>Settings::enabled</code></td><td class="sig"><code>bool</code></td><td>影を使うか(既定 <code>false</code>)</td></tr>
+<tr><td class="fn"><code>Settings::resolution</code></td><td class="sig"><code>int</code></td><td>影のテクスチャの大きさ(1024 / 2048 / 4096。既定 2048)。大きいほどくっきりして重い</td></tr>
+<tr><td class="fn"><code>Settings::distance</code></td><td class="sig"><code>float</code></td><td>カメラの前方、この大きさの範囲に影を作る(既定 3000)。広いほどぼやける</td></tr>
+<tr><td class="fn"><code>Settings::depthBias / normalBias</code></td><td class="sig"><code>float</code></td><td>縞模様(シャドウアクネ)を防ぐゆとり。大きすぎると影が浮く</td></tr>
+<tr><td class="fn"><code>Settings::strength</code></td><td class="sig"><code>float</code></td><td>影の濃さ(0=なし、1=真っ暗。既定 0.6)</td></tr>
+<tr><td class="fn"><code>Settings::pcfRadius</code></td><td class="sig"><code>int</code></td><td>影の縁のぼかし(0=なし、1=3x3、2=5x5)</td></tr>
+<tr><td class="fn"><code>Settings::spotResolution / spotDepthBias / spotStrength</code></td><td class="sig"><code>int / float / float</code></td><td>スポットライトの影の設定</td></tr>
+<tr><td class="fn"><code>GetCasterCount() / GetDrawnCount() / IsSpotShadowActive()</code></td><td class="sig"><code>int / bool</code></td><td>確認用の数</td></tr>
+</tbody></table></div>
+<h4>内部用(Engine を触る人向け)</h4>
+<div class="tw"><table class="api"><thead><tr><th>名前</th><th>引数・戻り値</th><th>何をするか</th></tr></thead><tbody>
+<tr><td class="fn"><code>Caster</code></td><td class="sig"><code>class</code></td><td>影を落とす物(MeshRenderer / ModelRenderer / TerrainRenderer)が実装する。<code>DrawShadow(const LightView&amp;)</code> を持つ</td></tr>
+<tr><td class="fn"><code>Register(Component* component, Caster* caster) / Unregister(Caster* caster)</code></td><td class="sig"><code>void</code></td><td>影を落とす物の登録・解除</td></tr>
+<tr><td class="fn"><code>Render()</code></td><td class="sig"><code>void</code></td><td>影のパス。深度テクスチャに描き、描画先を元に戻す(GameEngine が呼ぶ。無効の時は何もしない)</td></tr>
+<tr><td class="fn"><code>Bind()</code></td><td class="sig"><code>void</code></td><td>描く時に影の定数バッファ・テクスチャをセットする(Mesh / SkinMesh が呼ぶ)</td></tr>
+<tr><td class="fn"><code>Shutdown()</code></td><td class="sig"><code>void</code></td><td>終了時の片付け</td></tr>
+<tr><td class="fn"><code>BuildSpotView(position, direction, outerAngleDegrees, range)</code></td><td class="sig"><code>LightView</code></td><td>スポットライトから見る行列を作る</td></tr>
+<tr><td class="fn"><code>BuildSunView(camera, light, distance, resolution)</code></td><td class="sig"><code>LightView</code></td><td>平行光源から見る行列を作る(カメラが動いても縁がちらつかないよう丸める)</td></tr>
+</tbody></table></div>
+<div class="ex"><div class="exhead">使い方の例 <span class="src">出典: <code>Sample3D/Game/Components/ShadowManager.cpp:4-14</code></span></div><pre><code>void ShadowManager::Init() {
+    // 影を有効にする(平行光源 Image::GetLight() の向きで影ができる。ほかの値は既定のまま)
+    Shadow::Settings&amp; settings = Shadow::GetSettings();
+    settings.enabled = true;
+    settings.distance = shadowDistance;
+}
+
+void ShadowManager::Uninit() {
+    // 設定は全シーンで共通なので、このシーンが終わったら既定(影なし)に戻す
+    Shadow::SetSettings(Shadow::Settings());
+}</code></pre></div>
+<div class="notes"><strong>気を付ける点</strong><ul>
+<li>影を落とせるのは <code>MeshRenderer</code> / <code>ModelRenderer</code>(スキンメッシュを含む)/ <code>TerrainRenderer</code>。<strong><code>SpriteRenderer</code>(画像)は影を落とせません</strong>。</li>
+<li>影が出る光は、平行光源(<code>Image::GetLight()</code>)と、<code>SetCastShadow(true)</code> にしたスポットライト 1 つだけです。環境光と点光源は影で暗くなりません。</li>
+<li>影の範囲の外では影が出ません(範囲は 3D カメラの前方 <code>distance</code>)。</li>
+<li>設定は全シーンで共通です。使い終わったら <code>Shadow::SetSettings(Shadow::Settings())</code> で既定(影なし)に戻します(上の例の <code>Uninit</code>)。</li>
+<li>影のパスは Direct2D(文字)の描画の前に終えます(GameEngine の順番)。</li>
+</ul></div>
+</section>
+<section class="file" id="f-Lod">
+<h3><code>Engine/Render3D/Lod.h</code> <code>Engine/Render3D/Lod.cpp</code></h3>
+<p class="role">LOD(Level Of Detail)の段階 1 です。カメラから遠い物を「描かない・影を落とさない・枠線を描かない」で軽くします。距離は「カメラから物の球の表面まで」です。</p>
+<h4>LodSettings(MeshRenderer などが 1 つずつ持つ)</h4>
+<div class="tw"><table class="api"><thead><tr><th>名前</th><th>引数・戻り値</th><th>何をするか</th></tr></thead><tbody>
+<tr><td class="fn"><code>drawDistance</code></td><td class="sig"><code>float</code></td><td>これより遠い物は描かない(0 = いつも描く)</td></tr>
+<tr><td class="fn"><code>shadowDistance</code></td><td class="sig"><code>float</code></td><td>これより遠い物は影を落とさない(0 = いつも落とす)</td></tr>
+<tr><td class="fn"><code>outlineDistance</code></td><td class="sig"><code>float</code></td><td>これより遠い物は枠線を描かない(0 = いつも描く)</td></tr>
+</tbody></table></div>
+<h4>Lod 名前空間</h4>
+<div class="tw"><table class="api"><thead><tr><th>名前</th><th>引数・戻り値</th><th>何をするか</th></tr></thead><tbody>
+<tr><td class="fn"><code>SetEnabled(bool enabled)</code></td><td class="sig"><code>void</code></td><td><code>false</code> で、すべての物の LOD 設定を無視する(LOD を使わない状態と比べる確認用。既定 <code>true</code>)</td></tr>
+<tr><td class="fn"><code>IsEnabled()</code></td><td class="sig"><code>bool</code></td><td>LOD が有効か</td></tr>
+<tr><td class="fn"><code>SetGlobalScale(float scale)</code></td><td class="sig"><code>void</code></td><td>すべての距離を何倍にするか(0.5 で半分。0 以下は 1 に戻す)</td></tr>
+<tr><td class="fn"><code>GetGlobalScale()</code></td><td class="sig"><code>float</code></td><td>今の倍率</td></tr>
+<tr><td class="fn"><code>GetCameraDistance(XMFLOAT3 position)</code></td><td class="sig"><code>float</code></td><td>カメラから position までの距離</td></tr>
+<tr><td class="fn"><code>IsBeyond(XMFLOAT3 center, float radius, float limit)</code></td><td class="sig"><code>bool</code></td><td>球の表面までの距離が limit を超えているか(<code>limit</code> が 0 以下なら <code>false</code>)</td></tr>
+<tr><td class="fn"><code>IsBeyond(const XMMATRIX&amp; world, float localRadius, float limit)</code></td><td class="sig"><code>bool</code></td><td>ワールド行列を持つ物版</td></tr>
+</tbody></table></div>
+<div class="ex"><div class="exhead">使い方の例 <span class="src">出典: <code>Sample3D/Game/Objects/WallField.cpp:12-16</code></span></div><pre><code>// 距離で省く設定(カメラから柱の表面までの距離。遠いほど軽くする)
+LodSettings lod;
+lod.drawDistance = 6000.0f;      // これより遠い柱は描かない(farZ=10000よりずっと手前)
+lod.shadowDistance = 2500.0f;    // 影を落とすのは近い柱だけ(影の範囲 Shadow::distance=3000 に合わせた)
+lod.outlineDistance = 1500.0f;   // 枠線を描くのは近い柱だけ</code></pre></div>
+<div class="ex"><div class="exhead">使い方の例 <span class="src">出典: <code>Sample3D/Game/Objects/WallField.cpp:27-29</code></span></div><pre><code>auto* meshRenderer = pillar-&gt;GetComponent&lt;MeshRenderer&gt;();
+meshRenderer-&gt;SetOutline({ 0.05f, 0.05f, 0.1f, 1.0f }, 2.0f);
+meshRenderer-&gt;SetLod(lod);</code></pre></div>
+<div class="notes"><strong>気を付ける点</strong><ul>
+<li>省くのは <strong>見た目だけ</strong> で、物理(当たり判定)は止まりません。</li>
+<li>影は「カメラからの距離」で判断します。光の向きによっては遠い物の影が近くの地面に落ちるので、<code>shadowDistance</code> を短くしすぎないこと。</li>
+<li>大きな物は、中心が遠くても手前の端が近ければ省かれません。ちょうど設定の距離なら省きません(超えたら省く)。</li>
+<li><code>MeshRenderer</code> / <code>ModelRenderer</code> / <code>TerrainRenderer</code> が使います(地形は <code>drawDistance</code> / <code>shadowDistance</code> のみ)。</li>
+</ul></div>
+</section>
+<section class="file" id="f-RenderStats">
+<h3><code>Engine/Render3D/RenderStats.h</code> <code>Engine/Render3D/RenderStats.cpp</code></h3>
+<p class="role">描画の重さを測るカウンタ(描画命令の数・三角形の数)です。LOD の効果を確かめるために使います。すべて <strong>前のフレームの数</strong> を返します。</p>
+<div class="tw"><table class="api"><thead><tr><th>名前</th><th>引数・戻り値</th><th>何をするか</th></tr></thead><tbody>
+<tr><td class="fn"><code>GetDrawCallCount()</code></td><td class="sig"><code>int</code></td><td>通常の描画命令の数</td></tr>
+<tr><td class="fn"><code>GetDrawTriangleCount()</code></td><td class="sig"><code>int</code></td><td>通常の三角形の数</td></tr>
+<tr><td class="fn"><code>GetShadowDrawCount() / GetShadowTriangleCount()</code></td><td class="sig"><code>int</code></td><td>影のパスの命令数・三角形数</td></tr>
+<tr><td class="fn"><code>GetOutlineDrawCount() / GetOutlineTriangleCount()</code></td><td class="sig"><code>int</code></td><td>枠線の命令数・三角形数</td></tr>
+<tr><td class="fn"><code>GetDrawCallTotal()</code></td><td class="sig"><code>int</code></td><td>合計の描画命令数(通常 + 影 + 枠線)</td></tr>
+<tr><td class="fn"><code>GetTriangleCount()</code></td><td class="sig"><code>int</code></td><td>合計の三角形数</td></tr>
+<tr><td class="fn"><code>GetLodCulledCount()</code></td><td class="sig"><code>int</code></td><td>距離で省いた回数の合計</td></tr>
+<tr><td class="fn"><code>BeginFrame()</code></td><td class="sig"><code>void</code></td><td>内部用: 前のフレームの数を確定して数え直す(GameEngine が呼ぶ)</td></tr>
+<tr><td class="fn"><code>AddDraw(int) / AddShadowDraw(int) / AddOutlineDraw(int) / AddLodCulled()</code></td><td class="sig"><code>void</code></td><td>内部用: 各 Renderer が数える</td></tr>
+</tbody></table></div>
+<div class="ex"><div class="exhead">使い方の例 <span class="src">出典: <code>Sample3D/Game/Components/HUDController.cpp:70-74</code></span></div><pre><code>swprintf_s(buf, L&quot;Draw: %d (Shadow %d, Outline %d)&quot;, RenderStats::GetDrawCallTotal(), RenderStats::GetShadowDrawCount(), RenderStats::GetOutlineDrawCount());
+pos = GetAnchoredPosition(Anchor::TopLeft, drawStatsOffset);
+Text::Draw(buf, pos.x, pos.y, style);
+
+swprintf_s(buf, L&quot;Tri: %d  LodCulled: %d  LOD: %s&quot;, RenderStats::GetTriangleCount(), RenderStats::GetLodCulledCount(), Lod::IsEnabled() ? L&quot;ON&quot; : L&quot;OFF&quot;);</code></pre></div>
+<div class="notes"><strong>気を付ける点</strong><ul>
+<li>数えるのは 3D の描画だけ(Mesh / SkinMesh / 水面)です。2D のスプライトと文字は数えません。</li>
+<li>枠線は 1 つの物につき 3 回の命令を出すので、枠線の命令数は「物の数 &#215; 3」になります。</li>
+<li>画面の外で省いた数は <code>Visibility::GetCulledCount()</code> で別に見ます。</li>
+</ul></div>
+</section>
+<section class="file" id="f-Model">
+<h3><code>Engine/Render3D/Model.h</code> <code>Engine/Render3D/Model.cpp</code></h3>
+<p class="role">読み込んだ FBX / OBJ モデルのデータです(形・パーツの親子関係・アニメーション)。みんなで共有するデータで、ゲーム側は普通 <code>ModelRenderer</code> 経由で使います。</p>
+<div class="tw"><table class="api"><thead><tr><th>名前</th><th>引数・戻り値</th><th>何をするか</th></tr></thead><tbody>
+<tr><td class="fn"><code>Load(const std::wstring&amp; path)</code></td><td class="sig"><code>static std::shared_ptr&lt;Model&gt;</code></td><td><code>.fbx</code> / <code>.obj</code> を読む。失敗したら <code>nullptr</code>。ゲーム側は普通 <code>Resources::LoadModel</code> を使う</td></tr>
+<tr><td class="fn"><code>GetNodeCount()</code></td><td class="sig"><code>int</code></td><td>パーツの数</td></tr>
+<tr><td class="fn"><code>FindNode(const std::string&amp; name)</code></td><td class="sig"><code>int</code></td><td>名前でパーツを探す(無ければ -1)</td></tr>
+<tr><td class="fn"><code>GetNode(int index)</code></td><td class="sig"><code>const ModelNode&amp;</code></td><td>パーツのデータ</td></tr>
+<tr><td class="fn"><code>GetPath()</code></td><td class="sig"><code>const std::wstring&amp;</code></td><td>読み込んだファイルのパス</td></tr>
+<tr><td class="fn"><code>GetBoundingRadius()</code></td><td class="sig"><code>float</code></td><td>原点から一番遠い頂点までの距離(画面判定の半径)</td></tr>
+<tr><td class="fn"><code>GetClipCount()</code></td><td class="sig"><code>int</code></td><td>アニメーションクリップの数</td></tr>
+<tr><td class="fn"><code>GetClip(int index)</code></td><td class="sig"><code>const ModelClip&amp;</code></td><td>クリップのデータ</td></tr>
+<tr><td class="fn"><code>FindClip(const std::string&amp; name)</code></td><td class="sig"><code>int</code></td><td>名前でクリップを探す(無ければ -1)</td></tr>
+<tr><td class="fn"><code>QuaternionToEuler(const XMFLOAT4&amp; q)</code></td><td class="sig"><code>static XMFLOAT3</code></td><td>クォータニオンを <code>Transform::rotate</code> と同じ向きのオイラー角(度)にする</td></tr>
+<tr><td class="fn"><code>GetMesh(int index) / GetSkinMesh(int index)</code></td><td class="sig"><code>Mesh* / SkinMesh*</code></td><td>内部用: ModelRenderer が描画用バッファを取り出す</td></tr>
+<tr><td class="fn"><code>ModelNode</code></td><td class="sig"><code>struct</code></td><td>パーツ 1 つ: <code>name</code>・<code>parent</code>・<code>position</code>・<code>rotate</code>・<code>scale</code>・<code>vertices</code>・<code>texturePath</code>、スキン用の <code>skinVertices</code> など。<code>IsSkinned()</code></td></tr>
+<tr><td class="fn"><code>ModelPose</code></td><td class="sig"><code>struct</code></td><td>パーツの、ある時刻の位置・回転(クォータニオン)・スケール</td></tr>
+<tr><td class="fn"><code>ModelClip</code></td><td class="sig"><code>struct</code></td><td>クリップ 1 つ: <code>name</code>・<code>duration</code>・<code>fps</code>・<code>frameCount</code>・<code>nodePoses</code></td></tr>
+</tbody></table></div>
+<div class="ex"><div class="exhead">使い方の例 <span class="src">出典: <code>Demo/Game/Components/Core/ResourcesDemoController.cpp:65-69</code></span></div><pre><code>void ResourcesDemoController::LoadModels() {
+    // 同じモデルを2回借りる(読み込みは1回。同じ物を指す)
+    models.push_back(Resources::LoadModel(modelPath));
+    models.push_back(Resources::LoadModel(modelPath));
+    SetMessage(L&quot;モデルを2回借りました。&quot;, L&quot;同じ物を指せば読み込みは1回&quot;);</code></pre></div>
+<div class="notes"><strong>気を付ける点</strong><ul>
+<li>単位は <strong>1 単位 = 1cm</strong>、座標系は読み込む時に左手系へ変換されます(README &#167;27)。</li>
+<li>パーツの親は必ず自分より小さい番号です。</li>
+<li><code>Model</code> は形と親子関係だけを持ち、パーツの <strong>今の動き</strong> は <code>ModelRenderer</code> が 1 体ごとに持ちます。</li>
+</ul></div>
+</section>
+<section class="file" id="f-ModelRenderer">
+<h3><code>Engine/Render3D/ModelRenderer.h</code> <code>Engine/Render3D/ModelRenderer.cpp</code></h3>
+<p class="role">FBX モデル(複数のパーツ)を描く Component です。パーツごとに親から子へ行列を累積して描きます。<code>MeshRenderer</code> と同じ <code>Material</code> で見た目を決められ、影・縁の光・枠線・LOD も同じように使えます。</p>
+<div class="tw"><table class="api"><thead><tr><th>名前</th><th>引数・戻り値</th><th>何をするか</th></tr></thead><tbody>
+<tr><td class="fn"><code>ModelRenderer(const std::wstring&amp; path)</code></td><td class="sig"><code>コンストラクタ</code></td><td>FBX / OBJ のパスを渡す。読めなかった時は何も描かない(出力ウィンドウに理由が出る)</td></tr>
+<tr><td class="fn"><code>SetTexture(const std::wstring&amp; path)</code></td><td class="sig"><code>void</code></td><td>全パーツに同じ画像を貼る(呼ばなければ FBX に書かれたパーツごとの画像を使う)</td></tr>
+<tr><td class="fn"><code>SetColor(float r, float g, float b, float a)</code></td><td class="sig"><code>void</code></td><td>色</td></tr>
+<tr><td class="fn"><code>GetColor()</code></td><td class="sig"><code>XMFLOAT4</code></td><td>今の色</td></tr>
+<tr><td class="fn"><code>SetMaterial(const Material&amp; value)</code></td><td class="sig"><code>void</code></td><td>全パーツ共通のマテリアルを設定する</td></tr>
+<tr><td class="fn"><code>GetMaterial()</code></td><td class="sig"><code>Material&amp;</code></td><td>手直し用</td></tr>
+<tr><td class="fn"><code>SetRimLight(XMFLOAT3 color, float strength, float power)</code></td><td class="sig"><code>void</code></td><td>縁の光</td></tr>
+<tr><td class="fn"><code>SetOutline(XMFLOAT4 color, float widthPixels, bool seeThrough)</code></td><td class="sig"><code>void</code></td><td>枠線(スキンのパーツは曲げた後の形に付く)</td></tr>
+<tr><td class="fn"><code>SetFrustumCulling(bool enabled)</code></td><td class="sig"><code>void</code></td><td>画面の外にある時は描かない</td></tr>
+<tr><td class="fn"><code>SetLod(const LodSettings&amp; settings) / GetLod()</code></td><td class="sig"><code>void / LodSettings&amp;</code></td><td>距離で省く設定</td></tr>
+<tr><td class="fn"><code>GetNodeTransform(const std::string&amp; name)</code></td><td class="sig"><code>Transform*</code></td><td>名前でパーツを探して、その動き(Transform)を返す。無ければ <code>nullptr</code></td></tr>
+<tr><td class="fn"><code>GetNodeTransform(int index)</code></td><td class="sig"><code>Transform*</code></td><td>番号版(範囲外は <code>nullptr</code>)</td></tr>
+<tr><td class="fn"><code>GetModel()</code></td><td class="sig"><code>const std::shared_ptr&lt;Model&gt;&amp;</code></td><td>読み込んだモデル</td></tr>
+<tr><td class="fn"><code>Init() / Draw() / Uninit() / DrawShadow(...)</code></td><td class="sig"><code>void (override)</code></td><td>内部の処理</td></tr>
+</tbody></table></div>
+<div class="ex"><div class="exhead">使い方の例 <span class="src">出典: <code>Sample3D/Game/Objects/ModelDisplay.cpp:31-34</code></span></div><pre><code>// 見た目(FBXモデル。パーツの親子関係を保ったまま描く)
+auto* renderer = display-&gt;AddComponent&lt;ModelRenderer&gt;(animated ? animatedPath : staticPath);
+renderer-&gt;GetMaterial().castShadow = true;
+renderer-&gt;GetMaterial().receiveShadow = true;</code></pre></div>
+<div class="ex"><div class="exhead">使い方の例 <span class="src">出典: <code>Sample3D/Game/Components/ModelDisplayController.cpp:17-19</code></span></div><pre><code>// アニメーション無し: Topパーツだけ回す(無ければ何もしない。親のBaseパーツは動かない)
+Transform* top = renderer-&gt;GetNodeTransform(&quot;Top&quot;);
+if (top) top-&gt;rotate.y += spinSpeed * dt;</code></pre></div>
+<div class="notes"><strong>気を付ける点</strong><ul>
+<li><code>GetNodeTransform</code> の値は「親のパーツからの相対」です。この Transform には親子関係を設定していないので、<code>GetWorldMatrix()</code> は使えません。</li>
+<li><strong>アニメーションを再生している間は、<code>ModelAnimationComponent</code> が毎フレームその値を上書き</strong> します。手で動かしても、アニメが動かすパーツは次のフレームに戻ります。</li>
+<li><code>ModelAnimationComponent</code> は <strong>ModelRenderer の後に</strong> <code>AddComponent</code> します。</li>
+<li>画面判定の半径は「止まっている姿の一番遠い頂点 &#215; 1.5」です。アニメーションで大きくはみ出すモデルは、<code>SetFrustumCulling</code> を <code>false</code> のままにします。</li>
+</ul></div>
+</section>
+<section class="file" id="f-SkinMesh">
+<h3><code>Engine/Render3D/SkinMesh.h</code> <code>Engine/Render3D/SkinMesh.cpp</code></h3>
+<p class="role">骨の行列で頂点を動かして描く 3D メッシュです(<code>Mesh</code> のスキン版)。<code>ModelRenderer</code> が、骨で曲げるパーツに使います。ゲーム側が直接触ることはほとんどありません。</p>
+<div class="tw"><table class="api"><thead><tr><th>名前</th><th>引数・戻り値</th><th>何をするか</th></tr></thead><tbody>
+<tr><td class="fn"><code>maxBones</code></td><td class="sig"><code>static constexpr int</code></td><td>1 つのメッシュに使える骨の数の上限(64)</td></tr>
+<tr><td class="fn"><code>Init(const std::vector&lt;SkinVertex&gt;&amp; verts)</code></td><td class="sig"><code>bool</code></td><td>頂点バッファを作る。失敗したら <code>false</code></td></tr>
+<tr><td class="fn"><code>Draw(world, boneMatrices, boneCount, camera, material, light)</code></td><td class="sig"><code>void</code></td><td>骨の行列(スキン行列)で曲げて描く</td></tr>
+<tr><td class="fn"><code>DrawOutline(world, boneMatrices, boneCount, camera, color, widthPixels, seeThrough)</code></td><td class="sig"><code>void</code></td><td>曲げた後の形に枠線を描く</td></tr>
+<tr><td class="fn"><code>DrawDepth(world, boneMatrices, boneCount, lightView, lightProj)</code></td><td class="sig"><code>void</code></td><td>影のパス用: 曲げた形の深度だけを描く</td></tr>
+<tr><td class="fn"><code>SetTexture(ID3D11ShaderResourceView* s)</code></td><td class="sig"><code>void</code></td><td>画像を渡す</td></tr>
+<tr><td class="fn"><code>Uninit()</code></td><td class="sig"><code>void</code></td><td>解放する</td></tr>
+<tr><td class="fn"><code>SkinVertex</code></td><td class="sig"><code>struct</code></td><td>頂点に <code>BoneIndices[4]</code>(影響する骨)と <code>BoneWeights</code>(影響度。合計 1)を足した形</td></tr>
+</tbody></table></div>
+<div class="notes"><strong>気を付ける点</strong><ul>
+<li>骨は 1 つの頂点につき最大 4 本、1 つのメッシュにつき最大 64 本です。</li>
+<li>骨のパーツ自体は描かれず、メッシュが曲がります。</li>
+</ul></div>
+</section>
+<section class="file" id="f-Terrain">
+<h3><code>Engine/Render3D/Terrain.h</code> <code>Engine/Render3D/Terrain.cpp</code></h3>
+<p class="role">地形の高さのデータです。高さの画像(PNG)か表(CSV)から作り、高さや面の向きを調べたり、描画用のメッシュを作ったりします。描画は <code>TerrainRenderer</code>、当たり判定は <code>TerrainRigidbodyComponent</code> が、同じデータから作ります。</p>
+<div class="tw"><table class="api"><thead><tr><th>名前</th><th>引数・戻り値</th><th>何をするか</th></tr></thead><tbody>
+<tr><td class="fn"><code>LoadFromImage(const std::wstring&amp; path, const TerrainSettings&amp; settings)</code></td><td class="sig"><code>static std::shared_ptr&lt;Terrain&gt;</code></td><td>高さの画像から作る(白=高い、黒=低い)。読めなければ <code>nullptr</code></td></tr>
+<tr><td class="fn"><code>LoadFromCsv(const std::wstring&amp; path, const TerrainSettings&amp; settings)</code></td><td class="sig"><code>static std::shared_ptr&lt;Terrain&gt;</code></td><td>表(CSV)から作る(1 マスに 0〜1 の数値)</td></tr>
+<tr><td class="fn"><code>CreateFromSamples(values, sampleWidth, sampleHeight, settings)</code></td><td class="sig"><code>static std::shared_ptr&lt;Terrain&gt;</code></td><td>数値の並びから作る(プログラムで地形を作る時)</td></tr>
+<tr><td class="fn"><code>GetHeightAt(float localX, float localZ)</code></td><td class="sig"><code>float</code></td><td>その場所の高さ(地形の左手前の角が原点の座標)</td></tr>
+<tr><td class="fn"><code>GetNormalAt(float localX, float localZ)</code></td><td class="sig"><code>XMFLOAT3</code></td><td>その場所の面の向き(長さ 1)</td></tr>
+<tr><td class="fn"><code>Contains(float localX, float localZ)</code></td><td class="sig"><code>bool</code></td><td>地形の範囲内か</td></tr>
+<tr><td class="fn"><code>GetSettings()</code></td><td class="sig"><code>const TerrainSettings&amp;</code></td><td>設定</td></tr>
+<tr><td class="fn"><code>GetHeights()</code></td><td class="sig"><code>const std::vector&lt;float&gt;&amp;</code></td><td>頂点の高さ(<code>[x * GetVertexCountZ() + z]</code>)</td></tr>
+<tr><td class="fn"><code>GetVertexCountX() / GetVertexCountZ()</code></td><td class="sig"><code>int</code></td><td>頂点の数(分割数 + 1)</td></tr>
+<tr><td class="fn"><code>GetCellSizeX() / GetCellSizeZ()</code></td><td class="sig"><code>float</code></td><td>1 マスの長さ</td></tr>
+<tr><td class="fn"><code>GetHeightAtVertex(int x, int z)</code></td><td class="sig"><code>float</code></td><td>頂点の高さ(範囲外は端)</td></tr>
+<tr><td class="fn"><code>BuildMesh(vertices, indices)</code></td><td class="sig"><code>void</code></td><td>描画用の頂点とインデックスを作る(TerrainRenderer が使う)</td></tr>
+<tr><td class="fn"><code>TerrainSettings::width / depth</code></td><td class="sig"><code>float</code></td><td>X・Z 方向の大きさ(既定 10000)</td></tr>
+<tr><td class="fn"><code>TerrainSettings::maxHeight</code></td><td class="sig"><code>float</code></td><td>高さのデータが 1(真っ白)の時の高さ(既定 1000)</td></tr>
+<tr><td class="fn"><code>TerrainSettings::cellsX / cellsZ</code></td><td class="sig"><code>int</code></td><td>分割数(マスの数。1〜256)</td></tr>
+<tr><td class="fn"><code>TerrainSettings::uvRepeat</code></td><td class="sig"><code>float</code></td><td>画像を地形全体に何回くり返して貼るか(既定 20)</td></tr>
+<tr><td class="fn"><code>TerrainSettings::texture</code></td><td class="sig"><code>std::wstring</code></td><td>地形に貼る画像</td></tr>
+</tbody></table></div>
+<div class="ex"><div class="exhead">使い方の例 <span class="src">出典: <code>Sample3D/Game/Objects/Hills.cpp:16-26</code></span></div><pre><code>// 高さの画像(白=高い、黒=低い。129x129)から地形を作る。画像が読めなければ nullptr
+TerrainSettings settings;
+settings.width = 4000.0f;
+settings.depth = 4000.0f;
+settings.maxHeight = 600.0f;
+settings.cellsX = 128;
+settings.cellsZ = 128;
+settings.uvRepeat = 4.0f;   // 1000四方ごとに画像を1回貼る(Groundのタイルと同じ大きさ)
+settings.texture = L&quot;Assets/bg_tile.png&quot;;
+auto terrain = Terrain::LoadFromImage(L&quot;Assets/Terrain/heightmap.png&quot;, settings);
+if (!terrain) return hills;</code></pre></div>
+<div class="notes"><strong>気を付ける点</strong><ul>
+<li>地形の中は「左手前の角が原点 (0,0)、X・Z が増える向き」。高さ 0 が下、Y+ が上です。ワールドに置く位置は <code>TerrainRenderer</code> のオーナーの位置です。</li>
+<li>高さの画像は、左が X=0、<strong>上が Z=最大</strong>(上から見た地図と同じ向き)。16 ビットのグレースケールは 65536 段階、それ以外は赤(R)の 256 段階です。</li>
+<li><code>GetHeightAt</code> / <code>GetNormalAt</code> は描画のメッシュと同じ三角形の上で計算するので、物を地形の上に置いても浮かない・埋まらない。</li>
+<li><code>LoadFromImage</code> が <code>nullptr</code> を返したら(画像が無いなど)、必ずチェックします(上の例は <code>if (!terrain) return hills;</code>)。</li>
+</ul></div>
+</section>
+<section class="file" id="f-TerrainRenderer">
+<h3><code>Engine/Render3D/TerrainRenderer.h</code> <code>Engine/Render3D/TerrainRenderer.cpp</code></h3>
+<p class="role">地形(<code>Terrain</code>)を描く Component です。オーナーの Transform の位置が「地形の左手前の角」で、Y がそのまま高さ 0 です。見た目は <code>MeshRenderer</code> と同じ <code>Material</code> で決めます。</p>
+<div class="tw"><table class="api"><thead><tr><th>名前</th><th>引数・戻り値</th><th>何をするか</th></tr></thead><tbody>
+<tr><td class="fn"><code>TerrainRenderer(const std::shared_ptr&lt;Terrain&gt;&amp; terrain)</code></td><td class="sig"><code>コンストラクタ</code></td><td>地形のデータを渡して作る</td></tr>
+<tr><td class="fn"><code>SetMaterial(const Material&amp; value)</code></td><td class="sig"><code>void</code></td><td>マテリアルをまとめて設定</td></tr>
+<tr><td class="fn"><code>GetMaterial()</code></td><td class="sig"><code>Material&amp;</code></td><td>手直し用(<code>receiveShadow = true</code> など)</td></tr>
+<tr><td class="fn"><code>SetFrustumCulling(bool enabled) / IsFrustumCulling()</code></td><td class="sig"><code>void / bool</code></td><td>画面の外にある時は描かない</td></tr>
+<tr><td class="fn"><code>SetLod(const LodSettings&amp; settings) / GetLod()</code></td><td class="sig"><code>void / LodSettings&amp;</code></td><td>距離で省く(<code>drawDistance</code> / <code>shadowDistance</code> のみ)</td></tr>
+<tr><td class="fn"><code>GetHeightAt(float worldX, float worldZ)</code></td><td class="sig"><code>float</code></td><td>ワールド座標での、その場所の地面の Y</td></tr>
+<tr><td class="fn"><code>GetNormalAt(float worldX, float worldZ)</code></td><td class="sig"><code>XMFLOAT3</code></td><td>その場所の面の向き(長さ 1)</td></tr>
+<tr><td class="fn"><code>Contains(float worldX, float worldZ)</code></td><td class="sig"><code>bool</code></td><td>地形の範囲内か</td></tr>
+<tr><td class="fn"><code>GetTerrain()</code></td><td class="sig"><code>const std::shared_ptr&lt;Terrain&gt;&amp;</code></td><td>持っている地形のデータ</td></tr>
+</tbody></table></div>
+<div class="ex"><div class="exhead">使い方の例 <span class="src">出典: <code>Sample3D/Game/Objects/Hills.cpp:28-34</code></span></div><pre><code>// 見た目: 影を受ける。画像がとても暗いので、Groundと同じ色を掛けて明るい青灰色にする
+auto* renderer = hills-&gt;AddComponent&lt;TerrainRenderer&gt;(terrain);
+renderer-&gt;GetMaterial().color = { 5.0f, 4.0f, 2.0f, 1.0f };
+renderer-&gt;GetMaterial().receiveShadow = true;
+
+// 当たり判定(PhysX): 見た目と同じ地形のデータから作るので、丘の起伏の上を歩ける。動かない
+hills-&gt;AddComponent&lt;TerrainRigidbodyComponent&gt;(terrain);</code></pre></div>
+<div class="notes"><strong>気を付ける点</strong><ul>
+<li>オーナーの Transform は <strong>位置(と親)だけ</strong> を使います。拡大縮小・回転は使えません(<code>GetHeightAt</code> と見た目がずれる)。</li>
+<li>当たり判定は付きません。付ける時は同じ <code>Terrain</code> を <code>TerrainRigidbodyComponent</code> に渡します(Physics)。</li>
+<li>描画順は <code>SetDrawPriority(INT_MIN + 1)</code> のように、スカイボックスのすぐ後・他の物より先にします(半透明の物より後に描くと、透けた所に地面が出ないことがあるため)。</li>
+<li>枠線(<code>SetOutline</code>)は付けません(地形全体の枠線に意味が無い)。</li>
+</ul></div>
+</section>
+<section class="file" id="f-WaterRenderer">
+<h3><code>Engine/Render3D/WaterRenderer.h</code> <code>Engine/Render3D/WaterRenderer.cpp</code></h3>
+<p class="role">水面(波打つ半透明の面)を描く Component です。オーナーの Transform の位置が水面の中心で、Y が水位です。地形のくぼみに水を張る、池・湖・海のように使います。波は頂点シェーダーが時間から計算します。</p>
+<div class="tw"><table class="api"><thead><tr><th>名前</th><th>引数・戻り値</th><th>何をするか</th></tr></thead><tbody>
+<tr><td class="fn"><code>WaterRenderer(const WaterSettings&amp; settings)</code></td><td class="sig"><code>コンストラクタ</code></td><td>設定を渡して作る(省略可)</td></tr>
+<tr><td class="fn"><code>GetSettings()</code></td><td class="sig"><code>WaterSettings&amp;</code></td><td>実行中に手直しできる(色・波・大きさ。次のフレームから反映)</td></tr>
+<tr><td class="fn"><code>SetFrustumCulling(bool enabled) / IsFrustumCulling()</code></td><td class="sig"><code>void / bool</code></td><td>画面の外にある時は描かない</td></tr>
+<tr><td class="fn"><code>GetHeightAt(float worldX, float worldZ)</code></td><td class="sig"><code>float</code></td><td>その場所の水面のワールドの Y(波込み)。物を浮かべる時に使う</td></tr>
+<tr><td class="fn"><code>GetHeightAt(float worldX, float worldZ, float time)</code></td><td class="sig"><code>float</code></td><td>時間を指定する版</td></tr>
+<tr><td class="fn"><code>Contains(float worldX, float worldZ)</code></td><td class="sig"><code>bool</code></td><td>水面の範囲内か(XZ だけ。波の高さは見ない)</td></tr>
+<tr><td class="fn"><code>WaterSettings::size</code></td><td class="sig"><code>XMFLOAT2</code></td><td>水面の大きさ(X, Z)</td></tr>
+<tr><td class="fn"><code>WaterSettings::cells</code></td><td class="sig"><code>int</code></td><td>格子の分割数(1〜512)</td></tr>
+<tr><td class="fn"><code>WaterSettings::color</code></td><td class="sig"><code>XMFLOAT4</code></td><td>水の色(w が透明度)</td></tr>
+<tr><td class="fn"><code>WaterSettings::waveHeight / waveLength / waveSpeed</code></td><td class="sig"><code>float</code></td><td>波の高さ・長さ・進む速さ</td></tr>
+<tr><td class="fn"><code>WaterSettings::waveDirection</code></td><td class="sig"><code>XMFLOAT2</code></td><td>波の進む向き(X, Z)</td></tr>
+<tr><td class="fn"><code>WaterSettings::specularStrength / shininess</code></td><td class="sig"><code>float</code></td><td>太陽のきらめきの強さ・鋭さ</td></tr>
+<tr><td class="fn"><code>WaterSettings::fresnelPower</code></td><td class="sig"><code>float</code></td><td>浅い角度でどれだけ空が映るか</td></tr>
+<tr><td class="fn"><code>WaterSettings::receiveShadow</code></td><td class="sig"><code>bool</code></td><td>他の物の影を受けるか(水面は影を落とさない)</td></tr>
+</tbody></table></div>
+<div class="ex"><div class="exhead">使い方の例 <span class="src">出典: <code>Sample3D/Game/Objects/Water.cpp:10-22</code></span></div><pre><code>// 半透明の物は、不透明の物(地形・Player)より後に描く(drawPriorityを大きくする)
+water-&gt;SetDrawPriority(100);
+
+// 見た目: 色・波の大きさ・速さを決める(当たり判定は付けないので、通り抜けられる)
+WaterSettings settings;
+settings.size = { 650.0f, 700.0f };
+settings.cells = 96;                              // 一番短い波(波の長さ x 0.23 = 約69)に、格子が4個以上入る細かさ
+settings.color = { 0.1f, 0.4f, 0.6f, 0.55f };     // 青緑で半透明(wが透明度)。水の下の地面が透けて見える
+settings.waveHeight = 8.0f;                       // 波の高さ(水位から上下に最大8)
+settings.waveLength = 300.0f;                     // 一番大きい波の長さ
+settings.waveSpeed = 70.0f;                       // 波の進む速さ
+settings.receiveShadow = true;                    // Playerなどの影が水面にも落ちる(&#167;32)
+water-&gt;AddComponent&lt;WaterRenderer&gt;(settings);</code></pre></div>
+<div class="notes"><strong>気を付ける点</strong><ul>
+<li>半透明で深度を書かないので、<strong>オーナーの <code>drawPriority</code> を大きく</strong>(例: <code>SetDrawPriority(100)</code>)して、不透明な物より後に描きます。</li>
+<li>水面と水面の中の半透明の物(敵の画像など)の前後は、正しくならないことがあります(<code>Scene::Draw</code> はカメラからの距離順ではないため)。</li>
+<li><strong>当たり判定は付きません</strong>(通り抜けられます)。物を浮かべるには <code>GetHeightAt</code> で波の高さを調べます。</li>
+<li>波の時間は <code>Time::GetTime()</code> なので、ポーズ中は波も止まります。</li>
+<li>オーナーの Transform は位置(と親)だけを使います(拡大縮小・回転は使えない)。</li>
+</ul></div>
+</section>
+
+<footer class="foot">この解説は <code>docs/EngineGuide/tools/build.ps1</code> で作っています。表の内容は Engine のヘッダーから拾っています。コード例は Sample2D / Sample3D / Demo の実際のソースを読み込んで載せています。</footer>
+</main>
+</div>
+<script src="search-index.js"></script>
+<script src="search.js"></script>
+</body>
+</html>

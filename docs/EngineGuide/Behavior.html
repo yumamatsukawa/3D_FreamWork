@@ -1,0 +1,315 @@
+﻿<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Behavior(動き・追跡・視野・経路探索) - Engine解説</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="layout">
+<nav class="side">
+<div class="brand"><a href="index.html">Engine解説</a></div>
+<div class="search"><input type="search" id="q" placeholder="関数名・クラス名・ファイル名を検索" autocomplete="off"><ul id="results"></ul></div>
+<ul class="menu">
+<li><a href="index.html">トップ</a></li>
+<li><a href="architecture.html">設計図(図解)</a></li>
+<li><a href="Core.html">Core</a></li>
+<li><a href="Render.html">Render</a></li>
+<li><a href="Render3D.html">Render3D</a></li>
+<li><a href="Physics.html">Physics</a></li>
+<li><a href="UI.html">UI</a></li>
+<li><a href="Animation.html">Animation</a></li>
+<li><a href="Transition.html">Transition</a></li>
+<li><a href="Behavior.html" class="current">Behavior</a></li>
+<li><a href="Audio.html">Audio</a></li>
+<li><a href="Data.html">Data</a></li>
+<li><a href="ThirdParty.html">ThirdParty</a></li>
+<li><a href="files.html">ファイル索引</a></li>
+<li><a href="glossary.html">用語集</a></li>
+</ul>
+<p class="sidenote">3D_FreamWork の Engine を、初心者向けに解説したページです。</p>
+</nav>
+<main>
+<h1>Behavior(動き・追跡・視野・経路探索)</h1>
+<div class="lead"><code>Engine/Behavior/</code> は、敵や物の「動きの頭脳」です。目的地へ向かう動き(Chase / AccelerateChase / Homing)、壁を避けて歩く経路探索(NavGrid / PathFinder / PathFollow)、見張り役の視野(Vision)が入っています。
+動く平面は 2 種類です(<code>MovePlane</code>): <strong>XY</strong>(2D の画面)と <strong>XZ</strong>(3D の地面)。どちらも <code>SetPlane</code> で選びます(既定は XY)。</div>
+<div class="toc"><strong>このページのファイル</strong><ul>
+<li><a href="#f-MoveComponent">MoveComponent.h / MoveComponent.cpp</a></li>
+<li><a href="#f-ChaseComponent">ChaseComponent.h / ChaseComponent.cpp</a></li>
+<li><a href="#f-AccelerateChaseComponent">AccelerateChaseComponent.h / AccelerateChaseComponent.cpp</a></li>
+<li><a href="#f-HomingComponent">HomingComponent.h / HomingComponent.cpp</a></li>
+<li><a href="#f-PathFollowComponent">PathFollowComponent.h / PathFollowComponent.cpp</a></li>
+<li><a href="#f-NavGridComponent">NavGridComponent.h / NavGridComponent.cpp</a></li>
+<li><a href="#f-NavGrid">NavGrid.h / NavGrid.cpp</a></li>
+<li><a href="#f-PathFinder">PathFinder.h / PathFinder.cpp</a></li>
+<li><a href="#f-VisionComponent">VisionComponent.h / VisionComponent.cpp</a></li>
+</ul></div>
+<p><strong>目的地へ向かう動きの継承</strong>: <code>MoveComponent</code>(親。単体では付けない)← <code>ChaseComponent</code> / <code>AccelerateChaseComponent</code> / <code>HomingComponent</code> / <code>PathFollowComponent</code>。目的地は <code>SetTarget</code>(相手を追う)か <code>SetTargetPosition</code>(決まった場所)で決めます。</p>
+<p><strong>Demo で見る</strong>: Demo プロジェクトの <strong>Behavior カテゴリ</strong>に、Move / Homing / Vision / Path / MovingWall / TerrainPath の6個のデモがあります。</p>
+<section class="file" id="f-MoveComponent">
+<h3><code>Engine/Behavior/MoveComponent.h</code> <code>Engine/Behavior/MoveComponent.cpp</code></h3>
+<p class="role">「目的地へ向かって動く」Component の親クラスです。<strong>単体では <code>AddComponent</code> しません</strong>(コンストラクタが protected)。目的地・速さ・止まる距離・動く平面の共通の決まりを持ちます。</p>
+<div class="tw"><table class="api"><thead><tr><th>名前</th><th>引数・戻り値</th><th>何をするか</th></tr></thead><tbody>
+<tr><td class="fn"><code>SetTarget(GameObject* newTarget)</code></td><td class="sig"><code>void</code></td><td>追いかける相手(<code>nullptr</code> で外す)</td></tr>
+<tr><td class="fn"><code>SetTargetPosition(XMFLOAT3 position)</code></td><td class="sig"><code>void</code></td><td>決まった場所へ向かう(相手がいない時に使う)</td></tr>
+<tr><td class="fn"><code>SetSpeed(float newSpeed)</code></td><td class="sig"><code>void</code></td><td>速さ(1 秒に進む距離)。負の値は 0</td></tr>
+<tr><td class="fn"><code>SetStopDistance(float distance)</code></td><td class="sig"><code>void</code></td><td>これより近づいたら止まる</td></tr>
+<tr><td class="fn"><code>SetPlane(MovePlane newPlane)</code></td><td class="sig"><code>void</code></td><td>動く平面(<code>MovePlane::XY</code> か <code>XZ</code>。既定は XY)</td></tr>
+<tr><td class="fn"><code>HasArrived()</code></td><td class="sig"><code>bool</code></td><td>着いたか(目的地が <code>StopDistance</code> より近いか)</td></tr>
+<tr><td class="fn"><code>GetTarget()</code></td><td class="sig"><code>GameObject*</code></td><td>追いかけている相手</td></tr>
+<tr><td class="fn"><code>GetSpeed()</code></td><td class="sig"><code>float</code></td><td>速さ</td></tr>
+<tr><td class="fn"><code>MovePlane</code></td><td class="sig"><code>enum class</code></td><td>動く平面: <code>XY</code>(2D)/ <code>XZ</code>(3D の地面)</td></tr>
+</tbody></table></div>
+<div class="ex"><div class="exhead">使い方の例 <span class="src">出典: <code>Demo/Game/Objects/Behavior/MoveDemo.cpp:40-42</code></span></div><pre><code>auto* follow = followAgent-&gt;AddComponent&lt;ChaseComponent&gt;();
+follow-&gt;SetPlane(GetDemoPlane(mode));
+follow-&gt;SetTarget(targetMarker);</code></pre></div>
+<div class="ex"><div class="exhead">使い方の例 <span class="src">出典: <code>Demo/Game/Objects/Behavior/MoveDemo.cpp:51-53</code></span></div><pre><code>auto* point = pointAgent-&gt;AddComponent&lt;ChaseComponent&gt;();
+point-&gt;SetPlane(GetDemoPlane(mode));
+point-&gt;SetTargetPosition(ConvertPlaneToWorld(mode, is2D ? firstDestination2D : firstDestination3D, 0.f));</code></pre></div>
+<div class="notes"><strong>気を付ける点</strong><ul>
+<li>目的地は、<code>SetTarget</code> の相手がいればその位置、いなければ <code>SetTargetPosition</code> の位置。どちらも無ければ止まります(速度 0)。</li>
+<li>相手が非アクティブ(<code>SetActive(false)</code> / Destroy 済み)の間は、追わずに止まります。<strong>相手の GameObject が Destroy されて本当に消えた後はポインタが消えた物を指したままになる</strong> ので、相手を消す時は、先に追いかけている側で <code>SetTarget(nullptr)</code> します。</li>
+<li>距離・向きは動く平面の上だけで考えます(XY なら Z の差、XZ なら Y の差は無視)。</li>
+<li>動かし方: <strong>Dynamic の <code>RigidbodyComponent</code> があれば <code>SetVelocity</code></strong>。Kinematic か Rigidbody が無ければ <code>transform.position</code> を直接動かします。<strong>Static なら動かしません</strong>(出力ウィンドウに 1 回知らせます)。</li>
+<li>XZ の時は Y 方向の速度(重力で落ちる速さ)をそのまま残します。XY の時は Z 方向の速度を 0 にします。</li>
+<li>壁にぶつけたい物は <strong>Dynamic</strong> にします(Kinematic は Static の壁をすり抜けます)。</li>
+<li>ObjectPool で再利用した時(<code>SetActive(true)</code>)に、速度などの状態がリセットされます(相手・速さなどの設定は残る)。</li>
+</ul></div>
+</section>
+<section class="file" id="f-ChaseComponent">
+<h3><code>Engine/Behavior/ChaseComponent.h</code> <code>Engine/Behavior/ChaseComponent.cpp</code></h3>
+<p class="role">目的地(相手・場所)へ、<strong>一定の速さでまっすぐ</strong> 向かう Component です。<code>StopDistance</code>(既定 1.0)より近づいたら止まります。壁は避けません(壁を避けたい時は <code>PathFollowComponent</code>)。</p>
+<div class="tw"><table class="api"><thead><tr><th>名前</th><th>引数・戻り値</th><th>何をするか</th></tr></thead><tbody>
+<tr><td class="fn"><code>(専用の関数はありません)</code></td><td class="sig"><code>MoveComponent の関数を使う</code></td><td><code>SetTarget</code> / <code>SetTargetPosition</code> / <code>SetSpeed</code> / <code>SetStopDistance</code> / <code>SetPlane</code> / <code>HasArrived</code></td></tr>
+<tr><td class="fn"><code>Update(float dt)</code></td><td class="sig"><code>void (override)</code></td><td>内部の処理</td></tr>
+</tbody></table></div>
+<div class="ex"><div class="exhead">使い方の例 <span class="src">出典: <code>Demo/Game/Objects/Behavior/HomingDemo.cpp:46-49</code></span></div><pre><code>const MovePlane plane = GetDemoPlane(mode);
+auto* chase = agents[0]-&gt;AddComponent&lt;ChaseComponent&gt;();
+chase-&gt;SetPlane(plane);
+chase-&gt;SetTarget(targetMarker);</code></pre></div>
+<div class="notes"><strong>気を付ける点</strong><ul>
+<li>壁を避けなくてよい時(ごく近くの敵など)に向きます。</li>
+<li>2D の画面なら <code>SetPlane</code> は不要(既定が XY)。3D の地面の上を動く時は <code>SetPlane(MovePlane::XZ)</code>。</li>
+</ul></div>
+</section>
+<section class="file" id="f-AccelerateChaseComponent">
+<h3><code>Engine/Behavior/AccelerateChaseComponent.h</code> <code>Engine/Behavior/AccelerateChaseComponent.cpp</code></h3>
+<p class="role">目的地へ <strong>加速しながら</strong> 向かう Component です。勢いがあるので、行き過ぎて戻ってきます。</p>
+<div class="tw"><table class="api"><thead><tr><th>名前</th><th>引数・戻り値</th><th>何をするか</th></tr></thead><tbody>
+<tr><td class="fn"><code>SetAcceleration(float value)</code></td><td class="sig"><code>void</code></td><td>加速の強さ(1 秒に速さがいくつ増えるか)</td></tr>
+<tr><td class="fn"><code>SetMaxSpeed(float maxSpeed)</code></td><td class="sig"><code>void</code></td><td>最高速度(<code>SetSpeed</code> と同じ)</td></tr>
+<tr><td class="fn"><code>SetDrag(float value)</code></td><td class="sig"><code>void</code></td><td>空気抵抗(0 で減速しない。大きいほどすぐ減速)。負の値は 0</td></tr>
+<tr><td class="fn"><code>Update(float dt) / OnActiveChanged(bool active)</code></td><td class="sig"><code>void (override)</code></td><td>内部の処理</td></tr>
+</tbody></table></div>
+<div class="ex"><div class="exhead">使い方の例 <span class="src">出典: <code>Demo/Game/Components/Behavior/HomingDemoController.cpp:66-69</code></span></div><pre><code>chase-&gt;SetSpeed(chaseSpeed * unitScale);
+accelerate-&gt;SetMaxSpeed(accelerateMaxSpeed * unitScale);
+accelerate-&gt;SetDrag(accelerateDrag);
+homing-&gt;SetSpeed(homingSpeed * unitScale);</code></pre></div>
+<div class="notes"><strong>気を付ける点</strong><ul>
+<li><code>StopDistance</code> より近い間は加速をやめます(勢いのまま進み、空気抵抗で遅くなる)。</li>
+<li>Dynamic の Rigidbody があれば <code>AddForce(ForceMode::Acceleration)</code> で加速します(ぶつかった時の跳ね返りも残る)。1 フレーム分の加速だけ、最高速度を少し超えることがあります(次のフレームで戻す)。</li>
+<li>Kinematic か Rigidbody が無ければ、自分で速度を持って動かします。</li>
+</ul></div>
+</section>
+<section class="file" id="f-HomingComponent">
+<h3><code>Engine/Behavior/HomingComponent.h</code> <code>Engine/Behavior/HomingComponent.cpp</code></h3>
+<p class="role">曲がれる角度に上限がある追尾です(ミサイル・車・魚向け)。今の進行方向を持ち、目的地の方へ 1 秒に最大 <code>turnSpeed</code> 度だけ曲がりながら、<code>speed</code> の速さで進みます。</p>
+<div class="tw"><table class="api"><thead><tr><th>名前</th><th>引数・戻り値</th><th>何をするか</th></tr></thead><tbody>
+<tr><td class="fn"><code>SetTurnSpeed(float degreesPerSecond)</code></td><td class="sig"><code>void</code></td><td>1 秒に何度まで曲がれるか(既定 180。負の値は 0)</td></tr>
+<tr><td class="fn"><code>SetFaceMovement(bool enabled)</code></td><td class="sig"><code>void</code></td><td>見た目の向き(<code>rotate</code>)も進行方向に合わせる</td></tr>
+<tr><td class="fn"><code>Update(float dt) / OnActiveChanged(bool active)</code></td><td class="sig"><code>void (override)</code></td><td>内部の処理</td></tr>
+</tbody></table></div>
+<div class="ex"><div class="exhead">使い方の例 <span class="src">出典: <code>Demo/Game/Objects/Behavior/HomingDemo.cpp:53-56</code></span></div><pre><code>auto* homing = agents[2]-&gt;AddComponent&lt;HomingComponent&gt;();
+homing-&gt;SetPlane(plane);
+homing-&gt;SetTarget(targetMarker);
+homing-&gt;SetFaceMovement(true);   // 見た目の向きも進行方向に合わせる</code></pre></div>
+<div class="notes"><strong>気を付ける点</strong><ul>
+<li>最初の進行方向は、出した時の <code>rotate</code> の向きです。出す時に <code>rotate</code> を決めておけば、その向きへ飛び出してから曲がっていきます。</li>
+<li>進行方向の角度は <code>rotate</code> と同じ向きです(XY は <code>rotate.z</code> = <code>Math::Forward2D</code>、XZ は <code>rotate.y</code> = <code>Math::Forward3D</code>)。</li>
+<li><strong>Dynamic の剛体で <code>SetFaceMovement(true)</code> を使う時は <code>SetFreezeRotation(true)</code> にします</strong>(しないと PhysX の回転で上書きされます)。</li>
+<li>曲がれる角度に上限があるので、<code>StopDistance</code> を 0 に近くすると、目標の周りを回り続けることがあります。</li>
+</ul></div>
+</section>
+<section class="file" id="f-PathFollowComponent">
+<h3><code>Engine/Behavior/PathFollowComponent.h</code> <code>Engine/Behavior/PathFollowComponent.cpp</code></h3>
+<p class="role">壁・障害物を避けながら、目的地へ一定の速さで向かう Component です。<code>ChaseComponent</code> の「まっすぐ向かう」を、経路探索つきにしたものです。経路は <code>NavGridComponent</code> の格子の上で探します(A* + 直線化)。</p>
+<div class="tw"><table class="api"><thead><tr><th>名前</th><th>引数・戻り値</th><th>何をするか</th></tr></thead><tbody>
+<tr><td class="fn"><code>SetNavigation(NavGridComponent* newNavigation)</code></td><td class="sig"><code>void</code></td><td>どの格子で探すか(Spawn の度に渡す)</td></tr>
+<tr><td class="fn"><code>SetRepathInterval(float seconds)</code></td><td class="sig"><code>void</code></td><td>探し直す間隔(既定 0.5 秒。&#177;20% ばらす。0.1 未満は 0.1)</td></tr>
+<tr><td class="fn"><code>SetWaypointRadius(float distance)</code></td><td class="sig"><code>void</code></td><td>次の点へ進む距離(既定は <code>cellSize</code> の半分)</td></tr>
+<tr><td class="fn"><code>HasPath()</code></td><td class="sig"><code>bool</code></td><td>経路が見つかっているか(止まっている時は <code>false</code>)</td></tr>
+<tr><td class="fn"><code>GetPath()</code></td><td class="sig"><code>const std::vector&lt;XMFLOAT3&gt;&amp;</code></td><td>今の経路(確認・デバッグ用)</td></tr>
+<tr><td class="fn"><code>SetDebugDrawEnabled(bool enabled)</code></td><td class="sig"><code>static void</code></td><td><code>true</code> で今の経路を緑の線で描く</td></tr>
+<tr><td class="fn"><code>Init() / Update(float dt) / Draw() / Uninit() / OnActiveChanged(bool active)</code></td><td class="sig"><code>void (override)</code></td><td>内部の処理</td></tr>
+</tbody></table></div>
+<div class="ex"><div class="exhead">使い方の例 <span class="src">出典: <code>Sample2D/Game/Components/EnemyManager.cpp:218-224</code></span></div><pre><code>// 追いかける相手・速さ・格子を渡す
+PathFollowComponent* path = enemy-&gt;GetComponent&lt;PathFollowComponent&gt;();
+if (path) {
+    path-&gt;SetTarget(target);
+    path-&gt;SetSpeed(enemySpeed);
+    path-&gt;SetNavigation(navigation);
+}</code></pre></div>
+<div class="ex"><div class="exhead">使い方の例 <span class="src">出典: <code>Sample2D/Game/Components/EnemyManager.cpp:45-46</code></span></div><pre><code>// 動き: 壁を避けて追いかける(追いかける相手・速さ・格子はSpawnで渡す)
+obj-&gt;AddComponent&lt;PathFollowComponent&gt;();</code></pre></div>
+<div class="notes"><strong>気を付ける点</strong><ul>
+<li><code>SetTarget</code> / <code>SetSpeed</code> / <code>SetStopDistance</code> / <code>SetPlane</code> は <code>MoveComponent</code> と同じです。</li>
+<li><strong>経路が見つからない時は、止まります</strong>(格子の外にいる・目的地が格子の外・壁で囲まれている・格子がまだ焼けていない)。止まっている間も探し直すので、行けるようになったらまた動き出します。</li>
+<li>探し直すのは、一定の間隔・目的地が 1 マス以上動いた時・格子が変わった時・詰まった時(1 秒間に 速さ &#215; 0.2 より進めなかった時)です。</li>
+<li>最後の点は目的地。目的地が通れないマスの中(壁際)なら、近くの通れるマスの中心まで行ってから、残りをまっすぐ向かいます。</li>
+<li>ObjectPool で再利用した時に、経路・タイマーがリセットされます(相手・速さ・格子の設定は残る)。</li>
+</ul></div>
+</section>
+<section class="file" id="f-NavGridComponent">
+<h3><code>Engine/Behavior/NavGridComponent.h</code> <code>Engine/Behavior/NavGridComponent.cpp</code></h3>
+<p class="role">格子(<code>NavGrid</code>)と探索役(<code>PathFinder</code>)を持つ Component です。<strong>シーンに 1 つ置いて、<code>PathFollowComponent</code> に渡します</strong>。障害物(タグ &quot;Wall&quot; の Static な物)は、置くだけで自動で読み込まれます。</p>
+<div class="tw"><table class="api"><thead><tr><th>名前</th><th>引数・戻り値</th><th>何をするか</th></tr></thead><tbody>
+<tr><td class="fn"><code>NavGridComponent(const NavGridSettings&amp; settings)</code></td><td class="sig"><code>コンストラクタ</code></td><td>格子の設定を渡して作る</td></tr>
+<tr><td class="fn"><code>GetGrid()</code></td><td class="sig"><code>NavGrid&amp;</code></td><td>格子(障害物の登録・調べる)</td></tr>
+<tr><td class="fn"><code>GetPathFinder()</code></td><td class="sig"><code>PathFinder&amp;</code></td><td>探索役</td></tr>
+<tr><td class="fn"><code>SetTerrain(TerrainRenderer* newTerrain)</code></td><td class="sig"><code>void</code></td><td>地形の高さ・傾きを取り込む(焼く前に渡す。焼いた後なら焼き直す)</td></tr>
+<tr><td class="fn"><code>SetAutoRebakeInterval(float seconds)</code></td><td class="sig"><code>void</code></td><td>自動で焼き直す間隔(0 = 焼き直さない。既定)。動く壁がある時だけ</td></tr>
+<tr><td class="fn"><code>RequestRebake()</code></td><td class="sig"><code>void</code></td><td>次のフレームで全体を焼き直す</td></tr>
+<tr><td class="fn"><code>RebakeRegion(XMFLOAT3 center, XMFLOAT3 size)</code></td><td class="sig"><code>void</code></td><td>範囲だけ、次のフレームの Update で焼き直す(動く壁を動かした側が呼ぶ。全体より軽い)</td></tr>
+<tr><td class="fn"><code>SetMaxSearchesPerFrame(int count)</code></td><td class="sig"><code>void</code></td><td>1 フレームの探索回数の上限(既定 8)</td></tr>
+<tr><td class="fn"><code>IsBaked()</code></td><td class="sig"><code>bool</code></td><td>最初の焼きが済んだか</td></tr>
+<tr><td class="fn"><code>GetLastBakeMilliseconds()</code></td><td class="sig"><code>float</code></td><td>直前の焼きにかかった時間(ミリ秒)</td></tr>
+<tr><td class="fn"><code>TryBeginSearch()</code></td><td class="sig"><code>bool</code></td><td>探索してよいか(PathFollowComponent が呼ぶ。上限に達していたら <code>false</code>)</td></tr>
+<tr><td class="fn"><code>SetDebugDrawEnabled(bool enabled)</code></td><td class="sig"><code>static void</code></td><td><code>true</code> で通れないマスの輪郭を赤い線で描く</td></tr>
+<tr><td class="fn"><code>Update(float dt) / Draw() / Uninit()</code></td><td class="sig"><code>void (override)</code></td><td>内部の処理</td></tr>
+</tbody></table></div>
+<div class="ex"><div class="exhead">使い方の例 <span class="src">出典: <code>Sample2D/Game/Objects/Navigation.cpp:9-16</code></span></div><pre><code>// 格子の範囲: Playerが歩き回る範囲(原点のまわり6000四方)。外では敵は経路を探せず、止まる
+NavGridSettings settings;
+settings.origin = { -3000.0f, -3000.0f, 0.0f };
+settings.size = { 6000.0f, 6000.0f };
+settings.cellSize = 50.0f;           // 敵の大きさ(一辺100)の半分
+settings.plane = MovePlane::XY;
+settings.agentRadius = 50.0f;        // 敵は一辺100の四角
+return navigation-&gt;AddComponent&lt;NavGridComponent&gt;(settings);   // Wall(タグ)は最初のフレームの後に自動で読まれる</code></pre></div>
+<div class="ex"><div class="exhead">使い方の例 <span class="src">出典: <code>Sample3D/Game/Objects/Navigation.cpp:10-21</code></span></div><pre><code>// 格子の範囲: Playerが歩き回る範囲(壁と丘をおおう9000四方)。外では敵は経路を探せず、止まる
+NavGridSettings settings;
+settings.origin = { -3000.0f, 0.0f, -3000.0f };
+settings.size = { 9000.0f, 9000.0f };
+settings.cellSize = 50.0f;           // 敵の半径(40)くらい
+settings.plane = MovePlane::XZ;
+settings.agentRadius = 40.0f;        // 敵は半径40のカプセル
+settings.baseHeight = -50.0f;        // 地形の無い所の地面の高さ(Groundの上面)
+auto* nav = navigation-&gt;AddComponent&lt;NavGridComponent&gt;(settings);   // Wall(タグ)は最初のフレームの後に自動で読まれる
+
+// 丘の高さ・傾きを取り込む(急な斜面は通れないマスになる)
+if (hills) nav-&gt;SetTerrain(hills-&gt;GetComponent&lt;TerrainRenderer&gt;());</code></pre></div>
+<div class="notes"><strong>気を付ける点</strong><ul>
+<li>障害物を読む(焼く)のは <strong>2 回目の Update</strong> です。物理に出したばかりの物は次のフレームから見つかるため、<code>Init</code> では読めません。焼き終わるまでは <code>IsBaked()</code> が <code>false</code> で、歩く側は待ちます。</li>
+<li><strong>壁は先に置いてから</strong> <code>NavGridComponent</code> を置きます(Sample2D の GameScene は「壁をすべて置いた後に置く」)。</li>
+<li>動く壁(Kinematic)があるなら、<code>SetAutoRebakeInterval</code> で定期的に焼き直すか、動かした側が <code>RequestRebake</code> / <code>RebakeRegion</code> を呼びます。焼き直しは次のフレームの Update で行われます。</li>
+<li>探索の回数は 1 フレームに <code>maxSearchesPerFrame</code> までです(敵が多くても、探索が同じフレームに集中して重くならない)。</li>
+<li>3D の地形は <code>SetTerrain</code> で取り込むと、急な坂・大きな段差が通れないマスになります。</li>
+</ul></div>
+</section>
+<section class="file" id="f-NavGrid">
+<h3><code>Engine/Behavior/NavGrid.h</code> <code>Engine/Behavior/NavGrid.cpp</code></h3>
+<p class="role">地面を升目に区切って、各マスが「通れるか」(3D なら地面の高さも)を覚えておきます。経路探索(<code>PathFinder</code>)の土台です。2D(XY)でも 3D の地面(XZ)でも同じ形で使います。</p>
+<h4>NavGridSettings</h4>
+<div class="tw"><table class="api"><thead><tr><th>名前</th><th>引数・戻り値</th><th>何をするか</th></tr></thead><tbody>
+<tr><td class="fn"><code>origin</code></td><td class="sig"><code>XMFLOAT3</code></td><td>格子の左手前の角のワールド座標</td></tr>
+<tr><td class="fn"><code>size</code></td><td class="sig"><code>XMFLOAT2</code></td><td>格子の大きさ(既定 6000 x 6000)</td></tr>
+<tr><td class="fn"><code>cellSize</code></td><td class="sig"><code>float</code></td><td>1 マスの辺の長さ(既定 50。歩く物の半径くらいがおすすめ)</td></tr>
+<tr><td class="fn"><code>plane</code></td><td class="sig"><code>MovePlane</code></td><td>歩く平面(既定 XZ)</td></tr>
+<tr><td class="fn"><code>agentRadius</code></td><td class="sig"><code>float</code></td><td>歩く物の半径(既定 40)。この分だけ障害物を太らせる</td></tr>
+<tr><td class="fn"><code>obstacleTag</code></td><td class="sig"><code>std::string</code></td><td>このタグの物が障害物(既定 &quot;Wall&quot;)</td></tr>
+<tr><td class="fn"><code>baseHeight / agentHeight / maxStepHeight / maxSlopeDegrees</code></td><td class="sig"><code>float</code></td><td>3D の高さの設定(地形の無い所の地面の高さ・背の高さ・登れる段差・登れる坂の角度)</td></tr>
+</tbody></table></div>
+<h4>NavGrid</h4>
+<div class="tw"><table class="api"><thead><tr><th>名前</th><th>引数・戻り値</th><th>何をするか</th></tr></thead><tbody>
+<tr><td class="fn"><code>NavGrid(const NavGridSettings&amp; newSettings)</code></td><td class="sig"><code>コンストラクタ</code></td><td>設定を渡して作る</td></tr>
+<tr><td class="fn"><code>maxCells</code></td><td class="sig"><code>static constexpr int</code></td><td>格子のマスの数の上限(512 x 512)</td></tr>
+<tr><td class="fn"><code>Clear()</code></td><td class="sig"><code>void</code></td><td>全部の種類の障害物を消す</td></tr>
+<tr><td class="fn"><code>SetBlocked(int cellX, int cellZ, bool blocked)</code></td><td class="sig"><code>void</code></td><td>手で 1 マスを通れなくする / 戻す</td></tr>
+<tr><td class="fn"><code>SetBlockedBox(XMFLOAT3 center, XMFLOAT3 size, bool blocked)</code></td><td class="sig"><code>void</code></td><td>手で箱の範囲(池・柵など物理の無い障害物)</td></tr>
+<tr><td class="fn"><code>BakeFromPhysics()</code></td><td class="sig"><code>void</code></td><td>全マスを <code>Physics::OverlapBox(obstacleTag)</code> で調べる</td></tr>
+<tr><td class="fn"><code>BakeRegionFromPhysics(XMFLOAT3 center, XMFLOAT3 size)</code></td><td class="sig"><code>void</code></td><td>範囲だけ調べ直す(動く壁用)</td></tr>
+<tr><td class="fn"><code>BakeFromTerrain(const TerrainRenderer&amp; terrain)</code></td><td class="sig"><code>void</code></td><td>地形の高さを各マスに覚え、急な坂・大きな段差を通れなくする(XZ だけ)</td></tr>
+<tr><td class="fn"><code>WorldToCell(XMFLOAT3 position, int&amp; cellX, int&amp; cellZ)</code></td><td class="sig"><code>bool</code></td><td>ワールド座標 → マス。格子の外なら <code>false</code></td></tr>
+<tr><td class="fn"><code>CellToWorld(int cellX, int cellZ)</code></td><td class="sig"><code>XMFLOAT3</code></td><td>マスの中心</td></tr>
+<tr><td class="fn"><code>ClampToGrid(XMFLOAT3 position)</code></td><td class="sig"><code>XMFLOAT3</code></td><td>格子の外なら、中の一番近い点にする</td></tr>
+<tr><td class="fn"><code>IsInside(int cellX, int cellZ)</code></td><td class="sig"><code>bool</code></td><td>格子の中のマスか</td></tr>
+<tr><td class="fn"><code>IsWalkable(int cellX, int cellZ)</code></td><td class="sig"><code>bool</code></td><td>通れるか(格子の外は通れない)。座標版もある</td></tr>
+<tr><td class="fn"><code>HasLineOfWalk(XMFLOAT3 from, XMFLOAT3 to)</code></td><td class="sig"><code>bool</code></td><td>2 点の間を、通れるマスだけでまっすぐ行けるか</td></tr>
+<tr><td class="fn"><code>FindNearestWalkable(XMFLOAT3 position, XMFLOAT3&amp; result, int maxRing)</code></td><td class="sig"><code>bool</code></td><td>通れないマスの中にいる時に、近くの通れるマスを探す</td></tr>
+<tr><td class="fn"><code>GetCellCountX() / GetCellCountZ()</code></td><td class="sig"><code>int</code></td><td>マスの数</td></tr>
+<tr><td class="fn"><code>GetSettings()</code></td><td class="sig"><code>const NavGridSettings&amp;</code></td><td>設定</td></tr>
+<tr><td class="fn"><code>GetVersion()</code></td><td class="sig"><code>int</code></td><td>障害物や高さが変わる度に増える番号(歩く側が「経路が古くなった」と気付く)</td></tr>
+</tbody></table></div>
+<div class="ex"><div class="exhead">使い方の例 <span class="src">出典: <code>Demo/Game/Components/Behavior/MovingWallDemoController.cpp:59-60</code></span></div><pre><code>void MovingWallDemoController::ApplyFence(const DirectX::XMFLOAT2&amp; center, bool blocked) {
+    navigation-&gt;GetGrid().SetBlockedBox(ConvertPlaneToWorld(mode, center, 0.f), fenceSize, blocked);</code></pre></div>
+<div class="notes"><strong>気を付ける点</strong><ul>
+<li>障害物は 3 種類を別々に覚えます: 手で登録(<code>SetBlocked</code> / <code>SetBlockedBox</code>)・物理から(<code>BakeFromPhysics</code>)・地形から(<code>BakeFromTerrain</code>)。どれか 1 つでも塞いでいれば通れません。焼き直しは、その種類の分だけを作り直します(手で登録した分は消えません)。</li>
+<li>障害物は <code>agentRadius</code> だけ太らせます(歩く物を「1 つの点」として扱うため)。</li>
+<li>格子は有限の範囲です。上限を超える設定は <code>cellSize</code> を自動で大きくして出力ウィンドウに知らせます。</li>
+<li>3D(XZ)は「平面の升目 + 各マスの地面の高さ」の 2.5 次元です。同じ XZ に床が複数ある場所(橋の下など)は扱えません。</li>
+</ul></div>
+</section>
+<section class="file" id="f-PathFinder">
+<h3><code>Engine/Behavior/PathFinder.h</code> <code>Engine/Behavior/PathFinder.cpp</code></h3>
+<p class="role">格子(<code>NavGrid</code>)の上で、A*(エースター)で最短の経路を探します。作業用の配列を 1 組だけ持って使い回します。ゲーム側が直接使うことは少なく、普通は <code>PathFollowComponent</code> が使います。</p>
+<div class="tw"><table class="api"><thead><tr><th>名前</th><th>引数・戻り値</th><th>何をするか</th></tr></thead><tbody>
+<tr><td class="fn"><code>PathFinder(const NavGrid* newGrid)</code></td><td class="sig"><code>コンストラクタ</code></td><td>探す格子を渡す</td></tr>
+<tr><td class="fn"><code>FindPath(XMFLOAT3 start, XMFLOAT3 goal, const PathOptions&amp; options)</code></td><td class="sig"><code>std::vector&lt;XMFLOAT3&gt;</code></td><td>経路(ワールド座標の点の並び。先頭は start の次の点、最後は goal)。見つからなければ空</td></tr>
+<tr><td class="fn"><code>GetLastExpandedCount()</code></td><td class="sig"><code>int</code></td><td>直前の探索で調べたマスの数(確認用)</td></tr>
+<tr><td class="fn"><code>PathOptions::smooth</code></td><td class="sig"><code>bool</code></td><td>経路を直線化する(見通せる限り先の点へ飛ばす。既定 <code>true</code>)</td></tr>
+<tr><td class="fn"><code>PathOptions::allowDiagonal</code></td><td class="sig"><code>bool</code></td><td>斜めの移動を使う(8 方向。既定 <code>true</code>)。壁の角を斜めに抜けるのは禁止</td></tr>
+<tr><td class="fn"><code>PathOptions::maxExpandedCells</code></td><td class="sig"><code>int</code></td><td>1 回の探索で調べるマスの上限(既定 20000。超えたら諦めて空の経路)</td></tr>
+</tbody></table></div>
+<div class="notes"><strong>気を付ける点</strong><ul>
+<li>1 つの <code>PathFinder</code> を同時に別々の探索には使えません(同じスレッドで順に呼びます)。</li>
+<li>start / goal が通れないマス(太らせた障害物の中)なら、近くの通れるマスの中心に寄せてから探します。</li>
+<li>start / goal が格子の外、寄せられる場所が無い、つながっていない、上限を超えた時は、空の経路になります。</li>
+<li><code>smooth</code> の時は、まっすぐ行けるなら探さずに <code>[goal]</code> だけを返します。</li>
+</ul></div>
+</section>
+<section class="file" id="f-VisionComponent">
+<h3><code>Engine/Behavior/VisionComponent.h</code> <code>Engine/Behavior/VisionComponent.cpp</code></h3>
+<p class="role">見張り役の「視野」を持たせる Component です(扇形の中にいて、壁にさえぎられていなければ見える)。見えたかどうかを調べるだけで、見えた後の動き(追いかける・色を変える)は付けた側の Component が決めます。</p>
+<div class="tw"><table class="api"><thead><tr><th>名前</th><th>引数・戻り値</th><th>何をするか</th></tr></thead><tbody>
+<tr><td class="fn"><code>SetFieldOfView(float degrees)</code></td><td class="sig"><code>void</code></td><td>視野の角度(全体。90 なら左右 45 度ずつ。0〜360)</td></tr>
+<tr><td class="fn"><code>SetRange(float distance)</code></td><td class="sig"><code>void</code></td><td>見える距離</td></tr>
+<tr><td class="fn"><code>SetPlane(MovePlane newPlane)</code></td><td class="sig"><code>void</code></td><td>見る平面(2D = XY、3D の地面 = XZ。既定 XY)</td></tr>
+<tr><td class="fn"><code>SetEyeOffset(XMFLOAT3 offset)</code></td><td class="sig"><code>void</code></td><td>目の位置(足元ではなく胸の高さなど)</td></tr>
+<tr><td class="fn"><code>SetObstacleTag(const std::string&amp; tag)</code></td><td class="sig"><code>void</code></td><td>このタグの物は壁(既定 &quot;Wall&quot;。<code>&quot;&quot;</code> なら壁は考えない)</td></tr>
+<tr><td class="fn"><code>SetFacing(XMFLOAT3 direction)</code></td><td class="sig"><code>void</code></td><td>正面を手で指定する(長さ 0 に戻すと transform の向き)</td></tr>
+<tr><td class="fn"><code>SetCheckInterval(float seconds)</code></td><td class="sig"><code>void</code></td><td>壁の判定をやり直す間隔(既定 0.1 秒。0 なら毎回)</td></tr>
+<tr><td class="fn"><code>GetFieldOfView() / GetRange()</code></td><td class="sig"><code>float</code></td><td>設定を返す</td></tr>
+<tr><td class="fn"><code>GetFacing()</code></td><td class="sig"><code>XMFLOAT3</code></td><td>今の正面(長さ 1)</td></tr>
+<tr><td class="fn"><code>IsInCone(XMFLOAT3 point)</code></td><td class="sig"><code>bool</code></td><td>扇形(角度と距離)の中か。壁は考えない</td></tr>
+<tr><td class="fn"><code>CanSee(XMFLOAT3 point)</code></td><td class="sig"><code>bool</code></td><td>扇形の中で壁にさえぎられていないか(呼ぶ度に Raycast する)</td></tr>
+<tr><td class="fn"><code>CanSee(GameObject* target)</code></td><td class="sig"><code>bool</code></td><td>同じ(相手の位置を使う。壁の判定は <code>SetCheckInterval</code> の間隔で覚える)</td></tr>
+<tr><td class="fn"><code>SetDebugDrawEnabled(bool enabled)</code></td><td class="sig"><code>static void</code></td><td><code>true</code> で全 Vision の扇形を線で描く(見えている時は赤、見えていない時は緑)</td></tr>
+<tr><td class="fn"><code>Update(float dt) / Draw() / Uninit()</code></td><td class="sig"><code>void (override)</code></td><td>内部の処理</td></tr>
+</tbody></table></div>
+<div class="ex"><div class="exhead">使い方の例 <span class="src">出典: <code>Sample2D/Game/Objects/Guard.cpp:22-26</code></span></div><pre><code>// 視野: 画面(XY平面)の上で、正面から左右45度ずつ(合わせて90度)・距離700。&quot;Wall&quot;のタグの物が視線をさえぎる
+auto* vision = guard-&gt;AddComponent&lt;VisionComponent&gt;();
+vision-&gt;SetFieldOfView(90.0f);
+vision-&gt;SetRange(700.0f);
+vision-&gt;SetPlane(MovePlane::XY);</code></pre></div>
+<div class="ex"><div class="exhead">使い方の例 <span class="src">出典: <code>Sample2D/Game/Components/GuardController.cpp:16-21</code></span></div><pre><code>// 視野に入っていて、壁にさえぎられていなければ見えた: 赤、見えていなければ青
+bool seen = vision &amp;&amp; target &amp;&amp; vision-&gt;CanSee(target);
+if (sprite) {
+    if (seen) sprite-&gt;SetColor(1.0f, 0.2f, 0.2f, 1.0f);
+    else sprite-&gt;SetColor(0.3f, 0.5f, 1.0f, 1.0f);
+}</code></pre></div>
+<div class="notes"><strong>気を付ける点</strong><ul>
+<li><strong>壁に <code>&quot;Wall&quot;</code> のタグを付け忘れると素通しになります</strong>(視線がさえぎられない)。地面・ほかの敵・弾は壁になりません。</li>
+<li>相手の「1 点(位置)」だけを見ます。相手の中心が壁の陰なら、体が少しはみ出していても見えません。</li>
+<li>正面は <code>SetFacing</code> が最優先。無ければ XZ は <code>Math::Forward3D</code>(<code>rotate.y</code>)、XY は <code>Math::Forward2D</code>(<code>rotate.z</code>)。追いかける敵のように <code>rotate</code> を使わない物は、毎フレーム <code>SetFacing</code> で進む向きを渡します。</li>
+<li><code>Raycast</code> は 1 つ前の <code>Physics::Update</code> の位置を使うので、動いたばかりの壁には 1 フレーム遅れて反映されます。</li>
+<li>「カメラに映っているか」は <a href="Render.html#f-Visibility">Visibility</a> の担当です(視野とは別)。</li>
+</ul></div>
+</section>
+
+<footer class="foot">この解説は <code>docs/EngineGuide/tools/build.ps1</code> で作っています。表の内容は Engine のヘッダーから拾っています。コード例は Sample2D / Sample3D / Demo の実際のソースを読み込んで載せています。</footer>
+</main>
+</div>
+<script src="search-index.js"></script>
+<script src="search.js"></script>
+</body>
+</html>

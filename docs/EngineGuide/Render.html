@@ -1,0 +1,418 @@
+﻿<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Render(2D描画・カメラ・画面効果) - Engine解説</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="layout">
+<nav class="side">
+<div class="brand"><a href="index.html">Engine解説</a></div>
+<div class="search"><input type="search" id="q" placeholder="関数名・クラス名・ファイル名を検索" autocomplete="off"><ul id="results"></ul></div>
+<ul class="menu">
+<li><a href="index.html">トップ</a></li>
+<li><a href="architecture.html">設計図(図解)</a></li>
+<li><a href="Core.html">Core</a></li>
+<li><a href="Render.html" class="current">Render</a></li>
+<li><a href="Render3D.html">Render3D</a></li>
+<li><a href="Physics.html">Physics</a></li>
+<li><a href="UI.html">UI</a></li>
+<li><a href="Animation.html">Animation</a></li>
+<li><a href="Transition.html">Transition</a></li>
+<li><a href="Behavior.html">Behavior</a></li>
+<li><a href="Audio.html">Audio</a></li>
+<li><a href="Data.html">Data</a></li>
+<li><a href="ThirdParty.html">ThirdParty</a></li>
+<li><a href="files.html">ファイル索引</a></li>
+<li><a href="glossary.html">用語集</a></li>
+</ul>
+<p class="sidenote">3D_FreamWork の Engine を、初心者向けに解説したページです。</p>
+</nav>
+<main>
+<h1>Render(2D描画・カメラ・画面効果)</h1>
+<div class="lead"><code>Engine/Render/</code> は、画面に絵を出す仕組みの土台です。スプライト(画像)の描画、カメラ、カメラの揺れ、画面全体の演出(フラッシュ・暗転)、パーティクル(粒)、「カメラに映っているか」の判定が入っています。
+スプライトの描き方は <strong>3つのモード</strong> があります(<code>SpriteMode</code>)。迷ったらこの表を見てください。</div>
+<div class="toc"><strong>このページのファイル</strong><ul>
+<li><a href="#f-SpriteRenderer">SpriteRenderer.h / SpriteRenderer.cpp</a></li>
+<li><a href="#f-Image">Image.h / Image.cpp</a></li>
+<li><a href="#f-Sprite">Sprite.h / Sprite.cpp</a></li>
+<li><a href="#f-Camera">Camera.h</a></li>
+<li><a href="#f-CameraFollowComponent">CameraFollowComponent.h / CameraFollowComponent.cpp</a></li>
+<li><a href="#f-CameraShake">CameraShake.h / CameraShake.cpp</a></li>
+<li><a href="#f-ScreenEffect">ScreenEffect.h / ScreenEffect.cpp</a></li>
+<li><a href="#f-ParticleRenderer">ParticleRenderer.h / ParticleRenderer.cpp</a></li>
+<li><a href="#f-Effect">Effect.h / Effect.cpp</a></li>
+<li><a href="#f-Visibility">Visibility.h / Visibility.cpp</a></li>
+<li><a href="#f-Graphics">Graphics.h / Graphics.cpp</a></li>
+<li><a href="#f-Texture">Texture.h / Texture.cpp</a></li>
+</ul></div>
+<p><strong>スプライトの3モード(SpriteMode)</strong>: <code>UI</code>(既定)= HUD・ボタン・背景。z で大きさが変わらず、必ず最前面。 / <code>World2D</code> = 2D ゲームの物。遠近なしで、2D カメラでスクロール。z が小さいほど手前。 / <code>World3D</code> = 3D 空間に立てる板(ビルボード)。3D カメラの遠近で、3D メッシュと同じ深度で前後が決まる。</p>
+<p><strong>Demo で見る</strong>: Demo プロジェクトの <strong>Render カテゴリ</strong>に、Sprite / SpriteAnim / Camera / ScreenEffect / Transition / Particle / Tween / Coord の8個のデモがあります(Visibility は Render3D カテゴリ)。</p>
+<section class="file" id="f-SpriteRenderer">
+<h3><code>Engine/Render/SpriteRenderer.h</code> <code>Engine/Render/SpriteRenderer.cpp</code></h3>
+<p class="role">GameObject に「画像を描く見た目」を持たせる Component です。Unity の <code>SpriteRenderer</code> に相当します。<code>transform.scale</code> が画像の大きさ(2D ではピクセル)になります。</p>
+<div class="tw"><table class="api"><thead><tr><th>名前</th><th>引数・戻り値</th><th>何をするか</th></tr></thead><tbody>
+<tr><td class="fn"><code>SpriteRenderer(const std::wstring&amp; filepath, int cols, int rows)</code></td><td class="sig"><code>コンストラクタ</code></td><td>画像のパスと、横・縦の分割数(<code>cols</code> / <code>rows</code>、既定は 1)。分割したコマの絵(スプライトシート)として使える</td></tr>
+<tr><td class="fn"><code>SetTexture(const std::wstring&amp; filepath, int cols, int rows)</code></td><td class="sig"><code>void</code></td><td>後から画像を変える</td></tr>
+<tr><td class="fn"><code>SetSpriteIndex(int index)</code></td><td class="sig"><code>void</code></td><td>何コマ目を描くか(左上が 0。右へ、下の段へ)</td></tr>
+<tr><td class="fn"><code>SetColor(float r, float g, float b, float a)</code></td><td class="sig"><code>void</code></td><td>画像にかける色(白 1,1,1,1 でそのまま)</td></tr>
+<tr><td class="fn"><code>GetColor()</code></td><td class="sig"><code>XMFLOAT4</code></td><td>今の色</td></tr>
+<tr><td class="fn"><code>SetMode(SpriteMode value)</code></td><td class="sig"><code>void</code></td><td>描き方を選ぶ(<code>UI</code> / <code>World2D</code> / <code>World3D</code>)</td></tr>
+<tr><td class="fn"><code>GetMode()</code></td><td class="sig"><code>SpriteMode</code></td><td>今の描き方</td></tr>
+<tr><td class="fn"><code>SetWorldSpace(bool v)</code></td><td class="sig"><code>void</code></td><td>互換用。<code>true</code> = <code>World3D</code>、<code>false</code> = <code>UI</code>。新しく書く時は <code>SetMode</code></td></tr>
+<tr><td class="fn"><code>SetBillboardLock(bool lockX, bool lockY, bool lockZ)</code></td><td class="sig"><code>void</code></td><td>3D モードのビルボード回転を軸ごとに止める(<code>true</code> の軸は回らない)</td></tr>
+<tr><td class="fn"><code>SetBillboardLockX / SetBillboardLockY / SetBillboardLockZ</code></td><td class="sig"><code>void</code></td><td>1軸ずつ設定する版</td></tr>
+<tr><td class="fn"><code>SetFrustumCulling(bool enabled)</code></td><td class="sig"><code>void</code></td><td><code>true</code> で、画面の外にある時は描かない(物理は止まらない)</td></tr>
+<tr><td class="fn"><code>IsFrustumCulling()</code></td><td class="sig"><code>bool</code></td><td>画面の外を省く設定か</td></tr>
+</tbody></table></div>
+<div class="ex"><div class="exhead">使い方の例 <span class="src">出典: <code>Sample2D/Game/Objects/Player.cpp:19-22</code></span></div><pre><code>// 見た目
+auto* sprite = player-&gt;AddComponent&lt;SpriteRenderer&gt;(L&quot;Assets/player.png&quot;, 8, 2);
+sprite-&gt;SetSpriteIndex(5);
+sprite-&gt;SetMode(SpriteMode::World2D);   // 2Dモード: zで大きさは変わらず、zが小さいほど手前(Playerはz=0。敵(+5)の手前、弾(-5)の奥)</code></pre></div>
+<div class="ex"><div class="exhead">使い方の例 <span class="src">出典: <code>Sample3D/Game/Components/EnemyManager.cpp:32-40</code></span></div><pre><code>// 見た目(3D空間に立つ2Dの画像)
+auto* sprite = obj-&gt;AddComponent&lt;SpriteRenderer&gt;(L&quot;Assets/player.png&quot;, 8, 2);
+sprite-&gt;SetColor(1.0f, 0.0f, 1.0f, 1.0f);
+sprite-&gt;SetWorldSpace(true);
+// X/Zの傾きは固定し、水平方向(Y軸)だけカメラの方を向く「立て看板」にする。
+// ※SpriteRendererのWorldモードはtransform.rotate.yを使わないので、
+//   rotate.yで向きを変える代わりに、こちらで画像の表面を見る側に向けている
+sprite-&gt;SetBillboardLock(true, false, true);
+sprite-&gt;SetFrustumCulling(true);   // 画面の外にいる間は描かない(物理と動きは止まらない)</code></pre></div>
+<div class="notes"><strong>気を付ける点</strong><ul>
+<li>既定の <code>mode</code> は <strong>UI</strong> です。UI も 2D カメラの位置でスクロールしますが、<strong>深度を使わず必ず最前面</strong>に描かれ、z では前後が決まりません(UI どうしは <code>drawPriority</code> → 作った順)。2D ゲームで「z で前後を決めたい物」(背景・壁・敵・Player・弾)は <code>SetMode(SpriteMode::World2D)</code> にします(Sample2D が実例)。画面に固定したい UI は、カメラの位置の分を足して置きます(Demo の <code>DemoScreenFixController</code> が実例)。</li>
+<li>3 モードの描画順は<a href="architecture.html#draw">設計図の描画の順番</a>を見てください。UI モードは「<code>drawPriority</code> → 作った順」で、z は使いません。</li>
+<li>World2D の z は、<strong>3D カメラの z(既定 -500)より +5 以上奥</strong> にします(Sprite.h のコメント)。z が小さいほど手前です。</li>
+<li>3D モード(ビルボード)は <code>transform.rotate.y</code> を使いません。向きを変える代わりに <code>SetBillboardLock</code> で軸を止めます。</li>
+<li><code>SetFrustumCulling(true)</code> は、HP バーや文字のように「画面に固定する物」には使いません。</li>
+<li><code>GetDepthScale2D</code> は <strong>廃止</strong> されました(2D では z で大きさが変わらないため)。古い資料にあっても使いません。</li>
+</ul></div>
+</section>
+<section class="file" id="f-Image">
+<h3><code>Engine/Render/Image.h</code> <code>Engine/Render/Image.cpp</code></h3>
+<p class="role">描画の窓口です。2D 用カメラ・3D 用カメラ・ライトを持ち、座標の変換(ワールド ⇔ 画面)、画面に四角を塗る <code>DrawRect</code>、スプライト 1 枚を描く <code>Draw</code> を提供します。<code>SpriteRenderer</code> などが中で使うので、普段よく使うのは「カメラ」「座標の変換」「DrawRect」の3つです。</p>
+<h4>カメラ・ライト</h4>
+<div class="tw"><table class="api"><thead><tr><th>名前</th><th>引数・戻り値</th><th>何をするか</th></tr></thead><tbody>
+<tr><td class="fn"><code>GetCamera()</code></td><td class="sig"><code>Camera&amp;</code></td><td>2D スプライト用のカメラ。<code>position</code> の x, y を動かすと画面がスクロールする</td></tr>
+<tr><td class="fn"><code>GetCamera3D()</code></td><td class="sig"><code>Camera&amp;</code></td><td>3D メッシュ用のカメラ(2D とは別のもの)</td></tr>
+<tr><td class="fn"><code>GetLight()</code></td><td class="sig"><code>Light&amp;</code></td><td>3D メッシュのライティングに使う、シーン共通の平行光源</td></tr>
+<tr><td class="fn"><code>SetCamera3DAutoSync(bool enabled)</code></td><td class="sig"><code>void</code></td><td>3D カメラを 2D カメラに自動で追従させるか(既定 <code>true</code>)。3D カメラを自分で操作する時は <code>false</code></td></tr>
+<tr><td class="fn"><code>GetAspectRatio()</code></td><td class="sig"><code>float</code></td><td>3D 描画の縦横比(幅 &#247; 高さ)</td></tr>
+</tbody></table></div>
+<h4>座標の変換(画面座標は、画面中央が (0,0)・Y+ が上・単位はピクセル)</h4>
+<div class="tw"><table class="api"><thead><tr><th>名前</th><th>引数・戻り値</th><th>何をするか</th></tr></thead><tbody>
+<tr><td class="fn"><code>WorldToScreen2D(XMFLOAT3 worldPosition)</code></td><td class="sig"><code>XMFLOAT2</code></td><td>2D カメラで、ワールド座標 → 画面座標</td></tr>
+<tr><td class="fn"><code>ScreenToWorld2D(XMFLOAT2 screenPosition)</code></td><td class="sig"><code>XMFLOAT3</code></td><td>2D カメラで、画面座標 → ワールド座標(z は 0)</td></tr>
+<tr><td class="fn"><code>WorldToScreen3D(XMFLOAT3 worldPosition)</code></td><td class="sig"><code>XMFLOAT3</code></td><td>3D カメラで、ワールド → 画面。<code>z</code> はカメラからの奥行き(<strong>0 以下はカメラの後ろ</strong>で x, y は使えない)</td></tr>
+<tr><td class="fn"><code>ScreenPointToRay3D(XMFLOAT2 screenPosition, XMFLOAT3&amp; origin, XMFLOAT3&amp; direction)</code></td><td class="sig"><code>void</code></td><td>画面の点から奥へ伸びる線を求める(<code>Physics::Raycast</code> と組み合わせる)</td></tr>
+</tbody></table></div>
+<h4>描く</h4>
+<div class="tw"><table class="api"><thead><tr><th>名前</th><th>引数・戻り値</th><th>何をするか</th></tr></thead><tbody>
+<tr><td class="fn"><code>DrawRect(XMFLOAT2 position, XMFLOAT2 size, XMFLOAT4 color)</code></td><td class="sig"><code>void</code></td><td>画面に四角を1つ塗る(中心の画面座標、幅と高さ、色)。HP バーの帯など。カメラの影響を受けない</td></tr>
+<tr><td class="fn"><code>Draw(Transform transform, unsigned int texID, XMFLOAT4 color, const SpriteSheet&amp; sheet, SpriteMode mode, bool lockX, bool lockY, bool lockZ, BlendMode blend, bool depthWrite)</code></td><td class="sig"><code>void</code></td><td>画像(texID)を1枚描く(<code>SpriteMode</code> 版。引数の <code>lockX</code> 以降は省略可)。<code>bool worldSpace</code> 版もある</td></tr>
+<tr><td class="fn"><code>GetTextureView(unsigned int texID)</code></td><td class="sig"><code>ID3D11ShaderResourceView*</code></td><td>Mesh などで画像を使い回したい時に、生の SRV を取り出す</td></tr>
+</tbody></table></div>
+<h4>内部用(ゲーム側からは呼ばない)</h4>
+<div class="tw"><table class="api"><thead><tr><th>名前</th><th>引数・戻り値</th><th>何をするか</th></tr></thead><tbody>
+<tr><td class="fn"><code>Init(HWND, int width, int height)</code></td><td class="sig"><code>bool</code></td><td>描画の初期化(GameEngine が呼ぶ)</td></tr>
+<tr><td class="fn"><code>BeginFrame() / EndFrame() / Uninit()</code></td><td class="sig"><code>void</code></td><td>フレームの始め・終わり・終了(GameEngine が呼ぶ)</td></tr>
+<tr><td class="fn"><code>BeginUiQueue() / SetDrawOrder(int priority, int order) / FlushUiQueue()</code></td><td class="sig"><code>void</code></td><td>UI モードの描画を積んで、最後にまとめて描く仕組み(Scene::Draw が呼ぶ)</td></tr>
+<tr><td class="fn"><code>DeferOverlay(std::function&lt;void()&gt; command)</code></td><td class="sig"><code>bool</code></td><td>文字・四角などをオーバーレイキューに積む(Text / DrawRect が使う)。Scene::Draw の外では積まずに <code>false</code></td></tr>
+<tr><td class="fn"><code>FlushOverlayQueue()</code></td><td class="sig"><code>void</code></td><td>積んだ文字・四角を呼んだ順に描く(Scene::Draw が呼ぶ)</td></tr>
+<tr><td class="fn"><code>LoadTexture(path) / ReleaseTexture(id) / ReleaseAllTextures()</code></td><td class="sig"><code>unsigned int / void</code></td><td>画像の読み込み。<strong>ゲーム側は <code>Resources::LoadTexture</code> を使う</strong>(こちらは共有されない)</td></tr>
+<tr><td class="fn"><code>ReleaseDrawRectBrush()</code></td><td class="sig"><code>void</code></td><td>DrawRect のブラシの解放(GameEngine が呼ぶ)</td></tr>
+</tbody></table></div>
+<div class="ex"><div class="exhead">使い方の例 <span class="src">出典: <code>Demo/Game/Components/Common/DemoMarker.cpp:7-21</code></span></div><pre><code>bool WorldToDemoScreen(DemoMode mode, const DirectX::XMFLOAT3&amp; position, DirectX::XMFLOAT2&amp; screen) {
+    // 3Dはカメラの後ろ(z &lt;= 0)にある点は出さない
+    if (mode == DemoMode::Mode3D) {
+        const DirectX::XMFLOAT3 projected = Image::WorldToScreen3D(position);
+        screen = { projected.x, projected.y };
+        return projected.z &gt; 0.f;
+    }
+    screen = Image::WorldToScreen2D(position);
+    return true;
+}
+
+void DrawDemoPoint(DemoMode mode, const DirectX::XMFLOAT3&amp; position, float size, const DirectX::XMFLOAT4&amp; color) {
+    DirectX::XMFLOAT2 screen;
+    if (WorldToDemoScreen(mode, position, screen)) Image::DrawRect(screen, { size, size }, color);
+}</code></pre></div>
+<div class="ex"><div class="exhead">使い方の例 <span class="src">出典: <code>Sample2D/Game/Components/BackgroundController.cpp:26-31</code></span></div><pre><code>Transform tile;
+tile.scale = { tileSize, tileSize, 1.f };
+for (int y = minY; y &lt;= maxY; y++) {
+    for (int x = minX; x &lt;= maxX; x++) {
+        tile.position = { (x + 0.5f) * tileSize, (y + 0.5f) * tileSize, backgroundZ };
+        Image::Draw(tile, texID, XMFLOAT4(1.f, 1.f, 1.f, 1.f), SpriteSheet(), SpriteMode::World2D);   // 2Dモード: いちばん奥(z=+100)に描く</code></pre></div>
+<div class="notes"><strong>気を付ける点</strong><ul>
+<li>画面座標の <strong>Y+ は上</strong> です。<code>Input::GetMousePosition()</code> は Y+ が下なので、ここへ渡す時は Y の符号を反転します(<code>Input::GetMouseWorldPosition()</code> は反転済み)。</li>
+<li><code>WorldToScreen3D</code> の結果は、使う前に必ず <code>z &gt; 0</code> を確かめます(カメラの後ろの点は画面に映りません)。</li>
+<li><code>Draw</code> の中で <code>WorldToScreen○○</code> を呼ぶと、<code>CameraShake</code> の揺れが入ったカメラで計算されます(描いた絵と一緒に揺れる)。<code>Update</code> の中では揺れは入りません。</li>
+<li><code>DrawRect</code> は文字と同じ Direct2D で描き、<strong>UI スプライトより手前</strong>に出ます。<code>Text::Draw</code> とは呼んだ順に重なります。</li>
+<li>深度バッファは 2D・3D の物と 3D メッシュで使います。2D と 3D を同じシーンで混ぜることは想定していません。</li>
+</ul></div>
+</section>
+<section class="file" id="f-Sprite">
+<h3><code>Engine/Render/Sprite.h</code> <code>Engine/Render/Sprite.cpp</code></h3>
+<p class="role">スプライト 1 種類ぶんの描画の中身(シェーダー・頂点バッファ・合成の設定)です。<code>Image::Draw</code> が中で使うので、ゲーム側が直接触ることはほとんどありません。ここにある <code>SpriteMode</code> と <code>SpriteSheet</code> と <code>BlendMode</code> は、ゲーム側からも使います。</p>
+<h4>型</h4>
+<div class="tw"><table class="api"><thead><tr><th>名前</th><th>引数・戻り値</th><th>何をするか</th></tr></thead><tbody>
+<tr><td class="fn"><code>SpriteMode</code></td><td class="sig"><code>enum class</code></td><td><code>UI</code>(zで大きさが変わらず最前面)/ <code>World2D</code>(遠近なし・2D カメラでスクロール)/ <code>World3D</code>(3D カメラの遠近のビルボード)</td></tr>
+<tr><td class="fn"><code>BlendMode</code></td><td class="sig"><code>enum class</code></td><td>重ね方。<code>Normal</code>(普通)/ <code>Additive</code>(加算。炎・光向け)/ <code>Soft</code>(ふわっと。煙向け)</td></tr>
+<tr><td class="fn"><code>SpriteSheet</code></td><td class="sig"><code>struct</code></td><td>画像の分割の指定。<code>cols</code>(横)・<code>rows</code>(縦)・<code>index</code>(何コマ目)</td></tr>
+<tr><td class="fn"><code>Vertex / ConstantBuffer</code></td><td class="sig"><code>struct</code></td><td>描画の内部で使うデータ(頂点・定数バッファ)。内部用</td></tr>
+</tbody></table></div>
+<h4>Sprite クラス(内部用)</h4>
+<div class="tw"><table class="api"><thead><tr><th>名前</th><th>引数・戻り値</th><th>何をするか</th></tr></thead><tbody>
+<tr><td class="fn"><code>Init() / Uninit()</code></td><td class="sig"><code>bool / void</code></td><td>シェーダーなどの作成と解放(Image が呼ぶ)</td></tr>
+<tr><td class="fn"><code>Draw(Transform transform, XMFLOAT4 color, const SpriteSheet&amp; sheet, SpriteMode mode, bool lockX, bool lockY, bool lockZ, BlendMode blend, bool depthWrite)</code></td><td class="sig"><code>void</code></td><td>1 枚描く(<code>bool worldSpace</code> 版もある)</td></tr>
+<tr><td class="fn"><code>SetTexture(srv) / SetTextureSize(w, h) / GetTextureWidth() / GetTextureHeight()</code></td><td class="sig"><code>void / int</code></td><td>使う画像と大きさの設定・取得</td></tr>
+<tr><td class="fn"><code>SetCamera(const Camera*) / SetCamera3D(const Camera*)</code></td><td class="sig"><code>void</code></td><td>2D 用 / 3D 用のカメラを渡す</td></tr>
+</tbody></table></div>
+<div class="notes"><strong>気を付ける点</strong><ul>
+<li><code>Additive</code> / <code>Soft</code> は、画像の <strong>明るさ(RGB)で形と濃さ</strong> を表します(<code>Shader.hlsl</code> は「アルファ 0.5 未満は描かない」ため、アルファで半透明にする普通の方法ではふわっとなりません)。</li>
+<li><code>SpriteRenderer</code> の 2D / UI / 3D の選択は <code>SetMode</code> で行い、<code>Sprite</code> を直接使う場面はほぼありません。</li>
+</ul></div>
+</section>
+<section class="file" id="f-Camera">
+<h3><code>Engine/Render/Camera.h</code></h3>
+<p class="role">「どこから・どう見るか」を表すカメラです。2D 用(<code>Image::GetCamera()</code>)と 3D 用(<code>Image::GetCamera3D()</code>)の 2 つがあります。Unity の <code>Camera</code> の位置と投影の設定にあたります。</p>
+<div class="tw"><table class="api"><thead><tr><th>名前</th><th>引数・戻り値</th><th>何をするか</th></tr></thead><tbody>
+<tr><td class="fn"><code>position</code></td><td class="sig"><code>XMFLOAT3</code></td><td>カメラ自身のワールド座標(既定 0, 0, -500)</td></tr>
+<tr><td class="fn"><code>target</code></td><td class="sig"><code>XMFLOAT3</code></td><td>注視点(どこを見ているか)</td></tr>
+<tr><td class="fn"><code>up</code></td><td class="sig"><code>XMFLOAT3</code></td><td>上方向の基準(既定 0,1,0)</td></tr>
+<tr><td class="fn"><code>fovY</code></td><td class="sig"><code>float</code></td><td>縦方向の視野角(ラジアン、既定 45 度)</td></tr>
+<tr><td class="fn"><code>nearZ</code></td><td class="sig"><code>float</code></td><td>これより手前は描かない(既定 5)</td></tr>
+<tr><td class="fn"><code>farZ</code></td><td class="sig"><code>float</code></td><td>これより奥は描かない(既定 10000)</td></tr>
+<tr><td class="fn"><code>focalLength</code></td><td class="sig"><code>float</code></td><td>3D カメラの視野角を 2D の画面と合わせるための基準距離(既定 500)。この距離にある 3D の物が 2D と同じ大きさに見える</td></tr>
+<tr><td class="fn"><code>GetViewMatrix()</code></td><td class="sig"><code>XMMATRIX</code></td><td>ワールド → カメラ空間の行列</td></tr>
+<tr><td class="fn"><code>GetProjectionMatrix(float aspectRatio)</code></td><td class="sig"><code>XMMATRIX</code></td><td>透視投影の行列</td></tr>
+<tr><td class="fn"><code>GetOrthographicMatrix(float width, float height, float nearZ, float farZ)</code></td><td class="sig"><code>static XMMATRIX</code></td><td>正射影の行列(2D / UI 向け)</td></tr>
+</tbody></table></div>
+<div class="ex"><div class="exhead">使い方の例 <span class="src">出典: <code>Sample3D/Game/Components/CameraController.cpp:79-96</code></span></div><pre><code>Camera&amp; camera3D = Image::GetCamera3D();
+
+if (mode == Mode::ThirdPerson) {
+    camera3D.position = {
+        focusPoint.x - forward.x * distance,
+        focusPoint.y - forward.y * distance + thirdPersonHeight,
+        focusPoint.z - forward.z * distance
+    };
+    camera3D.target = focusPoint;
+}
+else {
+    camera3D.position = focusPoint;
+    camera3D.target = {
+        focusPoint.x + forward.x,
+        focusPoint.y + forward.y,
+        focusPoint.z + forward.z
+    };
+}</code></pre></div>
+<div class="notes"><strong>気を付ける点</strong><ul>
+<li>2D カメラは普通 <code>position</code> の x, y だけ動かします(<code>CameraFollowComponent</code> が追いかけます)。</li>
+<li>3D カメラは既定では 2D カメラに自動で追従します。自分で <code>GetCamera3D()</code> を操作する時は <code>Image::SetCamera3DAutoSync(false)</code> にして、終わったら <code>true</code> に戻します(上の例の <code>CameraController</code> は Init と Uninit でそうしています)。</li>
+<li><code>nearZ</code> を極端に小さくすると、遠くの描画がちらつく(Z-fighting)ので 5 にしてあります。</li>
+</ul></div>
+</section>
+<section class="file" id="f-CameraFollowComponent">
+<h3><code>Engine/Render/CameraFollowComponent.h</code> <code>Engine/Render/CameraFollowComponent.cpp</code></h3>
+<p class="role">付けた GameObject を 2D カメラが追いかける Component です。Player などに付けます。Unity でいう Cinemachine の簡単版です。カメラの <code>position</code> の x, y だけを動かします。</p>
+<div class="tw"><table class="api"><thead><tr><th>名前</th><th>引数・戻り値</th><th>何をするか</th></tr></thead><tbody>
+<tr><td class="fn"><code>SetOffset(XMFLOAT2 value)</code></td><td class="sig"><code>void</code></td><td>対象からどれだけずらして映すか</td></tr>
+<tr><td class="fn"><code>SetSmoothTime(float seconds)</code></td><td class="sig"><code>void</code></td><td>追いつくまでの時間(秒)。0 = ピッタリ追従。負の値は 0</td></tr>
+<tr><td class="fn"><code>SetBounds(XMFLOAT2 minCorner, XMFLOAT2 maxCorner)</code></td><td class="sig"><code>void</code></td><td>画面に映してよい範囲(Z=0 平面の左下・右上)。外は映さない</td></tr>
+<tr><td class="fn"><code>SetDeadZone(XMFLOAT2 size)</code></td><td class="sig"><code>void</code></td><td>この大きさの四角の中で対象が動いても、カメラは動かさない</td></tr>
+<tr><td class="fn"><code>Update(float dt) / OnActiveChanged(bool active)</code></td><td class="sig"><code>void</code></td><td>内部で追従する処理(ゲーム側は呼ばない)</td></tr>
+</tbody></table></div>
+<div class="ex"><div class="exhead">使い方の例 <span class="src">出典: <code>Sample2D/Game/Objects/Player.cpp:30-31</code></span></div><pre><code>// カメラがPlayerを追いかける(ピッタリ追従。SetSmoothTime(0.1f) などにすると少し遅れてなめらかに追う)
+player-&gt;AddComponent&lt;CameraFollowComponent&gt;();</code></pre></div>
+<div class="ex"><div class="exhead">使い方の例 <span class="src">出典: <code>Demo/Game/Components/Render/CameraDemoController.cpp:80-87</code></span></div><pre><code>void CameraDemoController::SetFollow(CameraFollowComponent* followComponent) {
+    follow = followComponent;
+    if (!follow) return;
+
+    // 最初の設定(なめらか・範囲あり)
+    follow-&gt;SetSmoothTime(smoothTimes[smoothIndex]);
+    follow-&gt;SetBounds({ -boundsHalf.x, -boundsHalf.y }, { boundsHalf.x, boundsHalf.y });
+}</code></pre></div>
+<div class="notes"><strong>気を付ける点</strong><ul>
+<li><strong>Component は付けた順に Update されます。</strong> DynamicのRigidbody より <strong>後</strong>(PhysX の結果の位置で追う)、<code>Input::GetMouseWorldPosition()</code> を使う Component より <strong>前</strong> に <code>AddComponent</code> します(Sample2D の <code>Objects/Player.cpp</code> が実例)。</li>
+<li>最初の Update と、<code>SetActive(true)</code> で戻った時は、なめらかに追わず一気に合わせます。2 つ以上のオブジェクトに付けると、後から Update された方が勝ちます。</li>
+<li>なめらかな追従は <code>dt</code> で進むので、ポーズ中はカメラも止まります。</li>
+</ul></div>
+</section>
+<section class="file" id="f-CameraShake">
+<h3><code>Engine/Render/CameraShake.h</code> <code>Engine/Render/CameraShake.cpp</code></h3>
+<p class="role">画面を揺らします(2D カメラと 3D カメラの両方)。カメラの <code>position</code> を直接は変えず、「描画している間だけ」ずらして、描き終わったら元に戻します。</p>
+<div class="tw"><table class="api"><thead><tr><th>名前</th><th>引数・戻り値</th><th>何をするか</th></tr></thead><tbody>
+<tr><td class="fn"><code>Shake(float strength, float duration)</code></td><td class="sig"><code>void</code></td><td>強さ(2D はピクセル、3D はワールドの単位)と秒数で揺らす。揺れはだんだん弱まる。どちらかが 0 以下なら何もしない</td></tr>
+<tr><td class="fn"><code>IsShaking()</code></td><td class="sig"><code>bool</code></td><td>揺れている途中か</td></tr>
+<tr><td class="fn"><code>Stop()</code></td><td class="sig"><code>void</code></td><td>揺れをすぐ止める</td></tr>
+<tr><td class="fn"><code>Update(float unscaledDt) / BeginDraw() / EndDraw()</code></td><td class="sig"><code>void</code></td><td>内部用: GameEngine が毎フレーム呼ぶ</td></tr>
+</tbody></table></div>
+<div class="ex"><div class="exhead">使い方の例 <span class="src">出典: <code>Sample2D/Game/Components/PlayerController.cpp:80-82</code></span></div><pre><code>// 画面を揺らして、画面の端を赤く点滅させる
+CameraShake::Shake(damageShakeStrength, damageShakeDuration);
+ScreenEffect::Vignette(damageVignetteColor, damageVignetteDuration, damageVignetteBlinkCount);</code></pre></div>
+<div class="notes"><strong>気を付ける点</strong><ul>
+<li>Update の中で読むカメラの値・<code>Input::GetMouseWorldPosition()</code>・<code>CameraFollowComponent</code> の計算には揺れが入りません。<code>Draw</code> の中で読む値と <code>Image::WorldToScreen○○</code> には揺れが入ります。</li>
+<li>揺れの時間はポーズ中も進みます。シーンを切り替えると揺れは止まります。</li>
+<li>揺れている途中に <code>Shake</code> を呼ぶと、「今の(弱まった後の)強さ」より新しい方が強いか同じなら置き換え、弱ければ無視します。</li>
+</ul></div>
+</section>
+<section class="file" id="f-ScreenEffect">
+<h3><code>Engine/Render/ScreenEffect.h</code> <code>Engine/Render/ScreenEffect.cpp</code></h3>
+<p class="role">画面全体に色の演出(フラッシュ・ビネット・フェード)を重ねます。文字も含めて画面の一番上に描かれます。</p>
+<div class="tw"><table class="api"><thead><tr><th>名前</th><th>引数・戻り値</th><th>何をするか</th></tr></thead><tbody>
+<tr><td class="fn"><code>Flash(XMFLOAT4 color, float duration)</code></td><td class="sig"><code>void</code></td><td>画面全体が一瞬光る。<code>color.w</code> の濃さから <code>duration</code> 秒で 0 になる</td></tr>
+<tr><td class="fn"><code>Vignette(XMFLOAT4 color, float duration, int blinkCount)</code></td><td class="sig"><code>void</code></td><td>画面の端だけが色付きで点滅する(被弾の表現)</td></tr>
+<tr><td class="fn"><code>Fade(XMFLOAT4 color, float toAlpha, float duration, std::function&lt;void()&gt; onComplete)</code></td><td class="sig"><code>void</code></td><td>今の濃さから <code>toAlpha</code>(0〜1)へ <code>duration</code> 秒で変える(暗転・明転)。<code>onComplete</code> は変わり終わった時に1回呼ばれる</td></tr>
+<tr><td class="fn"><code>IsFading()</code></td><td class="sig"><code>bool</code></td><td>Fade の濃さが変わっている途中か</td></tr>
+<tr><td class="fn"><code>Stop()</code></td><td class="sig"><code>void</code></td><td>Flash と Vignette をすぐ消す(Fade は消さない)</td></tr>
+<tr><td class="fn"><code>Update(float unscaledDt) / Draw() / OnSceneChanged() / Uninit()</code></td><td class="sig"><code>void</code></td><td>内部用: GameEngine / SceneManager が呼ぶ</td></tr>
+</tbody></table></div>
+<div class="ex"><div class="exhead">使い方の例 <span class="src">出典: <code>Demo/Game/Components/Render/ScreenEffectDemoController.cpp:34-37</code></span></div><pre><code>ScreenEffect::Fade(color, 1.f, fadeTime, [this, color] {
+    completeCount++;
+    ScreenEffect::Fade(color, 0.f, fadeTime);
+});</code></pre></div>
+<div class="ex"><div class="exhead">使い方の例 <span class="src">出典: <code>Sample2D/Game/Components/PlayerController.cpp:80-82</code></span></div><pre><code>// 画面を揺らして、画面の端を赤く点滅させる
+CameraShake::Shake(damageShakeStrength, damageShakeDuration);
+ScreenEffect::Vignette(damageVignetteColor, damageVignetteDuration, damageVignetteBlinkCount);</code></pre></div>
+<div class="notes"><strong>気を付ける点</strong><ul>
+<li>3つは別々に動き、同時に出せます。重なる順は下から Vignette → Flash → Fade です。</li>
+<li>時間はポーズ中も進みます(<code>Time::GetUnscaledDeltaTime()</code>)。</li>
+<li>シーンを切り替えると Flash と Vignette は消え、Fade の濃さは残ります(暗転したまま次のシーンへ行き、そこで明転できる)。ただし <strong>Fade の <code>onComplete</code> は、まだ呼ばれていなければ捨てられます</strong>。</li>
+<li><code>onComplete</code> は <code>ScreenEffect::Update</code>(シーンの Update の前)の中で呼ばれるので、中で <code>ChangeScene</code> してよい(同じフレームのうちに切り替わる)。</li>
+<li>シーン切り替えの演出そのものは <a href="Transition.html">Transition</a> の <code>SceneTransition</code> を使います(<code>ScreenEffect::Fade</code> は画面の色を変えるだけです)。</li>
+</ul></div>
+</section>
+<section class="file" id="f-ParticleRenderer">
+<h3><code>Engine/Render/ParticleRenderer.h</code> <code>Engine/Render/ParticleRenderer.cpp</code></h3>
+<p class="role">小さい粒をたくさん出して描く Component です(爆発・煙・火花・炎)。Unity の <code>ParticleSystem</code> に相当します。粒 1 つ 1 つは GameObject ではなく、この Component の中のデータです。</p>
+<h4>ParticleSettings の主な項目</h4>
+<div class="tw"><table class="api"><thead><tr><th>名前</th><th>引数・戻り値</th><th>何をするか</th></tr></thead><tbody>
+<tr><td class="fn"><code>texture</code></td><td class="sig"><code>std::wstring</code></td><td>粒の画像(空なら <code>Assets/particle.png</code>)。中心が白・外が黒の白黒画像</td></tr>
+<tr><td class="fn"><code>emitRate</code></td><td class="sig"><code>float</code></td><td>1秒に出す数(<code>Play</code> している間だけ。既定 10)</td></tr>
+<tr><td class="fn"><code>lifetimeMin / lifetimeMax</code></td><td class="sig"><code>float</code></td><td>粒が消えるまでの時間(この間でランダム)</td></tr>
+<tr><td class="fn"><code>speedMin / speedMax</code></td><td class="sig"><code>float</code></td><td>粒の速さ(この間でランダム)</td></tr>
+<tr><td class="fn"><code>direction</code></td><td class="sig"><code>XMFLOAT3</code></td><td>出る向き(既定 0,1,0)</td></tr>
+<tr><td class="fn"><code>spreadAngle</code></td><td class="sig"><code>float</code></td><td>向きのばらつき(度)。360 なら全方向</td></tr>
+<tr><td class="fn"><code>gravity</code></td><td class="sig"><code>XMFLOAT3</code></td><td>重力(粒が落ちていく)</td></tr>
+<tr><td class="fn"><code>startSize / endSize</code></td><td class="sig"><code>float</code></td><td>出た時と消える時の大きさ</td></tr>
+<tr><td class="fn"><code>startColor / endColor</code></td><td class="sig"><code>XMFLOAT4</code></td><td>出た時と消える時の色(w は濃さ)</td></tr>
+<tr><td class="fn"><code>additive</code></td><td class="sig"><code>bool</code></td><td><code>true</code> で加算合成(炎・光)。<code>false</code> はふわっとした合成(煙)</td></tr>
+<tr><td class="fn"><code>worldSpace</code></td><td class="sig"><code>bool</code></td><td><code>true</code> = 出た場所に残る(煙)/ <code>false</code> = オブジェクトと一緒に動く(オーラ)</td></tr>
+<tr><td class="fn"><code>use3D</code></td><td class="sig"><code>bool</code></td><td><code>false</code> = 2D 画面、<code>true</code> = 3D 空間(粒は常にカメラを向く板)</td></tr>
+</tbody></table></div>
+<h4>ParticleRenderer</h4>
+<div class="tw"><table class="api"><thead><tr><th>名前</th><th>引数・戻り値</th><th>何をするか</th></tr></thead><tbody>
+<tr><td class="fn"><code>ParticleRenderer(const ParticleSettings&amp; settings)</code></td><td class="sig"><code>コンストラクタ</code></td><td>設定を渡して作る。作った直後は粒を出していない</td></tr>
+<tr><td class="fn"><code>Play()</code></td><td class="sig"><code>void</code></td><td>出し始める(<code>emitRate</code> の数ずつ。<code>Stop</code> するまで)</td></tr>
+<tr><td class="fn"><code>Stop()</code></td><td class="sig"><code>void</code></td><td>新しく出すのをやめる(出ている粒は寿命まで残る)</td></tr>
+<tr><td class="fn"><code>Burst(int count)</code></td><td class="sig"><code>void</code></td><td>一度に <code>count</code> 個出す(爆発)</td></tr>
+<tr><td class="fn"><code>IsPlaying()</code></td><td class="sig"><code>bool</code></td><td>出している、または粒が残っているか</td></tr>
+<tr><td class="fn"><code>GetParticleCount()</code></td><td class="sig"><code>int</code></td><td>今出ている粒の数</td></tr>
+<tr><td class="fn"><code>SetDestroyWhenFinished(bool v)</code></td><td class="sig"><code>void</code></td><td>粒がすべて消えたらオブジェクトを自動で Destroy する(CreateEffect が使う)</td></tr>
+<tr><td class="fn"><code>maxParticles</code></td><td class="sig"><code>static constexpr int</code></td><td>1つの ParticleRenderer が持てる粒の最大数(2000)</td></tr>
+</tbody></table></div>
+<div class="ex"><div class="exhead">使い方の例 <span class="src">出典: <code>Sample2D/Game/Objects/Explosion.cpp:11-25</code></span></div><pre><code>ParticleSettings settings;
+settings.lifetimeMin = 0.3f;
+settings.lifetimeMax = 0.7f;
+settings.speedMin = 100.f;
+settings.speedMax = 300.f;
+settings.spreadAngle = 360.f;
+settings.startSize = 50.f;
+settings.endSize = 0.f;
+settings.startColor = { 1.0f, 0.7f, 0.2f, 1.0f };
+settings.endColor = { 1.0f, 0.2f, 0.0f, 0.0f };
+settings.additive = true;
+
+// 作ったらすぐ粒を出す(出し終わったらEffectが自動で消える)
+GameObject* effect = CreateEffect(scene, settings, position);
+effect-&gt;GetComponent&lt;ParticleRenderer&gt;()-&gt;Burst(particleCount);</code></pre></div>
+<div class="ex"><div class="exhead">使い方の例 <span class="src">出典: <code>Demo/Game/Objects/Render/Campfire.cpp:24-27</code></span></div><pre><code>GameObject* smoke = scene.CreateObject(&quot;CampfireSmoke&quot;);
+smoke-&gt;transform.position = { position.x, position.y + 30.f * scale, position.z };
+smoke-&gt;SetDrawPriority(-1);
+smoke-&gt;AddComponent&lt;ParticleRenderer&gt;(AdaptParticleSettings(smokeSettings, mode))-&gt;Play();</code></pre></div>
+<div class="notes"><strong>気を付ける点</strong><ul>
+<li>粒の数は最大 2000 個。超える分は出ません。</li>
+<li>粒の動きはシーンの時間(<code>Time::GetDeltaTime</code>)で進むので、ポーズ中は止まり、スローでは遅くなります。</li>
+<li><strong>2D(<code>use3D=false</code>)の粒は UI モードのスプライトと同じ扱い</strong>で、必ず最前面に出ます(drawPriority → 作った順)。3D の粒は <code>World3D</code> で、手前の物に隠れます。2D の粒を <code>World2D</code> にする設定は今はありません。</li>
+<li>粒の画像のアルファは不透明のまま、<strong>明るさで形と濃さ</strong>を表します(<code>Assets/particle.png</code> が例)。</li>
+</ul></div>
+</section>
+<section class="file" id="f-Effect">
+<h3><code>Engine/Render/Effect.h</code> <code>Engine/Render/Effect.cpp</code></h3>
+<p class="role">使い捨てのパーティクルのエフェクト(爆発など)を作る工場関数です。粒がすべて消えたら、オブジェクトも自動で消えます。</p>
+<div class="tw"><table class="api"><thead><tr><th>名前</th><th>引数・戻り値</th><th>何をするか</th></tr></thead><tbody>
+<tr><td class="fn"><code>CreateEffect(Scene&amp; scene, const ParticleSettings&amp; settings, XMFLOAT3 position)</code></td><td class="sig"><code>GameObject*</code></td><td><code>ParticleRenderer</code> が付いたオブジェクトを作る(粒はまだ出ていない)。手前に描かれるよう drawPriority は大きい値</td></tr>
+</tbody></table></div>
+<div class="ex"><div class="exhead">使い方の例 <span class="src">出典: <code>Sample2D/Game/Objects/Explosion.cpp:23-26</code></span></div><pre><code>// 作ったらすぐ粒を出す(出し終わったらEffectが自動で消える)
+GameObject* effect = CreateEffect(scene, settings, position);
+effect-&gt;GetComponent&lt;ParticleRenderer&gt;()-&gt;Burst(particleCount);
+return effect;</code></pre></div>
+<div class="notes"><strong>気を付ける点</strong><ul>
+<li>作ったら <strong>すぐ <code>Burst</code> します</strong>。<code>Burst</code> の前に Update が回ると、粒が 0 のままなのですぐ消えます。</li>
+<li><code>Play()</code> で出し続けた場合は、<code>Stop()</code> して粒がすべて消えるまで残ります(<code>Stop</code> しないと消えません)。</li>
+</ul></div>
+</section>
+<section class="file" id="f-Visibility">
+<h3><code>Engine/Render/Visibility.h</code> <code>Engine/Render/Visibility.cpp</code></h3>
+<p class="role">「カメラに映っているか」を調べる関数です(画面の外の物を描かない・処理を省く時に使います)。敵の視野(扇形)は <a href="Behavior.html#f-VisionComponent">VisionComponent</a> を使います。</p>
+<div class="tw"><table class="api"><thead><tr><th>名前</th><th>引数・戻り値</th><th>何をするか</th></tr></thead><tbody>
+<tr><td class="fn"><code>IsSphereInView3D(XMFLOAT3 center, float radius)</code></td><td class="sig"><code>bool</code></td><td>3D カメラの視錐台に、球が少しでも入っているか</td></tr>
+<tr><td class="fn"><code>IsBoxInView3D(XMFLOAT3 center, XMFLOAT3 halfSize)</code></td><td class="sig"><code>bool</code></td><td>同じく箱(回転しない。<code>halfSize</code> は辺の長さの半分)</td></tr>
+<tr><td class="fn"><code>IsCircleInView2D(XMFLOAT3 position, float radius)</code></td><td class="sig"><code>bool</code></td><td>2D カメラの画面に円が少しでも入っているか</td></tr>
+<tr><td class="fn"><code>IsRectInView2D(XMFLOAT3 position, XMFLOAT2 halfSize)</code></td><td class="sig"><code>bool</code></td><td>同じく四角(回転しない)</td></tr>
+<tr><td class="fn"><code>GetCulledCount()</code></td><td class="sig"><code>int</code></td><td>前のフレームで、描かずに省いた数(確認用)</td></tr>
+<tr><td class="fn"><code>BeginFrame() / CountCulled() / IsTransformedSphereInView3D(world, localRadius)</code></td><td class="sig"><code>void / bool</code></td><td>内部用: GameEngine と各 Renderer が使う</td></tr>
+</tbody></table></div>
+<div class="ex"><div class="exhead">使い方の例 <span class="src">出典: <code>Sample3D/Game/Components/GroundController.cpp:36-41</code></span></div><pre><code>float centerZ = (z + 0.5f) * tileSize;
+XMFLOAT3 center = { centerX, topY - tileThickness * 0.5f, centerZ };
+if (!Visibility::IsSphereInView3D(center, tileSize * 0.8f)) continue;   // 0.8 = 正方形の対角線の半分(約0.71)に余裕を足した値
+
+tile.position = center;
+mesh.Draw(tile, camera, material, Image::GetLight());</code></pre></div>
+<div class="notes"><strong>気を付ける点</strong><ul>
+<li>描画を省くだけで、<strong>物理(当たり判定)は止まりません</strong>。物が突然消えて見えたら、半径が小さすぎます(<code>GetCulledCount</code> で確認)。</li>
+<li>3D の視錐台は 1 フレームに 1 回(<code>GameEngine</code> が作る)。最初のフレームなど準備前は「映っている(<code>true</code>)」を返します。</li>
+<li><code>Update</code> の中で呼ぶと 1 つ前のフレームのカメラで判定します(敵の AI を省く程度なら問題ありません)。</li>
+</ul></div>
+</section>
+<section class="file" id="f-Graphics">
+<h3><code>Engine/Render/Graphics.h</code> <code>Engine/Render/Graphics.cpp</code></h3>
+<p class="role">DirectX11 の土台です(デバイス・描画先・深度バッファ・画面の大きさ)。<code>Image::Init</code> が中で初期化するので、ゲーム側は <strong>画面の大きさ(<code>Graphics::width</code> / <code>height</code>)を読む</strong> くらいです。</p>
+<div class="tw"><table class="api"><thead><tr><th>名前</th><th>引数・戻り値</th><th>何をするか</th></tr></thead><tbody>
+<tr><td class="fn"><code>width</code></td><td class="sig"><code>extern float</code></td><td>ゲーム画面の幅(ピクセル)</td></tr>
+<tr><td class="fn"><code>height</code></td><td class="sig"><code>extern float</code></td><td>ゲーム画面の高さ(ピクセル)</td></tr>
+<tr><td class="fn"><code>device</code></td><td class="sig"><code>extern ID3D11Device*</code></td><td>DirectX11 のデバイス(内部用)</td></tr>
+<tr><td class="fn"><code>context</code></td><td class="sig"><code>extern ID3D11DeviceContext*</code></td><td>描画命令を出すコンテキスト(内部用)</td></tr>
+<tr><td class="fn"><code>swapChain</code></td><td class="sig"><code>extern IDXGISwapChain*</code></td><td>画面に出すための仕組み(内部用)</td></tr>
+<tr><td class="fn"><code>renderTarget</code></td><td class="sig"><code>extern ID3D11RenderTargetView*</code></td><td>描画先(内部用)</td></tr>
+<tr><td class="fn"><code>depthStencilView</code></td><td class="sig"><code>extern ID3D11DepthStencilView*</code></td><td>3D の前後関係のための深度バッファ(内部用)</td></tr>
+<tr><td class="fn"><code>Init(HWND hwnd, int w, int h)</code></td><td class="sig"><code>bool</code></td><td>初期化(内部用)</td></tr>
+<tr><td class="fn"><code>Uninit()</code></td><td class="sig"><code>void</code></td><td>解放(内部用)</td></tr>
+</tbody></table></div>
+<div class="ex"><div class="exhead">使い方の例 <span class="src">出典: <code>Sample3D/Game/Components/CameraController.cpp:9-11</code></span></div><pre><code>bool IsMouseInScreen() {
+    XMFLOAT2 mousePos = Input::GetMousePosition();
+    return fabsf(mousePos.x) &lt;= Graphics::width / 2.f &amp;&amp; fabsf(mousePos.y) &lt;= Graphics::height / 2.f;</code></pre></div>
+<div class="notes"><strong>気を付ける点</strong><ul>
+<li><code>Graphics::width</code> / <code>height</code> は、ウィンドウの大きさではなく <strong>ゲーム画面の解像度</strong> です(<code>main.cpp</code> で渡した値)。マウス座標や UI の座標はこの単位です。</li>
+</ul></div>
+</section>
+<section class="file" id="f-Texture">
+<h3><code>Engine/Render/Texture.h</code> <code>Engine/Render/Texture.cpp</code></h3>
+<p class="role">画像ファイルを読み込む小さな道具です。<code>Image::LoadTexture</code> が使います。ゲーム側は <code>Resources::LoadTexture</code> を使うので、直接触りません。</p>
+<div class="tw"><table class="api"><thead><tr><th>名前</th><th>引数・戻り値</th><th>何をするか</th></tr></thead><tbody>
+<tr><td class="fn"><code>Load(const std::wstring&amp; filepath)</code></td><td class="sig"><code>LoadResult</code></td><td>画像を読む。大きさ(<code>width</code>, <code>height</code>)と、描画用の <code>srv</code> を返す</td></tr>
+<tr><td class="fn"><code>LoadResult</code></td><td class="sig"><code>struct</code></td><td><code>srv</code>(描画で使う画像)・<code>width</code>・<code>height</code></td></tr>
+</tbody></table></div>
+<div class="notes"><strong>気を付ける点</strong><ul>
+<li>読み込めるのは RGBA 形式の png です(<code>Image::LoadTexture</code> のコメント)。</li>
+</ul></div>
+</section>
+
+<footer class="foot">この解説は <code>docs/EngineGuide/tools/build.ps1</code> で作っています。表の内容は Engine のヘッダーから拾っています。コード例は Sample2D / Sample3D / Demo の実際のソースを読み込んで載せています。</footer>
+</main>
+</div>
+<script src="search-index.js"></script>
+<script src="search.js"></script>
+</body>
+</html>

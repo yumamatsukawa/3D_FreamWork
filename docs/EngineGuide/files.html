@@ -1,0 +1,178 @@
+﻿<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ファイル索引 - Engine解説</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="layout">
+<nav class="side">
+<div class="brand"><a href="index.html">Engine解説</a></div>
+<div class="search"><input type="search" id="q" placeholder="関数名・クラス名・ファイル名を検索" autocomplete="off"><ul id="results"></ul></div>
+<ul class="menu">
+<li><a href="index.html">トップ</a></li>
+<li><a href="architecture.html">設計図(図解)</a></li>
+<li><a href="Core.html">Core</a></li>
+<li><a href="Render.html">Render</a></li>
+<li><a href="Render3D.html">Render3D</a></li>
+<li><a href="Physics.html">Physics</a></li>
+<li><a href="UI.html">UI</a></li>
+<li><a href="Animation.html">Animation</a></li>
+<li><a href="Transition.html">Transition</a></li>
+<li><a href="Behavior.html">Behavior</a></li>
+<li><a href="Audio.html">Audio</a></li>
+<li><a href="Data.html">Data</a></li>
+<li><a href="ThirdParty.html">ThirdParty</a></li>
+<li><a href="files.html" class="current">ファイル索引</a></li>
+<li><a href="glossary.html">用語集</a></li>
+</ul>
+<p class="sidenote">3D_FreamWork の Engine を、初心者向けに解説したページです。</p>
+</nav>
+<main>
+<h1>ファイル索引</h1>
+<div class="lead">Engine の全ファイル(<code>.h</code> / <code>.cpp</code>)の一覧です。<strong>131 ファイル</strong>。文字を入力すると絞り込めます。名前をクリックすると、そのファイルの解説に飛びます。</div>
+<p><input type="search" id="filter" class="filter" placeholder="絞り込み(例: Scene, Physics, Raycast)" autocomplete="off"></p>
+<div class="tw"><table class="api" id="filetable"><thead><tr><th>フォルダ</th><th>ファイル</th><th>役割</th></tr></thead><tbody>
+<tr><td>Core</td><td class="fn"><a href="Core.html#f-Component"><code>Component.h</code></a></td><td>すべての Component の親クラス(基底クラス)。Unity の <code>MonoBehaviour</code> に近い役割です。動きや見た目は、これを継承したクラスを作って <code>Init</code> / <code>Update</code> / <code>Draw</code> などを <code>override</code>(上書き)して書きます。</td></tr>
+<tr><td>Core</td><td class="fn"><a href="Core.html#f-EventBus"><code>EventBus.h</code></a></td><td>名前で識別する通知の仕組みです(イベントバス / Pub-Sub)。「何が起きたか」を知らせる側と、それを聞いて動く側が、お互いを直接知らなくて済みます。アプリ全体で1つ(<code>EventBus::Get()</code>)。</td></tr>
+<tr><td>Core</td><td class="fn"><a href="Core.html#f-GameEngine"><code>GameEngine.cpp</code></a></td><td>エンジン全体を動かす役です。初期化・メインループ(1フレームごとの処理の順番)・終了処理を持ちます。ゲーム側は <code>main.cpp</code> で <code>Init</code> → 最初のシーンを指定 → <code>Run</code> → <code>Uninit</code> を呼ぶだけです。1フレームの順番は<a href="index.html#frame">トップページ</a>にまとめています。</td></tr>
+<tr><td>Core</td><td class="fn"><a href="Core.html#f-GameEngine"><code>GameEngine.h</code></a></td><td>エンジン全体を動かす役です。初期化・メインループ(1フレームごとの処理の順番)・終了処理を持ちます。ゲーム側は <code>main.cpp</code> で <code>Init</code> → 最初のシーンを指定 → <code>Run</code> → <code>Uninit</code> を呼ぶだけです。1フレームの順番は<a href="index.html#frame">トップページ</a>にまとめています。</td></tr>
+<tr><td>Core</td><td class="fn"><a href="Core.html#f-GameObject"><code>GameObject.h</code></a></td><td>「入れ物」です。名前・タグ・位置(<code>transform</code>)を持ち、Component を付けて見た目や動きを作ります。Unity の <code>GameObject</code> と同じです。<code>Scene::CreateObject</code> で作り、<code>Destroy()</code> で消します。</td></tr>
+<tr><td>Core</td><td class="fn"><a href="Core.html#f-Input"><code>Input.cpp</code></a></td><td>キーボード・マウス・ゲームパッドの入力です。Unity の <code>Input</code> に近い使い方ができます。キーの名前は <code>KEY_W</code>・<code>MOUSE_LEFT</code>・<code>PAD_A</code> などのマクロで書きます。</td></tr>
+<tr><td>Core</td><td class="fn"><a href="Core.html#f-Input"><code>Input.h</code></a></td><td>キーボード・マウス・ゲームパッドの入力です。Unity の <code>Input</code> に近い使い方ができます。キーの名前は <code>KEY_W</code>・<code>MOUSE_LEFT</code>・<code>PAD_A</code> などのマクロで書きます。</td></tr>
+<tr><td>Core</td><td class="fn"><a href="Core.html#f-MathUtil"><code>MathUtil.cpp</code></a></td><td>方向・距離・角度・乱数の計算をまとめた物です(Unity の <code>Mathf</code> と <code>Vector3</code> の計算を合わせたもの)。角度はすべて <strong>度</strong> です。<code>XMFLOAT2</code> / <code>XMFLOAT3</code> の <code>+</code> <code>-</code> <code>*</code> も使えるようになります。</td></tr>
+<tr><td>Core</td><td class="fn"><a href="Core.html#f-MathUtil"><code>MathUtil.h</code></a></td><td>方向・距離・角度・乱数の計算をまとめた物です(Unity の <code>Mathf</code> と <code>Vector3</code> の計算を合わせたもの)。角度はすべて <strong>度</strong> です。<code>XMFLOAT2</code> / <code>XMFLOAT3</code> の <code>+</code> <code>-</code> <code>*</code> も使えるようになります。</td></tr>
+<tr><td>Core</td><td class="fn"><a href="Core.html#f-ObjectPool"><code>ObjectPool.h</code></a></td><td>同じ種類の GameObject を使い回す入れ物です。弾やエフェクトなど「出しては消す」物の作り直しを減らします。</td></tr>
+<tr><td>Core</td><td class="fn"><a href="Core.html#f-Resources"><code>Resources.cpp</code></a></td><td>画像・音・モデルを「何度も読み込まない」ための仕組みです。同じパスのものは1回だけ読み、何人が使っているか(参照カウント)を数えます。<code>SpriteRenderer</code> や <code>Audio</code> が中で自動的に使うので、普段は意識しなくて構いません。</td></tr>
+<tr><td>Core</td><td class="fn"><a href="Core.html#f-Resources"><code>Resources.h</code></a></td><td>画像・音・モデルを「何度も読み込まない」ための仕組みです。同じパスのものは1回だけ読み、何人が使っているか(参照カウント)を数えます。<code>SpriteRenderer</code> や <code>Audio</code> が中で自動的に使うので、普段は意識しなくて構いません。</td></tr>
+<tr><td>Core</td><td class="fn"><a href="Core.html#f-Scene"><code>Scene.cpp</code></a></td><td>GameObject を入れておく入れ物です。Unity の <code>Scene</code> に相当します。ゲームの画面(タイトル・プレイ画面など)ごとに <code>Scene</code> を継承したクラスを作り、<code>Init()</code> に「何を置くか」を並べます。</td></tr>
+<tr><td>Core</td><td class="fn"><a href="Core.html#f-Scene"><code>Scene.h</code></a></td><td>GameObject を入れておく入れ物です。Unity の <code>Scene</code> に相当します。ゲームの画面(タイトル・プレイ画面など)ごとに <code>Scene</code> を継承したクラスを作り、<code>Init()</code> に「何を置くか」を並べます。</td></tr>
+<tr><td>Core</td><td class="fn"><a href="Core.html#f-SceneManager"><code>SceneManager.cpp</code></a></td><td>今のシーンを持ち、シーンの切り替え(と切り替えの演出)を担当します。アプリ全体で1つだけ(<code>SceneManager::Get()</code>)。</td></tr>
+<tr><td>Core</td><td class="fn"><a href="Core.html#f-SceneManager"><code>SceneManager.h</code></a></td><td>今のシーンを持ち、シーンの切り替え(と切り替えの演出)を担当します。アプリ全体で1つだけ(<code>SceneManager::Get()</code>)。</td></tr>
+<tr><td>Core</td><td class="fn"><a href="Core.html#f-Time"><code>Time.cpp</code></a></td><td>1フレームの時間・起動してからの時間・時間の倍率(スロー / ポーズ)です。Unity の <code>Time</code> と同じです。</td></tr>
+<tr><td>Core</td><td class="fn"><a href="Core.html#f-Time"><code>Time.h</code></a></td><td>1フレームの時間・起動してからの時間・時間の倍率(スロー / ポーズ)です。Unity の <code>Time</code> と同じです。</td></tr>
+<tr><td>Core</td><td class="fn"><a href="Core.html#f-Timer"><code>Timer.h</code></a></td><td>「○秒たったら」を数えるタイマーです。Component のメンバに持ち、毎フレーム <code>Update(dt)</code> を呼びます。</td></tr>
+<tr><td>Core</td><td class="fn"><a href="Core.html#f-Transform"><code>Transform.h</code></a></td><td>位置・大きさ・回転と、親子関係を持ちます。Unity の <code>Transform</code> と同じです。GameObject の <code>transform</code> メンバとして必ず付いています。回転は <strong>度</strong> で、2D は <code>rotate.z</code> だけを使います。</td></tr>
+<tr><td>Render</td><td class="fn"><a href="Render.html#f-Camera"><code>Camera.h</code></a></td><td>「どこから・どう見るか」を表すカメラです。2D 用(<code>Image::GetCamera()</code>)と 3D 用(<code>Image::GetCamera3D()</code>)の 2 つがあります。Unity の <code>Camera</code> の位置と投影の設定にあたります。</td></tr>
+<tr><td>Render</td><td class="fn"><a href="Render.html#f-CameraFollowComponent"><code>CameraFollowComponent.cpp</code></a></td><td>付けた GameObject を 2D カメラが追いかける Component です。Player などに付けます。Unity でいう Cinemachine の簡単版です。カメラの <code>position</code> の x, y だけを動かします。</td></tr>
+<tr><td>Render</td><td class="fn"><a href="Render.html#f-CameraFollowComponent"><code>CameraFollowComponent.h</code></a></td><td>付けた GameObject を 2D カメラが追いかける Component です。Player などに付けます。Unity でいう Cinemachine の簡単版です。カメラの <code>position</code> の x, y だけを動かします。</td></tr>
+<tr><td>Render</td><td class="fn"><a href="Render.html#f-CameraShake"><code>CameraShake.cpp</code></a></td><td>画面を揺らします(2D カメラと 3D カメラの両方)。カメラの <code>position</code> を直接は変えず、「描画している間だけ」ずらして、描き終わったら元に戻します。</td></tr>
+<tr><td>Render</td><td class="fn"><a href="Render.html#f-CameraShake"><code>CameraShake.h</code></a></td><td>画面を揺らします(2D カメラと 3D カメラの両方)。カメラの <code>position</code> を直接は変えず、「描画している間だけ」ずらして、描き終わったら元に戻します。</td></tr>
+<tr><td>Render</td><td class="fn"><a href="Render.html#f-Effect"><code>Effect.cpp</code></a></td><td>使い捨てのパーティクルのエフェクト(爆発など)を作る工場関数です。粒がすべて消えたら、オブジェクトも自動で消えます。</td></tr>
+<tr><td>Render</td><td class="fn"><a href="Render.html#f-Effect"><code>Effect.h</code></a></td><td>使い捨てのパーティクルのエフェクト(爆発など)を作る工場関数です。粒がすべて消えたら、オブジェクトも自動で消えます。</td></tr>
+<tr><td>Render</td><td class="fn"><a href="Render.html#f-Graphics"><code>Graphics.cpp</code></a></td><td>DirectX11 の土台です(デバイス・描画先・深度バッファ・画面の大きさ)。<code>Image::Init</code> が中で初期化するので、ゲーム側は <strong>画面の大きさ(<code>Graphics::width</code> / <code>height</code>)を読む</strong> くらいです。</td></tr>
+<tr><td>Render</td><td class="fn"><a href="Render.html#f-Graphics"><code>Graphics.h</code></a></td><td>DirectX11 の土台です(デバイス・描画先・深度バッファ・画面の大きさ)。<code>Image::Init</code> が中で初期化するので、ゲーム側は <strong>画面の大きさ(<code>Graphics::width</code> / <code>height</code>)を読む</strong> くらいです。</td></tr>
+<tr><td>Render</td><td class="fn"><a href="Render.html#f-Image"><code>Image.cpp</code></a></td><td>描画の窓口です。2D 用カメラ・3D 用カメラ・ライトを持ち、座標の変換(ワールド ⇔ 画面)、画面に四角を塗る <code>DrawRect</code>、スプライト 1 枚を描く <code>Draw</code> を提供します。<code>SpriteRenderer</code> などが中で使うので、普段よく使うのは「カメラ」「座標の変換」「DrawRect」の3つです。</td></tr>
+<tr><td>Render</td><td class="fn"><a href="Render.html#f-Image"><code>Image.h</code></a></td><td>描画の窓口です。2D 用カメラ・3D 用カメラ・ライトを持ち、座標の変換(ワールド ⇔ 画面)、画面に四角を塗る <code>DrawRect</code>、スプライト 1 枚を描く <code>Draw</code> を提供します。<code>SpriteRenderer</code> などが中で使うので、普段よく使うのは「カメラ」「座標の変換」「DrawRect」の3つです。</td></tr>
+<tr><td>Render</td><td class="fn"><a href="Render.html#f-ParticleRenderer"><code>ParticleRenderer.cpp</code></a></td><td>小さい粒をたくさん出して描く Component です(爆発・煙・火花・炎)。Unity の <code>ParticleSystem</code> に相当します。粒 1 つ 1 つは GameObject ではなく、この Component の中のデータです。</td></tr>
+<tr><td>Render</td><td class="fn"><a href="Render.html#f-ParticleRenderer"><code>ParticleRenderer.h</code></a></td><td>小さい粒をたくさん出して描く Component です(爆発・煙・火花・炎)。Unity の <code>ParticleSystem</code> に相当します。粒 1 つ 1 つは GameObject ではなく、この Component の中のデータです。</td></tr>
+<tr><td>Render</td><td class="fn"><a href="Render.html#f-ScreenEffect"><code>ScreenEffect.cpp</code></a></td><td>画面全体に色の演出(フラッシュ・ビネット・フェード)を重ねます。文字も含めて画面の一番上に描かれます。</td></tr>
+<tr><td>Render</td><td class="fn"><a href="Render.html#f-ScreenEffect"><code>ScreenEffect.h</code></a></td><td>画面全体に色の演出(フラッシュ・ビネット・フェード)を重ねます。文字も含めて画面の一番上に描かれます。</td></tr>
+<tr><td>Render</td><td class="fn"><a href="Render.html#f-Sprite"><code>Sprite.cpp</code></a></td><td>スプライト 1 種類ぶんの描画の中身(シェーダー・頂点バッファ・合成の設定)です。<code>Image::Draw</code> が中で使うので、ゲーム側が直接触ることはほとんどありません。ここにある <code>SpriteMode</code> と <code>SpriteSheet</code> と <code>BlendMode</code> は、ゲーム側からも使います。</td></tr>
+<tr><td>Render</td><td class="fn"><a href="Render.html#f-Sprite"><code>Sprite.h</code></a></td><td>スプライト 1 種類ぶんの描画の中身(シェーダー・頂点バッファ・合成の設定)です。<code>Image::Draw</code> が中で使うので、ゲーム側が直接触ることはほとんどありません。ここにある <code>SpriteMode</code> と <code>SpriteSheet</code> と <code>BlendMode</code> は、ゲーム側からも使います。</td></tr>
+<tr><td>Render</td><td class="fn"><a href="Render.html#f-SpriteRenderer"><code>SpriteRenderer.cpp</code></a></td><td>GameObject に「画像を描く見た目」を持たせる Component です。Unity の <code>SpriteRenderer</code> に相当します。<code>transform.scale</code> が画像の大きさ(2D ではピクセル)になります。</td></tr>
+<tr><td>Render</td><td class="fn"><a href="Render.html#f-SpriteRenderer"><code>SpriteRenderer.h</code></a></td><td>GameObject に「画像を描く見た目」を持たせる Component です。Unity の <code>SpriteRenderer</code> に相当します。<code>transform.scale</code> が画像の大きさ(2D ではピクセル)になります。</td></tr>
+<tr><td>Render</td><td class="fn"><a href="Render.html#f-Texture"><code>Texture.cpp</code></a></td><td>画像ファイルを読み込む小さな道具です。<code>Image::LoadTexture</code> が使います。ゲーム側は <code>Resources::LoadTexture</code> を使うので、直接触りません。</td></tr>
+<tr><td>Render</td><td class="fn"><a href="Render.html#f-Texture"><code>Texture.h</code></a></td><td>画像ファイルを読み込む小さな道具です。<code>Image::LoadTexture</code> が使います。ゲーム側は <code>Resources::LoadTexture</code> を使うので、直接触りません。</td></tr>
+<tr><td>Render</td><td class="fn"><a href="Render.html#f-Visibility"><code>Visibility.cpp</code></a></td><td>「カメラに映っているか」を調べる関数です(画面の外の物を描かない・処理を省く時に使います)。敵の視野(扇形)は <a href="Behavior.html#f-VisionComponent">VisionComponent</a> を使います。</td></tr>
+<tr><td>Render</td><td class="fn"><a href="Render.html#f-Visibility"><code>Visibility.h</code></a></td><td>「カメラに映っているか」を調べる関数です(画面の外の物を描かない・処理を省く時に使います)。敵の視野(扇形)は <a href="Behavior.html#f-VisionComponent">VisionComponent</a> を使います。</td></tr>
+<tr><td>Render3D</td><td class="fn"><a href="Render3D.html#f-Light"><code>Light.h</code></a></td><td>平行光源(太陽のように、全体に同じ向きから当たる光)と環境光です。<code>Image::GetLight()</code> で 1 つだけ取り出して使います。</td></tr>
+<tr><td>Render3D</td><td class="fn"><a href="Render3D.html#f-LightComponent"><code>LightComponent.cpp</code></a></td><td>付けた物の位置から光る、点光源・スポットライトです。Unity の <code>Light</code> の Point / Spot にあたります。3D のメッシュだけに効きます。</td></tr>
+<tr><td>Render3D</td><td class="fn"><a href="Render3D.html#f-LightComponent"><code>LightComponent.h</code></a></td><td>付けた物の位置から光る、点光源・スポットライトです。Unity の <code>Light</code> の Point / Spot にあたります。3D のメッシュだけに効きます。</td></tr>
+<tr><td>Render3D</td><td class="fn"><a href="Render3D.html#f-Lighting"><code>Lighting.cpp</code></a></td><td>点光源・スポットライト(<code>LightComponent</code>)の一覧を集めて、シェーダーに送る仕組みです。ゲーム側は <code>LightComponent</code> を付けるだけで、この名前空間は直接呼びません。</td></tr>
+<tr><td>Render3D</td><td class="fn"><a href="Render3D.html#f-Lighting"><code>Lighting.h</code></a></td><td>点光源・スポットライト(<code>LightComponent</code>)の一覧を集めて、シェーダーに送る仕組みです。ゲーム側は <code>LightComponent</code> を付けるだけで、この名前空間は直接呼びません。</td></tr>
+<tr><td>Render3D</td><td class="fn"><a href="Render3D.html#f-Lod"><code>Lod.cpp</code></a></td><td>LOD(Level Of Detail)の段階 1 です。カメラから遠い物を「描かない・影を落とさない・枠線を描かない」で軽くします。距離は「カメラから物の球の表面まで」です。</td></tr>
+<tr><td>Render3D</td><td class="fn"><a href="Render3D.html#f-Lod"><code>Lod.h</code></a></td><td>LOD(Level Of Detail)の段階 1 です。カメラから遠い物を「描かない・影を落とさない・枠線を描かない」で軽くします。距離は「カメラから物の球の表面まで」です。</td></tr>
+<tr><td>Render3D</td><td class="fn"><a href="Render3D.html#f-Material"><code>Material.h</code></a></td><td>3D メッシュの見た目の設定をまとめた構造体です(色・画像・光沢・自発光・影・縁の光・枠線)。<code>MeshRenderer</code> / <code>ModelRenderer</code> が 1 体ごとに持ちます。Unity の Material に近い考え方です。既定値のままなら、マテリアルが無かった頃と見た目は同じです。</td></tr>
+<tr><td>Render3D</td><td class="fn"><a href="Render3D.html#f-Mesh"><code>Mesh.cpp</code></a></td><td>3D の頂点データを持って描くクラスです。立方体・球・カプセルなどの形を作る <code>Create○○</code> 関数もここにあります。普段は <code>MeshRenderer</code> 経由で使い、<code>Mesh</code> を直接触るのは Engine を触る人(や、<code>GroundController</code> のように自分で <code>Draw</code> する時)です。</td></tr>
+<tr><td>Render3D</td><td class="fn"><a href="Render3D.html#f-Mesh"><code>Mesh.h</code></a></td><td>3D の頂点データを持って描くクラスです。立方体・球・カプセルなどの形を作る <code>Create○○</code> 関数もここにあります。普段は <code>MeshRenderer</code> 経由で使い、<code>Mesh</code> を直接触るのは Engine を触る人(や、<code>GroundController</code> のように自分で <code>Draw</code> する時)です。</td></tr>
+<tr><td>Render3D</td><td class="fn"><a href="Render3D.html#f-MeshRenderer"><code>MeshRenderer.h</code></a></td><td>GameObject に「3D メッシュを描く見た目」を持たせる Component です(<code>SpriteRenderer</code> の 3D 版)。見た目は <code>Material</code> にまとめて持ちます。影を落とす物としても登録されます(<code>Shadow::Caster</code>)。</td></tr>
+<tr><td>Render3D</td><td class="fn"><a href="Render3D.html#f-Model"><code>Model.cpp</code></a></td><td>読み込んだ FBX / OBJ モデルのデータです(形・パーツの親子関係・アニメーション)。みんなで共有するデータで、ゲーム側は普通 <code>ModelRenderer</code> 経由で使います。</td></tr>
+<tr><td>Render3D</td><td class="fn"><a href="Render3D.html#f-Model"><code>Model.h</code></a></td><td>読み込んだ FBX / OBJ モデルのデータです(形・パーツの親子関係・アニメーション)。みんなで共有するデータで、ゲーム側は普通 <code>ModelRenderer</code> 経由で使います。</td></tr>
+<tr><td>Render3D</td><td class="fn"><a href="Render3D.html#f-ModelRenderer"><code>ModelRenderer.cpp</code></a></td><td>FBX モデル(複数のパーツ)を描く Component です。パーツごとに親から子へ行列を累積して描きます。<code>MeshRenderer</code> と同じ <code>Material</code> で見た目を決められ、影・縁の光・枠線・LOD も同じように使えます。</td></tr>
+<tr><td>Render3D</td><td class="fn"><a href="Render3D.html#f-ModelRenderer"><code>ModelRenderer.h</code></a></td><td>FBX モデル(複数のパーツ)を描く Component です。パーツごとに親から子へ行列を累積して描きます。<code>MeshRenderer</code> と同じ <code>Material</code> で見た目を決められ、影・縁の光・枠線・LOD も同じように使えます。</td></tr>
+<tr><td>Render3D</td><td class="fn"><a href="Render3D.html#f-RenderStats"><code>RenderStats.cpp</code></a></td><td>描画の重さを測るカウンタ(描画命令の数・三角形の数)です。LOD の効果を確かめるために使います。すべて <strong>前のフレームの数</strong> を返します。</td></tr>
+<tr><td>Render3D</td><td class="fn"><a href="Render3D.html#f-RenderStats"><code>RenderStats.h</code></a></td><td>描画の重さを測るカウンタ(描画命令の数・三角形の数)です。LOD の効果を確かめるために使います。すべて <strong>前のフレームの数</strong> を返します。</td></tr>
+<tr><td>Render3D</td><td class="fn"><a href="Render3D.html#f-Shadow"><code>Shadow.cpp</code></a></td><td>影(シャドウマップ)です。光から見た「深度」を専用のテクスチャに描き、本番の描画で「光から見て手前に別の物があるピクセル」を暗くします。既定は <strong>無効</strong> で、無効の間はコストが 0 です。</td></tr>
+<tr><td>Render3D</td><td class="fn"><a href="Render3D.html#f-Shadow"><code>Shadow.h</code></a></td><td>影(シャドウマップ)です。光から見た「深度」を専用のテクスチャに描き、本番の描画で「光から見て手前に別の物があるピクセル」を暗くします。既定は <strong>無効</strong> で、無効の間はコストが 0 です。</td></tr>
+<tr><td>Render3D</td><td class="fn"><a href="Render3D.html#f-SkinMesh"><code>SkinMesh.cpp</code></a></td><td>骨の行列で頂点を動かして描く 3D メッシュです(<code>Mesh</code> のスキン版)。<code>ModelRenderer</code> が、骨で曲げるパーツに使います。ゲーム側が直接触ることはほとんどありません。</td></tr>
+<tr><td>Render3D</td><td class="fn"><a href="Render3D.html#f-SkinMesh"><code>SkinMesh.h</code></a></td><td>骨の行列で頂点を動かして描く 3D メッシュです(<code>Mesh</code> のスキン版)。<code>ModelRenderer</code> が、骨で曲げるパーツに使います。ゲーム側が直接触ることはほとんどありません。</td></tr>
+<tr><td>Render3D</td><td class="fn"><a href="Render3D.html#f-Terrain"><code>Terrain.cpp</code></a></td><td>地形の高さのデータです。高さの画像(PNG)か表(CSV)から作り、高さや面の向きを調べたり、描画用のメッシュを作ったりします。描画は <code>TerrainRenderer</code>、当たり判定は <code>TerrainRigidbodyComponent</code> が、同じデータから作ります。</td></tr>
+<tr><td>Render3D</td><td class="fn"><a href="Render3D.html#f-Terrain"><code>Terrain.h</code></a></td><td>地形の高さのデータです。高さの画像(PNG)か表(CSV)から作り、高さや面の向きを調べたり、描画用のメッシュを作ったりします。描画は <code>TerrainRenderer</code>、当たり判定は <code>TerrainRigidbodyComponent</code> が、同じデータから作ります。</td></tr>
+<tr><td>Render3D</td><td class="fn"><a href="Render3D.html#f-TerrainRenderer"><code>TerrainRenderer.cpp</code></a></td><td>地形(<code>Terrain</code>)を描く Component です。オーナーの Transform の位置が「地形の左手前の角」で、Y がそのまま高さ 0 です。見た目は <code>MeshRenderer</code> と同じ <code>Material</code> で決めます。</td></tr>
+<tr><td>Render3D</td><td class="fn"><a href="Render3D.html#f-TerrainRenderer"><code>TerrainRenderer.h</code></a></td><td>地形(<code>Terrain</code>)を描く Component です。オーナーの Transform の位置が「地形の左手前の角」で、Y がそのまま高さ 0 です。見た目は <code>MeshRenderer</code> と同じ <code>Material</code> で決めます。</td></tr>
+<tr><td>Render3D</td><td class="fn"><a href="Render3D.html#f-WaterRenderer"><code>WaterRenderer.cpp</code></a></td><td>水面(波打つ半透明の面)を描く Component です。オーナーの Transform の位置が水面の中心で、Y が水位です。地形のくぼみに水を張る、池・湖・海のように使います。波は頂点シェーダーが時間から計算します。</td></tr>
+<tr><td>Render3D</td><td class="fn"><a href="Render3D.html#f-WaterRenderer"><code>WaterRenderer.h</code></a></td><td>水面(波打つ半透明の面)を描く Component です。オーナーの Transform の位置が水面の中心で、Y が水位です。地形のくぼみに水を張る、池・湖・海のように使います。波は頂点シェーダーが時間から計算します。</td></tr>
+<tr><td>Physics</td><td class="fn"><a href="Physics.html#f-Collider"><code>Collider.cpp</code></a></td><td>コールバックで「誰と当たったか」を知らせるための、軽い札です(形や判定の計算は持ちません。判定は PhysX がやります)。型の名前に <code>2D</code> と付いていますが、3D の剛体でも同じ型が使われます(<code>OnTriggerEnter</code> などのコールバックは 2D・3D 共通)。</td></tr>
+<tr><td>Physics</td><td class="fn"><a href="Physics.html#f-Collider"><code>Collider.h</code></a></td><td>コールバックで「誰と当たったか」を知らせるための、軽い札です(形や判定の計算は持ちません。判定は PhysX がやります)。型の名前に <code>2D</code> と付いていますが、3D の剛体でも同じ型が使われます(<code>OnTriggerEnter</code> などのコールバックは 2D・3D 共通)。</td></tr>
+<tr><td>Physics</td><td class="fn"><a href="Physics.html#f-Physics"><code>Physics.cpp</code></a></td><td>PhysX の初期化・毎フレームの更新・終了と、「この線の先に何があるか」「この範囲に何がいるか」を調べる問い合わせ(Raycast / Overlap)です。PhysX の結果を、Component の <code>OnCollisionEnter</code> / <code>OnTriggerEnter</code> などのコールバックに変換して届けるのもここです。</td></tr>
+<tr><td>Physics</td><td class="fn"><a href="Physics.html#f-Physics"><code>Physics.h</code></a></td><td>PhysX の初期化・毎フレームの更新・終了と、「この線の先に何があるか」「この範囲に何がいるか」を調べる問い合わせ(Raycast / Overlap)です。PhysX の結果を、Component の <code>OnCollisionEnter</code> / <code>OnTriggerEnter</code> などのコールバックに変換して届けるのもここです。</td></tr>
+<tr><td>Physics</td><td class="fn"><a href="Physics.html#f-RigidbodyComponent"><code>RigidbodyComponent.cpp</code></a></td><td>物理の剛体(Unity の <code>Rigidbody</code> + <code>Collider</code> を1つにしたもの)です。親クラスの <code>RigidbodyComponent</code> に共通の機能があり、形ごとの子クラスを <code>AddComponent</code> します。Dynamic は PhysX の計算結果が <code>transform</code> に反映され、Kinematic は逆に <code>transform</code> の位置が PhysX に伝わります。</td></tr>
+<tr><td>Physics</td><td class="fn"><a href="Physics.html#f-RigidbodyComponent"><code>RigidbodyComponent.h</code></a></td><td>物理の剛体(Unity の <code>Rigidbody</code> + <code>Collider</code> を1つにしたもの)です。親クラスの <code>RigidbodyComponent</code> に共通の機能があり、形ごとの子クラスを <code>AddComponent</code> します。Dynamic は PhysX の計算結果が <code>transform</code> に反映され、Kinematic は逆に <code>transform</code> の位置が PhysX に伝わります。</td></tr>
+<tr><td>UI</td><td class="fn"><a href="UI.html#f-Anchor"><code>Anchor.cpp</code></a></td><td>「画面のどこを基準に置くか」を決める道具です(9 か所)。画面サイズが変わっても、隅や中央からの距離は変わりません。CSS でいう <code>position: absolute; top/left</code> のような考え方です。</td></tr>
+<tr><td>UI</td><td class="fn"><a href="UI.html#f-Anchor"><code>Anchor.h</code></a></td><td>「画面のどこを基準に置くか」を決める道具です(9 か所)。画面サイズが変わっても、隅や中央からの距離は変わりません。CSS でいう <code>position: absolute; top/left</code> のような考え方です。</td></tr>
+<tr><td>UI</td><td class="fn"><a href="UI.html#f-ButtonComponent"><code>ButtonComponent.cpp</code></a></td><td>クリックできるボタン(見た目の変化・クリック判定・文字の表示)を担当する Component です。見た目の画像は、同じオブジェクトに付けた <code>SpriteRenderer</code> を使います(<strong>先に付けておく</strong>)。</td></tr>
+<tr><td>UI</td><td class="fn"><a href="UI.html#f-ButtonComponent"><code>ButtonComponent.h</code></a></td><td>クリックできるボタン(見た目の変化・クリック判定・文字の表示)を担当する Component です。見た目の画像は、同じオブジェクトに付けた <code>SpriteRenderer</code> を使います(<strong>先に付けておく</strong>)。</td></tr>
+<tr><td>UI</td><td class="fn"><a href="UI.html#f-GaugeRenderer"><code>GaugeRenderer.cpp</code></a></td><td>HP バーなどの「帯のゲージ」を描く Component です。値を表示するだけで、値の持ち主にはなりません(HP は <code>PlayerController</code> などが持ち、ゲージは読んで表示するだけ)。</td></tr>
+<tr><td>UI</td><td class="fn"><a href="UI.html#f-GaugeRenderer"><code>GaugeRenderer.h</code></a></td><td>HP バーなどの「帯のゲージ」を描く Component です。値を表示するだけで、値の持ち主にはなりません(HP は <code>PlayerController</code> などが持ち、ゲージは読んで表示するだけ)。</td></tr>
+<tr><td>UI</td><td class="fn"><a href="UI.html#f-SliderComponent"><code>SliderComponent.cpp</code></a></td><td>マウスのドラッグで値を変えるスライダー(音量の設定など)を描いて動かす Component です。</td></tr>
+<tr><td>UI</td><td class="fn"><a href="UI.html#f-SliderComponent"><code>SliderComponent.h</code></a></td><td>マウスのドラッグで値を変えるスライダー(音量の設定など)を描いて動かす Component です。</td></tr>
+<tr><td>UI</td><td class="fn"><a href="UI.html#f-Text"><code>Text.cpp</code></a></td><td>画面に文字を描きます(Direct2D / DirectWrite)。<code>Component::Draw</code> の中で <code>Text::Draw</code> を呼びます。文字の見た目は <code>TextStyle</code> にまとめます。</td></tr>
+<tr><td>UI</td><td class="fn"><a href="UI.html#f-Text"><code>Text.h</code></a></td><td>画面に文字を描きます(Direct2D / DirectWrite)。<code>Component::Draw</code> の中で <code>Text::Draw</code> を呼びます。文字の見た目は <code>TextStyle</code> にまとめます。</td></tr>
+<tr><td>UI</td><td class="fn"><a href="UI.html#f-TextRenderer"><code>TextRenderer.cpp</code></a></td><td>GameObject に付いて一緒に動く文字(ダメージの数字・キャラクターの名前など)を描く Component です。</td></tr>
+<tr><td>UI</td><td class="fn"><a href="UI.html#f-TextRenderer"><code>TextRenderer.h</code></a></td><td>GameObject に付いて一緒に動く文字(ダメージの数字・キャラクターの名前など)を描く Component です。</td></tr>
+<tr><td>Animation</td><td class="fn"><a href="Animation.html#f-Ease"><code>Ease.h</code></a></td><td>イージング関数(動きの「速さの変化」)です。どれも <code>t</code>(進み具合 0〜1)を受け取って 0〜1 の値を返します。Unity の DOTween の <code>Ease</code> や、CSS の <code>ease-in-out</code> と同じ考え方で、式は easings.net と同じです。</td></tr>
+<tr><td>Animation</td><td class="fn"><a href="Animation.html#f-ModelAnimationComponent"><code>ModelAnimationComponent.cpp</code></a></td><td>FBX モデルのパーツの動き(Maya で付けたキーフレーム)を再生する Component です。同じオブジェクトの <code>ModelRenderer</code> に付けます。位置・スケールは線形、回転はクォータニオンで補間して、毎フレーム <code>ModelRenderer</code> のパーツの動きに書き込みます。</td></tr>
+<tr><td>Animation</td><td class="fn"><a href="Animation.html#f-ModelAnimationComponent"><code>ModelAnimationComponent.h</code></a></td><td>FBX モデルのパーツの動き(Maya で付けたキーフレーム)を再生する Component です。同じオブジェクトの <code>ModelRenderer</code> に付けます。位置・スケールは線形、回転はクォータニオンで補間して、毎フレーム <code>ModelRenderer</code> のパーツの動きに書き込みます。</td></tr>
+<tr><td>Animation</td><td class="fn"><a href="Animation.html#f-SpriteAnimationComponent"><code>SpriteAnimationComponent.cpp</code></a></td><td>スプライトシート(1 枚の画像を格子に分けたもの)のコマを、時間に合わせて送る Component です。同じ GameObject の <code>SpriteRenderer</code> のコマ番号を毎フレーム変えます。Unity の Animator + Sprite アニメーションの簡単版です。</td></tr>
+<tr><td>Animation</td><td class="fn"><a href="Animation.html#f-SpriteAnimationComponent"><code>SpriteAnimationComponent.h</code></a></td><td>スプライトシート(1 枚の画像を格子に分けたもの)のコマを、時間に合わせて送る Component です。同じ GameObject の <code>SpriteRenderer</code> のコマ番号を毎フレーム変えます。Unity の Animator + Sprite アニメーションの簡単版です。</td></tr>
+<tr><td>Animation</td><td class="fn"><a href="Animation.html#f-TweenComponent"><code>TweenComponent.cpp</code></a></td><td>GameObject の位置・大きさ・回転・色(と好きな値)を、イージングを付けて目標値まで動かす Component です。UI のぴょこっと出る演出や、ふわっと消える文字などに使います。関数は全部自分自身を返すので、<code>.SetDelay(0.5f).SetOnComplete(...)</code> のようにつなげて書けます。</td></tr>
+<tr><td>Animation</td><td class="fn"><a href="Animation.html#f-TweenComponent"><code>TweenComponent.h</code></a></td><td>GameObject の位置・大きさ・回転・色(と好きな値)を、イージングを付けて目標値まで動かす Component です。UI のぴょこっと出る演出や、ふわっと消える文字などに使います。関数は全部自分自身を返すので、<code>.SetDelay(0.5f).SetOnComplete(...)</code> のようにつなげて書けます。</td></tr>
+<tr><td>Transition</td><td class="fn"><a href="Transition.html#f-FadeTransition"><code>FadeTransition.cpp</code></a></td><td>暗転 → シーンを切り替える → 明転、の演出です(画面全体を 1 色で塗ります)。</td></tr>
+<tr><td>Transition</td><td class="fn"><a href="Transition.html#f-FadeTransition"><code>FadeTransition.h</code></a></td><td>暗転 → シーンを切り替える → 明転、の演出です(画面全体を 1 色で塗ります)。</td></tr>
+<tr><td>Transition</td><td class="fn"><a href="Transition.html#f-SceneTransition"><code>SceneTransition.cpp</code></a></td><td>シーン切り替えの演出の親クラスです。どの種類も「覆う → 切り替える → 開く」の順に進みます。覆い方・開き方は子クラスが <code>override</code> します。ゲーム側はこのクラスの関数を呼びません(<code>SceneManager</code> が呼びます)。</td></tr>
+<tr><td>Transition</td><td class="fn"><a href="Transition.html#f-SceneTransition"><code>SceneTransition.h</code></a></td><td>シーン切り替えの演出の親クラスです。どの種類も「覆う → 切り替える → 開く」の順に進みます。覆い方・開き方は子クラスが <code>override</code> します。ゲーム側はこのクラスの関数を呼びません(<code>SceneManager</code> が呼びます)。</td></tr>
+<tr><td>Transition</td><td class="fn"><a href="Transition.html#f-SpriteTransition"><code>SpriteTransition.cpp</code></a></td><td>スプライトシート(1 枚の画像に並べたコマ)を画面全体に引き伸ばして再生する演出です。普段は、覆う時はコマ 0 → 最後のコマ、開く時は最後のコマ → コマ 0 へ逆に再生します。</td></tr>
+<tr><td>Transition</td><td class="fn"><a href="Transition.html#f-SpriteTransition"><code>SpriteTransition.h</code></a></td><td>スプライトシート(1 枚の画像に並べたコマ)を画面全体に引き伸ばして再生する演出です。普段は、覆う時はコマ 0 → 最後のコマ、開く時は最後のコマ → コマ 0 へ逆に再生します。</td></tr>
+<tr><td>Behavior</td><td class="fn"><a href="Behavior.html#f-AccelerateChaseComponent"><code>AccelerateChaseComponent.cpp</code></a></td><td>目的地へ <strong>加速しながら</strong> 向かう Component です。勢いがあるので、行き過ぎて戻ってきます。</td></tr>
+<tr><td>Behavior</td><td class="fn"><a href="Behavior.html#f-AccelerateChaseComponent"><code>AccelerateChaseComponent.h</code></a></td><td>目的地へ <strong>加速しながら</strong> 向かう Component です。勢いがあるので、行き過ぎて戻ってきます。</td></tr>
+<tr><td>Behavior</td><td class="fn"><a href="Behavior.html#f-ChaseComponent"><code>ChaseComponent.cpp</code></a></td><td>目的地(相手・場所)へ、<strong>一定の速さでまっすぐ</strong> 向かう Component です。<code>StopDistance</code>(既定 1.0)より近づいたら止まります。壁は避けません(壁を避けたい時は <code>PathFollowComponent</code>)。</td></tr>
+<tr><td>Behavior</td><td class="fn"><a href="Behavior.html#f-ChaseComponent"><code>ChaseComponent.h</code></a></td><td>目的地(相手・場所)へ、<strong>一定の速さでまっすぐ</strong> 向かう Component です。<code>StopDistance</code>(既定 1.0)より近づいたら止まります。壁は避けません(壁を避けたい時は <code>PathFollowComponent</code>)。</td></tr>
+<tr><td>Behavior</td><td class="fn"><a href="Behavior.html#f-HomingComponent"><code>HomingComponent.cpp</code></a></td><td>曲がれる角度に上限がある追尾です(ミサイル・車・魚向け)。今の進行方向を持ち、目的地の方へ 1 秒に最大 <code>turnSpeed</code> 度だけ曲がりながら、<code>speed</code> の速さで進みます。</td></tr>
+<tr><td>Behavior</td><td class="fn"><a href="Behavior.html#f-HomingComponent"><code>HomingComponent.h</code></a></td><td>曲がれる角度に上限がある追尾です(ミサイル・車・魚向け)。今の進行方向を持ち、目的地の方へ 1 秒に最大 <code>turnSpeed</code> 度だけ曲がりながら、<code>speed</code> の速さで進みます。</td></tr>
+<tr><td>Behavior</td><td class="fn"><a href="Behavior.html#f-MoveComponent"><code>MoveComponent.cpp</code></a></td><td>「目的地へ向かって動く」Component の親クラスです。<strong>単体では <code>AddComponent</code> しません</strong>(コンストラクタが protected)。目的地・速さ・止まる距離・動く平面の共通の決まりを持ちます。</td></tr>
+<tr><td>Behavior</td><td class="fn"><a href="Behavior.html#f-MoveComponent"><code>MoveComponent.h</code></a></td><td>「目的地へ向かって動く」Component の親クラスです。<strong>単体では <code>AddComponent</code> しません</strong>(コンストラクタが protected)。目的地・速さ・止まる距離・動く平面の共通の決まりを持ちます。</td></tr>
+<tr><td>Behavior</td><td class="fn"><a href="Behavior.html#f-NavGrid"><code>NavGrid.cpp</code></a></td><td>地面を升目に区切って、各マスが「通れるか」(3D なら地面の高さも)を覚えておきます。経路探索(<code>PathFinder</code>)の土台です。2D(XY)でも 3D の地面(XZ)でも同じ形で使います。</td></tr>
+<tr><td>Behavior</td><td class="fn"><a href="Behavior.html#f-NavGrid"><code>NavGrid.h</code></a></td><td>地面を升目に区切って、各マスが「通れるか」(3D なら地面の高さも)を覚えておきます。経路探索(<code>PathFinder</code>)の土台です。2D(XY)でも 3D の地面(XZ)でも同じ形で使います。</td></tr>
+<tr><td>Behavior</td><td class="fn"><a href="Behavior.html#f-NavGridComponent"><code>NavGridComponent.cpp</code></a></td><td>格子(<code>NavGrid</code>)と探索役(<code>PathFinder</code>)を持つ Component です。<strong>シーンに 1 つ置いて、<code>PathFollowComponent</code> に渡します</strong>。障害物(タグ &quot;Wall&quot; の Static な物)は、置くだけで自動で読み込まれます。</td></tr>
+<tr><td>Behavior</td><td class="fn"><a href="Behavior.html#f-NavGridComponent"><code>NavGridComponent.h</code></a></td><td>格子(<code>NavGrid</code>)と探索役(<code>PathFinder</code>)を持つ Component です。<strong>シーンに 1 つ置いて、<code>PathFollowComponent</code> に渡します</strong>。障害物(タグ &quot;Wall&quot; の Static な物)は、置くだけで自動で読み込まれます。</td></tr>
+<tr><td>Behavior</td><td class="fn"><a href="Behavior.html#f-PathFinder"><code>PathFinder.cpp</code></a></td><td>格子(<code>NavGrid</code>)の上で、A*(エースター)で最短の経路を探します。作業用の配列を 1 組だけ持って使い回します。ゲーム側が直接使うことは少なく、普通は <code>PathFollowComponent</code> が使います。</td></tr>
+<tr><td>Behavior</td><td class="fn"><a href="Behavior.html#f-PathFinder"><code>PathFinder.h</code></a></td><td>格子(<code>NavGrid</code>)の上で、A*(エースター)で最短の経路を探します。作業用の配列を 1 組だけ持って使い回します。ゲーム側が直接使うことは少なく、普通は <code>PathFollowComponent</code> が使います。</td></tr>
+<tr><td>Behavior</td><td class="fn"><a href="Behavior.html#f-PathFollowComponent"><code>PathFollowComponent.cpp</code></a></td><td>壁・障害物を避けながら、目的地へ一定の速さで向かう Component です。<code>ChaseComponent</code> の「まっすぐ向かう」を、経路探索つきにしたものです。経路は <code>NavGridComponent</code> の格子の上で探します(A* + 直線化)。</td></tr>
+<tr><td>Behavior</td><td class="fn"><a href="Behavior.html#f-PathFollowComponent"><code>PathFollowComponent.h</code></a></td><td>壁・障害物を避けながら、目的地へ一定の速さで向かう Component です。<code>ChaseComponent</code> の「まっすぐ向かう」を、経路探索つきにしたものです。経路は <code>NavGridComponent</code> の格子の上で探します(A* + 直線化)。</td></tr>
+<tr><td>Behavior</td><td class="fn"><a href="Behavior.html#f-VisionComponent"><code>VisionComponent.cpp</code></a></td><td>見張り役の「視野」を持たせる Component です(扇形の中にいて、壁にさえぎられていなければ見える)。見えたかどうかを調べるだけで、見えた後の動き(追いかける・色を変える)は付けた側の Component が決めます。</td></tr>
+<tr><td>Behavior</td><td class="fn"><a href="Behavior.html#f-VisionComponent"><code>VisionComponent.h</code></a></td><td>見張り役の「視野」を持たせる Component です(扇形の中にいて、壁にさえぎられていなければ見える)。見えたかどうかを調べるだけで、見えた後の動き(追いかける・色を変える)は付けた側の Component が決めます。</td></tr>
+<tr><td>Audio</td><td class="fn"><a href="Audio.html#f-Audio"><code>Audio.cpp</code></a></td><td>音の窓口です。BGM を ID で鳴らす関数、効果音を鳴らしっぱなしにする関数、グループごとの音量があります。</td></tr>
+<tr><td>Audio</td><td class="fn"><a href="Audio.html#f-Audio"><code>Audio.h</code></a></td><td>音の窓口です。BGM を ID で鳴らす関数、効果音を鳴らしっぱなしにする関数、グループごとの音量があります。</td></tr>
+<tr><td>Audio</td><td class="fn"><a href="Audio.html#f-AudioListenerComponent"><code>AudioListenerComponent.cpp</code></a></td><td>音を「聞く側」を表す Component です。Player(かカメラ)に 1 つだけ付けます。Unity の <code>AudioListener</code> と同じです。付けたオブジェクトのワールド位置が「聞く位置」になります。</td></tr>
+<tr><td>Audio</td><td class="fn"><a href="Audio.html#f-AudioListenerComponent"><code>AudioListenerComponent.h</code></a></td><td>音を「聞く側」を表す Component です。Player(かカメラ)に 1 つだけ付けます。Unity の <code>AudioListener</code> と同じです。付けたオブジェクトのワールド位置が「聞く位置」になります。</td></tr>
+<tr><td>Audio</td><td class="fn"><a href="Audio.html#f-AudioSourceComponent"><code>AudioSourceComponent.cpp</code></a></td><td>音を鳴らす側を表す Component です。音を出す物(敵・機械・焚き火など)に付けます。Unity の <code>AudioSource</code> と同じです。位置で聞こえ方が変わります(遠いほど小さく、左にあれば左から聞こえる)。</td></tr>
+<tr><td>Audio</td><td class="fn"><a href="Audio.html#f-AudioSourceComponent"><code>AudioSourceComponent.h</code></a></td><td>音を鳴らす側を表す Component です。音を出す物(敵・機械・焚き火など)に付けます。Unity の <code>AudioSource</code> と同じです。位置で聞こえ方が変わります(遠いほど小さく、左にあれば左から聞こえる)。</td></tr>
+<tr><td>Data</td><td class="fn"><a href="Data.html#f-Csv"><code>Csv.cpp</code></a></td><td>表(CSV ファイル)を読んで、列の名前で値を取り出します。敵の強さや出現の順番を、コードではなく Excel で調整するための仕組みです。</td></tr>
+<tr><td>Data</td><td class="fn"><a href="Data.html#f-Csv"><code>Csv.h</code></a></td><td>表(CSV ファイル)を読んで、列の名前で値を取り出します。敵の強さや出現の順番を、コードではなく Excel で調整するための仕組みです。</td></tr>
+<tr><td>Data</td><td class="fn"><a href="Data.html#f-SaveData"><code>SaveData.cpp</code></a></td><td>ハイスコア・音量などを保存して、次に起動した時も残します。Unity の <code>PlayerPrefs</code> と同じ使い方です。<code>Set</code> / <code>Get</code> で読み書きして、<code>Save</code> でファイルに書きます。</td></tr>
+<tr><td>Data</td><td class="fn"><a href="Data.html#f-SaveData"><code>SaveData.h</code></a></td><td>ハイスコア・音量などを保存して、次に起動した時も残します。Unity の <code>PlayerPrefs</code> と同じ使い方です。<code>Set</code> / <code>Get</code> で読み書きして、<code>Save</code> でファイルに書きます。</td></tr>
+<tr><td>ThirdParty</td><td class="fn"><a href="ThirdParty.html#f-WICTextureLoader11"><code>WICTextureLoader11.cpp</code></a></td><td>Microsoft の DirectX Tool Kit にある、画像ファイルから Direct3D11 のテクスチャを作る部品です(MIT ライセンス)。<code>Engine/Render/Texture.cpp</code> の <code>Texture::Load</code> が <code>CreateWICTextureFromFile</code> を呼ぶために使っています。ゲーム側は直接使いません(画像は <code>Resources::LoadTexture</code> で読みます)。</td></tr>
+<tr><td>ThirdParty</td><td class="fn"><a href="ThirdParty.html#f-WICTextureLoader11"><code>WICTextureLoader11.h</code></a></td><td>Microsoft の DirectX Tool Kit にある、画像ファイルから Direct3D11 のテクスチャを作る部品です(MIT ライセンス)。<code>Engine/Render/Texture.cpp</code> の <code>Texture::Load</code> が <code>CreateWICTextureFromFile</code> を呼ぶために使っています。ゲーム側は直接使いません(画像は <code>Resources::LoadTexture</code> で読みます)。</td></tr>
+</tbody></table></div>
+<script>(function(){var f=document.getElementById("filter");if(!f)return;var rows=document.querySelectorAll("#filetable tbody tr");f.addEventListener("input",function(){var q=f.value.toLowerCase();for(var i=0;i<rows.length;i++){rows[i].style.display=rows[i].textContent.toLowerCase().indexOf(q)>=0?"":"none";}});})();</script>
+
+<footer class="foot">この解説は <code>docs/EngineGuide/tools/build.ps1</code> で作っています。表の内容は Engine のヘッダーから拾っています。コード例は Sample2D / Sample3D / Demo の実際のソースを読み込んで載せています。</footer>
+</main>
+</div>
+<script src="search-index.js"></script>
+<script src="search.js"></script>
+</body>
+</html>

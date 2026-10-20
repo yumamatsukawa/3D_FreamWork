@@ -1,0 +1,125 @@
+﻿<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Data(CSV の表とセーブデータ) - Engine解説</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="layout">
+<nav class="side">
+<div class="brand"><a href="index.html">Engine解説</a></div>
+<div class="search"><input type="search" id="q" placeholder="関数名・クラス名・ファイル名を検索" autocomplete="off"><ul id="results"></ul></div>
+<ul class="menu">
+<li><a href="index.html">トップ</a></li>
+<li><a href="architecture.html">設計図(図解)</a></li>
+<li><a href="Core.html">Core</a></li>
+<li><a href="Render.html">Render</a></li>
+<li><a href="Render3D.html">Render3D</a></li>
+<li><a href="Physics.html">Physics</a></li>
+<li><a href="UI.html">UI</a></li>
+<li><a href="Animation.html">Animation</a></li>
+<li><a href="Transition.html">Transition</a></li>
+<li><a href="Behavior.html">Behavior</a></li>
+<li><a href="Audio.html">Audio</a></li>
+<li><a href="Data.html" class="current">Data</a></li>
+<li><a href="ThirdParty.html">ThirdParty</a></li>
+<li><a href="files.html">ファイル索引</a></li>
+<li><a href="glossary.html">用語集</a></li>
+</ul>
+<p class="sidenote">3D_FreamWork の Engine を、初心者向けに解説したページです。</p>
+</nav>
+<main>
+<h1>Data(CSV の表とセーブデータ)</h1>
+<div class="lead"><code>Engine/Data/</code> は、ゲームの「データ」を扱う仕組みです。敵の強さや出現の順番を Excel で調整するための <strong>CSV の読み込み</strong>(<code>Csv</code>)と、ハイスコアや音量を次の起動でも残す <strong>セーブデータ</strong>(<code>SaveData</code>)が入っています。</div>
+<div class="toc"><strong>このページのファイル</strong><ul>
+<li><a href="#f-Csv">Csv.h / Csv.cpp</a></li>
+<li><a href="#f-SaveData">SaveData.h / SaveData.cpp</a></li>
+</ul></div>
+<p><strong>Demo で見る</strong>: Demo プロジェクトの <strong>Data カテゴリ</strong>に、Csv(表を読む。保存し直すと実行中に反映)と Save(整数・小数・文字を保存して、開き直しても残す)の 2 個のデモがあります。</p>
+<section class="file" id="f-Csv">
+<h3><code>Engine/Data/Csv.h</code> <code>Engine/Data/Csv.cpp</code></h3>
+<p class="role">表(CSV ファイル)を読んで、列の名前で値を取り出します。敵の強さや出現の順番を、コードではなく Excel で調整するための仕組みです。</p>
+<div class="tw"><table class="api"><thead><tr><th>名前</th><th>引数・戻り値</th><th>何をするか</th></tr></thead><tbody>
+<tr><td class="fn"><code>Load(const std::wstring&amp; path)</code></td><td class="sig"><code>static Csv</code></td><td>読み込む(毎回ファイルを読む。キャッシュしない)。1 行目は列の名前として扱う</td></tr>
+<tr><td class="fn"><code>IsValid()</code></td><td class="sig"><code>bool</code></td><td>読み込めたか</td></tr>
+<tr><td class="fn"><code>GetRowCount()</code></td><td class="sig"><code>int</code></td><td>行の数(1 行目の列の名前は数えない)</td></tr>
+<tr><td class="fn"><code>GetColumnCount()</code></td><td class="sig"><code>int</code></td><td>列の数</td></tr>
+<tr><td class="fn"><code>HasColumn(const std::string&amp; column)</code></td><td class="sig"><code>bool</code></td><td>その名前の列があるか</td></tr>
+<tr><td class="fn"><code>GetString(int row, const std::string&amp; column)</code></td><td class="sig"><code>std::wstring</code></td><td>文字として読む(無ければ空文字列)</td></tr>
+<tr><td class="fn"><code>GetInt(int row, const std::string&amp; column, int defaultValue)</code></td><td class="sig"><code>int</code></td><td>整数として読む(読めなければ <code>defaultValue</code>)</td></tr>
+<tr><td class="fn"><code>GetFloat(int row, const std::string&amp; column, float defaultValue)</code></td><td class="sig"><code>float</code></td><td>小数として読む(読めなければ <code>defaultValue</code>)</td></tr>
+<tr><td class="fn"><code>FindRow(const std::string&amp; column, const std::wstring&amp; value)</code></td><td class="sig"><code>int</code></td><td>その列の値が <code>value</code> と同じ最初の行を探す(無ければ -1)</td></tr>
+<tr><td class="fn"><code>IsFileUpdated()</code></td><td class="sig"><code>bool</code></td><td>読み込んだ後にファイルが変わったか(更新日時か大きさが違えば <code>true</code>)</td></tr>
+<tr><td class="fn"><code>Reload()</code></td><td class="sig"><code>bool</code></td><td>同じパスを読み直す。成功したら中身を入れ替えて <code>true</code>。失敗したら今の中身のまま <code>false</code></td></tr>
+</tbody></table></div>
+<div class="ex"><div class="exhead">使い方の例 <span class="src">出典: <code>Sample2D/Game/Components/EnemyManager.cpp:166-172</code></span></div><pre><code>void EnemyManager::Init() {
+    // 表を読む(Init時に読み、その後は実行中の更新をCheckReloadが0.5秒ごとに確かめる)
+    enemiesCsv = Csv::Load(enemiesCsvPath);
+    wavesCsv = Csv::Load(wavesCsvPath);
+    reloadTimer.Reset();
+    LoadEnemies();
+    LoadWaves();</code></pre></div>
+<div class="ex"><div class="exhead">使い方の例 <span class="src">出典: <code>Sample2D/Game/Components/EnemyManager.cpp:152-158</code></span></div><pre><code>void EnemyManager::CheckReload() {
+    // 更新されたCSVだけ読み直す。読み直しに失敗したら(保存の途中など)、今の値のまま動いて、次の確認でまた試す
+    if (enemiesCsv.IsFileUpdated() &amp;&amp; enemiesCsv.Reload()) {
+        LoadEnemies();
+        ApplySpeedToEnemies();
+        Log(L&quot;Enemies.csv が更新されたので、読み直しました(速さ &quot; + std::to_wstring(enemySpeed) + L&quot;)&quot;);
+    }</code></pre></div>
+<div class="notes"><strong>気を付ける点</strong><ul>
+<li><strong><code>Load</code> は <code>Init</code> で 1 回だけ</strong>呼びます(毎フレーム呼ばない。毎回ファイルを読み直すため)。</li>
+<li>列は名前で取り出すので、Excel で列の順番を入れ替えても壊れません。列の名前は半角英数字(Name, Hp, Speed)にします。<strong>列の名前は大文字小文字を区別します</strong>(&quot;name&quot; と &quot;Name&quot; は別)。</li>
+<li>行の番号は 0 から数えます(表の 2 行目が <code>row=0</code>)。</li>
+<li>列が無い・行が範囲外・値が空・数に読めない時は、<code>defaultValue</code> を返し、出力ウィンドウに知らせます(列ごと・ファイルごとに 1 回だけ)。読めない時(ファイルが無い等)は <code>IsValid()</code> が <code>false</code> で、<code>Get</code> 系はいつも <code>defaultValue</code> を返します。</li>
+<li>文字コードは UTF-8 です。Excel では「<strong>CSV UTF-8(コンマ区切り)</strong>」で保存します(UTF-16 は読めません)。</li>
+<li>実行中の反映(ホットリロード): 0.5 秒ごとなどに <code>IsFileUpdated()</code> を調べ、<code>true</code> なら <code>Reload()</code> します。毎フレームは呼びません。Excel で開いたままでも読めます。</li>
+<li><code>Csv</code> は値として持てます(コピーしても、表の中身は共有するので軽い)。</li>
+</ul></div>
+</section>
+<section class="file" id="f-SaveData">
+<h3><code>Engine/Data/SaveData.h</code> <code>Engine/Data/SaveData.cpp</code></h3>
+<p class="role">ハイスコア・音量などを保存して、次に起動した時も残します。Unity の <code>PlayerPrefs</code> と同じ使い方です。<code>Set</code> / <code>Get</code> で読み書きして、<code>Save</code> でファイルに書きます。</p>
+<div class="tw"><table class="api"><thead><tr><th>名前</th><th>引数・戻り値</th><th>何をするか</th></tr></thead><tbody>
+<tr><td class="fn"><code>SetInt(const std::string&amp; key, int value)</code></td><td class="sig"><code>void</code></td><td>整数を書く</td></tr>
+<tr><td class="fn"><code>GetInt(const std::string&amp; key, int defaultValue)</code></td><td class="sig"><code>int</code></td><td>整数を読む(無い・読めなければ <code>defaultValue</code>)</td></tr>
+<tr><td class="fn"><code>SetFloat(const std::string&amp; key, float value)</code></td><td class="sig"><code>void</code></td><td>小数を書く(無限大・NaN は書かない)</td></tr>
+<tr><td class="fn"><code>GetFloat(const std::string&amp; key, float defaultValue)</code></td><td class="sig"><code>float</code></td><td>小数を読む</td></tr>
+<tr><td class="fn"><code>SetString(const std::string&amp; key, const std::wstring&amp; value)</code></td><td class="sig"><code>void</code></td><td>文字を書く(日本語・改行・= もそのまま使える)</td></tr>
+<tr><td class="fn"><code>GetString(const std::string&amp; key, const std::wstring&amp; defaultValue)</code></td><td class="sig"><code>std::wstring</code></td><td>文字を読む</td></tr>
+<tr><td class="fn"><code>HasKey(const std::string&amp; key)</code></td><td class="sig"><code>bool</code></td><td>そのキーがあるか</td></tr>
+<tr><td class="fn"><code>DeleteKey(const std::string&amp; key)</code></td><td class="sig"><code>void</code></td><td>そのキーを消す</td></tr>
+<tr><td class="fn"><code>Save(int slot)</code></td><td class="sig"><code>bool</code></td><td>ファイルに書き出す(成功したら <code>true</code>)。一時ファイルに書いてから差し替えるので、前のデータは壊れない</td></tr>
+<tr><td class="fn"><code>Load(int slot)</code></td><td class="sig"><code>bool</code></td><td>ファイルから読み込む(今の値は捨てて置き換わる)。ファイルが無いのは正常(<code>true</code>)</td></tr>
+<tr><td class="fn"><code>Init() / Uninit()</code></td><td class="sig"><code>void</code></td><td>内部用: GameEngine が呼ぶ(起動時に <code>Load(0)</code>、終了時に書き換えていれば自動 <code>Save</code>)</td></tr>
+</tbody></table></div>
+<div class="ex"><div class="exhead">使い方の例 <span class="src">出典: <code>Sample2D/Game/Components/GameManager.cpp:27-39</code></span></div><pre><code>    // Playerが倒れたらゲームオーバー。ハイスコアを超えていたら保存する
+    EventBus::Get().Subscribe(&quot;PlayerDied&quot;, [this]() {
+        gameOver = true;
+        if (score &gt; GetHighScore()) {
+            SaveData::SetInt(highScoreKey, score);
+            SaveData::Save();
+        }
+    });
+}
+
+int GameManager::GetHighScore() const {
+    return SaveData::GetInt(highScoreKey);
+}</code></pre></div>
+<div class="notes"><strong>気を付ける点</strong><ul>
+<li>保存先は <code>%LOCALAPPDATA%\3D_FreamWork\save{slot}.txt</code>(例: <code>save0.txt</code>)です。<strong>Sample2D と Sample3D は同じファイルを使う</strong> ので、ハイスコアのキーは <code>&quot;Sample2DHighScore&quot;</code> / <code>&quot;Sample3DHighScore&quot;</code> のようにサンプルごとに別にします。</li>
+<li><strong>キーに使える文字は英字・数字・<code>_</code> だけ</strong>(PascalCase の英語にする: <code>&quot;HighScore&quot;</code>)。それ以外の文字を含むキー・空のキーは保存されず、<code>Get</code> はいつも <code>defaultValue</code> を返します。</li>
+<li>値は型を覚えずに文字で持ちます。同じキーに別の型で <code>Set</code> すると、後に書いた値で上書きされます。<code>GetInt</code> は整数として読めない値(&quot;1.5&quot; など)なら <code>defaultValue</code>(小数を切り捨てたりしない)。</li>
+<li>起動時にEngineが自動で <code>Load(0)</code>、終了時に書き換えていれば自動で <code>Save</code> します(呼び忘れても消えません)。ただし起動時の <code>Load(0)</code> が読めなかった時は、そのファイルを上書きしないよう、終了時の自動保存はしません。</li>
+<li>中身を消して最初からやり直したい時は、ゲームを閉じてから <code>save0.txt</code> を消します。</li>
+</ul></div>
+</section>
+
+<footer class="foot">この解説は <code>docs/EngineGuide/tools/build.ps1</code> で作っています。表の内容は Engine のヘッダーから拾っています。コード例は Sample2D / Sample3D / Demo の実際のソースを読み込んで載せています。</footer>
+</main>
+</div>
+<script src="search-index.js"></script>
+<script src="search.js"></script>
+</body>
+</html>

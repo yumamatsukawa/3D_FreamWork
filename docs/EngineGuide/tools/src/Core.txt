@@ -1,0 +1,325 @@
+﻿=page Core
+=title Core(基本の仕組み)
+=lead
+`Engine/Core/` は、ゲームの土台です。「物(GameObject)に部品(Component)を付けて、シーン(Scene)に置く」という Unity と同じ考え方の中心がここにあります。時間・入力・計算・使い回し・通知など、どのゲームでも使う小さな道具もここに入っています。
+最初に読むなら、`Component` → `GameObject` → `Scene` → `SceneManager` の順がおすすめです。
+=p
+**Demo で見る**: Demo プロジェクトの **Core カテゴリ**に、Object / Transform / Time / Input / Math / Pool / EventBus / Resources の8個のデモがあります(Demo の開き方は [トップページ](index.html#demo) を見てください)。
+
+=file Engine/Core/Component.h
+=class Component
+=role
+すべての Component の親クラス(基底クラス)。Unity の `MonoBehaviour` に近い役割です。動きや見た目は、これを継承したクラスを作って `Init` / `Update` / `Draw` などを `override`(上書き)して書きます。
+=table
+Init() | void (virtual) | `AddComponent` で追加された直後に、1回だけ呼ばれる。初期設定を書く所
+Update(float dt) | void (virtual) | 毎フレーム呼ばれる(ロジック更新)。`dt` は前のフレームからの秒数
+Draw() | void (virtual) | 毎フレーム呼ばれる(描画)
+Uninit() | void (virtual) | GameObject が破棄される時に呼ばれる。後片付けを書く所
+OnActiveChanged(bool active) | void (virtual) | `GameObject::SetActive` が呼ばれた時の通知。ObjectPool で使い回す物の検知に使う
+OnTriggerEnter(Collider2D* other) | void (virtual) | すり抜ける当たり判定(トリガー。2D・3D 共通)に「入った瞬間」
+OnTriggerStay(Collider2D* other) | void (virtual) | トリガーに「入っている間」毎フレーム
+OnTriggerExit(Collider2D* other) | void (virtual) | トリガーから「出た瞬間」
+OnCollisionEnter(CollisionInfo info) | void (virtual) | すり抜けない当たり判定(衝突。2D・3D 共通)で「ぶつかった瞬間」
+OnCollisionStay(CollisionInfo info) | void (virtual) | 「ぶつかっている間」毎フレーム
+OnCollisionExit(CollisionInfo info) | void (virtual) | 「離れた瞬間」
+GetOwner() | GameObject* | この Component が付いている GameObject を返す
+SetOwner(GameObject* go) | void | 持ち主を設定する(`AddComponent` が自動で呼ぶ。普段は使わない)
+IsEnabled() | bool | 有効か(無効だと `Update` / `Draw` が呼ばれない)
+SetEnabled(bool v) | void | 有効 / 無効を切り替える
+=code Sample2D/Game/Components/BulletController.cpp:5-23
+=notes
+- `Init` は **`AddComponent` の中で呼ばれます**。`AddComponent` の戻り値をまだ受け取っていない時点で `Init` が動くので、「作った直後に他の Component を設定する」処理は `AddComponent` の後に書きます。
+- 他の Component の情報が必要な時は、`GetOwner()->GetComponent<型>()` で探します。見つからないと `nullptr` なので、必ずチェックします。
+=demo Core カテゴリの「Object」(Component を付けたり止めたりする)
+=readme §1, §6
+
+=file Engine/Core/GameObject.h
+=class GameObject
+=role
+「入れ物」です。名前・タグ・位置(`transform`)を持ち、Component を付けて見た目や動きを作ります。Unity の `GameObject` と同じです。`Scene::CreateObject` で作り、`Destroy()` で消します。
+=table
+transform | Transform (メンバ変数) | すべての GameObject が必ず持つ位置・大きさ・回転
+AddComponent<T>(args...) | T* | Component を作って付ける。引数は T のコンストラクタへ渡る。付けた直後に `Init()` が呼ばれる
+GetComponent<T>() | T* | 付いている T 型(派生クラスも含む)の Component を探す。無ければ `nullptr`
+GetName() | const std::string& | 名前を返す
+GetTag() | const std::string& | タグを返す("Player" や "Enemy" など。当たった相手の判定に使う)
+SetTag(std::string t) | void | タグを付ける。ObjectPool の組み立て処理の中で使う
+SetActive(bool v) | void | `false` で非表示・Update/Draw 停止(破棄はされない)。全 Component に `OnActiveChanged` が届く
+GetIsActive() | bool | 有効か
+Destroy() | void | 「破棄する」印を付ける。実際に消えるのは次の `Scene::Update` の終わり
+GetIsDestroyed() | bool | `Destroy()` が呼ばれたか
+GetScene() | Scene* | 自分が属している Scene。Component の中から新しい物を作りたい時に使う
+SetScene(Scene* s) | void | 属する Scene を設定する(`Scene::CreateObject` が自動で呼ぶ。普段は使わない)
+GetDrawPriority() | int | 描画順の優先度を返す
+SetDrawPriority(int priority) | void | 描画順。小さいほど先に描かれる(既定0)。スカイボックスや背景に使う
+Update(float dt) | void | 持っている全 Component を更新する(Scene が呼ぶ。普段は使わない)
+Draw() | void | 持っている全 Component を描く(Scene が呼ぶ。普段は使わない)
+Uninit() | void | 全 Component の `Uninit` を呼ぶ(Scene が呼ぶ。普段は使わない)
+OnTriggerEnter など6個 | void | 当たり判定のコールバックを全 Component に転送する(Collider が呼ぶ。普段は使わない)
+=code Demo/Game/Objects/Core/TransformDemo.cpp:16-25
+=code Sample2D/Game/Components/PlayerController.cpp:25-27
+=notes
+- `GetComponent` の結果は **必ず null チェック** します(付いていない場合は `nullptr` が返ります)。
+- `SetActive(false)` は消すのではなく「お休み」です。完全に消す時は `Destroy()`。
+- `Destroy()` はその場では消えません。同じフレームの残りの処理では、まだ使えます。
+- `drawPriority` は描画の順番だけを決めます。UI モードのスプライトは、`drawPriority` → 作った順で、ワールドの物より必ず手前に描かれます(詳しくは[設計図の描画の順番](architecture.html#draw))。
+=demo Core カテゴリの「Object」
+=readme §1, §2
+
+=file Engine/Core/Scene.h, Scene.cpp
+=class Scene
+=role
+GameObject を入れておく入れ物です。Unity の `Scene` に相当します。ゲームの画面(タイトル・プレイ画面など)ごとに `Scene` を継承したクラスを作り、`Init()` に「何を置くか」を並べます。
+=table
+Init() | void (virtual) | シーンが始まる時に1回呼ばれる。ここで `CreateXxx(*this)` を並べてオブジェクトを置く
+Uninit() | void (virtual) | シーンが終わる時に1回呼ばれる。override した時は最後に `Scene::Uninit()` を呼ぶ
+Update(float dt) | void | 全 GameObject を更新し、`Destroy` された物を片付け、Update 中に作られた物を加える(SceneManager が呼ぶ)
+Draw() | void | 3パスで描画する(SceneManager が呼ぶ。[描画の順番](architecture.html#draw)参照)
+CreateObject(std::string name, std::string tag) | GameObject* | 新しい GameObject を作ってシーンに加える。`Update` 中に呼んでもよい
+=code Sample2D/Game/Scenes/GameScene.cpp:15-36
+=notes
+- `Update` 中に `CreateObject` しても大丈夫です。作った物は一旦「待ち行列(`pendingObjects`)」に入り、`Update` の最後にまとめてシーンへ移ります(ループ中に配列を増やして壊れないように)。そのため、作ったフレームでは `Update` されません(次のフレームから)。
+- `Uninit` を override する時は、最後に必ず `Scene::Uninit()` を呼びます(GameObject の後片付けをするため)。
+- `EventBus` に `this` をキャプチャしたラムダを登録した Scene は、`Uninit` で `EventBus::Get().Clear()` を呼びます。
+=demo Core カテゴリの「Object」
+=readme §1
+
+=file Engine/Core/SceneManager.h, SceneManager.cpp
+=class SceneManager
+=role
+今のシーンを持ち、シーンの切り替え(と切り替えの演出)を担当します。アプリ全体で1つだけ(`SceneManager::Get()`)。
+=table
+Get() | static SceneManager& | 唯一の SceneManager を返す
+ChangeScene<T>() | void | 演出なしで T 型のシーンへ切り替える(次の `SceneManager::Update` の最初で切り替わる)
+ChangeScene<T>(transition) | void | 演出付きで切り替える。`transition` は `FadeTransition()` や `SpriteTransition(...)` など
+Update(float dt) | void | 内部用: GameEngine が呼ぶ。切り替えの処理と、今のシーンの Update
+Draw() | void | 内部用: GameEngine が呼ぶ。今のシーンの Draw
+DrawTransition() | void | 内部用: 切り替えの演出を一番上に描く
+Uninit() | void | 内部用: 終了時に今のシーンを片付ける
+=code Sample2D/Game/Objects/StartButton.cpp:10-14
+=code Sample2D/Game/Components/GameManager.cpp:43-45
+=notes
+- 演出付きの切り替えは「覆う → シーンを切り替える → 開く」の順です。**演出の間はゲームの時間が止まります**(`Time` の倍率が0)。開き終わると元の倍率に戻ります。
+- 切り替えを頼んでから終わるまでの間に呼ばれた `ChangeScene` は **無視されます**(ボタンの二重押しで2回切り替わらないように)。出力ウィンドウにメッセージが出ます。
+- 切り替える時、古いシーンの `Uninit` → 新しいシーンの `Init` → 使っていない画像などの解放(`Resources::UnloadUnused`)の順で進みます。
+- 内部用の関数(`Update` / `Draw` / `DrawTransition` / `Uninit`)はゲーム側から呼びません。
+=demo Render カテゴリの「Transition」(演出を見比べる)
+=readme §16
+
+=file Engine/Core/GameEngine.h, GameEngine.cpp
+=class GameEngine
+=role
+エンジン全体を動かす役です。初期化・メインループ(1フレームごとの処理の順番)・終了処理を持ちます。ゲーム側は `main.cpp` で `Init` → 最初のシーンを指定 → `Run` → `Uninit` を呼ぶだけです。1フレームの順番は[トップページ](index.html#frame)にまとめています。
+=table
+Get() | static GameEngine& | 唯一の GameEngine を返す
+Init(HWND hwnd, int w, int h) | bool | 画面・音・文字・物理・時間などを初期化する。失敗したら `false`
+Run() | void | メインループ。ウィンドウが閉じられるまで1フレームずつ更新と描画を繰り返す
+Uninit() | void | 終了処理。セーブデータの保存、各機能の解放を正しい順番で行う
+GetScene() | Scene& | GameEngine 自身が持つ Scene を返す(サンプルでは使っていない。シーンは `SceneManager` が管理する)
+=code Sample2D/main.cpp:56-65
+=notes
+- `Run` の中の呼ぶ順番には意味があります(例: 物理 → シーンの Update → 音。描画の前にカメラを揺らす、など)。順番を変えるとバグの原因になるので、**Engine を触る人以外は変更しません**。
+- 初期化の順番も重要です(`Image::Init` の後に音・文字・物理)。`SaveData::Init` は最初に呼ばれます。
+=demo (専用のデモはありません。全デモがこのループで動いています)
+=readme §0
+
+=file Engine/Core/Transform.h
+=class Transform
+=role
+位置・大きさ・回転と、親子関係を持ちます。Unity の `Transform` と同じです。GameObject の `transform` メンバとして必ず付いています。回転は **度** で、2D は `rotate.z` だけを使います。
+=table
+position | XMFLOAT3 | 位置(親がいれば、親から見た相対位置)
+scale | XMFLOAT3 | 大きさ(既定は 1,1,1)。2D のスプライトはこれがピクセルの大きさになる
+rotate | XMFLOAT3 | 回転(度)。2D は `rotate.z`
+SetParent(Transform* newParent) | void | 親を設定する。`nullptr` で親を外す
+GetParent() | Transform* | 親を返す(無ければ `nullptr`)
+GetChildren() | const std::vector<Transform*>& | 子の一覧
+GetLocalMatrix() | XMMATRIX | 自分だけの行列(親は考えない)
+GetWorldMatrix() | XMMATRIX | 親をたどった最終的な行列
+GetWorldTransform() | Transform | 親をたどって「ワールドでの位置・大きさ・回転」にした Transform。2D 用(回転は Z 軸だけ合成)
+WorldDeltaToLocal(XMFLOAT2 worldDelta) | XMFLOAT2 | ワールドでの移動量を、`position` に足せる量に変換する(押し戻しなどで使う)
+=code Demo/Game/Objects/Core/TransformDemo.cpp:27-34
+=notes
+- 子の `position` は「親から見た位置」です。親を動かすと子も一緒に動きます。
+- `GetWorldTransform()` は **Z 軸回転だけ** 親から引き継ぎます(2D 描画用)。3D の親子の回転は `GetWorldMatrix()` を使います。
+- 親が消える時は、先に `SetParent(nullptr)` で外すか、親子まとめて扱ってください(親子のポインタが残ると危険です)。
+- PhysX の Dynamic な剛体は、`transform` を直接書き換えず `RigidbodyComponent::SetVelocity()` で動かします。
+=demo Core カテゴリの「Transform」
+=readme §3
+
+=file Engine/Core/Input.h, Input.cpp
+=class Input(名前空間)
+=role
+キーボード・マウス・ゲームパッドの入力です。Unity の `Input` に近い使い方ができます。キーの名前は `KEY_W`・`MOUSE_LEFT`・`PAD_A` などのマクロで書きます。
+=table
+GetKeyDown(int key) | bool | キー / マウスボタンを **押した瞬間** だけ `true`
+GetKeyPress(int key) | bool | キー / マウスボタンを **押している間** `true`
+GetKeyUp(int key) | bool | キー / マウスボタンを **離した瞬間** だけ `true`
+GetKeyDown(WORD button, int padIndex) | bool | ゲームパッドのボタン版(`PAD_A` など。`padIndex` の既定は0)
+GetKeyPress(WORD button, int padIndex) | bool | パッド版の「押している間」
+GetKeyUp(WORD button, int padIndex) | bool | パッド版の「離した瞬間」
+GetMousePosition() | XMFLOAT2 | マウスの画面座標(画面中央が (0,0)、Y+ は下方向)。ゲーム解像度の単位
+GetMouseDelta() | XMFLOAT2 | 前のフレームからのマウスの移動量(視点操作に使う)
+SetCursorLocked(bool locked) | void | `true` でカーソルを隠して画面中央に固定する(FPS の視点操作用)
+IsCursorLocked() | bool | カーソルを固定しているか
+GetMouseWorldPosition() | XMFLOAT2 | 2D 用: マウスのワールド座標(カメラ位置を考慮、Y+ は上方向)
+GetPadLeftStick(int padIndex) | XMFLOAT2 | パッドの左スティック(-1〜1)
+GetPadRightStick(int padIndex) | XMFLOAT2 | パッドの右スティック
+GetPadTrigger(int trigger, int padIndex) | float | トリガー(`TRIGGER_LEFT` / `TRIGGER_RIGHT`)の押し具合(0〜1)
+Update() | void | 内部用: 毎フレーム GameEngine が呼ぶ
+SetHwnd(HWND hwnd) | void | `main.cpp` で1回だけ呼ぶ。マウス座標をこのウィンドウ基準にするため
+KEY_A | #define | キーの名前のマクロ。`KEY_A`〜`KEY_Z`、`KEY_0`〜`KEY_9`、`KEY_F1`〜`KEY_F12`、`KEY_SPACE`、`KEY_ENTER`、`KEY_ESCAPE`、`KEY_SHIFT`、`KEY_CTRL`、`KEY_ALT`、`KEY_TAB`、`KEY_BACK`、`KEY_UP` / `KEY_DOWN` / `KEY_LEFT` / `KEY_RIGHT`
+MOUSE_LEFT | #define | マウスボタン: `MOUSE_LEFT` / `MOUSE_RIGHT` / `MOUSE_MIDDLE`(キーと同じ `GetKeyDown` で調べる)
+PAD_A | #define | パッドボタン: `PAD_A` / `PAD_B` / `PAD_X` / `PAD_Y` / `PAD_UP` / `PAD_DOWN` / `PAD_LEFT` / `PAD_RIGHT` / `PAD_START` / `PAD_BACK` / `PAD_LB` / `PAD_RB` / `PAD_LTHUMB` / `PAD_RTHUMB`
+=code Sample2D/Game/Components/PlayerController.cpp:47-52,63-65
+=code Sample3D/Game/Components/CameraController.cpp:39-53
+=notes
+- 2D のオブジェクトとマウスを比べる時は `GetMousePosition()` ではなく **`GetMouseWorldPosition()`** を使います(カメラの位置を考慮済みで、Y+ が上)。`GetMousePosition()` はカメラを考えない「画面上の位置」です。
+- `GetMousePosition()` は Y+ が **下**、`GetMouseWorldPosition()` は Y+ が **上** です。向きが逆なので注意。
+- カーソル固定中は、別のウィンドウを選んだり最小化したりすると自動で解除されます。固定したフレームの `GetMouseDelta()` は 0 です。
+- ポーズ中に操作を止めたい時は `Time::IsPaused()` で調べます(入力は時間の倍率の影響を受けません)。
+=demo Core カテゴリの「Input」(キー・マウス・パッドの今の状態)
+=readme §5(座標の表), §14
+
+=file Engine/Core/MathUtil.h, MathUtil.cpp
+=class Math(名前空間)
+=role
+方向・距離・角度・乱数の計算をまとめた物です(Unity の `Mathf` と `Vector3` の計算を合わせたもの)。角度はすべて **度** です。`XMFLOAT2` / `XMFLOAT3` の `+` `-` `*` も使えるようになります。
+=table
+operator+ / operator- / operator* | XMFLOAT2・XMFLOAT3 | ベクトルの足し算・引き算・何倍か(`namespace DirectX` に定義)
+Length(v) | float | ベクトルの長さ(XMFLOAT2 / XMFLOAT3 版)
+Distance(a, b) | float | 2点の距離(XMFLOAT2 / XMFLOAT3 版)
+DistanceSq(a, b) | float | 距離の2乗。大小を比べるだけなら `sqrt` が無くて速い
+Normalize(v) | XMFLOAT2 / XMFLOAT3 | 長さ1にする(長さがほぼ0なら 0 ベクトル)
+DirectionTo(from, to) | XMFLOAT2 / XMFLOAT3 | from から to への向き(長さ1)
+Dot(a, b) | float | 内積(XMFLOAT3)
+Cross(a, b) | XMFLOAT3 | 外積(2つに垂直な向き)。`Cross({0,1,0}, 正面)` が右
+ToXY(XMFLOAT3 v) | XMFLOAT2 | x, y だけ取り出す(2D 用)
+Lerp(a, b, t) | float / XMFLOAT3 | a と b の間(t=0 で a、t=1 で b。t は制限しない)
+Clamp(value, minValue, maxValue) | float | 範囲内に収める
+MoveTowards(current, target, maxDistance) | XMFLOAT3 | target へ最大 maxDistance だけ近づく(行き過ぎない)
+DeltaAngle(current, target) | float | 角度の差(-180〜180)。350度と10度の差は20度
+MoveTowardsAngle(current, target, maxDelta) | float | 近い回り方で、最大 maxDelta だけ角度を近づける
+AngleToTarget2D(XMFLOAT2 from, XMFLOAT2 to) | float | to の方を向く `rotate.z`(rotate.z=0 で上向き)
+AngleToTargetY(XMFLOAT3 from, XMFLOAT3 to) | float | to の方を向く `rotate.y`(3D の水平の向き。rotate.y=0 で +Z)
+Forward2D(const Transform& t) | XMFLOAT2 | 2D の正面(rotate.z=0 で (0,1))
+Forward3D(const Transform& t) | XMFLOAT3 | 3D の水平の正面(rotate.y だけ使う。rotate.y=0 で (0,0,1))
+RandomRange(float minValue, float maxValue) | float | 範囲のランダムな小数
+RandomRange(int minValue, int maxValue) | int | 範囲のランダムな整数(maxValue も含む)
+RandomOnCircle(float radius) | XMFLOAT2 | 原点中心・半径 radius の円周上のランダムな点
+=code Sample2D/Game/Components/PlayerController.cpp:56-60
+=code Sample3D/Game/Components/PlayerController.cpp:72-85
+=notes
+- 角度はラジアンではなく **度** です。
+- 2D は `rotate.z=0` で **上(Y+)向き**、増えると左回り。3D の `rotate.y=0` は **+Z 向き**、増えると +X 側へ回ります。
+- `Lerp` の `t` は 0〜1 に制限されません。制限したい時は `Clamp` と組み合わせます。
+- 長さ 0 のベクトルを `Normalize` しても 0 で割らず、0 ベクトルを返します。
+=demo Core カテゴリの「Math」
+=readme §9
+
+=file Engine/Core/Time.h, Time.cpp
+=class Time(名前空間)
+=role
+1フレームの時間・起動してからの時間・時間の倍率(スロー / ポーズ)です。Unity の `Time` と同じです。
+=table
+GetDeltaTime() | float | 1フレームの時間(秒)。倍率の影響を受ける(ポーズ中は 0)
+GetUnscaledDeltaTime() | float | 倍率の影響を受けない本当の時間(ポーズ中も動かしたい UI 用)
+GetTime() | float | 起動してからの時間(秒)。倍率の影響を受ける
+SetTimeScale(float scale) | void | 時間の倍率(1=通常、0.3=スロー、0=ポーズ)。負の値は 0 にする
+GetTimeScale() | float | 今の倍率(シーン切り替えの演出中は 0)
+IsPaused() | bool | ポーズ中か(倍率が 0 の時 `true`。シーン切り替えの演出中も `true`)
+Init() / Update() | void | 内部用: GameEngine が呼ぶ
+PauseForSceneTransition() | void | 内部用: SceneManager が演出の開始時に呼ぶ
+ResumeAfterSceneTransition() | void | 内部用: SceneManager が演出の終了時に呼ぶ
+=code Demo/Game/Components/Core/TimeDemoController.cpp:28-28,33-34
+=notes
+- 1フレームの時間には上限(0.1秒)があり、ウィンドウのドラッグ中などでも大きな値になりません。
+- **シーン切り替えの演出の間は倍率 0 になります**。演出中に `SetTimeScale` を呼んでも、演出が終わってから効きます。
+- ポーズ中でも動かしたい物(メニューなど)は `GetUnscaledDeltaTime()` を使います。
+- **ポーズ中も、各 Component の `Update` は止まりません**(`dt` が 0 で呼ばれ続けます。PhysX の物理は止まります)。キー入力を止めたい Controller は、`Update` の先頭に `if (Time::IsPaused()) return;` と書きます(README §10)。
+- `Engine` フォルダをインクルードパスに追加しないこと(標準の `<time.h>` と名前がぶつかります)。
+=demo Core カテゴリの「Time」
+=readme §10
+
+=file Engine/Core/Timer.h
+=class Timer
+=role
+「○秒たったら」を数えるタイマーです。Component のメンバに持ち、毎フレーム `Update(dt)` を呼びます。
+=table
+Timer(float duration, bool loop) | コンストラクタ | 何秒で時間が来るか、繰り返すか(既定は 1秒・繰り返さない)
+Update(float dt) | bool | 時間を進める。**時間が来たフレームだけ** `true`
+Reset() | void | 最初から数え直す
+Complete() | void | すぐに「終わった状態」にする(loop の時は次の Update で時間が来る)
+GetProgress() | float | 進み具合(0〜1)
+IsFinished() | bool | 終わったか(loop のタイマーは終わらないので常に `false`)
+duration / loop / elapsed / finished | メンバ変数 | 秒数・繰り返し・経過時間・終わったか
+=code Sample2D/Game/Components/BulletController.h:15-15
+=code Sample2D/Game/Components/PlayerController.cpp:14-16,29-31,76-78
+=notes
+- 繰り返さない Timer は、時間が来た後に `Update` しても `false` のままです。もう一度数える時は `Reset()`。
+- 「最初は終わった状態にしておき、きっかけで数え始める」(無敵時間など)は、`Complete()` で始めて、きっかけの時に `Reset()` します。
+- 繰り返す Timer で `duration` が 0 以下だと、`Update` のたびに毎回 `true` になります。
+=demo Core カテゴリの「Time」(Timer の使い方もここ)
+=readme §10
+
+=file Engine/Core/Resources.h, Resources.cpp
+=class Resources(名前空間)
+=role
+画像・音・モデルを「何度も読み込まない」ための仕組みです。同じパスのものは1回だけ読み、何人が使っているか(参照カウント)を数えます。`SpriteRenderer` や `Audio` が中で自動的に使うので、普段は意識しなくて構いません。
+=table
+LoadTexture(const std::wstring& path) | unsigned int | 画像を借りる。同じパスは同じ ID を返す。失敗したら `UINT_MAX`
+ReleaseTexture(unsigned int id) | void | 借りた画像を返す(カウントを1減らす。0 になってもすぐには解放しない)
+LoadSound(const std::wstring& path) | unsigned int | 音(WAV)を借りる。失敗したら `UINT_MAX`
+ReleaseSound(unsigned int id) | void | 借りた音を返す
+LoadModel(const std::wstring& path) | std::shared_ptr<Model> | FBX / OBJ モデルを借りる。失敗したら `nullptr`
+UnloadUnused() | void | 誰も使っていない画像・音・モデルをまとめて解放する(シーン切り替えの時に SceneManager が呼ぶ)
+UnloadAll() | void | 内部用: 終了時にすべて解放する
+=code Sample2D/Game/Components/BackgroundController.cpp:10-13,36-40
+=code Demo/Game/Components/Core/ResourcesDemoController.cpp:23-27
+=notes
+- パスの `\` と `/`、大文字小文字の違いは同じものとして扱われます。
+- `Release` しても、すぐにはメモリから消えません(弾や敵のように出たり消えたりする物が読み直さないため)。実際に解放されるのは `UnloadUnused()` の時です。
+- `LoadTexture` で借りたら、不要になった時に必ず `ReleaseTexture` で返します(`Uninit` で)。`SpriteRenderer` は自動で返します。
+=demo Core カテゴリの「Resources」
+=readme §11
+
+=file Engine/Core/EventBus.h
+=class EventBus
+=role
+名前で識別する通知の仕組みです(イベントバス / Pub-Sub)。「何が起きたか」を知らせる側と、それを聞いて動く側が、お互いを直接知らなくて済みます。アプリ全体で1つ(`EventBus::Get()`)。
+=table
+Get() | static EventBus& | 唯一の EventBus を返す
+Subscribe(const std::string& eventName, Callback callback) | void | 引数なしイベントを「聞く」登録。`Callback` は `std::function<void()>`
+Publish(const std::string& eventName) | void | 引数なしイベントを知らせる。登録された処理が全部呼ばれる
+SubscribeObject(const std::string& eventName, ObjectCallback callback) | void | GameObject を1つ受け取るイベントの登録。`ObjectCallback` は `std::function<void(GameObject*)>`
+PublishObject(const std::string& eventName, GameObject* obj) | void | 「誰が」を添えて知らせる
+Clear() | void | 登録を全部消す(シーンの `Uninit` で呼ぶ)
+=code Sample2D/Game/Components/GameManager.cpp:23-34
+=code Sample2D/Game/Components/BulletManager.cpp:34-39
+=notes
+- ラムダで `this` をキャプチャして登録したら、そのシーンの `Uninit()` で必ず `EventBus::Get().Clear()` を呼びます(消えたオブジェクトを呼ぶバグになるため)。
+- イベント名は PascalCase の文字列(`"EnemyDefeated"` など)。綴りを間違えても、エラーにならず何も起きないだけなので注意。
+- 通知を送るだけで、返事は返ってきません。「結果を知りたい」時は、他の Component のポインタを工場関数の引数で渡す方が向いています。
+=demo Core カテゴリの「EventBus」
+=readme §7
+
+=file Engine/Core/ObjectPool.h
+=class ObjectPool
+=role
+同じ種類の GameObject を使い回す入れ物です。弾やエフェクトなど「出しては消す」物の作り直しを減らします。
+=table
+Prewarm(Scene& scene, int count, const Setup& setup) | void | あらかじめ count 個作って、非表示で用意しておく(任意)
+Rent(Scene& scene, const Setup& setup) | GameObject* | 1個借りてアクティブにして返す。空きが無ければ新しく作る
+Return(GameObject* obj) | void | 使い終わった物を非アクティブに戻す(Destroy ではない)
+GetPoolSize() | int | プールが作った GameObject の数
+GetObjects() | const std::vector<GameObject*>& | プールの全 GameObject(使っていない物も含む)。使用中かは `GetIsActive()` で調べる
+Setup | std::function<void(GameObject*)> | 組み立て処理の型。新しく作る時にだけ呼ばれる(AddComponent を並べる)
+=code Sample2D/Game/Components/BulletManager.cpp:42-46
+=code Sample2D/Game/Components/BulletController.cpp:12-15
+=code Demo/Game/Components/Core/PoolDemoController.cpp:30-33
+=notes
+- 借りた GameObject には **前回使った時の値が残っています**(位置・色など)。借りた直後に毎回セットし直します。
+- `ObjectPool` は、そのシーンの GameObject に付けた Component の **メンバ** として持ちます(`static` 変数にしない。シーンが終わると中の GameObject は消えるため)。
+- 組み立て処理(`Setup`)は新しく作る時の1回だけです。毎回やりたい初期化は、借りた後に書きます。
+=demo Core カテゴリの「Pool」
+=readme §8

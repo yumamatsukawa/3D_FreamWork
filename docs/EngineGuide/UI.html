@@ -1,0 +1,275 @@
+﻿<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>UI(文字・ボタン・ゲージ・スライダー) - Engine解説</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="layout">
+<nav class="side">
+<div class="brand"><a href="index.html">Engine解説</a></div>
+<div class="search"><input type="search" id="q" placeholder="関数名・クラス名・ファイル名を検索" autocomplete="off"><ul id="results"></ul></div>
+<ul class="menu">
+<li><a href="index.html">トップ</a></li>
+<li><a href="architecture.html">設計図(図解)</a></li>
+<li><a href="Core.html">Core</a></li>
+<li><a href="Render.html">Render</a></li>
+<li><a href="Render3D.html">Render3D</a></li>
+<li><a href="Physics.html">Physics</a></li>
+<li><a href="UI.html" class="current">UI</a></li>
+<li><a href="Animation.html">Animation</a></li>
+<li><a href="Transition.html">Transition</a></li>
+<li><a href="Behavior.html">Behavior</a></li>
+<li><a href="Audio.html">Audio</a></li>
+<li><a href="Data.html">Data</a></li>
+<li><a href="ThirdParty.html">ThirdParty</a></li>
+<li><a href="files.html">ファイル索引</a></li>
+<li><a href="glossary.html">用語集</a></li>
+</ul>
+<p class="sidenote">3D_FreamWork の Engine を、初心者向けに解説したページです。</p>
+</nav>
+<main>
+<h1>UI(文字・ボタン・ゲージ・スライダー)</h1>
+<div class="lead"><code>Engine/UI/</code> は、画面に文字や部品を出す仕組みです。文字(Text / TextRenderer)、画面の位置の決め方(Anchor)、ボタン、HP バーなどのゲージ、ドラッグで動かすスライダーが入っています。
+UI の座標は <strong>画面の中央が (0,0)、Y+ が上、単位はゲーム画面のピクセル</strong> です(<code>Text::Draw</code> も <code>Image::DrawRect</code> も <code>Anchor</code> も同じ)。</div>
+<div class="toc"><strong>このページのファイル</strong><ul>
+<li><a href="#f-Text">Text.h / Text.cpp</a></li>
+<li><a href="#f-TextRenderer">TextRenderer.h / TextRenderer.cpp</a></li>
+<li><a href="#f-Anchor">Anchor.h / Anchor.cpp</a></li>
+<li><a href="#f-ButtonComponent">ButtonComponent.h / ButtonComponent.cpp</a></li>
+<li><a href="#f-GaugeRenderer">GaugeRenderer.h / GaugeRenderer.cpp</a></li>
+<li><a href="#f-SliderComponent">SliderComponent.h / SliderComponent.cpp</a></li>
+</ul></div>
+<p><strong>描かれる順番</strong>: 文字と <code>Image::DrawRect</code> の四角は、<strong>UI スプライトの後に、呼んだ順</strong> に描かれます(Direct2D で描くため。<a href="architecture.html#draw">設計図の描画の順番</a>)。</p>
+<p><strong>Demo で見る</strong>: Demo プロジェクトの <strong>UI カテゴリ</strong>に、UI(ボタン・スライダー・ゲージ・TextRenderer)/ Rect / Text / WorldUI の4個のデモがあります。</p>
+<section class="file" id="f-Text">
+<h3><code>Engine/UI/Text.h</code> <code>Engine/UI/Text.cpp</code></h3>
+<p class="role">画面に文字を描きます(Direct2D / DirectWrite)。<code>Component::Draw</code> の中で <code>Text::Draw</code> を呼びます。文字の見た目は <code>TextStyle</code> にまとめます。</p>
+<div class="tw"><table class="api"><thead><tr><th>名前</th><th>引数・戻り値</th><th>何をするか</th></tr></thead><tbody>
+<tr><td class="fn"><code>Draw(const std::wstring&amp; text, float x, float y, const TextStyle&amp; style)</code></td><td class="sig"><code>void</code></td><td>文字を描く。<code>(x, y)</code> は <code>align</code> で決まる横の位置と、縦の中心(画面座標)</td></tr>
+<tr><td class="fn"><code>Draw(text, x, y, float size, XMFLOAT4 color, const std::wstring&amp; fontName)</code></td><td class="sig"><code>void</code></td><td>昔の書き方(中心に合わせて描く。縁取り・太字なし)</td></tr>
+<tr><td class="fn"><code>Measure(const std::wstring&amp; text, const TextStyle&amp; style)</code></td><td class="sig"><code>XMFLOAT2</code></td><td>描いた時の幅と高さ(ピクセル。縁取りは入らない)。<code>Update</code> の中で呼んでもよい</td></tr>
+<tr><td class="fn"><code>LoadFont(const std::wstring&amp; path)</code></td><td class="sig"><code>std::wstring</code></td><td>フォントファイル(.ttf / .otf)を読み込み、<code>TextStyle::fontName</code> に入れる名前を返す。同じファイルは 2 回読まない。失敗したら空</td></tr>
+<tr><td class="fn"><code>Init() / Uninit() / BeginDraw() / EndDraw()</code></td><td class="sig"><code>bool / void</code></td><td>内部用: GameEngine が呼ぶ</td></tr>
+<tr><td class="fn"><code>GetRenderTarget()</code></td><td class="sig"><code>ID2D1RenderTarget*</code></td><td>内部用: Direct2D の描画先(ScreenEffect などが使う)</td></tr>
+</tbody></table></div>
+<h4>TextStyle(文字の見た目)</h4>
+<div class="tw"><table class="api"><thead><tr><th>名前</th><th>引数・戻り値</th><th>何をするか</th></tr></thead><tbody>
+<tr><td class="fn"><code>size</code></td><td class="sig"><code>float</code></td><td>文字の大きさ(ピクセル。既定 32)</td></tr>
+<tr><td class="fn"><code>color</code></td><td class="sig"><code>XMFLOAT4</code></td><td>色(w は濃さ。縁取りも一緒に薄くなる)</td></tr>
+<tr><td class="fn"><code>fontName</code></td><td class="sig"><code>std::wstring</code></td><td>フォントの名前(<code>LoadFont</code> が返した名前か、PC に入っているフォント名。既定 Arial)</td></tr>
+<tr><td class="fn"><code>align</code></td><td class="sig"><code>TextAlign</code></td><td>横の寄せ方: <code>Left</code>(x が左端)/ <code>Center</code>(x が中心。既定)/ <code>Right</code>(x が右端)。縦はいつも中心</td></tr>
+<tr><td class="fn"><code>bold</code></td><td class="sig"><code>bool</code></td><td>太字</td></tr>
+<tr><td class="fn"><code>outlineColor</code></td><td class="sig"><code>XMFLOAT4</code></td><td>縁取りの色(a=0 なら縁取り無し)</td></tr>
+<tr><td class="fn"><code>outlineWidth</code></td><td class="sig"><code>float</code></td><td>縁取りの太さ(ピクセル。既定 2)</td></tr>
+</tbody></table></div>
+<div class="ex"><div class="exhead">使い方の例 <span class="src">出典: <code>Sample2D/Game/Components/HUDController.cpp:19-22</code></span></div><pre><code>void HUDController::Init() {
+    // フォントの読み込み(同じファイルは2回読まないので、シーンに入る度に呼んでよい)
+    fontName = Text::LoadFont(L&quot;Assets/Fonts/NotoSansJP[wght].ttf&quot;);
+}</code></pre></div>
+<div class="ex"><div class="exhead">使い方の例 <span class="src">出典: <code>Sample2D/Game/Components/HUDController.cpp:24-39</code></span></div><pre><code>void HUDController::Draw() {
+    wchar_t buf[64];
+
+    // 文字の見た目: 黒い縁取り。左上の文字は左寄せ(xが文字の左端)
+    TextStyle style;
+    style.fontName = fontName;
+    style.outlineColor = { 0.0f, 0.0f, 0.0f, 1.0f };
+    style.align = TextAlign::Left;
+
+    // スコアとハイスコア
+    if (gameManager) {
+        swprintf_s(buf, L&quot;Score: %d&quot;, gameManager-&gt;GetScore());
+        style.size = 28.f;
+        style.color = { 1.0f, 1.0f, 1.0f, 1.0f };
+        DirectX::XMFLOAT2 pos = GetAnchoredPosition(Anchor::TopLeft, scoreOffset);
+        Text::Draw(buf, pos.x, pos.y, style);</code></pre></div>
+<div class="notes"><strong>気を付ける点</strong><ul>
+<li><code>Text::Draw</code> は <strong><code>Component::Draw</code> の中</strong>(GameEngine の <code>Text::BeginDraw</code> 〜 <code>EndDraw</code> の間)で呼びます。<code>Update</code> の中で呼んでも描かれません。</li>
+<li>Scene::Draw の間に呼んだ <code>Text::Draw</code> は、その場では描かれず「オーバーレイキュー」に積まれ、<strong>UI スプライトの後に、呼んだ順</strong> で描かれます。そのため文字は UI のスプライトより必ず手前に出ます。</li>
+<li>フォントは <code>Text::LoadFont(L&quot;Assets/Fonts/○○.ttf&quot;)</code> で読むと、PC にインストールしていなくてもチーム全員で同じ見た目になります。フォントのライセンスファイルも一緒に置きます。</li>
+<li>日本語を含む文字は <code>L&quot;...&quot;</code> の文字列(<code>std::wstring</code>)で渡します。<code>.cpp</code> は UTF-8 の BOM 付きで保存します(CLAUDE.md)。</li>
+<li>画面座標は Y+ が上です。文字の位置は <code>GetAnchoredPosition</code> で画面の隅から決めると、画面サイズが変わってもずれません。</li>
+</ul></div>
+</section>
+<section class="file" id="f-TextRenderer">
+<h3><code>Engine/UI/TextRenderer.h</code> <code>Engine/UI/TextRenderer.cpp</code></h3>
+<p class="role">GameObject に付いて一緒に動く文字(ダメージの数字・キャラクターの名前など)を描く Component です。</p>
+<div class="tw"><table class="api"><thead><tr><th>名前</th><th>引数・戻り値</th><th>何をするか</th></tr></thead><tbody>
+<tr><td class="fn"><code>SetText(const std::wstring&amp; value)</code></td><td class="sig"><code>void</code></td><td>表示する文字</td></tr>
+<tr><td class="fn"><code>GetText()</code></td><td class="sig"><code>const std::wstring&amp;</code></td><td>今の文字</td></tr>
+<tr><td class="fn"><code>SetStyle(const TextStyle&amp; value)</code></td><td class="sig"><code>void</code></td><td>見た目(大きさ・色・フォントなど)</td></tr>
+<tr><td class="fn"><code>GetStyle()</code></td><td class="sig"><code>const TextStyle&amp;</code></td><td>今の見た目</td></tr>
+<tr><td class="fn"><code>SetColor(XMFLOAT4 color)</code></td><td class="sig"><code>void</code></td><td>文字の色だけ変える(w を下げると縁取りも薄くなる)</td></tr>
+<tr><td class="fn"><code>SetOffset(XMFLOAT3 value)</code></td><td class="sig"><code>void</code></td><td>オブジェクトの位置からずらす量(ワールド。頭の上など)</td></tr>
+<tr><td class="fn"><code>SetUse3DCamera(bool value)</code></td><td class="sig"><code>void</code></td><td>3D のオブジェクトに付ける時は <code>true</code></td></tr>
+<tr><td class="fn"><code>SetSizeMode(TextSizeMode value) / GetSizeMode()</code></td><td class="sig"><code>void / TextSizeMode</code></td><td>大きさの決め方: <code>Screen</code>(既定。距離で変わらない)/ <code>World</code>(3D カメラからの奥行きで変わる)</td></tr>
+<tr><td class="fn"><code>SetReferenceDistance(float value)</code></td><td class="sig"><code>void</code></td><td><code>World</code> で、<code>style.size</code> のピクセルになる奥行き(ワールド。既定 500。0 以下は 500 として扱う)</td></tr>
+<tr><td class="fn"><code>SetSizeRange(float minPixels, float maxPixels)</code></td><td class="sig"><code>void</code></td><td><code>World</code> の大きさの限界(ピクセル。既定は最小 8、最大は <code>style.size</code> の 3 倍。最大に 0 以下を渡すと 3 倍)</td></tr>
+<tr><td class="fn"><code>Draw()</code></td><td class="sig"><code>void (override)</code></td><td>内部の処理: 画面座標に直して描く</td></tr>
+</tbody></table></div>
+<div class="ex"><div class="exhead">使い方の例 <span class="src">出典: <code>Sample2D/Game/Objects/ScorePopup.cpp:17-26</code></span></div><pre><code>// 見た目: 黄色の太字に黒い縁取り
+TextStyle style;
+style.size = 32.f;
+style.color = { 1.0f, 0.9f, 0.3f, 1.0f };
+style.fontName = Text::LoadFont(L&quot;Assets/Fonts/NotoSansJP[wght].ttf&quot;);   // 同じファイルは2回読まない
+style.bold = true;
+style.outlineColor = { 0.0f, 0.0f, 0.0f, 1.0f };
+auto* text = popup-&gt;AddComponent&lt;TextRenderer&gt;();
+text-&gt;SetText(L&quot;+10&quot;);
+text-&gt;SetStyle(style);</code></pre></div>
+<div class="notes"><strong>気を付ける点</strong><ul>
+<li>2D は 2D カメラで画面座標に直します(<code>Image::WorldToScreen2D</code>)。カメラと一緒にスクロールします。3D のオブジェクトに付ける時は <code>SetUse3DCamera(true)</code>(カメラの後ろにある時は描かれません)。</li>
+<li>文字の大きさは、既定の <code>Screen</code> では <strong>カメラからの距離では変わりません</strong>(いつも <code>style.size</code> のピクセル)。</li>
+<li><code>SetSizeMode(TextSizeMode::World)</code> にすると、3D カメラからの奥行きに反比例して、遠いほど小さく近いほど大きくなります(<code>style.size &#215; 基準の奥行き &#247; 奥行き</code>)。小さすぎ・大きすぎは <code>SetSizeRange</code> の限界で止まり、縁取りの太さも大きさに合わせて変わります。</li>
+<li><code>World</code> が効くのは <strong><code>SetUse3DCamera(true)</code> の時だけ</strong> です。2D カメラには奥行きが無いので、2D で <code>World</code> を選んでも大きさは変わりません。</li>
+<li>文字は画面の一番上に出ます(画像や 3D の物の後ろには隠れません)。</li>
+</ul></div>
+</section>
+<section class="file" id="f-Anchor">
+<h3><code>Engine/UI/Anchor.h</code> <code>Engine/UI/Anchor.cpp</code></h3>
+<p class="role">「画面のどこを基準に置くか」を決める道具です(9 か所)。画面サイズが変わっても、隅や中央からの距離は変わりません。CSS でいう <code>position: absolute; top/left</code> のような考え方です。</p>
+<div class="tw"><table class="api"><thead><tr><th>名前</th><th>引数・戻り値</th><th>何をするか</th></tr></thead><tbody>
+<tr><td class="fn"><code>Anchor</code></td><td class="sig"><code>enum class</code></td><td><code>TopLeft</code> <code>Top</code> <code>TopRight</code> <code>Left</code> <code>Center</code> <code>Right</code> <code>BottomLeft</code> <code>Bottom</code> <code>BottomRight</code> の9か所</td></tr>
+<tr><td class="fn"><code>GetAnchoredPosition(Anchor anchor, XMFLOAT2 offset)</code></td><td class="sig"><code>XMFLOAT2</code></td><td>基準の位置(隅・辺の真ん中・中央)に <code>offset</code> を足した画面座標。下へずらす時は Y をマイナスにする</td></tr>
+<tr><td class="fn"><code>GetAnchoredCenter(Anchor anchor, XMFLOAT2 offset, XMFLOAT2 size)</code></td><td class="sig"><code>XMFLOAT2</code></td><td>大きさ <code>size</code> の四角を anchor 側に合わせて置いた時の、四角の中心の画面座標(バーがはみ出さない)</td></tr>
+</tbody></table></div>
+<div class="ex"><div class="exhead">使い方の例 <span class="src">出典: <code>Sample2D/Game/Components/HUDController.cpp:38-39</code></span></div><pre><code>DirectX::XMFLOAT2 pos = GetAnchoredPosition(Anchor::TopLeft, scoreOffset);
+Text::Draw(buf, pos.x, pos.y, style);</code></pre></div>
+<div class="notes"><strong>気を付ける点</strong><ul>
+<li><code>offset</code> は画面座標系(Y+ が上)でのずらす量です。左上から「右へ 40、下へ 40」なら <code>{ 40.f, -40.f }</code>。</li>
+<li>画面の大きさは <code>Graphics::width</code> / <code>Graphics::height</code> から毎回計算するので、画面サイズが変わってもずれません。</li>
+</ul></div>
+</section>
+<section class="file" id="f-ButtonComponent">
+<h3><code>Engine/UI/ButtonComponent.h</code> <code>Engine/UI/ButtonComponent.cpp</code></h3>
+<p class="role">クリックできるボタン(見た目の変化・クリック判定・文字の表示)を担当する Component です。見た目の画像は、同じオブジェクトに付けた <code>SpriteRenderer</code> を使います(<strong>先に付けておく</strong>)。</p>
+<div class="tw"><table class="api"><thead><tr><th>名前</th><th>引数・戻り値</th><th>何をするか</th></tr></thead><tbody>
+<tr><td class="fn"><code>ButtonComponent(const std::wstring&amp; label, float textSize, std::function&lt;void()&gt; onClick)</code></td><td class="sig"><code>コンストラクタ</code></td><td>ボタンの文字・文字の大きさ(既定 48)・押された時の処理</td></tr>
+<tr><td class="fn"><code>SetOnClick(std::function&lt;void()&gt; callback)</code></td><td class="sig"><code>void</code></td><td>クリックされた時に呼ぶ関数を後から変える</td></tr>
+<tr><td class="fn"><code>SetLabel(const std::wstring&amp; text)</code></td><td class="sig"><code>void</code></td><td>ボタンに表示する文字</td></tr>
+<tr><td class="fn"><code>SetInteractable(bool enabled)</code></td><td class="sig"><code>void</code></td><td><code>false</code> で押せなくして灰色にする</td></tr>
+<tr><td class="fn"><code>IsInteractable()</code></td><td class="sig"><code>bool</code></td><td>押せるか</td></tr>
+<tr><td class="fn"><code>Init() / Update(float dt) / Draw()</code></td><td class="sig"><code>void (override)</code></td><td>内部の処理</td></tr>
+</tbody></table></div>
+<div class="ex"><div class="exhead">使い方の例 <span class="src">出典: <code>Sample2D/Game/Objects/Button.cpp:9-18</code></span></div><pre><code>// 位置と大きさ
+GameObject* button = scene.CreateObject(&quot;Button&quot;);
+button-&gt;transform.position = { position.x, position.y, 0.f };
+button-&gt;transform.scale = { 320.f, 96.f, 1.f };
+
+// 見た目
+button-&gt;AddComponent&lt;SpriteRenderer&gt;(L&quot;Assets/button.png&quot;);
+
+// クリック判定・文字の表示(文字の大きさ48)
+button-&gt;AddComponent&lt;ButtonComponent&gt;(label, 48.f, std::move(onClick));</code></pre></div>
+<div class="ex"><div class="exhead">使い方の例 <span class="src">出典: <code>Sample2D/Game/Objects/StartButton.cpp:10-14</code></span></div><pre><code>GameObject* button = CreateButton(scene, L&quot;START&quot;, { 0.f, -150.f }, [] {
+    // 黒で0.5秒かけて暗転 → GameSceneへ切り替え → 0.5秒かけて明転
+    // (切り替え中にもう一度押されても、SceneManagerが無視するので二重に切り替わらない)
+    SceneManager::Get().ChangeScene&lt;GameScene&gt;(FadeTransition());
+});</code></pre></div>
+<div class="notes"><strong>気を付ける点</strong><ul>
+<li>クリック判定は <strong>ワールド座標</strong> で行います(<code>Input::GetMouseWorldPosition</code> と <code>transform</code> の位置・大きさ・回転)。ボタンの大きさは <code>transform.scale</code>(クリック判定もこの大きさ)。</li>
+<li><strong><code>transform.scale</code> は <code>AddComponent</code> する前に決めておく</strong>(文字の大きさの基準になるため)。</li>
+<li>押して、同じボタンの上で離した時だけ <code>onClick</code> が呼ばれます(途中でボタンの外に出たらキャンセル)。</li>
+<li>押している間は暗く、マウスが乗っている間は明るく、それ以外は少し暗めになります(<code>SpriteRenderer</code> の色を変えます)。</li>
+<li>スライダーのつまみをつかんでいる間は、ボタンは反応しません。</li>
+<li><code>onClick</code> の中で <code>SceneManager::ChangeScene</code> を呼ぶと、切り替え中の二重押しは無視されます。</li>
+</ul></div>
+</section>
+<section class="file" id="f-GaugeRenderer">
+<h3><code>Engine/UI/GaugeRenderer.h</code> <code>Engine/UI/GaugeRenderer.cpp</code></h3>
+<p class="role">HP バーなどの「帯のゲージ」を描く Component です。値を表示するだけで、値の持ち主にはなりません(HP は <code>PlayerController</code> などが持ち、ゲージは読んで表示するだけ)。</p>
+<div class="tw"><table class="api"><thead><tr><th>名前</th><th>引数・戻り値</th><th>何をするか</th></tr></thead><tbody>
+<tr><td class="fn"><code>SetValue(float current, float max)</code></td><td class="sig"><code>void</code></td><td>今の値と最大値(中身の割合 = current / max)</td></tr>
+<tr><td class="fn"><code>SetValueSource(std::function&lt;float()&gt; currentGetter, std::function&lt;float()&gt; maxGetter)</code></td><td class="sig"><code>void</code></td><td>毎フレーム自動で読む関数を決める(値の持ち主のゲッターを渡す)</td></tr>
+<tr><td class="fn"><code>GetRatio()</code></td><td class="sig"><code>float</code></td><td>中身の割合(0〜1)</td></tr>
+<tr><td class="fn"><code>GetDelayedRatio()</code></td><td class="sig"><code>float</code></td><td>遅れて縮む帯の割合(0〜1)</td></tr>
+<tr><td class="fn"><code>SetColors(XMFLOAT4 fill, XMFLOAT4 background)</code></td><td class="sig"><code>void</code></td><td>中身の色と背景の色</td></tr>
+<tr><td class="fn"><code>SetDelayedBar(bool enabled, XMFLOAT4 color)</code></td><td class="sig"><code>void</code></td><td>減った分を少し遅れて縮める帯(ダメージ量が分かる)</td></tr>
+<tr><td class="fn"><code>SetSize(float width, float height)</code></td><td class="sig"><code>void</code></td><td>幅と高さ(ピクセル。0 以下は無視)</td></tr>
+<tr><td class="fn"><code>SetAnchor(Anchor anchorPoint, XMFLOAT2 offset)</code></td><td class="sig"><code>void</code></td><td>画面に固定して表示する(左上の HP など)</td></tr>
+<tr><td class="fn"><code>SetFollowTarget(GameObject* followTarget, XMFLOAT2 offset)</code></td><td class="sig"><code>void</code></td><td>オブジェクトの上に表示する(敵の頭上)。<code>offset</code> はワールドでずらす量</td></tr>
+<tr><td class="fn"><code>SetUse3DCamera(bool enabled)</code></td><td class="sig"><code>void</code></td><td>3D のオブジェクトを追う時は <code>true</code></td></tr>
+<tr><td class="fn"><code>Update(float dt) / Draw()</code></td><td class="sig"><code>void (override)</code></td><td>内部の処理</td></tr>
+</tbody></table></div>
+<div class="ex"><div class="exhead">使い方の例 <span class="src">出典: <code>Sample2D/Game/Objects/HUD.cpp:14-24</code></span></div><pre><code>// HPゲージ(HPの文字の下、画面の左上に固定。値は持たず、PlayerControllerのHPを毎フレーム読んで表示するだけ)
+GaugeRenderer* gauge = hud-&gt;AddComponent&lt;GaugeRenderer&gt;();
+gauge-&gt;SetAnchor(Anchor::TopLeft, { 80.f, -135.f });
+gauge-&gt;SetSize(240.f, 16.f);
+gauge-&gt;SetColors({ 1.0f, 0.4f, 0.4f, 1.0f }, { 0.0f, 0.0f, 0.0f, 0.6f });
+gauge-&gt;SetDelayedBar(true, { 1.0f, 0.9f, 0.4f, 1.0f });   // 減った分が少し遅れて縮む
+if (player) {
+    gauge-&gt;SetValueSource(
+        [player] { return static_cast&lt;float&gt;(player-&gt;GetHp()); },
+        [player] { return static_cast&lt;float&gt;(player-&gt;GetMaxHp()); });
+}</code></pre></div>
+<div class="ex"><div class="exhead">使い方の例 <span class="src">出典: <code>Sample2D/Game/Objects/Player.cpp:39-46</code></span></div><pre><code>// 頭上のHPバー(Playerの上70の位置に出る。値は持たず、PlayerControllerのHPを毎フレーム読んで表示するだけ)
+auto* gauge = player-&gt;AddComponent&lt;GaugeRenderer&gt;();
+gauge-&gt;SetFollowTarget(player, { 0.f, 70.f });
+gauge-&gt;SetSize(80.f, 10.f);
+gauge-&gt;SetDelayedBar(true, { 1.0f, 0.9f, 0.4f, 1.0f });   // 減った分が少し遅れて縮む
+gauge-&gt;SetValueSource(
+    [controller] { return static_cast&lt;float&gt;(controller-&gt;GetHp()); },
+    [controller] { return static_cast&lt;float&gt;(controller-&gt;GetMaxHp()); });</code></pre></div>
+<div class="notes"><strong>気を付ける点</strong><ul>
+<li>帯は <code>Image::DrawRect</code>(Direct2D)で描くので、カメラの影響を受けず、画像や 3D の後に重なります。</li>
+<li><code>SetFollowTarget</code> の <strong>target は、このゲージより長く生きるオブジェクト</strong> にします(ゲージを付けたオブジェクト自身なら安全)。別のオブジェクトを target にして、それが消えるなら、先に <code>SetFollowTarget(nullptr, ...)</code> するか、ゲージ側も Destroy します(ポインタだけでは消えたかが分からないため)。</li>
+<li>3D のオブジェクトの頭上に出す時は <code>SetUse3DCamera(true)</code>(カメラの後ろにある時は描かれません)。</li>
+<li>最大値が 0 以下なら、中身は空として描かれます。現在の値は 0〜最大値に収めて描きます。</li>
+<li>遅れて縮む帯の時間は <code>Update</code> の <code>dt</code> で進むので、ポーズ中は止まります。</li>
+</ul></div>
+</section>
+<section class="file" id="f-SliderComponent">
+<h3><code>Engine/UI/SliderComponent.h</code> <code>Engine/UI/SliderComponent.cpp</code></h3>
+<p class="role">マウスのドラッグで値を変えるスライダー(音量の設定など)を描いて動かす Component です。</p>
+<div class="tw"><table class="api"><thead><tr><th>名前</th><th>引数・戻り値</th><th>何をするか</th></tr></thead><tbody>
+<tr><td class="fn"><code>SetRange(float minimum, float maximum)</code></td><td class="sig"><code>void</code></td><td>値の範囲(逆なら入れ替える)</td></tr>
+<tr><td class="fn"><code>SetValue(float newValue)</code></td><td class="sig"><code>void</code></td><td>値を設定する(範囲と刻み幅に合わせる)。<code>onChanged</code> は呼ばれない</td></tr>
+<tr><td class="fn"><code>GetValue()</code></td><td class="sig"><code>float</code></td><td>今の値</td></tr>
+<tr><td class="fn"><code>SetStep(float stepSize)</code></td><td class="sig"><code>void</code></td><td>刻み幅(0 = 刻まない)</td></tr>
+<tr><td class="fn"><code>SetOnChanged(std::function&lt;void(float)&gt; callback)</code></td><td class="sig"><code>void</code></td><td>つまみを動かして値が実際に変わった時に呼ぶ</td></tr>
+<tr><td class="fn"><code>SetOnDragEnd(std::function&lt;void(float)&gt; callback)</code></td><td class="sig"><code>void</code></td><td>つまみを離した時に 1 回呼ぶ(保存など)</td></tr>
+<tr><td class="fn"><code>SetAnchor(Anchor anchorPoint, XMFLOAT2 anchorOffset)</code></td><td class="sig"><code>void</code></td><td>画面のどこに置くか</td></tr>
+<tr><td class="fn"><code>SetSize(float width, float height)</code></td><td class="sig"><code>void</code></td><td>溝の幅と高さ(ピクセル)</td></tr>
+<tr><td class="fn"><code>SetColors(XMFLOAT4 track, XMFLOAT4 fill, XMFLOAT4 handle)</code></td><td class="sig"><code>void</code></td><td>溝・左側・つまみの色</td></tr>
+<tr><td class="fn"><code>SetLabel(const std::wstring&amp; text, const TextStyle&amp; style)</code></td><td class="sig"><code>void</code></td><td>スライダーの上に出す文字</td></tr>
+<tr><td class="fn"><code>IsDragging()</code></td><td class="sig"><code>bool</code></td><td>つまみをつかんでいるか</td></tr>
+<tr><td class="fn"><code>IsAnyDragging()</code></td><td class="sig"><code>static bool</code></td><td>どれかのスライダーのつまみをつかんでいるか(ボタンが反応を止めるために使う)</td></tr>
+<tr><td class="fn"><code>Update(float dt) / Draw() / OnActiveChanged(bool) / Uninit()</code></td><td class="sig"><code>void (override)</code></td><td>内部の処理</td></tr>
+</tbody></table></div>
+<div class="ex"><div class="exhead">使い方の例 <span class="src">出典: <code>Sample2D/Game/Objects/VolumeSlider.cpp:11-30</code></span></div><pre><code>// スライダー(画面の下の真ん中。値は0〜1)
+SliderComponent* slider = object-&gt;AddComponent&lt;SliderComponent&gt;();
+slider-&gt;SetRange(0.f, 1.f);
+slider-&gt;SetAnchor(Anchor::Bottom, { 0.f, 90.f });
+slider-&gt;SetSize(300.f, 12.f);
+
+// 文字(スライダーの上)
+TextStyle labelStyle;
+labelStyle.size = 28.f;
+labelStyle.outlineColor = { 0.0f, 0.0f, 0.0f, 1.0f };
+slider-&gt;SetLabel(L&quot;Volume&quot;, labelStyle);
+
+// 値の持ち主はTitleController。最初はその音量を表示して、動かしたらその音量を変えてもらう
+if (title) {
+    slider-&gt;SetValue(title-&gt;GetVolume());
+    slider-&gt;SetOnChanged([title](float volume) { title-&gt;SetVolume(volume); });
+}
+
+// つまみを離した時に、ファイルへ保存する(動かしている間は保存しない)
+slider-&gt;SetOnDragEnd([](float) { SaveData::Save(); });</code></pre></div>
+<div class="notes"><strong>気を付ける点</strong><ul>
+<li><code>SetOnChanged</code> は、<strong>つまみを動かして値が変わった時だけ</strong> 呼ばれます。コードから <code>SetValue</code> / <code>SetRange</code> / <code>SetStep</code> で変えた時は呼ばれません(最初の値を決める時に保存が動かないように)。</li>
+<li>ポーズ中・シーン切り替え中(<code>Time::IsPaused()</code>)は操作できません。</li>
+<li><strong>つかんでいる間に、このコンポーネントだけを <code>SetEnabled(false)</code> しない</strong>(<code>IsAnyDragging()</code> が <code>true</code> のままになり、ボタンが反応しなくなる)。止めたい時は GameObject ごと <code>SetActive(false)</code> にします。</li>
+<li>位置は <code>SetAnchor</code> で決めます(溝の anchor 側の角が合う)。画面に固定して表示し、カメラの影響を受けません。</li>
+</ul></div>
+</section>
+
+<footer class="foot">この解説は <code>docs/EngineGuide/tools/build.ps1</code> で作っています。表の内容は Engine のヘッダーから拾っています。コード例は Sample2D / Sample3D / Demo の実際のソースを読み込んで載せています。</footer>
+</main>
+</div>
+<script src="search-index.js"></script>
+<script src="search.js"></script>
+</body>
+</html>

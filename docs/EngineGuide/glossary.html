@@ -1,0 +1,252 @@
+﻿<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>用語集 - Engine解説</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="layout">
+<nav class="side">
+<div class="brand"><a href="index.html">Engine解説</a></div>
+<div class="search"><input type="search" id="q" placeholder="関数名・クラス名・ファイル名を検索" autocomplete="off"><ul id="results"></ul></div>
+<ul class="menu">
+<li><a href="index.html">トップ</a></li>
+<li><a href="architecture.html">設計図(図解)</a></li>
+<li><a href="Core.html">Core</a></li>
+<li><a href="Render.html">Render</a></li>
+<li><a href="Render3D.html">Render3D</a></li>
+<li><a href="Physics.html">Physics</a></li>
+<li><a href="UI.html">UI</a></li>
+<li><a href="Animation.html">Animation</a></li>
+<li><a href="Transition.html">Transition</a></li>
+<li><a href="Behavior.html">Behavior</a></li>
+<li><a href="Audio.html">Audio</a></li>
+<li><a href="Data.html">Data</a></li>
+<li><a href="ThirdParty.html">ThirdParty</a></li>
+<li><a href="files.html">ファイル索引</a></li>
+<li><a href="glossary.html" class="current">用語集</a></li>
+</ul>
+<p class="sidenote">3D_FreamWork の Engine を、初心者向けに解説したページです。</p>
+</nav>
+<main>
+<!--title: 用語集-->
+<h1>用語集</h1>
+<div class="lead">
+初心者が引っかかりやすい言葉を、やさしく説明します。「<span class="unity-tag">Unity では</span>」は、Unity の同じ考え方との対応です。使っている言葉の解説ページへのリンクもあります。
+</div>
+<div class="toc"><strong>分類</strong>
+<ul>
+<li><a href="#g-base">基本の仕組み</a></li>
+<li><a href="#g-draw">描画</a></li>
+<li><a href="#g-3d">3D の見た目</a></li>
+<li><a href="#g-physics">物理</a></li>
+<li><a href="#g-move">動きと AI</a></li>
+<li><a href="#g-anim">アニメーション</a></li>
+<li><a href="#g-ui">UI・音・データ</a></li>
+<li><a href="#g-cpp">C++ の言葉</a></li>
+</ul></div>
+<p><input type="search" id="gfilter" class="filter" placeholder="用語を絞り込み(例: Rigidbody, 深度)" autocomplete="off"></p>
+
+<h2 id="g-base">基本の仕組み</h2>
+<dl class="glossary">
+<dt id="t-component">Component(コンポーネント)</dt>
+<dd>GameObject に付ける「部品」。見た目(<code>SpriteRenderer</code>)、動き(<code>PlayerController</code>)、当たり判定(<code>RigidbodyComponent</code>)など、1 つの機能を 1 つの部品にしたもの。<code>Component</code> を継承して作り、<code>Init</code> / <code>Update</code> / <code>Draw</code> などを書く。<div class="unity">Unity では: <code>MonoBehaviour</code>(と、<code>Rigidbody</code> などの組み込みコンポーネント)。 → <a href="Core.html#f-Component"><code>Component</code></a></div></dd>
+<dt id="t-gameobject">GameObject(ゲームオブジェクト)</dt>
+<dd>ゲームの中の「物」の入れ物。それ自体は何もせず、名前・タグ・<code>transform</code> を持ち、Component を付けて見た目や動きを作る。<div class="unity">Unity では: <code>GameObject</code>。 → <a href="Core.html#f-GameObject"><code>GameObject</code></a></div></dd>
+<dt id="t-scene">Scene(シーン)</dt>
+<dd>GameObject を入れておく入れ物で、ゲームの画面の単位(タイトル・プレイ画面など)。<code>Init()</code> に「何を置くか」だけを書く。<div class="unity">Unity では: Scene。 → <a href="Core.html#f-Scene"><code>Scene</code></a></div></dd>
+<dt id="t-scenemanager">SceneManager</dt>
+<dd>今のシーンを持ち、シーンの切り替えを行う。アプリに 1 つだけ(<code>SceneManager::Get()</code>)。<div class="unity">Unity では: <code>SceneManager.LoadScene</code>。 → <a href="Core.html#f-SceneManager"><code>SceneManager</code></a></div></dd>
+<dt id="t-transform">Transform(トランスフォーム)</dt>
+<dd>位置(<code>position</code>)・大きさ(<code>scale</code>)・回転(<code>rotate</code>、度)と、親子関係を持つ。子の <code>position</code> は「親から見た位置」(ローカル)。<div class="unity">Unity では: <code>Transform</code>。 → <a href="Core.html#f-Transform"><code>Transform</code></a></div></dd>
+<dt id="t-tag">タグ(Tag)</dt>
+<dd>GameObject に付ける種類の名前("Player"・"Enemy"・"Wall" など)。当たった相手の種類の判定や、<code>Physics::Raycast</code> / <code>OverlapSphere</code> の絞り込み、壁の判定に使う。<div class="unity">Unity では: Tag。</div></dd>
+<dt id="t-init">Init / Update / Draw / Uninit</dt>
+<dd>Component が呼ばれるタイミング。<code>Init</code> は <code>AddComponent</code> の中で 1 回、<code>Update(dt)</code> は毎フレーム(動かす処理)、<code>Draw</code> は毎フレーム(描く処理)、<code>Uninit</code> は GameObject が消える時(後片付け)。<div class="unity">Unity では: <code>Start</code> / <code>Update</code> / <code>OnDestroy</code> にあたる(<code>Draw</code> に相当する物は Unity には無い)。</div></dd>
+<dt id="t-dt">dt(デルタタイム)</dt>
+<dd>前のフレームからの経過秒数。「1 秒に 100 動く」を「1 フレームに <code>100 * dt</code> 動く」に直すために掛ける。<div class="unity">Unity では: <code>Time.deltaTime</code>。 → <a href="Core.html#f-Time"><code>Time</code></a></div></dd>
+<dt id="t-timescale">TimeScale(時間の倍率)/ ポーズ</dt>
+<dd>ゲームの時間の進み方。1 が普通、0.3 がスロー、0 がポーズ。ポーズ中も <code>Update</code> は呼ばれ続ける(<code>dt</code> が 0)。ポーズ中も動かしたい物は <code>GetUnscaledDeltaTime()</code> を使う。<div class="unity">Unity では: <code>Time.timeScale</code>。 → <a href="Core.html#f-Time"><code>Time</code></a></div></dd>
+<dt id="t-destroy">Destroy と SetActive</dt>
+<dd><code>Destroy()</code> は「消す印」を付けるだけで、次の <code>Scene::Update</code> の最後に本当に消える。<code>SetActive(false)</code> は「お休み」(Update/Draw が止まる)で、消えない。<div class="unity">Unity では: <code>Destroy</code> と <code>SetActive</code>。</div></dd>
+<dt id="t-objectpool">ObjectPool(オブジェクトプール)</dt>
+<dd>弾や敵のように出しては消す物を、消さずに休ませて使い回す仕組み。作り直しの手間を減らす。借りた物には前回の値が残っているので、毎回セットし直す。<div class="unity">Unity では: <code>ObjectPool&lt;T&gt;</code>(UnityEngine.Pool)。 → <a href="Core.html#f-ObjectPool"><code>ObjectPool</code></a></div></dd>
+<dt id="t-eventbus">EventBus(イベントバス)</dt>
+<dd>名前で識別する通知の仕組み。送る側は「何が起きたか」を知らせるだけ(<code>Publish</code>)、聞く側は名前で登録しておく(<code>Subscribe</code>)。お互いを知らなくてよい。<div class="unity">Unity では: C# の <code>event</code> / <code>UnityEvent</code> / メッセージ(Pub-Sub)。 → <a href="Core.html#f-EventBus"><code>EventBus</code></a></div></dd>
+<dt id="t-resources">Resources(リソース)/ 参照カウント</dt>
+<dd>画像・音・モデルを何度も読み込まないための共有の仕組み。同じパスは 1 回だけ読み、何人が使っているか(参照カウント)を数える。<div class="unity">Unity では: アセットの共有(<code>Resources.Load</code> に近い名前だが、仕組みは別物)。 → <a href="Core.html#f-Resources"><code>Resources</code></a></div></dd>
+<dt id="t-singleton">シングルトン(Get())</dt>
+<dd>アプリ全体で 1 つだけのサービス。このプロジェクトでは <code>EventBus</code> と <code>SceneManager</code>(と <code>GameEngine</code>)が <code>Get()</code> で取り出す。<code>Input</code> / <code>Time</code> / <code>Audio</code> / <code>Physics</code> などは名前空間の関数。</dd>
+<dt id="t-factory">工場関数(Create○○)</dt>
+<dd>GameObject を組み立てて返す関数(<code>CreatePlayer(Scene&)</code> など)。<code>Game/Objects/</code> に置く。Scene は工場関数を並べるだけにする。</dd>
+<dt id="t-timer">Timer(タイマー)</dt>
+<dd>「○秒たったら」を数える小さな道具。<code>Update(dt)</code> が時間が来たフレームだけ <code>true</code> を返す。<div class="unity">Unity では: コルーチンの <code>WaitForSeconds</code> や自作のタイマー変数。 → <a href="Core.html#f-Timer"><code>Timer</code></a></div></dd>
+<dt id="t-csv">CSV</dt>
+<dd>カンマ区切りの表のファイル。Excel で編集できる。<code>Csv::Load</code> で読み、列の名前で値を取り出す。ファイルを保存し直すと、実行中に反映できる(ホットリロード)。 → <a href="Data.html#f-Csv"><code>Csv</code></a></dd>
+<dt id="t-savedata">SaveData(セーブデータ)</dt>
+<dd>ハイスコアや音量を保存して、次の起動でも残す。<div class="unity">Unity では: <code>PlayerPrefs</code>。 → <a href="Data.html#f-SaveData"><code>SaveData</code></a></div></dd>
+</dl>
+
+<h2 id="g-draw">描画</h2>
+<dl class="glossary">
+<dt id="t-sprite">スプライト(Sprite)/ スプライトシート</dt>
+<dd>画面に出す 1 枚の画像。1 枚の画像を格子に分けて、コマ(番号)を切り替えて使う物をスプライトシートという。<div class="unity">Unity では: Sprite / Sprite Sheet。 → <a href="Render.html#f-SpriteRenderer"><code>SpriteRenderer</code></a></div></dd>
+<dt id="t-texture">テクスチャ(Texture)</dt>
+<dd>物の表面に貼る画像。<code>Resources::LoadTexture</code> で読むと ID(番号)で扱う。</dd>
+<dt id="t-spritemode">UI モード / 2D モード / 3D モード(SpriteMode)</dt>
+<dd>スプライトの描き方の 3 種類。<strong>UI</strong>(既定)= 必ず最前面・深度を使わない。<strong>2D</strong>(<code>World2D</code>)= 遠近なしで、z が小さいほど手前(深度バッファ)。<strong>3D</strong>(<code>World3D</code>)= 3D カメラの遠近で、カメラの方を向く板(ビルボード)。<div class="unity">Unity では: Canvas(UI)/ 2D の Sorting Order / 3D 空間の Billboard にあたる。 → <a href="architecture.html#draw">設計図: 描画の順番</a></div></dd>
+<dt id="t-drawpriority">drawPriority(描画の優先度)</dt>
+<dd>描く順番を決める整数。小さいほど先に描かれる(既定 0)。スカイボックスは非常に小さい値にして最初に描く。<div class="unity">Unity では: Sorting Order / <code>renderQueue</code> に近い。 → <a href="Core.html#f-GameObject"><code>GameObject</code></a></div></dd>
+<dt id="t-billboard">ビルボード(Billboard)</dt>
+<dd>常にカメラの方を向く板。3D 空間に立てた 2D の絵(木・敵の画像)に使う。軸ごとに向きを止められる(<code>SetBillboardLock</code>)。</dd>
+<dt id="t-camera">カメラ(2D カメラ / 3D カメラ)</dt>
+<dd>「どこから見るか」。2D カメラ(<code>Image::GetCamera()</code>)は <code>position</code> の x, y でスクロール、3D カメラ(<code>Image::GetCamera3D()</code>)は遠近の透視。別々の物。<div class="unity">Unity では: Camera。 → <a href="Render.html#f-Camera"><code>Camera</code></a></div></dd>
+<dt id="t-depth">深度バッファ(Depth Buffer)</dt>
+<dd>画面の各ピクセルが「カメラからどれだけ遠いか」を覚えておく仕組み。手前の物が奥の物を隠すために使う。UI モードは使わない。<div class="unity">Unity では: Z-buffer / ZTest・ZWrite。</div></dd>
+<dt id="t-zfighting">Z-fighting(ゼット・ファイティング)</dt>
+<dd>2 つの面の深度が近すぎて、ちらついたり隙間が見えたりする現象。<code>Camera::nearZ</code> を極端に小さくしないのは、これを防ぐため。</dd>
+<dt id="t-frustum">視錐台(Frustum)/ カリング(Culling)</dt>
+<dd>カメラに映る台形の空間を視錐台という。その外にある物を描かない(省く)ことをカリングという。<code>SetFrustumCulling(true)</code> や <code>Visibility::IsSphereInView3D</code>。描画を省くだけで、物理は止まらない。<div class="unity">Unity では: Frustum Culling。 → <a href="Render.html#f-Visibility"><code>Visibility</code></a></div></dd>
+<dt id="t-blend">合成(BlendMode)/ 加算合成</dt>
+<dd>画像の重ね方。<code>Normal</code>(普通)/ <code>Additive</code>(加算。重なるほど明るくなる。炎・光向け)/ <code>Soft</code>(ふわっと。煙向け)。<div class="unity">Unity では: Blend Mode(Additive など)。</div></dd>
+<dt id="t-particle">パーティクル(Particle)</dt>
+<dd>小さい粒をたくさん出して、爆発・煙・火花を作る。粒 1 つは GameObject ではなく、<code>ParticleRenderer</code> の中のデータ。<div class="unity">Unity では: ParticleSystem。 → <a href="Render.html#f-ParticleRenderer"><code>ParticleRenderer</code></a></div></dd>
+<dt id="t-screeneffect">画面エフェクト(Flash / Vignette / Fade)</dt>
+<dd>画面全体に重ねる演出。Flash = 一瞬光る、Vignette = 画面の端が点滅、Fade = 暗転・明転。 → <a href="Render.html#f-ScreenEffect"><code>ScreenEffect</code></a></dd>
+<dt id="t-overlay">オーバーレイキュー</dt>
+<dd>文字(<code>Text::Draw</code>)や四角(<code>Image::DrawRect</code>)を、<code>Scene::Draw</code> の間は描かずに待たせておき、UI スプライトの後に呼んだ順で描く仕組み。 → <a href="architecture.html#draw">設計図: 描画の順番</a></dd>
+<dt id="t-d2d">Direct2D</dt>
+<dd>文字や四角を描くのに使っている Windows の 2D 描画の仕組み。カメラの影響を受けず、画像や 3D の後に重なる。</dd>
+</dl>
+
+<h2 id="g-3d">3D の見た目</h2>
+<dl class="glossary">
+<dt id="t-mesh">メッシュ(Mesh)</dt>
+<dd>3D の形(頂点の集まり)。立方体・球・カプセルを作る関数や、OBJ ファイルを読む関数がある。<div class="unity">Unity では: Mesh / MeshFilter。 → <a href="Render3D.html#f-Mesh"><code>Mesh</code></a></div></dd>
+<dt id="t-material">マテリアル(Material)</dt>
+<dd>3D の見た目の設定をまとめた物(色・画像・光沢・自発光・影・縁の光・枠線)。<div class="unity">Unity では: Material。 → <a href="Render3D.html#f-Material"><code>Material</code></a></div></dd>
+<dt id="t-shader">シェーダー(Shader)</dt>
+<dd>GPU に「色をどう計算するか」を伝えるプログラム(<code>.hlsl</code> ファイル)。このプロジェクトでは <code>Shader.hlsl</code>(2D)・<code>Shader3D.hlsl</code>(3D)・<code>Shader3DSkin.hlsl</code>(骨で曲げる)・<code>Shader3DWater.hlsl</code>(水面)。全サンプル共通なので、触る時は相談が必要。<div class="unity">Unity では: Shader。</div></dd>
+<dt id="t-light">ライト(平行光源・点光源・スポットライト)</dt>
+<dd>平行光源 = 太陽のように全体に同じ向きから当たる光(<code>Image::GetLight()</code>)。点光源 = ランタンのように周りを照らす。スポットライト = 懐中電灯のように円すい形に照らす。点光源とスポットは <code>LightComponent</code> で最大 8 個。<div class="unity">Unity では: Directional / Point / Spot Light。 → <a href="Render3D.html#f-LightComponent"><code>LightComponent</code></a></div></dd>
+<dt id="t-normal">法線(Normal)</dt>
+<dd>面が向いている方向(長さ 1 のベクトル)。光の当たり具合の計算に使う。</dd>
+<dt id="t-specular">光沢(Specular)/ 自発光(Emissive)</dt>
+<dd>光沢 = つやつやしたハイライト。自発光 = 光の当たり方に関係なく、自分で光る色。どちらも <code>Material</code> の項目。</dd>
+<dt id="t-shadowmap">シャドウマップ(影)</dt>
+<dd>光から見た深度を別のテクスチャに描いておき、「光から見て手前に別の物があるピクセル」を暗くする方法。既定は無効。 → <a href="Render3D.html#f-Shadow"><code>Shadow</code></a></dd>
+<dt id="t-rim">リム発光 / 枠線(アウトライン)</dt>
+<dd>リム発光 = 輪郭に近い縁が光って見える効果。枠線 = 物の外側に描く太さ一定の線(壁越しにも出せる)。<code>SetRimLight</code> / <code>SetOutline</code>。</dd>
+<dt id="t-lod">LOD(Level Of Detail)</dt>
+<dd>遠い物を軽くする仕組み。このエンジンでは、遠い物を「描かない・影を落とさない・枠線を描かない」にする。<div class="unity">Unity では: LOD Group(ここでは省くだけの簡単版)。 → <a href="Render3D.html#f-Lod"><code>Lod</code></a></div></dd>
+<dt id="t-fbx">FBX / OBJ</dt>
+<dd>3D モデルのファイル形式。<code>ModelRenderer</code> で描く。FBX はパーツの親子関係・アニメーション・骨(スキン)を持てる。<div class="unity">Unity では: モデルのインポート。 → <a href="Render3D.html#f-ModelRenderer"><code>ModelRenderer</code></a></div></dd>
+<dt id="t-skin">スキン(骨・ボーン)/ スキンメッシュ</dt>
+<dd>骨(ボーン)の動きに合わせて、形そのものを曲げる方法。人や生き物の滑らかな動きに使う。 → <a href="Render3D.html#f-SkinMesh"><code>SkinMesh</code></a></dd>
+<dt id="t-terrain">地形(Terrain)/ 高さの画像(ハイトマップ)</dt>
+<dd>丘や谷のある地面。高さの画像(白=高い、黒=低い)から作る。見た目は <code>TerrainRenderer</code>、当たり判定は <code>TerrainRigidbodyComponent</code>。<div class="unity">Unity では: Terrain / heightmap。 → <a href="Render3D.html#f-Terrain"><code>Terrain</code></a></div></dd>
+<dt id="t-water">水面(Water)</dt>
+<dd>波打つ半透明の面。波は頂点シェーダーが時間から計算する。当たり判定は付かない。 → <a href="Render3D.html#f-WaterRenderer"><code>WaterRenderer</code></a></dd>
+</dl>
+
+<h2 id="g-physics">物理</h2>
+<dl class="glossary">
+<dt id="t-physx">PhysX</dt>
+<dd>NVIDIA の物理エンジン。このプロジェクトでは当たり判定も物理も全部 PhysX が計算する(2D のゲームでも同じ)。 → <a href="Physics.html#f-Physics"><code>Physics</code></a></dd>
+<dt id="t-rigidbody">Rigidbody(剛体)</dt>
+<dd>物理で動く・ぶつかる物の本体。このエンジンでは、形(Box / Sphere / Circle / Square / Capsule / Terrain)ごとの <code>○○RigidbodyComponent</code> を付ける。<div class="unity">Unity では: <code>Rigidbody</code> + <code>Collider</code> を 1 つにした物。 → <a href="Physics.html#f-RigidbodyComponent"><code>RigidbodyComponent</code></a></div></dd>
+<dt id="t-collider">Collider(コライダー)</dt>
+<dd>当たり判定の形。このエンジンでは剛体の形そのもの。コールバックで渡される <code>Collider2D</code> は「誰とぶつかったか」を伝える軽い札。<div class="unity">Unity では: Collider。 → <a href="Physics.html#f-Collider"><code>Collider</code></a></div></dd>
+<dt id="t-bodytype">Dynamic / Kinematic / Static</dt>
+<dd><strong>Dynamic</strong> = 重力や衝突で物理的に動く。<strong>Kinematic</strong> = 自分のコードが <code>transform</code> を動かす。<strong>Static</strong> = 完全に動かない(床・壁)。Kinematic の物は Static の壁とはぶつからず、すり抜ける。<div class="unity">Unity では: Dynamic / Kinematic / Static(Rigidbody の <code>isKinematic</code> など)。</div></dd>
+<dt id="t-trigger">Trigger(トリガー)</dt>
+<dd>すり抜ける当たり判定。入った・出た・重なっている間を <code>OnTriggerEnter</code> / <code>OnTriggerStay</code> / <code>OnTriggerExit</code> で知る。ぶつかる判定(<code>OnCollision○○</code>)とは別。<div class="unity">Unity では: <code>isTrigger</code> + <code>OnTriggerEnter</code>。</div></dd>
+<dt id="t-raycast">Raycast(レイキャスト)</dt>
+<dd>ある点から向きに沿って線を飛ばし、最初に当たった物を調べる。視線が壁にさえぎられるかの判定や、マウスで 3D の物を選ぶ時に使う。<div class="unity">Unity では: <code>Physics.Raycast</code>。 → <a href="Physics.html#f-Physics"><code>Physics</code></a></div></dd>
+<dt id="t-overlap">Overlap(オーバーラップ)</dt>
+<dd>球や箱の範囲に入っている物を、全部調べる(<code>OverlapSphere</code> / <code>OverlapBox</code>)。<div class="unity">Unity では: <code>Physics.OverlapSphere</code> / <code>OverlapBox</code>。</div></dd>
+<dt id="t-force">AddForce と ForceMode</dt>
+<dd>物に力を加える。<code>Force</code>(押し続ける)/ <code>Impulse</code>(一瞬の衝撃)/ <code>Acceleration</code>(質量を無視して押し続ける)/ <code>VelocityChange</code>(質量を無視して一瞬で速さを変える)。<div class="unity">Unity では: <code>Rigidbody.AddForce</code> と <code>ForceMode</code>。</div></dd>
+<dt id="t-velocity">速度(Velocity)/ 質量(Mass)/ 空気抵抗(Drag)</dt>
+<dd>速度 = 1 秒に動く量。質量 = 重さ。空気抵抗 = 速度が自然に落ちる強さ。Dynamic の物は <code>SetVelocity</code> で動かす(<code>transform</code> を直接書き換えない)。<div class="unity">Unity では: <code>velocity</code> / <code>mass</code> / <code>drag</code>。</div></dd>
+<dt id="t-unit">100 単位 = 約 1m</dt>
+<dd>このエンジンの長さの感覚。重力 981(= 9.81m/s² を 100 倍)も、このため。</dd>
+</dl>
+
+<h2 id="g-move">動きと AI</h2>
+<dl class="glossary">
+<dt id="t-chase">Chase / AccelerateChase / Homing</dt>
+<dd>目的地へ向かう動き 3 種。<strong>Chase</strong> = 一定の速さでまっすぐ。<strong>AccelerateChase</strong> = 加速しながら(行き過ぎて戻る)。<strong>Homing</strong> = 曲がれる角度に上限があって、弧を描いて追う。→ <a href="Behavior.html#f-MoveComponent"><code>MoveComponent</code></a></dd>
+<dt id="t-navgrid">NavGrid(ナビグリッド)</dt>
+<dd>地面を升目に区切って、各マスが通れるかを覚えた地図。経路探索の土台。壁(タグ "Wall")を置くと自動で取り込まれる。<div class="unity">Unity では: NavMesh に近い(こちらは升目)。 → <a href="Behavior.html#f-NavGrid"><code>NavGrid</code></a></div></dd>
+<dt id="t-astar">A*(エースター)/ 経路探索</dt>
+<dd>升目の上で、障害物を避ける最短の道を探す方法。見つかった道を直線化して、点を順に目指して歩く。 → <a href="Behavior.html#f-PathFinder"><code>PathFinder</code></a></dd>
+<dt id="t-bake">焼く(Bake)</dt>
+<dd>障害物の情報を地図(NavGrid)に取り込むこと。動く壁がある時は、焼き直しが必要。 → <a href="Behavior.html#f-NavGridComponent"><code>NavGridComponent</code></a></dd>
+<dt id="t-vision">視野(Vision)</dt>
+<dd>見張り役の見える範囲(扇形)。角度と距離の中にいて、壁にさえぎられていなければ見える。 → <a href="Behavior.html#f-VisionComponent"><code>VisionComponent</code></a></dd>
+</dl>
+
+<h2 id="g-anim">アニメーション</h2>
+<dl class="glossary">
+<dt id="t-tween">Tween(トゥイーン)</dt>
+<dd>位置・大きさ・色などを、今の値から目標の値まで時間をかけて滑らかに変える仕組み。<div class="unity">Unity では: DOTween など。 → <a href="Animation.html#f-TweenComponent"><code>TweenComponent</code></a></div></dd>
+<dt id="t-ease">Ease(イージング)</dt>
+<dd>動きの「速さの変化」(ゆっくり始まる・ゆっくり止まる・跳ねる、など)。0〜1 の進み具合を 0〜1 の値に変える関数。<div class="unity">Unity では: AnimationCurve / DOTween の Ease。 → <a href="Animation.html#f-Ease"><code>Ease</code></a></div></dd>
+<dt id="t-lerp">Lerp(リープ)</dt>
+<dd>2 つの値の間の値を求める。<code>Lerp(a, b, t)</code> は、t=0 で a、t=1 で b。 → <a href="Core.html#f-MathUtil"><code>MathUtil</code></a></dd>
+<dt id="t-clip">クリップ(Clip)/ CrossFade</dt>
+<dd>名前の付いた 1 つの動き(歩く・待つなど)。<code>Play("Walk")</code> で再生。<code>CrossFade</code> は今のポーズから滑らかに切り替える。<div class="unity">Unity では: AnimationClip / Animator のブレンド。 → <a href="Animation.html#f-SpriteAnimationComponent"><code>SpriteAnimationComponent</code></a> / <a href="Animation.html#f-ModelAnimationComponent"><code>ModelAnimationComponent</code></a></div></dd>
+<dt id="t-quat">クォータニオン(四元数)</dt>
+<dd>3D の回転の表し方の 1 つ。回転の補間が滑らか。モデルのアニメーションの回転の補間に使っている。</dd>
+</dl>
+
+<h2 id="g-ui">UI・音・データ</h2>
+<dl class="glossary">
+<dt id="t-anchor">Anchor(アンカー)</dt>
+<dd>画面のどこを基準に置くか(左上・中央・右下など 9 か所)。画面サイズが変わっても、基準からの距離は変わらない。<div class="unity">Unity では: RectTransform のアンカー。 → <a href="UI.html#f-Anchor"><code>Anchor</code></a></div></dd>
+<dt id="t-screencoord">画面座標</dt>
+<dd>画面の中央が (0,0)、Y+ が上、単位はゲーム画面のピクセル(<code>Text::Draw</code> と同じ)。<code>Input::GetMousePosition()</code> だけは Y+ が下なので注意。</dd>
+<dt id="t-gauge">ゲージ(Gauge)/ スライダー(Slider)/ ボタン(Button)</dt>
+<dd>HP バーなどの帯(<code>GaugeRenderer</code>)、ドラッグで値を変える部品(<code>SliderComponent</code>)、クリックできるボタン(<code>ButtonComponent</code>)。<div class="unity">Unity では: UI の Image(Fill)/ Slider / Button。 → <a href="UI.html#f-GaugeRenderer"><code>GaugeRenderer</code></a></div></dd>
+<dt id="t-audiosource">AudioSource / AudioListener</dt>
+<dd>音を鳴らす側と、聞く側。音は聞く側からの距離で小さくなり、左右の位置で聞こえる向きが変わる。<div class="unity">Unity では: AudioSource / AudioListener。 → <a href="Audio.html#f-AudioSourceComponent"><code>AudioSourceComponent</code></a></div></dd>
+<dt id="t-audiogroup">AudioGroup(音のグループ)</dt>
+<dd>BGM と SE ごとに音量を変えられる。<code>Audio::SetGroupVolume</code>。<div class="unity">Unity では: AudioMixer のグループ。 → <a href="Audio.html#f-Audio"><code>Audio</code></a></div></dd>
+<dt id="t-wav">WAV</dt>
+<dd>このエンジンで読める音のファイル形式(WAV だけ)。音が鳴らない時は、WAV の中身を疑う。</dd>
+</dl>
+
+<h2 id="g-cpp">C++ の言葉</h2>
+<dl class="glossary">
+<dt id="t-override">virtual / override(継承と上書き)</dt>
+<dd>親クラスの関数を、子クラスで書き換えること。<code>Component</code> の <code>Update</code> などは <code>virtual</code> で、子クラスが <code>override</code> して自分の動きを書く。<div class="unity">Unity では: <code>virtual</code> / <code>override</code>(C# と同じ)。</div></dd>
+<dt id="t-template">テンプレート(<code>AddComponent&lt;T&gt;</code>)</dt>
+<dd><code>&lt;&gt;</code> の中に型を書いて、その型に合わせた関数を使う書き方。<code>GetComponent&lt;SpriteRenderer&gt;()</code> は「付いている SpriteRenderer を探す」。<div class="unity">Unity では: <code>GetComponent&lt;T&gt;()</code>(C# のジェネリクス)。</div></dd>
+<dt id="t-pointer">ポインタ(<code>*</code>)と nullptr</dt>
+<dd>物の「場所」を指す値。<code>GameObject*</code> は GameObject を指す。何も指していない時は <code>nullptr</code>。使う前に <code>nullptr</code> でないか調べる(<code>GetComponent</code> の結果は特に)。</dd>
+<dt id="t-uniqueptr">unique_ptr / shared_ptr</dt>
+<dd>持ち主が消えると自動で解放されるポインタ。<code>unique_ptr</code> は持ち主が 1 人、<code>shared_ptr</code> は何人かで共有(<code>Terrain</code> や <code>Model</code>)。<code>new</code> / <code>delete</code> を自分で書かなくてよい。</dd>
+<dt id="t-lambda">ラムダ式とコールバック</dt>
+<dd><code>[this]() { ... }</code> のような、その場で書く小さな関数。ボタンの <code>onClick</code> や EventBus の登録に渡す。<code>this</code> を取り込んだら、その寿命に注意(EventBus は <code>Clear()</code>)。<div class="unity">Unity では: C# のラムダ式 / デリゲート。</div></dd>
+<dt id="t-namespace">namespace(名前空間)</dt>
+<dd>関数をまとめる名前の箱。<code>Input::GetKeyDown(...)</code>・<code>Math::Lerp(...)</code>・<code>Time::GetDeltaTime()</code> の <code>::</code> の左側。</dd>
+<dt id="t-header">ヘッダー(.h)と ソース(.cpp)</dt>
+<dd>.h に「何があるか」(宣言)、.cpp に「どう動くか」(中身)を書く。この解説の関数の表は、ヘッダーから拾っている。</dd>
+<dt id="t-xmfloat">XMFLOAT2 / XMFLOAT3 / XMFLOAT4</dt>
+<dd>DirectX の、小数 2・3・4 個の組(位置・向き・色など)。<code>{ x, y, z }</code> と書ける。<code>+</code> <code>-</code> <code>*</code> は <code>MathUtil.h</code> で使えるようになる。<div class="unity">Unity では: <code>Vector2</code> / <code>Vector3</code> / <code>Vector4</code> / <code>Color</code>。</div></dd>
+<dt id="t-bom">BOM(ビーオーエム)</dt>
+<dd>文字コード UTF-8 を示す印。日本語を含む .h / .cpp は <strong>BOM 付き UTF-8</strong> で保存する(付いていないと、日本語ロケールの Visual Studio で文字化けやビルドエラーになる)。</dd>
+</dl>
+
+<script>(function(){var f=document.getElementById("gfilter");if(!f)return;var items=[];var dts=document.querySelectorAll("dl.glossary dt");for(var i=0;i<dts.length;i++){items.push({dt:dts[i],dd:dts[i].nextElementSibling});}f.addEventListener("input",function(){var q=f.value.toLowerCase();for(var i=0;i<items.length;i++){var it=items[i];var ok=q===""||(it.dt.textContent+" "+(it.dd?it.dd.textContent:"")).toLowerCase().indexOf(q)>=0;it.dt.style.display=ok?"":"none";if(it.dd)it.dd.style.display=ok?"":"none";}});})();</script>
+
+<footer class="foot">この解説は <code>docs/EngineGuide/tools/build.ps1</code> で作っています。表の内容は Engine のヘッダーから拾っています。コード例は Sample2D / Sample3D / Demo の実際のソースを読み込んで載せています。</footer>
+</main>
+</div>
+<script src="search-index.js"></script>
+<script src="search.js"></script>
+</body>
+</html>

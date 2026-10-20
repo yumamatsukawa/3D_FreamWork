@@ -1,0 +1,529 @@
+﻿<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Core(基本の仕組み) - Engine解説</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="layout">
+<nav class="side">
+<div class="brand"><a href="index.html">Engine解説</a></div>
+<div class="search"><input type="search" id="q" placeholder="関数名・クラス名・ファイル名を検索" autocomplete="off"><ul id="results"></ul></div>
+<ul class="menu">
+<li><a href="index.html">トップ</a></li>
+<li><a href="architecture.html">設計図(図解)</a></li>
+<li><a href="Core.html" class="current">Core</a></li>
+<li><a href="Render.html">Render</a></li>
+<li><a href="Render3D.html">Render3D</a></li>
+<li><a href="Physics.html">Physics</a></li>
+<li><a href="UI.html">UI</a></li>
+<li><a href="Animation.html">Animation</a></li>
+<li><a href="Transition.html">Transition</a></li>
+<li><a href="Behavior.html">Behavior</a></li>
+<li><a href="Audio.html">Audio</a></li>
+<li><a href="Data.html">Data</a></li>
+<li><a href="ThirdParty.html">ThirdParty</a></li>
+<li><a href="files.html">ファイル索引</a></li>
+<li><a href="glossary.html">用語集</a></li>
+</ul>
+<p class="sidenote">3D_FreamWork の Engine を、初心者向けに解説したページです。</p>
+</nav>
+<main>
+<h1>Core(基本の仕組み)</h1>
+<div class="lead"><code>Engine/Core/</code> は、ゲームの土台です。「物(GameObject)に部品(Component)を付けて、シーン(Scene)に置く」という Unity と同じ考え方の中心がここにあります。時間・入力・計算・使い回し・通知など、どのゲームでも使う小さな道具もここに入っています。
+最初に読むなら、<code>Component</code> → <code>GameObject</code> → <code>Scene</code> → <code>SceneManager</code> の順がおすすめです。</div>
+<div class="toc"><strong>このページのファイル</strong><ul>
+<li><a href="#f-Component">Component.h</a></li>
+<li><a href="#f-GameObject">GameObject.h</a></li>
+<li><a href="#f-Scene">Scene.h / Scene.cpp</a></li>
+<li><a href="#f-SceneManager">SceneManager.h / SceneManager.cpp</a></li>
+<li><a href="#f-GameEngine">GameEngine.h / GameEngine.cpp</a></li>
+<li><a href="#f-Transform">Transform.h</a></li>
+<li><a href="#f-Input">Input.h / Input.cpp</a></li>
+<li><a href="#f-MathUtil">MathUtil.h / MathUtil.cpp</a></li>
+<li><a href="#f-Time">Time.h / Time.cpp</a></li>
+<li><a href="#f-Timer">Timer.h</a></li>
+<li><a href="#f-Resources">Resources.h / Resources.cpp</a></li>
+<li><a href="#f-EventBus">EventBus.h</a></li>
+<li><a href="#f-ObjectPool">ObjectPool.h</a></li>
+</ul></div>
+<p><strong>Demo で見る</strong>: Demo プロジェクトの <strong>Core カテゴリ</strong>に、Object / Transform / Time / Input / Math / Pool / EventBus / Resources の8個のデモがあります(Demo の開き方は <a href="index.html#demo">トップページ</a> を見てください)。</p>
+<section class="file" id="f-Component">
+<h3><code>Engine/Core/Component.h</code></h3>
+<p class="role">すべての Component の親クラス(基底クラス)。Unity の <code>MonoBehaviour</code> に近い役割です。動きや見た目は、これを継承したクラスを作って <code>Init</code> / <code>Update</code> / <code>Draw</code> などを <code>override</code>(上書き)して書きます。</p>
+<div class="tw"><table class="api"><thead><tr><th>名前</th><th>引数・戻り値</th><th>何をするか</th></tr></thead><tbody>
+<tr><td class="fn"><code>Init()</code></td><td class="sig"><code>void (virtual)</code></td><td><code>AddComponent</code> で追加された直後に、1回だけ呼ばれる。初期設定を書く所</td></tr>
+<tr><td class="fn"><code>Update(float dt)</code></td><td class="sig"><code>void (virtual)</code></td><td>毎フレーム呼ばれる(ロジック更新)。<code>dt</code> は前のフレームからの秒数</td></tr>
+<tr><td class="fn"><code>Draw()</code></td><td class="sig"><code>void (virtual)</code></td><td>毎フレーム呼ばれる(描画)</td></tr>
+<tr><td class="fn"><code>Uninit()</code></td><td class="sig"><code>void (virtual)</code></td><td>GameObject が破棄される時に呼ばれる。後片付けを書く所</td></tr>
+<tr><td class="fn"><code>OnActiveChanged(bool active)</code></td><td class="sig"><code>void (virtual)</code></td><td><code>GameObject::SetActive</code> が呼ばれた時の通知。ObjectPool で使い回す物の検知に使う</td></tr>
+<tr><td class="fn"><code>OnTriggerEnter(Collider2D* other)</code></td><td class="sig"><code>void (virtual)</code></td><td>すり抜ける当たり判定(トリガー。2D・3D 共通)に「入った瞬間」</td></tr>
+<tr><td class="fn"><code>OnTriggerStay(Collider2D* other)</code></td><td class="sig"><code>void (virtual)</code></td><td>トリガーに「入っている間」毎フレーム</td></tr>
+<tr><td class="fn"><code>OnTriggerExit(Collider2D* other)</code></td><td class="sig"><code>void (virtual)</code></td><td>トリガーから「出た瞬間」</td></tr>
+<tr><td class="fn"><code>OnCollisionEnter(CollisionInfo info)</code></td><td class="sig"><code>void (virtual)</code></td><td>すり抜けない当たり判定(衝突。2D・3D 共通)で「ぶつかった瞬間」</td></tr>
+<tr><td class="fn"><code>OnCollisionStay(CollisionInfo info)</code></td><td class="sig"><code>void (virtual)</code></td><td>「ぶつかっている間」毎フレーム</td></tr>
+<tr><td class="fn"><code>OnCollisionExit(CollisionInfo info)</code></td><td class="sig"><code>void (virtual)</code></td><td>「離れた瞬間」</td></tr>
+<tr><td class="fn"><code>GetOwner()</code></td><td class="sig"><code>GameObject*</code></td><td>この Component が付いている GameObject を返す</td></tr>
+<tr><td class="fn"><code>SetOwner(GameObject* go)</code></td><td class="sig"><code>void</code></td><td>持ち主を設定する(<code>AddComponent</code> が自動で呼ぶ。普段は使わない)</td></tr>
+<tr><td class="fn"><code>IsEnabled()</code></td><td class="sig"><code>bool</code></td><td>有効か(無効だと <code>Update</code> / <code>Draw</code> が呼ばれない)</td></tr>
+<tr><td class="fn"><code>SetEnabled(bool v)</code></td><td class="sig"><code>void</code></td><td>有効 / 無効を切り替える</td></tr>
+</tbody></table></div>
+<div class="ex"><div class="exhead">使い方の例 <span class="src">出典: <code>Sample2D/Game/Components/BulletController.cpp:5-23</code></span></div><pre><code>void BulletController::Update(float dt) {
+    Transform&amp; t = GetOwner()-&gt;transform;
+
+    // まっすぐ進む(Kinematicなので位置を直接動かしてよい)
+    t.position.x += direction.x * speed * dt;
+    t.position.y += direction.y * speed * dt;
+
+    // 寿命が来たらプールに返す
+    if (lifeTimer.Update(dt) &amp;&amp; pool) {
+        pool-&gt;Return(GetOwner());
+    }
+}
+
+void BulletController::OnTriggerEnter(Collider2D* other) {
+    // 敵に当たったら消える(プールに返す)
+    if (other-&gt;GetTag() == &quot;Enemy&quot; &amp;&amp; pool) {
+        pool-&gt;Return(GetOwner());
+    }
+}</code></pre></div>
+<div class="notes"><strong>気を付ける点</strong><ul>
+<li><code>Init</code> は <strong><code>AddComponent</code> の中で呼ばれます</strong>。<code>AddComponent</code> の戻り値をまだ受け取っていない時点で <code>Init</code> が動くので、「作った直後に他の Component を設定する」処理は <code>AddComponent</code> の後に書きます。</li>
+<li>他の Component の情報が必要な時は、<code>GetOwner()-&gt;GetComponent&lt;型&gt;()</code> で探します。見つからないと <code>nullptr</code> なので、必ずチェックします。</li>
+</ul></div>
+</section>
+<section class="file" id="f-GameObject">
+<h3><code>Engine/Core/GameObject.h</code></h3>
+<p class="role">「入れ物」です。名前・タグ・位置(<code>transform</code>)を持ち、Component を付けて見た目や動きを作ります。Unity の <code>GameObject</code> と同じです。<code>Scene::CreateObject</code> で作り、<code>Destroy()</code> で消します。</p>
+<div class="tw"><table class="api"><thead><tr><th>名前</th><th>引数・戻り値</th><th>何をするか</th></tr></thead><tbody>
+<tr><td class="fn"><code>transform</code></td><td class="sig"><code>Transform (メンバ変数)</code></td><td>すべての GameObject が必ず持つ位置・大きさ・回転</td></tr>
+<tr><td class="fn"><code>AddComponent&lt;T&gt;(args...)</code></td><td class="sig"><code>T*</code></td><td>Component を作って付ける。引数は T のコンストラクタへ渡る。付けた直後に <code>Init()</code> が呼ばれる</td></tr>
+<tr><td class="fn"><code>GetComponent&lt;T&gt;()</code></td><td class="sig"><code>T*</code></td><td>付いている T 型(派生クラスも含む)の Component を探す。無ければ <code>nullptr</code></td></tr>
+<tr><td class="fn"><code>GetName()</code></td><td class="sig"><code>const std::string&amp;</code></td><td>名前を返す</td></tr>
+<tr><td class="fn"><code>GetTag()</code></td><td class="sig"><code>const std::string&amp;</code></td><td>タグを返す(&quot;Player&quot; や &quot;Enemy&quot; など。当たった相手の判定に使う)</td></tr>
+<tr><td class="fn"><code>SetTag(std::string t)</code></td><td class="sig"><code>void</code></td><td>タグを付ける。ObjectPool の組み立て処理の中で使う</td></tr>
+<tr><td class="fn"><code>SetActive(bool v)</code></td><td class="sig"><code>void</code></td><td><code>false</code> で非表示・Update/Draw 停止(破棄はされない)。全 Component に <code>OnActiveChanged</code> が届く</td></tr>
+<tr><td class="fn"><code>GetIsActive()</code></td><td class="sig"><code>bool</code></td><td>有効か</td></tr>
+<tr><td class="fn"><code>Destroy()</code></td><td class="sig"><code>void</code></td><td>「破棄する」印を付ける。実際に消えるのは次の <code>Scene::Update</code> の終わり</td></tr>
+<tr><td class="fn"><code>GetIsDestroyed()</code></td><td class="sig"><code>bool</code></td><td><code>Destroy()</code> が呼ばれたか</td></tr>
+<tr><td class="fn"><code>GetScene()</code></td><td class="sig"><code>Scene*</code></td><td>自分が属している Scene。Component の中から新しい物を作りたい時に使う</td></tr>
+<tr><td class="fn"><code>SetScene(Scene* s)</code></td><td class="sig"><code>void</code></td><td>属する Scene を設定する(<code>Scene::CreateObject</code> が自動で呼ぶ。普段は使わない)</td></tr>
+<tr><td class="fn"><code>GetDrawPriority()</code></td><td class="sig"><code>int</code></td><td>描画順の優先度を返す</td></tr>
+<tr><td class="fn"><code>SetDrawPriority(int priority)</code></td><td class="sig"><code>void</code></td><td>描画順。小さいほど先に描かれる(既定0)。スカイボックスや背景に使う</td></tr>
+<tr><td class="fn"><code>Update(float dt)</code></td><td class="sig"><code>void</code></td><td>持っている全 Component を更新する(Scene が呼ぶ。普段は使わない)</td></tr>
+<tr><td class="fn"><code>Draw()</code></td><td class="sig"><code>void</code></td><td>持っている全 Component を描く(Scene が呼ぶ。普段は使わない)</td></tr>
+<tr><td class="fn"><code>Uninit()</code></td><td class="sig"><code>void</code></td><td>全 Component の <code>Uninit</code> を呼ぶ(Scene が呼ぶ。普段は使わない)</td></tr>
+<tr><td class="fn"><code>OnTriggerEnter など6個</code></td><td class="sig"><code>void</code></td><td>当たり判定のコールバックを全 Component に転送する(Collider が呼ぶ。普段は使わない)</td></tr>
+</tbody></table></div>
+<div class="ex"><div class="exhead">使い方の例 <span class="src">出典: <code>Demo/Game/Objects/Core/TransformDemo.cpp:16-25</code></span></div><pre><code>GameObject* parent = scene.CreateObject(&quot;Parent&quot;);
+parent-&gt;transform.scale = { parentSize, parentSize, is3D ? parentSize : 1.f };
+if (is3D) {
+    parent-&gt;transform.position = { 0.f, 0.f, 300.f };
+    parent-&gt;AddComponent&lt;MeshRenderer&gt;(Mesh::CreateCube())-&gt;SetColor(0.4f, 0.6f, 0.9f, 1.0f);
+}
+else {
+    parent-&gt;transform.position = { 0.f, -20.f, 0.f };
+    parent-&gt;AddComponent&lt;SpriteRenderer&gt;(L&quot;Assets/box.png&quot;, 3, 3)-&gt;SetSpriteIndex(5);
+}</code></pre></div>
+<div class="ex"><div class="exhead">使い方の例 <span class="src">出典: <code>Sample2D/Game/Components/PlayerController.cpp:25-27</code></span></div><pre><code>Transform&amp; t = GetOwner()-&gt;transform;
+SpriteRenderer* renderer = GetOwner()-&gt;GetComponent&lt;SpriteRenderer&gt;(); if (!renderer) return;
+RigidbodyComponent* rigidbody = GetOwner()-&gt;GetComponent&lt;RigidbodyComponent&gt;(); if (!rigidbody) return;</code></pre></div>
+<div class="notes"><strong>気を付ける点</strong><ul>
+<li><code>GetComponent</code> の結果は <strong>必ず null チェック</strong> します(付いていない場合は <code>nullptr</code> が返ります)。</li>
+<li><code>SetActive(false)</code> は消すのではなく「お休み」です。完全に消す時は <code>Destroy()</code>。</li>
+<li><code>Destroy()</code> はその場では消えません。同じフレームの残りの処理では、まだ使えます。</li>
+<li><code>drawPriority</code> は描画の順番だけを決めます。UI モードのスプライトは、<code>drawPriority</code> → 作った順で、ワールドの物より必ず手前に描かれます(詳しくは<a href="architecture.html#draw">設計図の描画の順番</a>)。</li>
+</ul></div>
+</section>
+<section class="file" id="f-Scene">
+<h3><code>Engine/Core/Scene.h</code> <code>Engine/Core/Scene.cpp</code></h3>
+<p class="role">GameObject を入れておく入れ物です。Unity の <code>Scene</code> に相当します。ゲームの画面(タイトル・プレイ画面など)ごとに <code>Scene</code> を継承したクラスを作り、<code>Init()</code> に「何を置くか」を並べます。</p>
+<div class="tw"><table class="api"><thead><tr><th>名前</th><th>引数・戻り値</th><th>何をするか</th></tr></thead><tbody>
+<tr><td class="fn"><code>Init()</code></td><td class="sig"><code>void (virtual)</code></td><td>シーンが始まる時に1回呼ばれる。ここで <code>CreateXxx(*this)</code> を並べてオブジェクトを置く</td></tr>
+<tr><td class="fn"><code>Uninit()</code></td><td class="sig"><code>void (virtual)</code></td><td>シーンが終わる時に1回呼ばれる。override した時は最後に <code>Scene::Uninit()</code> を呼ぶ</td></tr>
+<tr><td class="fn"><code>Update(float dt)</code></td><td class="sig"><code>void</code></td><td>全 GameObject を更新し、<code>Destroy</code> された物を片付け、Update 中に作られた物を加える(SceneManager が呼ぶ)</td></tr>
+<tr><td class="fn"><code>Draw()</code></td><td class="sig"><code>void</code></td><td>3パスで描画する(SceneManager が呼ぶ。<a href="architecture.html#draw">描画の順番</a>参照)</td></tr>
+<tr><td class="fn"><code>CreateObject(std::string name, std::string tag)</code></td><td class="sig"><code>GameObject*</code></td><td>新しい GameObject を作ってシーンに加える。<code>Update</code> 中に呼んでもよい</td></tr>
+</tbody></table></div>
+<div class="ex"><div class="exhead">使い方の例 <span class="src">出典: <code>Sample2D/Game/Scenes/GameScene.cpp:15-36</code></span></div><pre><code>void GameScene::Init()
+{
+    // オブジェクトを配置するだけ(動き・ルールは各Componentに書く)
+    CreateBackground(*this);
+    GameObject* player = CreatePlayer(*this);
+    CreateWall(*this, { -250.0f, 150.0f }, { 40.0f, 300.0f });   // 見張り役とPlayerの間の壁
+    CreateWall(*this, { 400.0f, -350.0f }, { 300.0f, 40.0f });
+    CreateGuard(*this, player);
+    GameManager* gameManager = CreateGameSystem(*this);
+    NavGridComponent* navigation = CreateNavigation(*this);   // 壁をすべて置いた後に置く(敵が壁を避けるための格子)
+    CreateEnemySpawner(*this, player, navigation);
+    CreateBulletSpawner(*this);
+    CreateHUD(*this, gameManager, player-&gt;GetComponent&lt;PlayerController&gt;());
+}
+
+void GameScene::Uninit()
+{
+    // 各ManagerがEventBusに登録した処理を消す(残すと、破棄済みのオブジェクトを触ってしまう)
+    EventBus::Get().Clear();
+
+    Scene::Uninit();
+}</code></pre></div>
+<div class="notes"><strong>気を付ける点</strong><ul>
+<li><code>Update</code> 中に <code>CreateObject</code> しても大丈夫です。作った物は一旦「待ち行列(<code>pendingObjects</code>)」に入り、<code>Update</code> の最後にまとめてシーンへ移ります(ループ中に配列を増やして壊れないように)。そのため、作ったフレームでは <code>Update</code> されません(次のフレームから)。</li>
+<li><code>Uninit</code> を override する時は、最後に必ず <code>Scene::Uninit()</code> を呼びます(GameObject の後片付けをするため)。</li>
+<li><code>EventBus</code> に <code>this</code> をキャプチャしたラムダを登録した Scene は、<code>Uninit</code> で <code>EventBus::Get().Clear()</code> を呼びます。</li>
+</ul></div>
+</section>
+<section class="file" id="f-SceneManager">
+<h3><code>Engine/Core/SceneManager.h</code> <code>Engine/Core/SceneManager.cpp</code></h3>
+<p class="role">今のシーンを持ち、シーンの切り替え(と切り替えの演出)を担当します。アプリ全体で1つだけ(<code>SceneManager::Get()</code>)。</p>
+<div class="tw"><table class="api"><thead><tr><th>名前</th><th>引数・戻り値</th><th>何をするか</th></tr></thead><tbody>
+<tr><td class="fn"><code>Get()</code></td><td class="sig"><code>static SceneManager&amp;</code></td><td>唯一の SceneManager を返す</td></tr>
+<tr><td class="fn"><code>ChangeScene&lt;T&gt;()</code></td><td class="sig"><code>void</code></td><td>演出なしで T 型のシーンへ切り替える(次の <code>SceneManager::Update</code> の最初で切り替わる)</td></tr>
+<tr><td class="fn"><code>ChangeScene&lt;T&gt;(transition)</code></td><td class="sig"><code>void</code></td><td>演出付きで切り替える。<code>transition</code> は <code>FadeTransition()</code> や <code>SpriteTransition(...)</code> など</td></tr>
+<tr><td class="fn"><code>Update(float dt)</code></td><td class="sig"><code>void</code></td><td>内部用: GameEngine が呼ぶ。切り替えの処理と、今のシーンの Update</td></tr>
+<tr><td class="fn"><code>Draw()</code></td><td class="sig"><code>void</code></td><td>内部用: GameEngine が呼ぶ。今のシーンの Draw</td></tr>
+<tr><td class="fn"><code>DrawTransition()</code></td><td class="sig"><code>void</code></td><td>内部用: 切り替えの演出を一番上に描く</td></tr>
+<tr><td class="fn"><code>Uninit()</code></td><td class="sig"><code>void</code></td><td>内部用: 終了時に今のシーンを片付ける</td></tr>
+</tbody></table></div>
+<div class="ex"><div class="exhead">使い方の例 <span class="src">出典: <code>Sample2D/Game/Objects/StartButton.cpp:10-14</code></span></div><pre><code>GameObject* button = CreateButton(scene, L&quot;START&quot;, { 0.f, -150.f }, [] {
+    // 黒で0.5秒かけて暗転 → GameSceneへ切り替え → 0.5秒かけて明転
+    // (切り替え中にもう一度押されても、SceneManagerが無視するので二重に切り替わらない)
+    SceneManager::Get().ChangeScene&lt;GameScene&gt;(FadeTransition());
+});</code></pre></div>
+<div class="ex"><div class="exhead">使い方の例 <span class="src">出典: <code>Sample2D/Game/Components/GameManager.cpp:43-45</code></span></div><pre><code>if (gameOver &amp;&amp; Input::GetKeyDown(KEY_SPACE)) {
+    SceneManager::Get().ChangeScene&lt;TitleScene&gt;(SpriteTransition(L&quot;Assets/transition_circle.png&quot;, 8, 2, 0.04f));
+}</code></pre></div>
+<div class="notes"><strong>気を付ける点</strong><ul>
+<li>演出付きの切り替えは「覆う → シーンを切り替える → 開く」の順です。<strong>演出の間はゲームの時間が止まります</strong>(<code>Time</code> の倍率が0)。開き終わると元の倍率に戻ります。</li>
+<li>切り替えを頼んでから終わるまでの間に呼ばれた <code>ChangeScene</code> は <strong>無視されます</strong>(ボタンの二重押しで2回切り替わらないように)。出力ウィンドウにメッセージが出ます。</li>
+<li>切り替える時、古いシーンの <code>Uninit</code> → 新しいシーンの <code>Init</code> → 使っていない画像などの解放(<code>Resources::UnloadUnused</code>)の順で進みます。</li>
+<li>内部用の関数(<code>Update</code> / <code>Draw</code> / <code>DrawTransition</code> / <code>Uninit</code>)はゲーム側から呼びません。</li>
+</ul></div>
+</section>
+<section class="file" id="f-GameEngine">
+<h3><code>Engine/Core/GameEngine.h</code> <code>Engine/Core/GameEngine.cpp</code></h3>
+<p class="role">エンジン全体を動かす役です。初期化・メインループ(1フレームごとの処理の順番)・終了処理を持ちます。ゲーム側は <code>main.cpp</code> で <code>Init</code> → 最初のシーンを指定 → <code>Run</code> → <code>Uninit</code> を呼ぶだけです。1フレームの順番は<a href="index.html#frame">トップページ</a>にまとめています。</p>
+<div class="tw"><table class="api"><thead><tr><th>名前</th><th>引数・戻り値</th><th>何をするか</th></tr></thead><tbody>
+<tr><td class="fn"><code>Get()</code></td><td class="sig"><code>static GameEngine&amp;</code></td><td>唯一の GameEngine を返す</td></tr>
+<tr><td class="fn"><code>Init(HWND hwnd, int w, int h)</code></td><td class="sig"><code>bool</code></td><td>画面・音・文字・物理・時間などを初期化する。失敗したら <code>false</code></td></tr>
+<tr><td class="fn"><code>Run()</code></td><td class="sig"><code>void</code></td><td>メインループ。ウィンドウが閉じられるまで1フレームずつ更新と描画を繰り返す</td></tr>
+<tr><td class="fn"><code>Uninit()</code></td><td class="sig"><code>void</code></td><td>終了処理。セーブデータの保存、各機能の解放を正しい順番で行う</td></tr>
+<tr><td class="fn"><code>GetScene()</code></td><td class="sig"><code>Scene&amp;</code></td><td>GameEngine 自身が持つ Scene を返す(サンプルでは使っていない。シーンは <code>SceneManager</code> が管理する)</td></tr>
+</tbody></table></div>
+<div class="ex"><div class="exhead">使い方の例 <span class="src">出典: <code>Sample2D/main.cpp:56-65</code></span></div><pre><code>// エンジンの初期化
+auto&amp; engine = GameEngine::Get();
+engine.Init(hwnd, WINDOW_W, WINDOW_H);
+
+// 最初のシーンの設定
+SceneManager::Get().ChangeScene&lt;TitleScene&gt;();
+
+// ゲームループ(ウィンドウが閉じられるまで)と終了処理
+engine.Run();
+engine.Uninit();</code></pre></div>
+<div class="notes"><strong>気を付ける点</strong><ul>
+<li><code>Run</code> の中の呼ぶ順番には意味があります(例: 物理 → シーンの Update → 音。描画の前にカメラを揺らす、など)。順番を変えるとバグの原因になるので、<strong>Engine を触る人以外は変更しません</strong>。</li>
+<li>初期化の順番も重要です(<code>Image::Init</code> の後に音・文字・物理)。<code>SaveData::Init</code> は最初に呼ばれます。</li>
+</ul></div>
+</section>
+<section class="file" id="f-Transform">
+<h3><code>Engine/Core/Transform.h</code></h3>
+<p class="role">位置・大きさ・回転と、親子関係を持ちます。Unity の <code>Transform</code> と同じです。GameObject の <code>transform</code> メンバとして必ず付いています。回転は <strong>度</strong> で、2D は <code>rotate.z</code> だけを使います。</p>
+<div class="tw"><table class="api"><thead><tr><th>名前</th><th>引数・戻り値</th><th>何をするか</th></tr></thead><tbody>
+<tr><td class="fn"><code>position</code></td><td class="sig"><code>XMFLOAT3</code></td><td>位置(親がいれば、親から見た相対位置)</td></tr>
+<tr><td class="fn"><code>scale</code></td><td class="sig"><code>XMFLOAT3</code></td><td>大きさ(既定は 1,1,1)。2D のスプライトはこれがピクセルの大きさになる</td></tr>
+<tr><td class="fn"><code>rotate</code></td><td class="sig"><code>XMFLOAT3</code></td><td>回転(度)。2D は <code>rotate.z</code></td></tr>
+<tr><td class="fn"><code>SetParent(Transform* newParent)</code></td><td class="sig"><code>void</code></td><td>親を設定する。<code>nullptr</code> で親を外す</td></tr>
+<tr><td class="fn"><code>GetParent()</code></td><td class="sig"><code>Transform*</code></td><td>親を返す(無ければ <code>nullptr</code>)</td></tr>
+<tr><td class="fn"><code>GetChildren()</code></td><td class="sig"><code>const std::vector&lt;Transform*&gt;&amp;</code></td><td>子の一覧</td></tr>
+<tr><td class="fn"><code>GetLocalMatrix()</code></td><td class="sig"><code>XMMATRIX</code></td><td>自分だけの行列(親は考えない)</td></tr>
+<tr><td class="fn"><code>GetWorldMatrix()</code></td><td class="sig"><code>XMMATRIX</code></td><td>親をたどった最終的な行列</td></tr>
+<tr><td class="fn"><code>GetWorldTransform()</code></td><td class="sig"><code>Transform</code></td><td>親をたどって「ワールドでの位置・大きさ・回転」にした Transform。2D 用(回転は Z 軸だけ合成)</td></tr>
+<tr><td class="fn"><code>WorldDeltaToLocal(XMFLOAT2 worldDelta)</code></td><td class="sig"><code>XMFLOAT2</code></td><td>ワールドでの移動量を、<code>position</code> に足せる量に変換する(押し戻しなどで使う)</td></tr>
+</tbody></table></div>
+<div class="ex"><div class="exhead">使い方の例 <span class="src">出典: <code>Demo/Game/Objects/Core/TransformDemo.cpp:27-34</code></span></div><pre><code>// 子(小さい物): 親につなぐ。位置と大きさは、親から見た値になる。自分でもゆっくり回る
+GameObject* child = scene.CreateObject(&quot;Child&quot;);
+child-&gt;transform.position = childLocalPosition;
+child-&gt;transform.scale = childLocalScale;
+if (is3D) child-&gt;AddComponent&lt;MeshRenderer&gt;(Mesh::CreateCube())-&gt;SetColor(1.0f, 0.8f, 0.3f, 1.0f);
+else child-&gt;AddComponent&lt;SpriteRenderer&gt;(L&quot;Assets/box.png&quot;, 3, 3)-&gt;SetSpriteIndex(2);
+child-&gt;transform.SetParent(&amp;parent-&gt;transform);
+child-&gt;AddComponent&lt;SpinComponent&gt;(mode, 90.f);</code></pre></div>
+<div class="notes"><strong>気を付ける点</strong><ul>
+<li>子の <code>position</code> は「親から見た位置」です。親を動かすと子も一緒に動きます。</li>
+<li><code>GetWorldTransform()</code> は <strong>Z 軸回転だけ</strong> 親から引き継ぎます(2D 描画用)。3D の親子の回転は <code>GetWorldMatrix()</code> を使います。</li>
+<li>親が消える時は、先に <code>SetParent(nullptr)</code> で外すか、親子まとめて扱ってください(親子のポインタが残ると危険です)。</li>
+<li>PhysX の Dynamic な剛体は、<code>transform</code> を直接書き換えず <code>RigidbodyComponent::SetVelocity()</code> で動かします。</li>
+</ul></div>
+</section>
+<section class="file" id="f-Input">
+<h3><code>Engine/Core/Input.h</code> <code>Engine/Core/Input.cpp</code></h3>
+<p class="role">キーボード・マウス・ゲームパッドの入力です。Unity の <code>Input</code> に近い使い方ができます。キーの名前は <code>KEY_W</code>・<code>MOUSE_LEFT</code>・<code>PAD_A</code> などのマクロで書きます。</p>
+<div class="tw"><table class="api"><thead><tr><th>名前</th><th>引数・戻り値</th><th>何をするか</th></tr></thead><tbody>
+<tr><td class="fn"><code>GetKeyDown(int key)</code></td><td class="sig"><code>bool</code></td><td>キー / マウスボタンを <strong>押した瞬間</strong> だけ <code>true</code></td></tr>
+<tr><td class="fn"><code>GetKeyPress(int key)</code></td><td class="sig"><code>bool</code></td><td>キー / マウスボタンを <strong>押している間</strong> <code>true</code></td></tr>
+<tr><td class="fn"><code>GetKeyUp(int key)</code></td><td class="sig"><code>bool</code></td><td>キー / マウスボタンを <strong>離した瞬間</strong> だけ <code>true</code></td></tr>
+<tr><td class="fn"><code>GetKeyDown(WORD button, int padIndex)</code></td><td class="sig"><code>bool</code></td><td>ゲームパッドのボタン版(<code>PAD_A</code> など。<code>padIndex</code> の既定は0)</td></tr>
+<tr><td class="fn"><code>GetKeyPress(WORD button, int padIndex)</code></td><td class="sig"><code>bool</code></td><td>パッド版の「押している間」</td></tr>
+<tr><td class="fn"><code>GetKeyUp(WORD button, int padIndex)</code></td><td class="sig"><code>bool</code></td><td>パッド版の「離した瞬間」</td></tr>
+<tr><td class="fn"><code>GetMousePosition()</code></td><td class="sig"><code>XMFLOAT2</code></td><td>マウスの画面座標(画面中央が (0,0)、Y+ は下方向)。ゲーム解像度の単位</td></tr>
+<tr><td class="fn"><code>GetMouseDelta()</code></td><td class="sig"><code>XMFLOAT2</code></td><td>前のフレームからのマウスの移動量(視点操作に使う)</td></tr>
+<tr><td class="fn"><code>SetCursorLocked(bool locked)</code></td><td class="sig"><code>void</code></td><td><code>true</code> でカーソルを隠して画面中央に固定する(FPS の視点操作用)</td></tr>
+<tr><td class="fn"><code>IsCursorLocked()</code></td><td class="sig"><code>bool</code></td><td>カーソルを固定しているか</td></tr>
+<tr><td class="fn"><code>GetMouseWorldPosition()</code></td><td class="sig"><code>XMFLOAT2</code></td><td>2D 用: マウスのワールド座標(カメラ位置を考慮、Y+ は上方向)</td></tr>
+<tr><td class="fn"><code>GetPadLeftStick(int padIndex)</code></td><td class="sig"><code>XMFLOAT2</code></td><td>パッドの左スティック(-1〜1)</td></tr>
+<tr><td class="fn"><code>GetPadRightStick(int padIndex)</code></td><td class="sig"><code>XMFLOAT2</code></td><td>パッドの右スティック</td></tr>
+<tr><td class="fn"><code>GetPadTrigger(int trigger, int padIndex)</code></td><td class="sig"><code>float</code></td><td>トリガー(<code>TRIGGER_LEFT</code> / <code>TRIGGER_RIGHT</code>)の押し具合(0〜1)</td></tr>
+<tr><td class="fn"><code>Update()</code></td><td class="sig"><code>void</code></td><td>内部用: 毎フレーム GameEngine が呼ぶ</td></tr>
+<tr><td class="fn"><code>SetHwnd(HWND hwnd)</code></td><td class="sig"><code>void</code></td><td><code>main.cpp</code> で1回だけ呼ぶ。マウス座標をこのウィンドウ基準にするため</td></tr>
+<tr><td class="fn"><code>KEY_A</code></td><td class="sig"><code>#define</code></td><td>キーの名前のマクロ。<code>KEY_A</code>〜<code>KEY_Z</code>、<code>KEY_0</code>〜<code>KEY_9</code>、<code>KEY_F1</code>〜<code>KEY_F12</code>、<code>KEY_SPACE</code>、<code>KEY_ENTER</code>、<code>KEY_ESCAPE</code>、<code>KEY_SHIFT</code>、<code>KEY_CTRL</code>、<code>KEY_ALT</code>、<code>KEY_TAB</code>、<code>KEY_BACK</code>、<code>KEY_UP</code> / <code>KEY_DOWN</code> / <code>KEY_LEFT</code> / <code>KEY_RIGHT</code></td></tr>
+<tr><td class="fn"><code>MOUSE_LEFT</code></td><td class="sig"><code>#define</code></td><td>マウスボタン: <code>MOUSE_LEFT</code> / <code>MOUSE_RIGHT</code> / <code>MOUSE_MIDDLE</code>(キーと同じ <code>GetKeyDown</code> で調べる)</td></tr>
+<tr><td class="fn"><code>PAD_A</code></td><td class="sig"><code>#define</code></td><td>パッドボタン: <code>PAD_A</code> / <code>PAD_B</code> / <code>PAD_X</code> / <code>PAD_Y</code> / <code>PAD_UP</code> / <code>PAD_DOWN</code> / <code>PAD_LEFT</code> / <code>PAD_RIGHT</code> / <code>PAD_START</code> / <code>PAD_BACK</code> / <code>PAD_LB</code> / <code>PAD_RB</code> / <code>PAD_LTHUMB</code> / <code>PAD_RTHUMB</code></td></tr>
+</tbody></table></div>
+<div class="ex"><div class="exhead">使い方の例 <span class="src">出典: <code>Sample2D/Game/Components/PlayerController.cpp:47-52,63-65</code></span></div><pre><code>    if (Input::GetKeyPress(KEY_W)) velocity.y += speed;
+    if (Input::GetKeyPress(KEY_S)) velocity.y -= speed;
+    if (Input::GetKeyPress(KEY_A)) velocity.x -= speed;
+    if (Input::GetKeyPress(KEY_D)) velocity.x += speed;
+    if (rigidbody) rigidbody-&gt;SetVelocity(velocity);
+}
+// (中略)
+if (Input::GetKeyDown(MOUSE_LEFT)) {
+    EventBus::Get().PublishObject(&quot;FireBullet&quot;, GetOwner());
+}</code></pre></div>
+<div class="ex"><div class="exhead">使い方の例 <span class="src">出典: <code>Sample3D/Game/Components/CameraController.cpp:39-53</code></span></div><pre><code>if (Input::IsCursorLocked()) {
+    if (Input::GetKeyDown(KEY_ESCAPE)) Input::SetCursorLocked(false);
+}
+else if (Input::GetKeyDown(MOUSE_LEFT) &amp;&amp; IsMouseInScreen()) {
+    Input::SetCursorLocked(true);
+    lockedThisFrame = true;
+}
+
+// 視点回転: 固定中だけ、マウスの移動量で回す(固定したフレームは使わない)
+if (!Input::IsCursorLocked() || lockedThisFrame) return;
+XMFLOAT2 delta = Input::GetMouseDelta();
+yaw += delta.x * mouseSensitivity;
+pitch -= delta.y * mouseSensitivity;
+if (pitch &lt; minPitch) pitch = minPitch;
+if (pitch &gt; maxPitch) pitch = maxPitch;</code></pre></div>
+<div class="notes"><strong>気を付ける点</strong><ul>
+<li>2D のオブジェクトとマウスを比べる時は <code>GetMousePosition()</code> ではなく <strong><code>GetMouseWorldPosition()</code></strong> を使います(カメラの位置を考慮済みで、Y+ が上)。<code>GetMousePosition()</code> はカメラを考えない「画面上の位置」です。</li>
+<li><code>GetMousePosition()</code> は Y+ が <strong>下</strong>、<code>GetMouseWorldPosition()</code> は Y+ が <strong>上</strong> です。向きが逆なので注意。</li>
+<li>カーソル固定中は、別のウィンドウを選んだり最小化したりすると自動で解除されます。固定したフレームの <code>GetMouseDelta()</code> は 0 です。</li>
+<li>ポーズ中に操作を止めたい時は <code>Time::IsPaused()</code> で調べます(入力は時間の倍率の影響を受けません)。</li>
+</ul></div>
+</section>
+<section class="file" id="f-MathUtil">
+<h3><code>Engine/Core/MathUtil.h</code> <code>Engine/Core/MathUtil.cpp</code></h3>
+<p class="role">方向・距離・角度・乱数の計算をまとめた物です(Unity の <code>Mathf</code> と <code>Vector3</code> の計算を合わせたもの)。角度はすべて <strong>度</strong> です。<code>XMFLOAT2</code> / <code>XMFLOAT3</code> の <code>+</code> <code>-</code> <code>*</code> も使えるようになります。</p>
+<div class="tw"><table class="api"><thead><tr><th>名前</th><th>引数・戻り値</th><th>何をするか</th></tr></thead><tbody>
+<tr><td class="fn"><code>operator+ / operator- / operator*</code></td><td class="sig"><code>XMFLOAT2・XMFLOAT3</code></td><td>ベクトルの足し算・引き算・何倍か(<code>namespace DirectX</code> に定義)</td></tr>
+<tr><td class="fn"><code>Length(v)</code></td><td class="sig"><code>float</code></td><td>ベクトルの長さ(XMFLOAT2 / XMFLOAT3 版)</td></tr>
+<tr><td class="fn"><code>Distance(a, b)</code></td><td class="sig"><code>float</code></td><td>2点の距離(XMFLOAT2 / XMFLOAT3 版)</td></tr>
+<tr><td class="fn"><code>DistanceSq(a, b)</code></td><td class="sig"><code>float</code></td><td>距離の2乗。大小を比べるだけなら <code>sqrt</code> が無くて速い</td></tr>
+<tr><td class="fn"><code>Normalize(v)</code></td><td class="sig"><code>XMFLOAT2 / XMFLOAT3</code></td><td>長さ1にする(長さがほぼ0なら 0 ベクトル)</td></tr>
+<tr><td class="fn"><code>DirectionTo(from, to)</code></td><td class="sig"><code>XMFLOAT2 / XMFLOAT3</code></td><td>from から to への向き(長さ1)</td></tr>
+<tr><td class="fn"><code>Dot(a, b)</code></td><td class="sig"><code>float</code></td><td>内積(XMFLOAT3)</td></tr>
+<tr><td class="fn"><code>Cross(a, b)</code></td><td class="sig"><code>XMFLOAT3</code></td><td>外積(2つに垂直な向き)。<code>Cross({0,1,0}, 正面)</code> が右</td></tr>
+<tr><td class="fn"><code>ToXY(XMFLOAT3 v)</code></td><td class="sig"><code>XMFLOAT2</code></td><td>x, y だけ取り出す(2D 用)</td></tr>
+<tr><td class="fn"><code>Lerp(a, b, t)</code></td><td class="sig"><code>float / XMFLOAT3</code></td><td>a と b の間(t=0 で a、t=1 で b。t は制限しない)</td></tr>
+<tr><td class="fn"><code>Clamp(value, minValue, maxValue)</code></td><td class="sig"><code>float</code></td><td>範囲内に収める</td></tr>
+<tr><td class="fn"><code>MoveTowards(current, target, maxDistance)</code></td><td class="sig"><code>XMFLOAT3</code></td><td>target へ最大 maxDistance だけ近づく(行き過ぎない)</td></tr>
+<tr><td class="fn"><code>DeltaAngle(current, target)</code></td><td class="sig"><code>float</code></td><td>角度の差(-180〜180)。350度と10度の差は20度</td></tr>
+<tr><td class="fn"><code>MoveTowardsAngle(current, target, maxDelta)</code></td><td class="sig"><code>float</code></td><td>近い回り方で、最大 maxDelta だけ角度を近づける</td></tr>
+<tr><td class="fn"><code>AngleToTarget2D(XMFLOAT2 from, XMFLOAT2 to)</code></td><td class="sig"><code>float</code></td><td>to の方を向く <code>rotate.z</code>(rotate.z=0 で上向き)</td></tr>
+<tr><td class="fn"><code>AngleToTargetY(XMFLOAT3 from, XMFLOAT3 to)</code></td><td class="sig"><code>float</code></td><td>to の方を向く <code>rotate.y</code>(3D の水平の向き。rotate.y=0 で +Z)</td></tr>
+<tr><td class="fn"><code>Forward2D(const Transform&amp; t)</code></td><td class="sig"><code>XMFLOAT2</code></td><td>2D の正面(rotate.z=0 で (0,1))</td></tr>
+<tr><td class="fn"><code>Forward3D(const Transform&amp; t)</code></td><td class="sig"><code>XMFLOAT3</code></td><td>3D の水平の正面(rotate.y だけ使う。rotate.y=0 で (0,0,1))</td></tr>
+<tr><td class="fn"><code>RandomRange(float minValue, float maxValue)</code></td><td class="sig"><code>float</code></td><td>範囲のランダムな小数</td></tr>
+<tr><td class="fn"><code>RandomRange(int minValue, int maxValue)</code></td><td class="sig"><code>int</code></td><td>範囲のランダムな整数(maxValue も含む)</td></tr>
+<tr><td class="fn"><code>RandomOnCircle(float radius)</code></td><td class="sig"><code>XMFLOAT2</code></td><td>原点中心・半径 radius の円周上のランダムな点</td></tr>
+</tbody></table></div>
+<div class="ex"><div class="exhead">使い方の例 <span class="src">出典: <code>Sample2D/Game/Components/PlayerController.cpp:56-60</code></span></div><pre><code>DirectX::XMFLOAT2 mouseWorldPos = Input::GetMouseWorldPosition();
+DirectX::XMFLOAT2 playerPos = Math::ToXY(t.position);
+if (Math::DistanceSq(playerPos, mouseWorldPos) &gt; 1.0f) {  // マウスがほぼ真上にある時は向きが定まらないので変えない
+    t.rotate.z = Math::AngleToTarget2D(playerPos, mouseWorldPos);
+}</code></pre></div>
+<div class="ex"><div class="exhead">使い方の例 <span class="src">出典: <code>Sample3D/Game/Components/PlayerController.cpp:72-85</code></span></div><pre><code>DirectX::XMFLOAT3 forward = Math::Forward3D(t);
+DirectX::XMFLOAT3 right = Math::Cross({ 0.f, 1.f, 0.f }, forward);
+DirectX::XMFLOAT2 input = { 0.f, 0.f };   // x=右方向、y=前方向の入力
+if (Input::GetKeyPress(KEY_W)) input.y += 1.f;
+if (Input::GetKeyPress(KEY_S)) input.y -= 1.f;
+if (Input::GetKeyPress(KEY_D)) input.x += 1.f;
+if (Input::GetKeyPress(KEY_A)) input.x -= 1.f;
+
+// 斜め移動で速くならないよう、長さを1にそろえる(何も押していない時は0のまま)
+input = Math::Normalize(input);
+
+// 位置を直接書き換えるのではなく、PhysXの剛体に速度を渡す(Yは今の速度のまま)
+DirectX::XMFLOAT3 move = (forward * input.y + right * input.x) * speed;
+rigidbody-&gt;SetVelocity({ move.x, velocityY, move.z });</code></pre></div>
+<div class="notes"><strong>気を付ける点</strong><ul>
+<li>角度はラジアンではなく <strong>度</strong> です。</li>
+<li>2D は <code>rotate.z=0</code> で <strong>上(Y+)向き</strong>、増えると左回り。3D の <code>rotate.y=0</code> は <strong>+Z 向き</strong>、増えると +X 側へ回ります。</li>
+<li><code>Lerp</code> の <code>t</code> は 0〜1 に制限されません。制限したい時は <code>Clamp</code> と組み合わせます。</li>
+<li>長さ 0 のベクトルを <code>Normalize</code> しても 0 で割らず、0 ベクトルを返します。</li>
+</ul></div>
+</section>
+<section class="file" id="f-Time">
+<h3><code>Engine/Core/Time.h</code> <code>Engine/Core/Time.cpp</code></h3>
+<p class="role">1フレームの時間・起動してからの時間・時間の倍率(スロー / ポーズ)です。Unity の <code>Time</code> と同じです。</p>
+<div class="tw"><table class="api"><thead><tr><th>名前</th><th>引数・戻り値</th><th>何をするか</th></tr></thead><tbody>
+<tr><td class="fn"><code>GetDeltaTime()</code></td><td class="sig"><code>float</code></td><td>1フレームの時間(秒)。倍率の影響を受ける(ポーズ中は 0)</td></tr>
+<tr><td class="fn"><code>GetUnscaledDeltaTime()</code></td><td class="sig"><code>float</code></td><td>倍率の影響を受けない本当の時間(ポーズ中も動かしたい UI 用)</td></tr>
+<tr><td class="fn"><code>GetTime()</code></td><td class="sig"><code>float</code></td><td>起動してからの時間(秒)。倍率の影響を受ける</td></tr>
+<tr><td class="fn"><code>SetTimeScale(float scale)</code></td><td class="sig"><code>void</code></td><td>時間の倍率(1=通常、0.3=スロー、0=ポーズ)。負の値は 0 にする</td></tr>
+<tr><td class="fn"><code>GetTimeScale()</code></td><td class="sig"><code>float</code></td><td>今の倍率(シーン切り替えの演出中は 0)</td></tr>
+<tr><td class="fn"><code>IsPaused()</code></td><td class="sig"><code>bool</code></td><td>ポーズ中か(倍率が 0 の時 <code>true</code>。シーン切り替えの演出中も <code>true</code>)</td></tr>
+<tr><td class="fn"><code>Init() / Update()</code></td><td class="sig"><code>void</code></td><td>内部用: GameEngine が呼ぶ</td></tr>
+<tr><td class="fn"><code>PauseForSceneTransition()</code></td><td class="sig"><code>void</code></td><td>内部用: SceneManager が演出の開始時に呼ぶ</td></tr>
+<tr><td class="fn"><code>ResumeAfterSceneTransition()</code></td><td class="sig"><code>void</code></td><td>内部用: SceneManager が演出の終了時に呼ぶ</td></tr>
+</tbody></table></div>
+<div class="ex"><div class="exhead">使い方の例 <span class="src">出典: <code>Demo/Game/Components/Core/TimeDemoController.cpp:28-28,33-34</code></span></div><pre><code>Time::SetTimeScale(paused ? 0.f : (slow ? slowScale : 1.f));
+// (中略)
+scaledObject-&gt;transform.rotate.z += spinSpeed * dt;
+unscaledObject-&gt;transform.rotate.z += spinSpeed * Time::GetUnscaledDeltaTime();</code></pre></div>
+<div class="notes"><strong>気を付ける点</strong><ul>
+<li>1フレームの時間には上限(0.1秒)があり、ウィンドウのドラッグ中などでも大きな値になりません。</li>
+<li><strong>シーン切り替えの演出の間は倍率 0 になります</strong>。演出中に <code>SetTimeScale</code> を呼んでも、演出が終わってから効きます。</li>
+<li>ポーズ中でも動かしたい物(メニューなど)は <code>GetUnscaledDeltaTime()</code> を使います。</li>
+<li><strong>ポーズ中も、各 Component の <code>Update</code> は止まりません</strong>(<code>dt</code> が 0 で呼ばれ続けます。PhysX の物理は止まります)。キー入力を止めたい Controller は、<code>Update</code> の先頭に <code>if (Time::IsPaused()) return;</code> と書きます(README &#167;10)。</li>
+<li><code>Engine</code> フォルダをインクルードパスに追加しないこと(標準の <code>&lt;time.h&gt;</code> と名前がぶつかります)。</li>
+</ul></div>
+</section>
+<section class="file" id="f-Timer">
+<h3><code>Engine/Core/Timer.h</code></h3>
+<p class="role">「○秒たったら」を数えるタイマーです。Component のメンバに持ち、毎フレーム <code>Update(dt)</code> を呼びます。</p>
+<div class="tw"><table class="api"><thead><tr><th>名前</th><th>引数・戻り値</th><th>何をするか</th></tr></thead><tbody>
+<tr><td class="fn"><code>Timer(float duration, bool loop)</code></td><td class="sig"><code>コンストラクタ</code></td><td>何秒で時間が来るか、繰り返すか(既定は 1秒・繰り返さない)</td></tr>
+<tr><td class="fn"><code>Update(float dt)</code></td><td class="sig"><code>bool</code></td><td>時間を進める。<strong>時間が来たフレームだけ</strong> <code>true</code></td></tr>
+<tr><td class="fn"><code>Reset()</code></td><td class="sig"><code>void</code></td><td>最初から数え直す</td></tr>
+<tr><td class="fn"><code>Complete()</code></td><td class="sig"><code>void</code></td><td>すぐに「終わった状態」にする(loop の時は次の Update で時間が来る)</td></tr>
+<tr><td class="fn"><code>GetProgress()</code></td><td class="sig"><code>float</code></td><td>進み具合(0〜1)</td></tr>
+<tr><td class="fn"><code>IsFinished()</code></td><td class="sig"><code>bool</code></td><td>終わったか(loop のタイマーは終わらないので常に <code>false</code>)</td></tr>
+<tr><td class="fn"><code>duration / loop / elapsed / finished</code></td><td class="sig"><code>メンバ変数</code></td><td>秒数・繰り返し・経過時間・終わったか</td></tr>
+</tbody></table></div>
+<div class="ex"><div class="exhead">使い方の例 <span class="src">出典: <code>Sample2D/Game/Components/BulletController.h:15-15</code></span></div><pre><code>Timer lifeTimer{ lifeTime };                // 発射されてからの時間を数える</code></pre></div>
+<div class="ex"><div class="exhead">使い方の例 <span class="src">出典: <code>Sample2D/Game/Components/PlayerController.cpp:14-16,29-31,76-78</code></span></div><pre><code>// 最初は無敵ではない(「終わった状態」にしておき、ダメージを受けたらResetで数え始める)
+invincibleTimer.Complete();
+knockbackTimer.Complete();
+// (中略)
+// 無敵時間・弾かれている時間
+invincibleTimer.Update(dt);
+knockbackTimer.Update(dt);
+// (中略)
+    if (hp &lt;= 0 || !invincibleTimer.IsFinished()) return;
+    hp--;
+    invincibleTimer.Reset();</code></pre></div>
+<div class="notes"><strong>気を付ける点</strong><ul>
+<li>繰り返さない Timer は、時間が来た後に <code>Update</code> しても <code>false</code> のままです。もう一度数える時は <code>Reset()</code>。</li>
+<li>「最初は終わった状態にしておき、きっかけで数え始める」(無敵時間など)は、<code>Complete()</code> で始めて、きっかけの時に <code>Reset()</code> します。</li>
+<li>繰り返す Timer で <code>duration</code> が 0 以下だと、<code>Update</code> のたびに毎回 <code>true</code> になります。</li>
+</ul></div>
+</section>
+<section class="file" id="f-Resources">
+<h3><code>Engine/Core/Resources.h</code> <code>Engine/Core/Resources.cpp</code></h3>
+<p class="role">画像・音・モデルを「何度も読み込まない」ための仕組みです。同じパスのものは1回だけ読み、何人が使っているか(参照カウント)を数えます。<code>SpriteRenderer</code> や <code>Audio</code> が中で自動的に使うので、普段は意識しなくて構いません。</p>
+<div class="tw"><table class="api"><thead><tr><th>名前</th><th>引数・戻り値</th><th>何をするか</th></tr></thead><tbody>
+<tr><td class="fn"><code>LoadTexture(const std::wstring&amp; path)</code></td><td class="sig"><code>unsigned int</code></td><td>画像を借りる。同じパスは同じ ID を返す。失敗したら <code>UINT_MAX</code></td></tr>
+<tr><td class="fn"><code>ReleaseTexture(unsigned int id)</code></td><td class="sig"><code>void</code></td><td>借りた画像を返す(カウントを1減らす。0 になってもすぐには解放しない)</td></tr>
+<tr><td class="fn"><code>LoadSound(const std::wstring&amp; path)</code></td><td class="sig"><code>unsigned int</code></td><td>音(WAV)を借りる。失敗したら <code>UINT_MAX</code></td></tr>
+<tr><td class="fn"><code>ReleaseSound(unsigned int id)</code></td><td class="sig"><code>void</code></td><td>借りた音を返す</td></tr>
+<tr><td class="fn"><code>LoadModel(const std::wstring&amp; path)</code></td><td class="sig"><code>std::shared_ptr&lt;Model&gt;</code></td><td>FBX / OBJ モデルを借りる。失敗したら <code>nullptr</code></td></tr>
+<tr><td class="fn"><code>UnloadUnused()</code></td><td class="sig"><code>void</code></td><td>誰も使っていない画像・音・モデルをまとめて解放する(シーン切り替えの時に SceneManager が呼ぶ)</td></tr>
+<tr><td class="fn"><code>UnloadAll()</code></td><td class="sig"><code>void</code></td><td>内部用: 終了時にすべて解放する</td></tr>
+</tbody></table></div>
+<div class="ex"><div class="exhead">使い方の例 <span class="src">出典: <code>Sample2D/Game/Components/BackgroundController.cpp:10-13,36-40</code></span></div><pre><code>void BackgroundController::Init() {
+    // テクスチャを借りる(読み込み済みなら使い回す)
+    texID = Resources::LoadTexture(texturePath);
+}
+// (中略)
+void BackgroundController::Uninit() {
+    // テクスチャを返す
+    Resources::ReleaseTexture(texID);
+    texID = UINT_MAX;
+}</code></pre></div>
+<div class="ex"><div class="exhead">使い方の例 <span class="src">出典: <code>Demo/Game/Components/Core/ResourcesDemoController.cpp:23-27</code></span></div><pre><code>void ResourcesDemoController::CheckTextureId() {
+    // 1回借りてすぐ返す(借りた回数は元に戻る)。同じ画像なら、いつも同じIDが返る
+    textureId = Resources::LoadTexture(texturePath);
+    Resources::ReleaseTexture(textureId);
+}</code></pre></div>
+<div class="notes"><strong>気を付ける点</strong><ul>
+<li>パスの <code>\</code> と <code>/</code>、大文字小文字の違いは同じものとして扱われます。</li>
+<li><code>Release</code> しても、すぐにはメモリから消えません(弾や敵のように出たり消えたりする物が読み直さないため)。実際に解放されるのは <code>UnloadUnused()</code> の時です。</li>
+<li><code>LoadTexture</code> で借りたら、不要になった時に必ず <code>ReleaseTexture</code> で返します(<code>Uninit</code> で)。<code>SpriteRenderer</code> は自動で返します。</li>
+</ul></div>
+</section>
+<section class="file" id="f-EventBus">
+<h3><code>Engine/Core/EventBus.h</code></h3>
+<p class="role">名前で識別する通知の仕組みです(イベントバス / Pub-Sub)。「何が起きたか」を知らせる側と、それを聞いて動く側が、お互いを直接知らなくて済みます。アプリ全体で1つ(<code>EventBus::Get()</code>)。</p>
+<div class="tw"><table class="api"><thead><tr><th>名前</th><th>引数・戻り値</th><th>何をするか</th></tr></thead><tbody>
+<tr><td class="fn"><code>Get()</code></td><td class="sig"><code>static EventBus&amp;</code></td><td>唯一の EventBus を返す</td></tr>
+<tr><td class="fn"><code>Subscribe(const std::string&amp; eventName, Callback callback)</code></td><td class="sig"><code>void</code></td><td>引数なしイベントを「聞く」登録。<code>Callback</code> は <code>std::function&lt;void()&gt;</code></td></tr>
+<tr><td class="fn"><code>Publish(const std::string&amp; eventName)</code></td><td class="sig"><code>void</code></td><td>引数なしイベントを知らせる。登録された処理が全部呼ばれる</td></tr>
+<tr><td class="fn"><code>SubscribeObject(const std::string&amp; eventName, ObjectCallback callback)</code></td><td class="sig"><code>void</code></td><td>GameObject を1つ受け取るイベントの登録。<code>ObjectCallback</code> は <code>std::function&lt;void(GameObject*)&gt;</code></td></tr>
+<tr><td class="fn"><code>PublishObject(const std::string&amp; eventName, GameObject* obj)</code></td><td class="sig"><code>void</code></td><td>「誰が」を添えて知らせる</td></tr>
+<tr><td class="fn"><code>Clear()</code></td><td class="sig"><code>void</code></td><td>登録を全部消す(シーンの <code>Uninit</code> で呼ぶ)</td></tr>
+</tbody></table></div>
+<div class="ex"><div class="exhead">使い方の例 <span class="src">出典: <code>Sample2D/Game/Components/GameManager.cpp:23-34</code></span></div><pre><code>EventBus::Get().Subscribe(&quot;EnemyDefeated&quot;, [this]() {
+    score += 10;
+});
+
+// Playerが倒れたらゲームオーバー。ハイスコアを超えていたら保存する
+EventBus::Get().Subscribe(&quot;PlayerDied&quot;, [this]() {
+    gameOver = true;
+    if (score &gt; GetHighScore()) {
+        SaveData::SetInt(highScoreKey, score);
+        SaveData::Save();
+    }
+});</code></pre></div>
+<div class="ex"><div class="exhead">使い方の例 <span class="src">出典: <code>Sample2D/Game/Components/BulletManager.cpp:34-39</code></span></div><pre><code>EventBus::Get().SubscribeObject(&quot;FireBullet&quot;, [this](GameObject* shooter) {
+    if (!shooter) return;
+
+    // 撃った本人の正面(rotate.z = 0 で上向き)へ
+    Fire(shooter-&gt;transform.position, Math::Forward2D(shooter-&gt;transform));
+});</code></pre></div>
+<div class="notes"><strong>気を付ける点</strong><ul>
+<li>ラムダで <code>this</code> をキャプチャして登録したら、そのシーンの <code>Uninit()</code> で必ず <code>EventBus::Get().Clear()</code> を呼びます(消えたオブジェクトを呼ぶバグになるため)。</li>
+<li>イベント名は PascalCase の文字列(<code>&quot;EnemyDefeated&quot;</code> など)。綴りを間違えても、エラーにならず何も起きないだけなので注意。</li>
+<li>通知を送るだけで、返事は返ってきません。「結果を知りたい」時は、他の Component のポインタを工場関数の引数で渡す方が向いています。</li>
+</ul></div>
+</section>
+<section class="file" id="f-ObjectPool">
+<h3><code>Engine/Core/ObjectPool.h</code></h3>
+<p class="role">同じ種類の GameObject を使い回す入れ物です。弾やエフェクトなど「出しては消す」物の作り直しを減らします。</p>
+<div class="tw"><table class="api"><thead><tr><th>名前</th><th>引数・戻り値</th><th>何をするか</th></tr></thead><tbody>
+<tr><td class="fn"><code>Prewarm(Scene&amp; scene, int count, const Setup&amp; setup)</code></td><td class="sig"><code>void</code></td><td>あらかじめ count 個作って、非表示で用意しておく(任意)</td></tr>
+<tr><td class="fn"><code>Rent(Scene&amp; scene, const Setup&amp; setup)</code></td><td class="sig"><code>GameObject*</code></td><td>1個借りてアクティブにして返す。空きが無ければ新しく作る</td></tr>
+<tr><td class="fn"><code>Return(GameObject* obj)</code></td><td class="sig"><code>void</code></td><td>使い終わった物を非アクティブに戻す(Destroy ではない)</td></tr>
+<tr><td class="fn"><code>GetPoolSize()</code></td><td class="sig"><code>int</code></td><td>プールが作った GameObject の数</td></tr>
+<tr><td class="fn"><code>GetObjects()</code></td><td class="sig"><code>const std::vector&lt;GameObject*&gt;&amp;</code></td><td>プールの全 GameObject(使っていない物も含む)。使用中かは <code>GetIsActive()</code> で調べる</td></tr>
+<tr><td class="fn"><code>Setup</code></td><td class="sig"><code>std::function&lt;void(GameObject*)&gt;</code></td><td>組み立て処理の型。新しく作る時にだけ呼ばれる(AddComponent を並べる)</td></tr>
+</tbody></table></div>
+<div class="ex"><div class="exhead">使い方の例 <span class="src">出典: <code>Sample2D/Game/Components/BulletManager.cpp:42-46</code></span></div><pre><code>GameObject* BulletManager::Fire(XMFLOAT3 position, XMFLOAT2 direction) {
+    // プールから借りて、位置・向きをリセット(前回使った時の値が残っているため)
+    GameObject* bullet = pool.Rent(*GetOwner()-&gt;GetScene(), SetupBullet);
+    bullet-&gt;transform.position = { position.x, position.y, bulletZ };
+    bullet-&gt;transform.rotate = { 0.f, 0.f, 0.f };</code></pre></div>
+<div class="ex"><div class="exhead">使い方の例 <span class="src">出典: <code>Sample2D/Game/Components/BulletController.cpp:12-15</code></span></div><pre><code>// 寿命が来たらプールに返す
+if (lifeTimer.Update(dt) &amp;&amp; pool) {
+    pool-&gt;Return(GetOwner());
+}</code></pre></div>
+<div class="ex"><div class="exhead">使い方の例 <span class="src">出典: <code>Demo/Game/Components/Core/PoolDemoController.cpp:30-33</code></span></div><pre><code>void PoolDemoController::Init() {
+    // 弾をあらかじめ用意しておく(非表示。足りなくなったらRentが自動で足す)
+    bulletPool.Prewarm(*GetOwner()-&gt;GetScene(), prewarmCount, [this](GameObject* bullet) { SetupBullet(bullet); });
+}</code></pre></div>
+<div class="notes"><strong>気を付ける点</strong><ul>
+<li>借りた GameObject には <strong>前回使った時の値が残っています</strong>(位置・色など)。借りた直後に毎回セットし直します。</li>
+<li><code>ObjectPool</code> は、そのシーンの GameObject に付けた Component の <strong>メンバ</strong> として持ちます(<code>static</code> 変数にしない。シーンが終わると中の GameObject は消えるため)。</li>
+<li>組み立て処理(<code>Setup</code>)は新しく作る時の1回だけです。毎回やりたい初期化は、借りた後に書きます。</li>
+</ul></div>
+</section>
+
+<footer class="foot">この解説は <code>docs/EngineGuide/tools/build.ps1</code> で作っています。表の内容は Engine のヘッダーから拾っています。コード例は Sample2D / Sample3D / Demo の実際のソースを読み込んで載せています。</footer>
+</main>
+</div>
+<script src="search-index.js"></script>
+<script src="search.js"></script>
+</body>
+</html>

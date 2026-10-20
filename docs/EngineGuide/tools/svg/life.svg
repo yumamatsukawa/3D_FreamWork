@@ -1,0 +1,23 @@
+﻿<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 860 380" width="860" role="img" aria-label="GameObject と Component が生まれて、動いて、消えるまで">
+<defs><marker id="ah-life" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ahead"/></marker></defs>
+<g class="box g-core"><rect x="10" y="15" width="250" height="56" rx="6"/><text x="135" y="37" text-anchor="middle" font-size="14">scene.CreateObject(名前, タグ)</text><text x="135" y="55" text-anchor="middle" font-size="14">GameObject ができる</text></g>
+<g class="box g-core"><rect x="305" y="15" width="250" height="56" rx="6"/><text x="430" y="37" text-anchor="middle" font-size="14">obj-&gt;AddComponent&lt;T&gt;()</text><text x="430" y="55" text-anchor="middle" font-size="14">Component が付く</text></g>
+<g class="box g-core"><rect x="600" y="15" width="250" height="56" rx="6"/><text x="725" y="37" text-anchor="middle" font-size="14">Init() が1回呼ばれる</text><text x="725" y="55" text-anchor="middle" font-size="14">（AddComponent の中で）</text></g>
+<line class="ln" x1="260" y1="43" x2="305" y2="43" marker-end="url(#ah-life)"/>
+<line class="ln" x1="555" y1="43" x2="600" y2="43" marker-end="url(#ah-life)"/>
+<g class="box g-render"><rect x="600" y="120" width="250" height="70" rx="6"/><text x="725" y="140" text-anchor="middle" font-size="14">毎フレーム</text><text x="725" y="158" text-anchor="middle" font-size="14">Update(dt) → Draw()</text><text x="725" y="176" text-anchor="middle" font-size="14">（付けた順。有効な時だけ）</text></g>
+<path class="ln" fill="none" d="M 725 71 L 725 120" marker-end="url(#ah-life)"/>
+<g class="box g-physics"><rect x="305" y="120" width="250" height="70" rx="6"/><text x="430" y="140" text-anchor="middle" font-size="14">obj-&gt;Destroy()</text><text x="430" y="158" text-anchor="middle" font-size="14">「消す印」を付けるだけ</text><text x="430" y="176" text-anchor="middle" font-size="14">（その場では消えない）</text></g>
+<line class="ln" x1="600" y1="155" x2="555" y2="155" marker-end="url(#ah-life)"/>
+<g class="box g-physics"><rect x="10" y="120" width="250" height="70" rx="6"/><text x="135" y="140" text-anchor="middle" font-size="14">Scene::Update の最後に</text><text x="135" y="158" text-anchor="middle" font-size="14">Uninit() が呼ばれて</text><text x="135" y="176" text-anchor="middle" font-size="14">シーンから取り除かれる</text></g>
+<line class="ln" x1="305" y1="155" x2="260" y2="155" marker-end="url(#ah-life)"/>
+<g class="box g-behavior"><rect x="600" y="245" width="250" height="56" rx="6"/><text x="725" y="267" text-anchor="middle" font-size="13">SetActive(false) = お休み</text><text x="725" y="284" text-anchor="middle" font-size="13">Update/Draw が止まる。消えない</text></g>
+<path class="ln dash" fill="none" d="M 790 190 L 790 245" marker-end="url(#ah-life)"/>
+<path class="ln dash" fill="none" d="M 660 245 L 660 190" marker-end="url(#ah-life)"/>
+<text class="lb" x="800" y="222" text-anchor="start"><tspan x="800" dy="0">false</tspan></text>
+<text class="lb" x="650" y="222" text-anchor="end"><tspan x="650" dy="0">true</tspan></text>
+<text class="lb" x="305" y="262" text-anchor="start"><tspan x="305" dy="0">全 Component に OnActiveChanged(bool)</tspan></text>
+<text class="lb" x="305" y="280" text-anchor="start"><tspan x="305" dy="0">が届く（ObjectPool の出し入れもこれ）</tspan></text>
+<g class="box g-animation"><rect x="10" y="245" width="250" height="78" rx="6"/><text x="135" y="261" text-anchor="middle" font-size="13">Update の途中で CreateObject すると</text><text x="135" y="278" text-anchor="middle" font-size="13">待ち行列（pendingObjects）に入り、</text><text x="135" y="295" text-anchor="middle" font-size="13">Update の最後に objects へ移る</text><text x="135" y="312" text-anchor="middle" font-size="13">（動き出すのは次のフレーム）</text></g>
+<text class="lb" x="10" y="350" text-anchor="start"><tspan x="10" dy="0">GameObject::Update は、アクティブな時だけ、有効（IsEnabled）な Component の Update を呼びます。</tspan></text>
+</svg>

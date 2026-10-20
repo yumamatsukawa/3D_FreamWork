@@ -1,0 +1,202 @@
+﻿/* Engine解説の共通スタイル(外部フォント・CDNなし。ファイルを直接開いて見られる) */
+:root {
+  --bg: #ffffff;
+  --text: #1f2933;
+  --muted: #52606d;
+  --accent: #1d6fb8;
+  --accent-soft: #e6f1fb;
+  --line: #d9e2ec;
+  --code-bg: #f3f6f9;
+  --pre-bg: #1e2a38;
+  --pre-text: #e8eef5;
+  --note-bg: #fff8e1;
+  --note-line: #f0c040;
+  --side-bg: #f5f8fb;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: "游ゴシック", "Yu Gothic", "Meiryo", "メイリオ", "Segoe UI", sans-serif;
+  font-size: 16px;
+  line-height: 1.75;
+}
+code, pre, .sig {
+  font-family: "Consolas", "BIZ UDGothic", "MS Gothic", monospace;
+}
+code {
+  background: var(--code-bg);
+  padding: 0.05em 0.35em;
+  border-radius: 4px;
+  font-size: 0.92em;
+  word-break: break-word;
+}
+a { color: var(--accent); }
+a:hover { text-decoration: none; }
+
+/* 全体: 左メニュー + 本文 */
+.layout { display: flex; min-height: 100vh; }
+.side {
+  width: 240px;
+  flex: 0 0 240px;
+  background: var(--side-bg);
+  border-right: 1px solid var(--line);
+  padding: 16px 14px;
+  position: sticky;
+  top: 0;
+  align-self: flex-start;
+  max-height: 100vh;
+  overflow-y: auto;
+}
+.brand { font-weight: bold; font-size: 1.15em; margin-bottom: 10px; }
+.brand a { text-decoration: none; color: var(--text); }
+.menu { list-style: none; margin: 12px 0; padding: 0; }
+.menu li a {
+  display: block;
+  padding: 3px 10px;
+  border-radius: 6px;
+  text-decoration: none;
+  color: var(--text);
+}
+.menu li a:hover { background: var(--accent-soft); }
+.menu li a.current { background: var(--accent); color: #fff; }
+.sidenote { font-size: 0.8em; color: var(--muted); line-height: 1.5; }
+main { flex: 1; min-width: 0; max-width: 980px; padding: 24px 32px 60px; }
+
+/* 検索 */
+.search { position: relative; }
+.search input, .filter {
+  width: 100%;
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font: inherit;
+  font-size: 0.9em;
+}
+.filter { max-width: 480px; font-size: 1em; }
+#results {
+  display: none;
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+  position: fixed;
+  z-index: 10;
+  left: 250px;
+  top: 56px;
+  width: 440px;
+  max-height: 60vh;
+  overflow-y: auto;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
+}
+#results li a { display: block; padding: 5px 10px; text-decoration: none; color: var(--text); font-size: 0.85em; line-height: 1.4; }
+#results li a:hover { background: var(--accent-soft); }
+#results li.none { padding: 6px 10px; color: var(--muted); font-size: 0.85em; }
+#results .kind { font-size: 0.75em; background: var(--accent-soft); color: var(--accent); padding: 0 6px; border-radius: 8px; }
+#results .where { color: var(--muted); }
+
+/* 見出し */
+h1 { font-size: 1.8em; margin: 0 0 8px; border-bottom: 3px solid var(--accent); padding-bottom: 6px; }
+h2 { font-size: 1.4em; margin: 2em 0 0.5em; border-left: 6px solid var(--accent); padding-left: 10px; }
+h3 { font-size: 1.1em; margin: 0 0 6px; }
+h4 { font-size: 1em; margin: 14px 0 4px; color: var(--muted); }
+.lead { background: var(--accent-soft); border-radius: 8px; padding: 10px 16px; margin: 10px 0 16px; }
+.toc { background: var(--side-bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px 16px; margin-bottom: 20px; }
+.toc ul { margin: 4px 0; padding-left: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 4px 18px; }
+
+/* ファイルの節 */
+section.file {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 14px 18px 8px;
+  margin: 22px 0;
+  scroll-margin-top: 12px;
+}
+section.file > h3 { border-bottom: 1px solid var(--line); padding-bottom: 6px; }
+.role { margin: 6px 0; }
+.classes { margin: 4px 0 8px; color: var(--muted); font-size: 0.9em; }
+
+/* API表 */
+.tw { overflow-x: auto; margin: 8px 0 14px; }
+table.api { border-collapse: collapse; width: 100%; font-size: 0.92em; }
+table.api th { background: var(--side-bg); text-align: left; padding: 5px 8px; border: 1px solid var(--line); white-space: nowrap; }
+table.api td { padding: 5px 8px; border: 1px solid var(--line); vertical-align: top; }
+table.api td.fn { white-space: nowrap; font-weight: bold; }
+table.api td.sig code { background: transparent; padding: 0; word-break: normal; overflow-wrap: anywhere; }
+table.api td.fn code { background: transparent; padding: 0; }
+table.api tbody tr:nth-child(even) { background: #fafcfe; }
+
+/* コード例 */
+.ex { margin: 12px 0; border-radius: 8px; overflow: hidden; border: 1px solid #2c3e50; }
+.exhead { background: #2c3e50; color: #fff; font-size: 0.85em; padding: 3px 12px; }
+.exhead .src { float: right; color: #b8c7d6; }
+.exhead .src code { background: transparent; color: #cfe3f5; padding: 0; }
+pre { margin: 0; background: var(--pre-bg); color: var(--pre-text); padding: 10px 14px; overflow-x: auto; line-height: 1.55; font-size: 0.9em; }
+pre code { background: transparent; padding: 0; color: inherit; font-size: inherit; word-break: normal; }
+
+/* 注意 */
+.notes { background: var(--note-bg); border-left: 5px solid var(--note-line); border-radius: 4px; padding: 8px 16px; margin: 12px 0; }
+.notes ul { margin: 4px 0; padding-left: 20px; }
+.refs { color: var(--muted); font-size: 0.9em; margin: 8px 0; }
+.refs .ref { display: block; }
+
+/* 図・汎用 */
+.diagram { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; padding: 8px; margin: 12px 0 20px; background: #fff; }
+.diagram svg { display: block; max-width: 100%; height: auto; margin: 0 auto; }
+.diagram .cap { font-size: 0.85em; color: var(--muted); margin: 6px 4px 0; }
+svg text { font-family: "游ゴシック", "Yu Gothic", "Meiryo", "メイリオ", sans-serif; }
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; margin: 12px 0; }
+.card { border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; background: #fff; }
+.card h3 { margin: 0 0 4px; }
+.card p { margin: 2px 0; font-size: 0.92em; }
+table.plain { border-collapse: collapse; width: 100%; margin: 10px 0; font-size: 0.95em; }
+table.plain th, table.plain td { border: 1px solid var(--line); padding: 5px 9px; vertical-align: top; text-align: left; }
+table.plain th { background: var(--side-bg); }
+ol.flow { padding-left: 0; list-style: none; counter-reset: step; }
+ol.flow li { counter-increment: step; position: relative; padding: 4px 10px 4px 46px; margin: 4px 0; border-left: 3px solid var(--accent); background: var(--side-bg); border-radius: 0 6px 6px 0; }
+ol.flow li::before { content: counter(step); position: absolute; left: 10px; top: 4px; background: var(--accent); color: #fff; border-radius: 50%; width: 24px; height: 24px; text-align: center; line-height: 24px; font-size: 0.85em; }
+dl.glossary dt { font-weight: bold; margin-top: 14px; font-size: 1.05em; }
+dl.glossary dd { margin: 2px 0 0 1em; }
+dl.glossary .unity { color: var(--muted); font-size: 0.92em; }
+.foot { margin-top: 50px; border-top: 1px solid var(--line); padding-top: 10px; font-size: 0.8em; color: var(--muted); }
+
+/* 狭い画面: メニューを上に出す */
+@media (max-width: 860px) {
+  .layout { display: block; }
+  .side { position: static; width: auto; max-height: none; border-right: 0; border-bottom: 1px solid var(--line); }
+  .menu { display: flex; flex-wrap: wrap; gap: 2px 6px; }
+  #results { position: absolute; left: 0; top: auto; width: 100%; }
+  main { padding: 16px 14px 40px; }
+  h1 { font-size: 1.5em; }
+}
+
+/* 図(SVG)の色。tools/make-diagrams.ps1 が作る図で使う */
+svg .box rect { fill: #fff; stroke: #1d6fb8; stroke-width: 1.5; }
+svg .box text { fill: #1f2933; }
+svg a .box { cursor: pointer; }
+svg a:hover .box rect { stroke-width: 3; }
+svg .box.root rect { fill: #1d6fb8; }
+svg .box.root text { fill: #fff; font-weight: bold; }
+svg .box.dashed rect { stroke-dasharray: 5 3; }
+svg .g-core rect { fill: #e6f1fb; stroke: #1d6fb8; }
+svg .g-render rect { fill: #e5f5e9; stroke: #2e8b57; }
+svg .g-render3d rect { fill: #e0f3f6; stroke: #1e8a9a; }
+svg .g-physics rect { fill: #fdecec; stroke: #c0392b; }
+svg .g-behavior rect { fill: #fff3dc; stroke: #d68910; }
+svg .g-animation rect { fill: #f3e8fb; stroke: #8e44ad; }
+svg .g-audio rect { fill: #ffe9f2; stroke: #c2185b; }
+svg .g-ui rect { fill: #e8ecf8; stroke: #4a5fb5; }
+svg .g-transition rect { fill: #f4efe4; stroke: #8d6e3f; }
+svg .ln { stroke: #52606d; stroke-width: 1.6; }
+svg .ln.dash { stroke-dasharray: 6 4; }
+svg .ahead { fill: #52606d; }
+svg .lb { fill: #52606d; font-size: 12.5px; }
+
+.unity-tag { background: var(--accent-soft); color: var(--accent); padding: 0 8px; border-radius: 8px; font-size: 0.9em; }
+dl.glossary dd .unity { margin-top: 4px; }
+.diagram p.cap { margin: 8px 4px 0; }
+section.file .tw + .ex, section.file .ex + .ex { margin-top: 10px; }

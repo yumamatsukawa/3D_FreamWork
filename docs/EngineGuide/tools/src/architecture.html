@@ -1,0 +1,133 @@
+﻿<!--title: 設計図(図解)-->
+<h1>設計図(図解)</h1>
+<div class="lead">
+Engine の「根っこの設計」を、図で説明するページです。図はすべて、実際のコード(<code>GameEngine.cpp</code> / <code>Scene.cpp</code> / <code>SceneManager.cpp</code> / <code>Physics.cpp</code> / 各ヘッダー)を読んで描いています。
+図の中の箱をクリックすると、そのクラスの解説に飛びます。
+</div>
+<div class="toc"><strong>このページの図</strong>
+<ul>
+<li><a href="#inherit">1. クラスの継承図</a></li>
+<li><a href="#owner">2. 持ち合いの関係(Scene / GameObject / Component)</a></li>
+<li><a href="#life">3. 生まれてから消えるまで</a></li>
+<li><a href="#pool">4. ObjectPool</a></li>
+<li><a href="#draw">5. 描画の順番と 3 つのモード</a></li>
+<li><a href="#physics">6. 物理とコールバック</a></li>
+<li><a href="#eventbus">7. EventBus</a></li>
+<li><a href="#scene">8. シーンの切り替え</a></li>
+</ul></div>
+
+<h2 id="inherit">1. クラスの継承図</h2>
+<p>動きや見た目を作る部品は、すべて <code>Component</code> を親(基底クラス)にして作られています。<code>AddComponent&lt;T&gt;()</code> で GameObject に付けられるのは、この木にある(または、あなたが <code>Component</code> を継承して作った)クラスです。
+形(物理)の違いは <code>RigidbodyComponent</code> の子クラスで、目的地へ向かう動きの違いは <code>MoveComponent</code> の子クラスで表します。</p>
+<div class="diagram">
+<!--include:inherit-->
+<p class="cap">Component を頂点にした継承の木(Engine のヘッダーの <code>class X : public Y</code> をすべて拾ったもの)。<code>MeshRenderer</code> / <code>ModelRenderer</code> / <code>TerrainRenderer</code> は <code>Component</code> と <code>Shadow::Caster</code> の2つを継承します。<code>SceneTransition</code> の仲間は Component ではありません。</p>
+</div>
+<p>Component 以外の主なクラス(<code>GameObject</code>・<code>Scene</code>・<code>Transform</code>・<code>SceneManager</code>・<code>EventBus</code>・<code>ObjectPool</code> など)は継承の木には入りません。Component を継承して<strong>あなたのゲームの Controller / Manager</strong>(<code>PlayerController</code>・<code>GameManager</code> など)を作るのが、普通の使い方です。</p>
+<table class="plain">
+<tr><th>Component 派生クラス</th><th>数</th><th>含まれるもの</th></tr>
+<tr><td>Component を直接継承</td><td>21</td><td>SpriteRenderer, ParticleRenderer, CameraFollowComponent, MeshRenderer, ModelRenderer, TerrainRenderer, WaterRenderer, LightComponent, RigidbodyComponent, MoveComponent, NavGridComponent, VisionComponent, TweenComponent, SpriteAnimationComponent, ModelAnimationComponent, AudioSourceComponent, AudioListenerComponent, TextRenderer, GaugeRenderer, SliderComponent, ButtonComponent</td></tr>
+<tr><td>RigidbodyComponent の子</td><td>7</td><td>Box / Sphere / Circle / Square / Capsule / Capsule2D / Terrain の各 RigidbodyComponent</td></tr>
+<tr><td>MoveComponent の子</td><td>4</td><td>ChaseComponent, AccelerateChaseComponent, HomingComponent, PathFollowComponent</td></tr>
+</table>
+
+<h2 id="owner">2. 持ち合いの関係(Scene / GameObject / Component)</h2>
+<p>「誰が誰を持っているか」を知っておくと、「いつ消えるか」「どのポインタが危ないか」が分かります。</p>
+<div class="diagram">
+<!--include:owner-->
+<p class="cap">実線 = 持っている(持ち主が消えると一緒に消える)。点線 = ポインタで知っているだけ(持ち主ではない)。</p>
+</div>
+<ul>
+<li><code>SceneManager</code> は今の <code>Scene</code> を 1 つだけ持ちます(<code>currentScene</code>)。切り替えの演出中だけ <code>SceneTransition</code> も持ちます。</li>
+<li><code>Scene</code> は <code>GameObject</code> を <code>std::unique_ptr</code> の一覧(<code>objects</code>)で持ちます。シーンが終わる(<code>Uninit</code>)と全部消えます。</li>
+<li><code>GameObject</code> は <code>Transform</code>(メンバ)と <code>Component</code> の一覧を持ちます。</li>
+<li><code>Component</code> は <code>GetOwner()</code> で持ち主の GameObject を、<code>GameObject</code> は <code>GetScene()</code> で自分の Scene を知っています(ポインタ)。</li>
+<li>別のオブジェクトを指すポインタ(例: 追いかける相手 <code>SetTarget</code>)は、相手が消えると危険です。相手を消す前に、<code>nullptr</code> に差し替えます。</li>
+<li>アプリ全体で 1 つのサービス: <code>EventBus</code> / <code>SceneManager</code> は <code>Get()</code> で、<code>Input</code> / <code>Time</code> / <code>Audio</code> / <code>Physics</code> / <code>Image</code> / <code>Resources</code> は名前空間の関数で使います。</li>
+</ul>
+
+<h2 id="life">3. 生まれてから消えるまで</h2>
+<div class="diagram">
+<!--include:life-->
+<p class="cap">GameObject と Component の一生。<code>Init</code> / <code>Update</code> / <code>Draw</code> / <code>Uninit</code> が呼ばれるタイミング。</p>
+</div>
+<h3>Scene::Update の中身(1 フレーム分)</h3>
+<ol class="flow">
+<li><code>isUpdating = true</code> にする(この間の <code>CreateObject</code> は待ち行列 <code>pendingObjects</code> 行き)。</li>
+<li>アクティブな GameObject すべてに <code>Update(dt)</code>。各 GameObject は、有効な Component を<strong>付けた順</strong>に <code>Update</code>。</li>
+<li><code>isUpdating = false</code> に戻す。</li>
+<li><code>Destroy()</code> された GameObject の <code>Uninit()</code> を呼び(各 Component の後片付け)、一覧から取り除く(ここで本当に消える)。</li>
+<li>待ち行列にあった新しい GameObject を、一覧へ移す。</li>
+</ol>
+<ul>
+<li>Component は<strong>付けた順</strong>に <code>Update</code> されます。順番が大事な組み合わせがあります(例: Dynamic の <code>RigidbodyComponent</code> → <code>CameraFollowComponent</code> → <code>PlayerController</code> の順に付ける。[[CameraFollowComponent]] の「決まり」)。</li>
+<li><code>Destroy()</code> は印だけです。同じフレームの残りの処理では、まだ使えます。</li>
+<li><code>SetActive(false)</code> は破棄ではなく「お休み」です(<code>Update</code> / <code>Draw</code> が止まり、全 Component に <code>OnActiveChanged(false)</code> が届く)。</li>
+<li>ポーズ中(<code>Time</code> の倍率 0)も <code>Update</code> は呼ばれ続けます(<code>dt</code> が 0)。入力を止めたい Controller は <code>Time::IsPaused()</code> を見ます。</li>
+</ul>
+
+<h2 id="pool">4. ObjectPool</h2>
+<p>弾や敵など、出しては消す物を作り直さずに使い回す仕組みです。[[ObjectPool]] を、そのシーンの GameObject に付けた Component のメンバとして持ちます。</p>
+<div class="diagram">
+<!--include:pool-->
+<p class="cap">ObjectPool の出し入れ。Rent / Return は <code>SetActive(true)</code> / <code>SetActive(false)</code> で行う(Destroy しない)。</p>
+</div>
+<!--code:Sample2D/Game/Components/BulletManager.cpp:42-46-->
+<!--code:Sample2D/Game/Components/BulletController.cpp:12-15-->
+
+<h2 id="draw">5. 描画の順番と 3 つのモード</h2>
+<p><code>GameEngine::Run</code> の中で、<code>Scene::Draw</code> が<strong>3 つのパス</strong>で描き、そのあとに画面エフェクトとシーン切り替えの演出が一番手前に重なります。</p>
+<div class="diagram">
+<!--include:draw-->
+<p class="cap">下ほど先に描かれ(奥)、上ほど後に描かれます(手前)。①②③は <code>Scene::Draw</code> の中、④⑤は <code>GameEngine::Run</code> が続けて描きます。</p>
+</div>
+<h3>UI モード / 2D モード / 3D モードの違い(<code>SpriteMode</code>)</h3>
+<p><code>SpriteRenderer::SetMode</code> で選びます(既定は UI)。</p>
+<div class="tw"><table class="plain">
+<tr><th></th><th><code>SpriteMode::UI</code>(UI モード)</th><th><code>SpriteMode::World2D</code>(2D モード)</th><th><code>SpriteMode::World3D</code>(3D モード)</th></tr>
+<tr><th>大きさ(z)</th><td>z で変わらない</td><td>z で変わらない(遠近なし)</td><td>z で変わる(奥ほど小さい)</td></tr>
+<tr><th>カメラ</th><td>2D カメラの位置でスクロール</td><td>2D カメラの位置でスクロール</td><td>3D カメラの透視。カメラの方を向く板(ビルボード)</td></tr>
+<tr><th>前後の決まり方</th><td><strong>必ず最前面</strong>。深度を使わない。UI どうしは <code>drawPriority</code> → 作った順(後に作った物が手前)。z は使わない</td><td>z が小さい(手前)ほど手前(深度バッファ)。UI には隠される</td><td>深度バッファ。3D メッシュと同じ深度で出たり隠れたりする</td></tr>
+<tr><th>どのパスで描く?</th><td>パス 2(UI スプライト)</td><td>パス 1</td><td>パス 1</td></tr>
+<tr><th>使う場面</th><td>HUD・ボタン・2D の爆発の粒</td><td>2D ゲームで z で前後を決めたい物(背景・壁・敵・Player・弾)</td><td>3D 空間に置く看板・敵の画像</td></tr>
+</table></div>
+<ul>
+<li>文字(<code>Text::Draw</code>)と四角(<code>Image::DrawRect</code>)は、<code>Scene::Draw</code> の間はその場で描かれず、<strong>UI スプライトの後に、呼んだ順</strong>で描かれます(Direct2D は命令がたまると途中で画面に出すため、その場で描くと後から描く UI スプライトに隠れてしまうから)。四角を描いてから文字を描けば、四角の上に文字が出ます。</li>
+<li>2D と 3D を同じシーンで混ぜることは想定していません(混ぜると深度の値で前後が決まります)。</li>
+<li><code>SetWorldSpace(bool)</code> は互換のために残っています(<code>true</code> = World3D、<code>false</code> = UI)。<code>GetDepthScale2D</code> は<strong>廃止</strong>されました。</li>
+<li><code>drawPriority</code> は <code>GameObject::SetDrawPriority</code> で決めます。スカイボックスは <code>INT_MIN</code>、水面は大きい値(100)にします。</li>
+</ul>
+
+<h2 id="physics">6. 物理とコールバックの流れ</h2>
+<p>1 フレームの中で、物理(PhysX)は<strong>シーンの Update より先</strong>に進みます。ぶつかった時の <code>OnCollisionEnter</code> などは、<code>Physics::Update</code> の中で呼ばれます。</p>
+<div class="diagram">
+<!--include:physics-->
+<p class="cap"><code>Physics::Update</code> から、コールバック、そして <code>Scene::Update</code> での位置の同期まで。</p>
+</div>
+<ul>
+<li>コールバックは、ぶつかった<strong>2 つの GameObject のそれぞれ</strong>の全 Component に届きます(override した Component だけが反応します)。</li>
+<li><code>OnTriggerStay</code> は PhysX が出さない通知なので、Engine が「重なっている組み合わせ」を覚えて、毎フレーム呼んでいます。</li>
+<li>コールバックの中では PhysX のアクターの追加・削除はできません(予約されて、あとで実行されます)。<code>AddForce</code> は呼んでよく、PhysX の計算の直後にまとめて加わります。</li>
+<li>Dynamic の物は<strong>位置を直接書き換えず</strong>、<code>SetVelocity()</code> / <code>AddForce()</code> で動かします。<code>RigidbodyComponent::Update</code> が PhysX の結果を <code>transform</code> に書き戻します。</li>
+<li>2D のゲームでは、重力を切り(<code>SetUseGravity(false)</code>)、Z を固定(<code>SetFreezePositionZ(true)</code>)します。</li>
+</ul>
+
+<h2 id="eventbus">7. EventBus の流れ</h2>
+<p>お互いを知らない管理役同士をつなぐ仕組みです。送る側は「何が起きたか」を名前で知らせるだけで、誰が聞いているかは知りません。</p>
+<div class="diagram">
+<!--include:eventbus-->
+<p class="cap">EventBus の使われ方(Sample2D の実際のイベント名)。</p>
+</div>
+<!--code:Sample2D/Game/Components/GameManager.cpp:23-34-->
+<!--code:Sample2D/Game/Components/EnemyController.cpp:14-15-->
+
+<h2 id="scene">8. シーンの切り替えの流れ</h2>
+<div class="diagram">
+<!--include:scene-->
+<p class="cap">古いシーンの <code>Uninit</code> → 新しいシーンの <code>Init</code> の順。演出付きの時は、画面が覆われている間に切り替わり、その間ゲームの時間は止まります。</p>
+</div>
+<ul>
+<li>古いシーンが使っていた画像・音・モデルは、新しいシーンの <code>Init</code> の<strong>後</strong>に解放されます(両方のシーンで使う物は読み直さずに使い回せます)。</li>
+<li>切り替えのとき、画面エフェクト(Flash / Vignette)とカメラの揺れは消えます。<code>Fade</code> の濃さは残り、<code>onComplete</code> は捨てられます。</li>
+<li>演出中は <code>Time</code> の倍率が 0 になります。演出の途中で <code>SetTimeScale</code> を呼んでも、演出が終わってから効きます。</li>
+</ul>
