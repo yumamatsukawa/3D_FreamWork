@@ -1,6 +1,8 @@
 ﻿#include "Image.h"
 #include "../UI/Text.h"
 #include <cmath>
+#include <algorithm>
+#include <functional>
 using namespace DirectX;
 
 namespace Image
@@ -17,35 +19,24 @@ namespace Image
     Light& GetLight() { return mainLight; }
     void SetCamera3DAutoSync(bool enabled) { camera3DAutoSync = enabled; }
 
-    namespace {
-        // 2D描画の遠近の倍率(Sprite::BuildWorldMatrixと同じ式)。focalLengthの距離で等倍、カメラより手前なら等倍のまま
-        float GetDepthScale2D(float worldZ) {
-            float depth = worldZ - mainCamera.position.z;
-            return (depth > 0.f) ? mainCamera.focalLength / depth : 1.f;
-        }
-
-    }
-
     // 3D描画のアスペクト比(Mesh::Init・Sprite::BuildBillboardMatrixと同じ)
     float GetAspectRatio() {
         return (Graphics::height > 0.f) ? (Graphics::width / Graphics::height) : 1.f;
     }
 
-    // ワールド→画面: (ワールド - カメラ位置) × 遠近の倍率
+    // ワールド→画面: ワールド - カメラ位置(zは大きさに影響しない)
     XMFLOAT2 WorldToScreen2D(XMFLOAT3 worldPosition) {
-        float scale = GetDepthScale2D(worldPosition.z);
         return {
-            (worldPosition.x - mainCamera.position.x) * scale,
-            (worldPosition.y - mainCamera.position.y) * scale
+            worldPosition.x - mainCamera.position.x,
+            worldPosition.y - mainCamera.position.y
         };
     }
 
-    // 画面→ワールド: WorldToScreen2Dを Z=0 について逆にたどる(カメラ位置 + 画面座標 ÷ 遠近の倍率)
+    // 画面→ワールド: WorldToScreen2Dの逆(カメラ位置 + 画面座標。zは0)
     XMFLOAT3 ScreenToWorld2D(XMFLOAT2 screenPosition) {
-        float scale = GetDepthScale2D(0.f);
         return {
-            mainCamera.position.x + screenPosition.x / scale,
-            mainCamera.position.y + screenPosition.y / scale,
+            mainCamera.position.x + screenPosition.x,
+            mainCamera.position.y + screenPosition.y,
             0.f
         };
     }
@@ -90,8 +81,29 @@ namespace Image
         rectBrushTarget = nullptr;
     }
 
+    namespace {
+        // オーバーレイキュー: Scene::Drawの間、Direct2Dの描画(文字・四角)を積んでおいて、UIスプライトの後に描く
+        // (Direct2Dは命令がたまると途中で画面に出すので、その場で描くと、後から描くUIスプライトに上書きされてしまう)
+        std::vector<std::function<void()>> overlayQueue;
+        bool overlayQueueActive = false;
+    }
+
+    bool DeferOverlay(std::function<void()> command) {
+        if (!overlayQueueActive) return false;
+        overlayQueue.push_back(std::move(command));
+        return true;
+    }
+
+    void FlushOverlayQueue() {
+        overlayQueueActive = false;
+        // 呼んだ順に描く(四角を描いてから文字を描けば、四角の上に文字が出る)。実行中に積まれることは無い(activeはfalse)
+        for (std::function<void()>& command : overlayQueue) command();
+        overlayQueue.clear();   // capacityは残す
+    }
+
+    namespace {
     // 画面に四角を塗る: ゲーム座標(中央が原点、Y+=上)をDirect2Dの座標(左上が原点、Y+=下)に直して、Text::Drawと同じ描画先に塗る
-    void DrawRect(XMFLOAT2 position, XMFLOAT2 size, XMFLOAT4 color) {
+    void DrawRectNow(XMFLOAT2 position, XMFLOAT2 size, XMFLOAT4 color) {
         ID2D1RenderTarget* target = Text::GetRenderTarget();
         if (!target) return;
         if (!(color.w > 0.f)) return;                       // 透明なら描かない
@@ -114,6 +126,14 @@ namespace Image
         target->FillRectangle(
             D2D1::RectF(centerX - size.x * 0.5f, centerY - size.y * 0.5f, centerX + size.x * 0.5f, centerY + size.y * 0.5f),
             rectBrush);
+    }
+
+    }   // namespace
+
+    void DrawRect(XMFLOAT2 position, XMFLOAT2 size, XMFLOAT4 color) {
+        // Scene::Drawの間は積んでおく(値をコピーして持つ)。それ以外はその場で描く
+        if (DeferOverlay([position, size, color] { DrawRectNow(position, size, color); })) return;
+        DrawRectNow(position, size, color);
     }
 
     // 画像1枚ぶんの「みんなで共有するデータ」。コマ番号・色など1体ごとの状態は持たない
@@ -155,15 +175,76 @@ namespace Image
         textures.clear();
     }
 
+    namespace {
+        // UIモードの描画待ち1枚ぶん(Scene::Drawの間、UIは積んでおいて、最後にまとめて描く)
+        struct UiDraw {
+            Transform transform;
+            unsigned int texID;
+            XMFLOAT4 color;
+            SpriteSheet sheet;
+            BlendMode blend;
+            int priority;   // 描く順その1: drawPriority
+            int order;      // 描く順その2: オブジェクトを作った順
+        };
+        std::vector<UiDraw> uiQueue;
+        bool uiQueueActive = false;   // Scene::Drawの間だけtrue(それ以外のUIモードの描画は、その場で描く)
+        int currentPriority = 0;      // 今描いているオブジェクトのdrawPriority
+        int currentOrder = 0;         // 今描いているオブジェクトを作った順
+
+        // 画像を1枚その場で描く
+        void DrawNow(const Transform& transform, unsigned int texID, XMFLOAT4 color, const SpriteSheet& sheet,
+            SpriteMode mode, bool lockX, bool lockY, bool lockZ, BlendMode blend, bool depthWrite) {
+            if (texID >= textures.size()) return;
+            auto& tex = textures[texID];
+            if (!tex.srv) return;
+
+            sprite.SetTexture(tex.srv);
+            sprite.SetTextureSize(tex.width, tex.height);
+            sprite.Draw(transform, color, sheet, mode, lockX, lockY, lockZ, blend, depthWrite);
+        }
+    }
+
     void Draw(Transform transform, unsigned int texID, XMFLOAT4 color, const SpriteSheet& sheet,
         bool worldSpace, bool lockX, bool lockY, bool lockZ, BlendMode blend, bool depthWrite) {
-        if (texID >= textures.size()) return;
-        auto& tex = textures[texID];
-        if (!tex.srv) return;
+        Draw(transform, texID, color, sheet, worldSpace ? SpriteMode::World3D : SpriteMode::UI, lockX, lockY, lockZ, blend, depthWrite);
+    }
 
-        sprite.SetTexture(tex.srv);
-        sprite.SetTextureSize(tex.width, tex.height);
-        sprite.Draw(transform, color, sheet, worldSpace, lockX, lockY, lockZ, blend, depthWrite);
+    void Draw(Transform transform, unsigned int texID, XMFLOAT4 color, const SpriteSheet& sheet,
+        SpriteMode mode, bool lockX, bool lockY, bool lockZ, BlendMode blend, bool depthWrite) {
+        // UIモードは積んでおく(FlushUiQueueで、World側が全部描かれた後に、必ず最前面に描く)
+        if (mode == SpriteMode::UI && uiQueueActive) {
+            if (texID >= textures.size() || !textures[texID].srv) return;
+            uiQueue.push_back({ transform, texID, color, sheet, blend, currentPriority, currentOrder });
+            return;
+        }
+        DrawNow(transform, texID, color, sheet, mode, lockX, lockY, lockZ, blend, depthWrite);
+    }
+
+    void BeginUiQueue() {
+        uiQueue.clear();
+        uiQueueActive = true;
+        overlayQueue.clear();
+        overlayQueueActive = true;
+        currentPriority = 0;
+        currentOrder = 0;
+    }
+
+    void SetDrawOrder(int priority, int order) {
+        currentPriority = priority;
+        currentOrder = order;
+    }
+
+    void FlushUiQueue() {
+        uiQueueActive = false;
+
+        // drawPriority → 作った順。同じオブジェクトの中は積んだ順のまま(stable_sort)。z座標は並びに使わない
+        std::stable_sort(uiQueue.begin(), uiQueue.end(), [](const UiDraw& a, const UiDraw& b) {
+            if (a.priority != b.priority) return a.priority < b.priority;
+            return a.order < b.order;
+        });
+        for (const UiDraw& d : uiQueue)
+            DrawNow(d.transform, d.texID, d.color, d.sheet, SpriteMode::UI, false, false, false, d.blend, true);
+        uiQueue.clear();
     }
 
     ID3D11ShaderResourceView* GetTextureView(unsigned int texID) {
@@ -172,6 +253,11 @@ namespace Image
     }
 
     void BeginFrame() {
+        uiQueue.clear();   // 前のフレームの描き残しが無いように(普通は空)
+        uiQueueActive = false;
+        overlayQueue.clear();
+        overlayQueueActive = false;
+
         // CameraController(一人称/三人称カメラ)などが3Dカメラを自分で操作している間は、
         // ここで毎フレーム上書きしてしまわないよう、自動追従を止める
         if (camera3DAutoSync) {
@@ -209,6 +295,7 @@ namespace Image
     }
 
     void Uninit() {
+        overlayQueue.clear();
         ReleaseDrawRectBrush();   // 普通はGameEngine::Uninitで解放済み(何回呼んでもよい)
         ReleaseAllTextures();
         sprite.Uninit();

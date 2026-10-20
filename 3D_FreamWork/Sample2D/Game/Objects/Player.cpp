@@ -19,6 +19,7 @@ GameObject* CreatePlayer(Scene& scene) {
     // 見た目
     auto* sprite = player->AddComponent<SpriteRenderer>(L"Assets/player.png", 8, 2);
     sprite->SetSpriteIndex(5);
+    sprite->SetMode(SpriteMode::World2D);   // 2Dモード: zで大きさは変わらず、zが小さいほど手前(Playerはz=0。敵(+5)の手前、弾(-5)の奥)
 
     // 当たり判定+物理演算(PhysX)。
     auto* rigidbody = player->AddComponent<CircleRigidbodyComponent>(BodyType::Dynamic, 50.0f, 100.f);

@@ -158,7 +158,7 @@ namespace Input {
 
     // 画面座標→ワールド座標(Z=0の平面)はImage::ScreenToWorld2Dに任せる。
     // GetMousePositionはY+=下なので、Yの符号を反転して「Y+=上」の画面座標にしてから渡す
-    // (カメラが既定の位置(z=-500、focalLength=500)なら「カメラ位置 + マウス座標」と同じ)
+    // (結果は「カメラ位置 + マウス座標」。カメラのzや物のzでは変わらない)
     DirectX::XMFLOAT2 GetMouseWorldPosition() {
         DirectX::XMFLOAT2 screen = GetMousePosition();
         DirectX::XMFLOAT3 world = Image::ScreenToWorld2D({ screen.x, -screen.y });

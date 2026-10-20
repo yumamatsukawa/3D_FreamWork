@@ -37,11 +37,12 @@ struct ParticleSettings {
 // - 粒1つ1つはGameObjectではなく、このComponentの中のデータ。最大 maxParticles 個まで(超える分は出さない)
 // - 作った直後は出していない(Play() かBurst() で出し始める)
 // - 粒の動きはシーンの時間(Time::GetDeltaTime。ポーズ中・スローは粒も止まる/遅くなる)
-// - 粒の位置は、2D(use3D=false)はposition.x,y(zは奥行き)、3Dはx,y,zで動く。向きのばらつき(spreadAngle)は、
+// - 粒の位置は、2D(use3D=false)はposition.x,y(zは大きさにも前後にも使わない)、3Dはx,y,zで動く。向きのばらつき(spreadAngle)は、
 //   2DはXY平面の回転、3Dは円錐の範囲(360なら全方向の球)
 // - 粒の画像は、明るさ(RGB)で形と濃さを表す白黒の画像にする(中心が白、外側が黒、アルファは不透明。
 //   Shader.hlsl が「アルファ0.5未満は描かない」ため、アルファで柔らかくできない)。Assets/particle.png がその例
-// - 描画順は、このオブジェクトの drawPriority に従う(CreateEffect は手前に描かれるよう大きい値にする)
+// - 描画順は、このオブジェクトの drawPriority に従う(CreateEffect は手前に描かれるよう大きい値にする)。
+//   2D(use3D=false)の粒はUIモードのスプライトと同じ扱いで、必ず最前面(drawPriority → 作った順)。3Dの粒は3Dモード(SpriteMode::World3D)で、深度で隠れる。2Dの粒を2Dモードにする設定は、今は無い
 class ParticleRenderer : public Component {
 public:
     static constexpr int maxParticles = 2000;   // 1つのParticleRendererが持てる粒の最大数

@@ -66,7 +66,7 @@ void CameraFollowComponent::SetDeadZone(XMFLOAT2 size) {
 XMFLOAT2 CameraFollowComponent::ClampToBounds(XMFLOAT2 center) const {
     if (!hasBounds) return center;
 
-    // 画面の半分の大きさ(Z=0の平面のワールドの単位)。カメラのzで変わるので、画面の右上の角をワールド座標に直して求める
+    // 画面の半分の大きさ(ワールドの単位)。画面の右上の角をワールド座標に直して求める
     const Camera& camera = Image::GetCamera();
     XMFLOAT3 corner = Image::ScreenToWorld2D({ Graphics::width * 0.5f, Graphics::height * 0.5f });
     float halfViewW = corner.x - camera.position.x;

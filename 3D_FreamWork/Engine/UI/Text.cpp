@@ -1,5 +1,6 @@
 ﻿#include "Text.h"
 #include "../Render/Graphics.h"
+#include "../Render/Image.h"
 #include <dwrite_3.h>
 #include <cassert>
 #include <cwchar>
@@ -324,7 +325,9 @@ namespace Text {
         return { metrics.width, metrics.height };
     }
 
-    void Draw(const std::wstring& text, float x, float y, const TextStyle& style) {
+    namespace {
+    // 文字を今すぐ描く(Direct2D)。Scene::Drawの間は、Drawが積んでおいて、UIスプライトの後にこれを呼ぶ
+    void DrawNow(const std::wstring& text, float x, float y, const TextStyle& style) {
         if (!d2dRenderTarget || text.empty()) return;
         const float alpha = style.color.w;
         if (alpha <= 0.f) return;   // 透明なら描かない
@@ -385,6 +388,13 @@ namespace Text {
 
         if (useLayer) d2dRenderTarget->PopLayer();
         layout->Release();
+    }
+    }   // namespace
+
+    void Draw(const std::wstring& text, float x, float y, const TextStyle& style) {
+        // Scene::Drawの間は積んでおく(文字列・位置・スタイルは値のコピー)。それ以外(画面エフェクト・遷移など)はその場で描く
+        if (Image::DeferOverlay([text, x, y, style] { DrawNow(text, x, y, style); })) return;
+        DrawNow(text, x, y, style);
     }
 
     void Draw(const std::wstring& text, float x, float y,

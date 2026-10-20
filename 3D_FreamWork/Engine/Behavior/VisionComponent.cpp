@@ -152,7 +152,9 @@ void VisionComponent::Draw() {
     // 光の影響を受けない一定の色(見えている時は赤、見えていない時は緑)
     static const Light fullBright{ {0.f,-1.f,0.f}, {0.f,0.f,0.f}, {1.f,1.f,1.f} };
     XMFLOAT4 color = seeing ? XMFLOAT4{ 1.f, 0.f, 0.f, 1.f } : XMFLOAT4{ 0.f, 1.f, 0.f, 1.f };
-    fanMesh.Draw(t, Image::GetCamera3D(), color, fullBright);
+    // XY平面(2D)は、2Dスプライトと同じ2D(正射影)で描く(zで位置がずれず、スプライトの上に重なる)。XZ平面(3D)は3Dカメラの透視
+    if (plane == MovePlane::XY) fanMesh.DrawLines2D(t, Image::GetCamera(), color, fullBright);
+    else fanMesh.Draw(t, Image::GetCamera3D(), color, fullBright);
 }
 
 void VisionComponent::Uninit() {

@@ -271,7 +271,9 @@ void RigidbodyComponent::Draw() {
     Transform& t = GetOwner()->transform;
     XMFLOAT3 originalScale = t.scale;
     t.scale = gizmoSize;
-    gizmoMesh->Draw(t, Image::GetCamera3D(), color, fullBright);
+    // 2D向け(Square/Circle。断面だけの枠)は、2Dスプライトと同じ2D(正射影)で描く(zで位置がずれず、スプライトの上に重なる)。Box/Sphere/Capsuleは3Dカメラの透視
+    if (flat2D) gizmoMesh->DrawLines2D(t, Image::GetCamera(), color, fullBright);
+    else gizmoMesh->Draw(t, Image::GetCamera3D(), color, fullBright);
     t.scale = originalScale;
 }
 

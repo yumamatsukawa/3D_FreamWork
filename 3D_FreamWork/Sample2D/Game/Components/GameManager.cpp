@@ -13,6 +13,7 @@ namespace {
 
 void GameManager::Init() {
     // Colliderの枠を表示する(デバッグ用。不要ならfalseに)
+    // ※2D(Square/Circleのコライダー・XY平面の視野)の線は、2Dスプライトと同じ2D(正射影。zで位置はずれない)で、深度テストなしに描く。描いた物の上に重なり、UIより手前には出ない
     RigidbodyComponent::SetDebugDrawEnabled(true);
     VisionComponent::SetDebugDrawEnabled(true);   // 見張り役の視野(扇形)を線で表示する(デバッグ用。不要ならfalseに)
 

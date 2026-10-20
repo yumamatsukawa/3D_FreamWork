@@ -562,7 +562,7 @@ rigidbody->AddForce(away * 500.f, ForceMode::Impulse);
 >
 > 設計から変えた・決めた所:
 > - 画面座標は「画面中央が(0,0)、Y+=上、単位はゲーム画面のピクセル」(`Text::Draw` と同じ)
-> - `WorldToScreen2D` は UIモードの `Sprite` と同じ計算((ワールド - カメラ位置) × 遠近の倍率 `focalLength / (z - カメラのz)`。カメラより手前は等倍)。`ScreenToWorld2D` はその逆で、Z=0 の平面の上の点を返す(戻り値は `XMFLOAT3`、zは0)
+> - `WorldToScreen2D` は UIモードの `Sprite` と同じ計算(ワールド - カメラ位置)。**(当時は × 遠近の倍率 `focalLength / (z - カメラのz)` だったが、その後「zで大きさを変えない」仕様に変えたので、今は z は使わない)** `ScreenToWorld2D` はその逆で、ワールド座標を返す(戻り値は `XMFLOAT3`、zは0)
 > - `WorldToScreen3D` は `Mesh` と同じ view/proj(アスペクト比も同じ)を掛けて w で割る。戻り値は `XMFLOAT3` で、**z = カメラからの奥行き(w)**。z が0以下はカメラの後ろで、x,y は0を返す(使う前に `z > 0` を確かめる。Unityの `WorldToScreenPoint` と同じ考え方)
 > - `ScreenPointToRay3D` は view×proj の逆行列で、手前の面(深さ0)と奥の面(深さ1)の点に戻して線を作る。origin は nearZ の面の上の点、direction は長さ1
 > - `CameraShake`: **描画の間だけ**カメラをずらす。`GameEngine::Run` で `Image::BeginFrame()`(3Dカメラを2Dカメラに合わせる処理)の後に `CameraShake::BeginDraw()` でずらし、シーンと文字を描き終わったら `CameraShake::EndDraw()` で**ずらす前に覚えた値をそのまま戻す**(足した分を引くのではないので、誤差も残らない)。揺れを進める `CameraShake::Update(Time::GetUnscaledDeltaTime())` は `Input::Update()` の直後(シーンのUpdateより前。そのフレームに `Shake` された揺れは、そのフレームの描画で一番強く出る)
@@ -1124,7 +1124,7 @@ float speed = table.GetFloat(row, "Speed", 60.f);
 > - **`Shader.hlsl` は「アルファ0.5未満は描かない(`clip`)」ため、アルファで半透明・柔らかい縁にできない。** シェーダーは触らない約束なので、粒の画像は「RGBの明るさで形と濃さを表す白黒の画像(アルファは不透明)」にして、ブレンドの設定だけで重ねる。加算合成は `色 × 画像の明るさ` を足す(`additive = true`)。`additive = false` は「描く色=濃さ、ブレンドの係数(blend factor)=粒の色」にして、普通のアルファ合成と同じ式 `色×濃さ + 背景×(1−濃さ)` になるようにした(`BlendMode::Soft`)。**アルファ付きの画像を `texture` に指定する使い方は想定していない**(縁がくっきり切れる)
 > - `Assets/particle.png` は64x64。中心が白で外側へ `(1−距離)²` で黒くなる(PowerShell + System.Drawingで生成)。`texture` が空ならこれを使う
 > - 粒の上限は**1つの `ParticleRenderer` につき2000**(`maxParticles`)。超える分は新しく出さない
-> - `ParticleSettings` に **`use3D`** を足した(設計案に無い)。false=2D画面(`Image::Draw` のUIモード)、true=3D空間(Worldモードの完全なビルボード。深度テストはするが深度は書かない)。**両サンプルで同じAPIで書ける**(違いは `use3D` と、長さの単位だけ)。`spreadAngle` は2DがXY平面の回転、3Dが円錐(360で球)
+> - `ParticleSettings` に **`use3D`** を足した(設計案に無い)。false=2D画面(`Image::Draw` のUI)、true=3D空間(3Dモード(`SpriteMode::World3D`)の完全なビルボード。深度テストはするが深度は書かない)。**両サンプルで同じAPIで書ける**(違いは `use3D` と、長さの単位だけ)。`spreadAngle` は2DがXY平面の回転、3Dが円錐(360で球)
 > - 粒の動きは `Update(dt)` の `dt`(シーンの時間。ポーズ中は止まる)。`Time` を直接は呼んでいない
 > - 作った直後は**出していない**(`Play()` か `Burst()` で出す)。`CreateEffect` はBurst専用ではなく、**`IsPlaying()` がfalseになったら(`Play` 中は `Stop()` するまで残る)自動でDestroy** する。そのために `ParticleRenderer::SetDestroyWhenFinished(bool)` を足した(設計案に無い)。`CreateEffect` は手前に描かれるよう `drawPriority` を100にする
 > - 粒の大きさが0.01未満になった粒、濃さが0以下の粒は描かない(大きさ0を `Sprite` に渡すと「画像の大きさ」の意味になるため)

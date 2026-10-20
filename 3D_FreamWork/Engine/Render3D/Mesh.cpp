@@ -26,6 +26,7 @@ ID3D11SamplerState* Mesh::sampler = nullptr;
 ID3D11BlendState* Mesh::blendState = nullptr;
 ID3D11DepthStencilState* Mesh::depthStencilState = nullptr;
 ID3D11DepthStencilState* Mesh::depthStencilStateNoWrite = nullptr;
+ID3D11DepthStencilState* Mesh::depthStencilStateNone = nullptr;
 ID3D11DepthStencilState* Mesh::outlineMarkState = nullptr;
 ID3D11DepthStencilState* Mesh::outlineRingState = nullptr;
 ID3D11DepthStencilState* Mesh::outlineMarkAllState = nullptr;
@@ -83,6 +84,7 @@ void Mesh::ReleaseSharedResources() {
     if (blendState) { blendState->Release(); blendState = nullptr; }
     if (depthStencilState) { depthStencilState->Release(); depthStencilState = nullptr; }
     if (depthStencilStateNoWrite) { depthStencilStateNoWrite->Release(); depthStencilStateNoWrite = nullptr; }
+    if (depthStencilStateNone) { depthStencilStateNone->Release(); depthStencilStateNone = nullptr; }
     if (outlineMarkState) { outlineMarkState->Release(); outlineMarkState = nullptr; }
     if (outlineRingState) { outlineRingState->Release(); outlineRingState = nullptr; }
     if (outlineMarkAllState) { outlineMarkAllState->Release(); outlineMarkAllState = nullptr; }
@@ -339,6 +341,14 @@ bool Mesh::CreateDepthStencilState() {
     hr = Graphics::device->CreateDepthStencilState(&dsdNoWrite, &depthStencilStateNoWrite);
     if (FAILED(hr)) return false;
 
+    // 2Dの線用: 深度テストも書き込みもしない(描いた順に、上に重なる)
+    D3D11_DEPTH_STENCIL_DESC dsdNone = {};
+    dsdNone.DepthEnable = FALSE;
+    dsdNone.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ZERO;
+    dsdNone.DepthFunc = D3D11_COMPARISON_ALWAYS;
+    hr = Graphics::device->CreateDepthStencilState(&dsdNone, &depthStencilStateNone);
+    if (FAILED(hr)) return false;
+
     // 枠線用(1): 本物と同じ深度(LESS_EQUAL)を通った画素のステンシルを、参照値に書き換える。深度は書かない
     D3D11_DEPTH_STENCIL_DESC mark = {};
     mark.DepthEnable = TRUE;
@@ -429,7 +439,27 @@ void Mesh::Draw(const Transform& transform, const Camera& camera, const Material
     Draw(transform.GetWorldMatrix(), camera, material, light);
 }
 
+void Mesh::DrawLines2D(const Transform& transform, const Camera& camera2D, XMFLOAT4 color, const Light& light) {
+    DrawLines2D(transform.GetWorldMatrix(), camera2D, color, light);
+}
+
+void Mesh::DrawLines2D(const XMMATRIX& world, const Camera& camera2D, XMFLOAT4 color, const Light& light) {
+    // 2Dの正射影: view = 2Dカメラの x,y を引く平行移動、proj = 画面の半分の大きさ(ピクセル)で割る(zは0に潰す)。Sprite::BuildWorldMatrix の2Dの式と同じ画面位置
+    XMMATRIX view = XMMatrixTranslation(-camera2D.position.x, -camera2D.position.y, 0.f);
+    XMMATRIX proj = XMMatrixScaling(2.f / Graphics::width, 2.f / Graphics::height, 0.f);
+    Material material;
+    material.color = color;
+    material.lit = false;
+    DrawWithMatrices(world, view, proj, camera2D.position, material, light, depthStencilStateNone);
+}
+
 void Mesh::Draw(const XMMATRIX& world, const Camera& camera, const Material& material, const Light& light) {
+    DrawWithMatrices(world, camera.GetViewMatrix(), camera.GetProjectionMatrix(aspectRatio), camera.position, material,
+        light, material.depthWrite ? depthStencilState : depthStencilStateNoWrite);
+}
+
+void Mesh::DrawWithMatrices(const XMMATRIX& world, const XMMATRIX& viewMatrix, const XMMATRIX& projMatrix, XMFLOAT3 eyePosition,
+    const Material& material, const Light& light, ID3D11DepthStencilState* depthState) {
     assert(context && "context が nullptr");
     assert(vertexBuffer && "vertexBuffer が nullptr");
 
@@ -437,8 +467,8 @@ void Mesh::Draw(const XMMATRIX& world, const Camera& camera, const Material& mat
     //   シェーダー側はmul(vector, matrix)の順で使う(2DのShader.hlslと同じ考え方)
     MeshConstantBuffer cb;
     cb.world = XMMatrixTranspose(world);
-    cb.view = XMMatrixTranspose(camera.GetViewMatrix());
-    cb.proj = XMMatrixTranspose(camera.GetProjectionMatrix(aspectRatio));
+    cb.view = XMMatrixTranspose(viewMatrix);
+    cb.proj = XMMatrixTranspose(projMatrix);
     cb.lightDir = { light.direction.x, light.direction.y, light.direction.z, 0.f };
     cb.lightColor = { light.color.x, light.color.y, light.color.z, 0.f };
     cb.ambient = { light.ambient.x, light.ambient.y, light.ambient.z, 0.f };
@@ -457,14 +487,14 @@ void Mesh::Draw(const XMMATRIX& world, const Camera& camera, const Material& mat
     context->Unmap(materialBuffer, 0);
 
     // b3: カメラの位置
-    MeshCameraBuffer eye = { { camera.position.x, camera.position.y, camera.position.z, 1.f } };
+    MeshCameraBuffer eye = { { eyePosition.x, eyePosition.y, eyePosition.z, 1.f } };
     context->Map(cameraBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &msr);
     memcpy(msr.pData, &eye, sizeof(eye));
     context->Unmap(cameraBuffer, 0);
 
     float blendFactor[4] = {};
     context->OMSetBlendState(blendState, blendFactor, 0xFFFFFFFF);
-    context->OMSetDepthStencilState(material.depthWrite ? depthStencilState : depthStencilStateNoWrite, 0);
+    context->OMSetDepthStencilState(depthState, 0);
     context->RSSetState(rasterizerState);
 
     UINT stride = sizeof(MeshVertex), offset = 0;

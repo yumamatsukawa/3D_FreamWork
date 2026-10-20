@@ -30,7 +30,9 @@ struct TextStyle {
 };
 
 // 画面に文字を描く。座標は「画面中央が(0,0)、Y+=上、単位はゲーム画面のピクセル」
-// Draw は Component::Draw の中(GameEngineのText::BeginDraw〜EndDrawの間)で呼ぶ
+// Draw は Component::Draw の中(GameEngineのText::BeginDraw〜EndDrawの間)で呼ぶ。
+// Scene::Draw の間に呼ばれた Draw は、その場では描かず、UIスプライトの後(オーバーレイキュー。Image.h の DeferOverlay)に呼んだ順で描かれる
+// (Direct2Dは命令がたまると途中で画面に出すので、その場で描くと、後から描くUIスプライトに隠れてしまうため)。Scene::Draw の外(画面エフェクト・遷移)はその場で描く
 namespace Text {
     bool Init();
     void Uninit();

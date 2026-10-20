@@ -10,7 +10,7 @@ DirectX11製の、Unity風のコンポーネント指向ゲームフレームワ
 
 ## 0. プロジェクト構成
 
-このソリューション(`3D_FreamWork.sln`)には3つのプロジェクトがあります。
+このソリューション(`3D_FreamWork.sln`)には4つのプロジェクトがあります。
 
 ```
 3D_FreamWork\
@@ -20,14 +20,16 @@ DirectX11製の、Unity風のコンポーネント指向ゲームフレームワ
 ├── Shader.hlsl / Shader3D.hlsl / Shader3DSkin.hlsl / Shader3DCommon.hlsli / Shader3DWater.hlsl   全プロジェクト共有のシェーダー(Shader3DSkinは骨で曲げるFBX用。§27。Shader3DCommon.hlsliは3Dの2つのシェーダーに共通の見た目の計算で、マテリアルもライトも縁の光・枠線もここ。§30・§31・§33。Shader3DWaterは水面(WaterRenderer)専用。§35)
 ├── Engine\             フレームワーク本体(静的ライブラリ、Engine.vcxproj)
 ├── Sample2D\           2Dのサンプルゲーム(実行ファイル、Sample2D.vcxproj)
-└── Sample3D\           3Dのサンプルゲーム(実行ファイル、Sample3D.vcxproj)
+├── Sample3D\           3Dのサンプルゲーム(実行ファイル、Sample3D.vcxproj)
+└── Demo\               Engineの機能のデモ(実行ファイル、Demo.vcxproj。§38)
 ```
 
 - **Engine**: `GameObject`/`Component`/`RigidbodyComponent`/描画/音声などフレームワーク本体。それ単体では実行できない静的ライブラリ(`Engine.lib`)で、基本的にみんなで触る場所ではありません。
 - **Sample2D** / **Sample3D**: それぞれ独立した実行ファイル。どちらも同じ`Engine.lib`をリンクしているので、**Engineを直した内容は、両方のサンプルを再ビルドするだけで反映されます**。中身の`Game\Objects\`/`Game\Components\`/`Game\Scenes\`は、後述の「2. オブジェクトの作り方」と同じパターンです。
+- **Demo**: Engineの機能を、見て・触って分かるようにしたデモ集の実行ファイル(§38)。ゲームではなく、機能ごとの小さなシーンをカテゴリ別に並べ、2D版と3D版をその場で切り替えて見られる。同じ`Engine.lib`をリンクしているので、Engineの機能を足したら、ここにデモを足して紹介する。
 - 外部ライブラリは、リポジトリ直下(`3D_FreamWork\`の1つ上)の`ThirdParty\`にあります: `ThirdParty/PhysX/`(物理演算。§23)と `ThirdParty/ufbx/`(FBXの読み込み。§27。MITかパブリックドメインのどちらかを選べるライセンスで、条文は同じフォルダの`LICENSE`)。
-- ビルド後、`Engine.lib`/`Sample2D.exe`/`Sample3D.exe`は全て同じ`x64\Debug\`(`Release\`)フォルダに出力されます。`Assets\`とシェーダーは、Engineのビルドのたびに(`Engine.vcxproj`の`CopyRuntimeFiles`)、新しいファイルだけがそこへ自動コピーされます。Engineのコードが変わっていなくても動き、`Assets/`とシェーダーを高速最新チェックの入力に登録してあるので(`UpToDateCheckInput`)、`Assets/`だけ編集して実行(F5)しても反映されます。ビルド済みの`.exe`をダブルクリックするだけでも動きます。
-- ソリューションを開いてF5で実行する時は、実行したい方(Sample2DかSample3D)をソリューションエクスプローラーで右クリック→「スタートアッププロジェクトに設定」してから実行してください(複数のスタートアッププロジェクトを同時に起動する設定も可能です)。
+- ビルド後、`Engine.lib`/`Sample2D.exe`/`Sample3D.exe`/`Demo.exe`は全て同じ`x64\Debug\`(`Release\`)フォルダに出力されます。`Assets\`とシェーダーは、Engineのビルドのたびに(`Engine.vcxproj`の`CopyRuntimeFiles`)、新しいファイルだけがそこへ自動コピーされます。Engineのコードが変わっていなくても動き、`Assets/`とシェーダーを高速最新チェックの入力に登録してあるので(`UpToDateCheckInput`)、`Assets/`だけ編集して実行(F5)しても反映されます。ビルド済みの`.exe`をダブルクリックするだけでも動きます。
+- ソリューションを開いてF5で実行する時は、実行したいもの(Sample2D・Sample3D・Demoのどれか)をソリューションエクスプローラーで右クリック→「スタートアッププロジェクトに設定」してから実行してください(複数のスタートアッププロジェクトを同時に起動する設定も可能です)。
 
 ### Engineのフォルダ構成
 
@@ -144,19 +146,33 @@ sprite->SetColor(1.0f, 0.0f, 0.0f, 1.0f); // r, g, b, a
 
 画像そのものは、同じ画像を使うオブジェクトみんなで共有しています(§11)。コマ番号(`SetSpriteIndex`)と色(`SetColor`)は**1体ごと**なので、同じ`player.png`を使うPlayerと敵で、色やコマが連動することはありません。コマを時間に合わせて切り替える(アニメーションさせる)時は、`SpriteAnimationComponent`(§17)を一緒に付けます。
 
-**UIモード / Worldモード**を選べます:
+**描き方(`SpriteMode`)は3種類**あります。`SetMode`で選びます(既定はUI):
 
 ```cpp
-sprite->SetWorldSpace(true);
+sprite->SetMode(SpriteMode::UI);        // UI(既定)
+sprite->SetMode(SpriteMode::World2D);   // 2D
+sprite->SetMode(SpriteMode::World3D);   // 3D
 ```
 
-- `false`(既定): UIのように常に手前に描画される(深度を無視、画面に固定されたスクリーン座標)
-- `true`: **本当に3Dワールドの中にある板(ビルボード)** として描画される。3Dメッシュ(Mesh)と全く同じcamera3DのView/Projection行列を使い、常にカメラの方を向く。3Dオブジェクトと同じ深度バッファで前後関係が決まり(position.zで前後に出たり隠れたりする)、`CameraController`でカメラを動かした時もMeshと同じように正しく追従する
+| `SpriteMode` | 呼び方 | 大きさ(z) | カメラ | 前後の決まり方 | 使う場面 |
+|---|---|---|---|---|---|
+| `UI` | UI | zで変わらない | 2Dカメラの位置でスクロール(`DemoScreenFixController`のように画面に固定したい時は、カメラの分を足す) | **必ず最前面**。深度は使わない。UIどうしは`drawPriority` → **作った順**(後に作った物が手前)。**zは使わない** | HUD・ボタン・Sample2Dの爆発 |
+| `World2D` | 2D | zで変わらない(遠近なし) | 2Dカメラの位置でスクロール | **zが小さい(手前)ほど手前**(深度バッファ)。UIには隠される | 2Dのゲームで、zで前後を決めたい物(Sample2Dの背景・壁・敵・Player・弾) |
+| `World3D` | 3D | zで変わる(奥ほど小さい) | 3Dカメラの透視。常にカメラの方を向く板(ビルボード) | 深度バッファ。3Dメッシュと同じ深度で、出たり隠れたりする | 3D空間に置く看板・敵の画像 |
 
-テクスチャの透明な部分は、Worldモードなら後ろのオブジェクトが透けて見えます(`clip()`で深度を書き込まないようにしているため)。Worldモードはカリングも無効になっているので、`SetBillboardLock`で軸を固定した板をカメラが裏側から見ても、消えずにちゃんと描画されます(UIモードは今まで通り裏面カリングあり)。
+- **UI**: 今までのUIモードと同じです。深度を使わず、`position.z`で大きさも変わりません。
+- **2D**: 3Dメッシュなど3Dの物は無いのが普通です。深度バッファは、2D・3Dの物とメッシュだけで使い、**UIは2Dの深度に影響しません**(UIが後から描かれて、2Dの物を上書きするだけ)。2Dと3Dを同じシーンで混ぜることは想定していません(混ぜると、深度の値で前後が決まります)。
+- **3D**: 今までのWorldモード(3D)と同じです。3Dメッシュ(Mesh)と全く同じcamera3DのView/Projection行列を使います。`CameraController`でカメラを動かした時もMeshと同じように正しく追従します。
+- **今までの`SetWorldSpace(bool)`**は残してあります(互換)。`SetWorldSpace(true)` = `SpriteMode::World3D`、`SetWorldSpace(false)` = `SpriteMode::UI`です。`GetMode()`で今の描き方を読めます。
+- `Image::Draw`は、今までの`bool worldSpace`の版と、`SpriteMode`を渡す版があります(`Image::Draw(transform, texID, color, sheet, SpriteMode::World2D)`)。
 
-**注意**: Worldモードの`scale`は(UIモードのピクセル単位とは違い)`MeshRenderer`と同じ**ワールド単位**として扱われます。`rotate.z`は、ビルボードの板の中での見た目の回転(画面に対する回転)として機能します。
+**2Dのzの注意**: 2Dモードの深度は3Dカメラからの距離(`viewZ`)から作るので、zは「3Dカメラのz(既定-500)より+5以上奥」にしてください(`viewZ <= 0`の物は深度が0=最前面になります)。
 
+**描画の順番**: `Scene::Draw`は3つのパスで描きます。まず`drawPriority`の小さい順(同じなら`z`の小さい順)に、UI**以外**(3Dメッシュ・2D/3Dのスプライト・デバッグの線など)を描き、次にUIのスプライトを**`drawPriority` → 作った順**にまとめて描きます。そのため、UIのスプライトは、`z`が奥でも、3Dメッシュより先に作っても、必ず手前に出ます。2Dのパーティクル(`use3D = false`)もUIと同じ扱いです(2Dモードにする設定はありません)。文字(`Text::Draw`)・`Image::DrawRect`(ゲージ・ボタンの文字・スライダーの帯も、これらを呼んでいます)は、`Scene::Draw`の間は**その場で描かず**、UIスプライトを描いた後に、**呼んだ順**にまとめて描きます(オーバーレイキュー。Direct2Dは命令がたまると途中で画面に出すため、その場で描くと、後から描くUIスプライトに隠れてしまうからです)。四角を描いてから文字を描けば、四角の上に文字が出ます。画面エフェクト・シーン切り替えの演出は、`Scene::Draw`の外で描くので、これらよりさらに手前に重なります(今まで通り)。つまり描く順は、①UI以外(3Dメッシュ・2D/3Dスプライト・線) → ②UIスプライト → ③文字・四角 → ④画面エフェクト・遷移 です。
+
+テクスチャの透明な部分は、2D・3Dなら後ろのオブジェクトが透けて見えます(`clip()`で深度を書き込まないようにしているため)。2D・3Dはカリングも無効になっているので、`SetBillboardLock`で軸を固定した板をカメラが裏側から見ても、消えずにちゃんと描画されます(UIは今まで通り裏面カリングあり)。
+
+**注意**: 3Dの`scale`は(UI・2Dのピクセル単位とは違い)`MeshRenderer`と同じ**ワールド単位**として扱われます。`rotate.z`は、ビルボードの板の中での見た目の回転(画面に対する回転)として機能します。
 **ビルボードの回転を軸ごとに止める**: `CameraController`でカメラの高さや角度を変えると、ビルボードは常にカメラの方を完全に向くため傾いたり回転して見えます。特定の軸を固定したい場合は`SetBillboardLock`を使います。
 
 ```cpp
@@ -259,9 +275,9 @@ Image::GetCamera().position.y = player->transform.position.y;
 
 「ESCで解除・クリックで再固定」のようなルールはEngineには無いので、使う側(Sample3Dの`CameraController`が実例)で決めます。固定したComponentが破棄される時は、`Uninit()`で`SetCursorLocked(false)`に戻してください。
 
-`GetMouseWorldPosition()`は、マウス座標(Yを反転して上方向に合わせたもの)を`Image::ScreenToWorld2D`(§14)でZ=0の平面のワールド座標に直しています。カメラが既定の奥行き(z=-500)なら「カメラ位置 + マウス座標」と同じで、Z=0にある2Dオブジェクトとぴったり一致します。カメラを動かす処理(`CameraFollowComponent`など)がある場合は、カメラを動かした**後**で呼ぶと、そのフレームのカメラ位置で計算されます。画面の揺れ(`CameraShake`)は入りません。
+`GetMouseWorldPosition()`は、マウス座標(Yを反転して上方向に合わせたもの)を`Image::ScreenToWorld2D`(§14)でワールド座標に直しています。結果は「カメラ位置 + マウス座標」で、2Dオブジェクトの`z`には関係なく、そのオブジェクトとぴったり一致します。カメラを動かす処理(`CameraFollowComponent`など)がある場合は、カメラを動かした**後**で呼ぶと、そのフレームのカメラ位置で計算されます。画面の揺れ(`CameraShake`)は入りません。
 
-**2D/3Dのスクロール速度について**: 2Dは疑似的な正射影(距離に関係なく一定速度でスクロール)、3D(Mesh)は本物の透視投影(近いものほど速く、遠いものほどゆっくり動く)なので、根本的に仕組みが違います。`Camera.focalLength`(既定500)の距離にある3Dオブジェクトだけは、2Dと同じ速度で動くように`fovY`を自動調整していますが、それ以外の距離にあるオブジェクトは2Dとズレます(これは正しい遠近感なので、バグではありません)。
+**2D/3Dのスクロール速度について**: 2D(UI・2Dモード)は正射影(zに関係なく同じ大きさ・一定速度でスクロール)、3D(Mesh・3Dモードのスプライト)は本物の透視投影(近いものほど速く、遠いものほどゆっくり動く)なので、根本的に仕組みが違います。`Camera.focalLength`(既定500)の距離にある3Dオブジェクトだけは、2Dと同じ速度で動くように`fovY`を自動調整していますが、それ以外の距離にあるオブジェクトは2Dとズレます(これは正しい遠近感なので、バグではありません)。
 
 ### CameraController(三人称/一人称カメラ)
 
@@ -278,7 +294,7 @@ player->AddComponent<CameraController>();
 - `IsCursorLocked()` / `IsLockedThisFrame()`: カーソルを固定中か / このフレームの左クリックで固定したか。Sample3Dの`PlayerController`が、弾を撃ってよいかの判定に使っている
 - `GetYaw()`: 今の水平方向の視点角度(ラジアン。0で+Z方向、増えると右へ回る)。Sample3Dの`PlayerController`が、向きとWASD移動の基準に使っている(`CreatePlayer()`の中で`PlayerController::Setup()`にポインタを渡している)
 
-`Image::GetCamera3D()`を直接操作するため、有効な間は`Image::BeginFrame()`による2Dカメラへの自動追従(前述)を自動で止めます(`Image::SetCamera3DAutoSync(false)`。Component破棄時に自動でtrueへ戻ります)。MeshRendererだけでなく、Worldモードの`SpriteRenderer`(ビルボード)もこのcamera3Dを使うので、両方とも同じカメラの動きに正しく追従します。**UIモードの`SpriteRenderer`(HUDなど)は画面に固定されたままで、影響を受けません。**
+`Image::GetCamera3D()`を直接操作するため、有効な間は`Image::BeginFrame()`による2Dカメラへの自動追従(前述)を自動で止めます(`Image::SetCamera3DAutoSync(false)`。Component破棄時に自動でtrueへ戻ります)。MeshRendererだけでなく、3Dモード(`SpriteMode::World3D`)の`SpriteRenderer`(ビルボード)もこのcamera3Dを使うので、両方とも同じカメラの動きに正しく追従します。**UI・2Dモードの`SpriteRenderer`は2Dカメラで動き、3Dカメラの操作の影響を受けません。**
 
 ---
 
@@ -355,6 +371,8 @@ RigidbodyComponent::SetDebugDrawEnabled(true);
 | `Capsule2DRigidbodyComponent` | XY平面で切った断面(角の丸い四角=スタジアム形。§29) |
 
 2D向けのSquare/Circleは、PhysX上は奥行きのある立方体/球ですが(§23)、2Dゲームでは奥行き方向に動かないので、平面で見た時の形(断面)だけを表示しています。
+
+**2Dの枠は、2Dスプライトと同じ描き方(2Dの正射影)で描きます**(`Mesh::DrawLines2D`)。2Dカメラでスクロールし、zで位置・大きさがずれないので、`z`が0でない物(Sample2Dの壁・敵・弾など)でも、スプライトの輪郭にぴったり重なります。深度テストはしないので、描いた物の上に出ます(UIモードのスプライトは最後に描くので、UIより手前には出ません)。Box/Sphere/Capsuleなど3Dの枠は、今まで通り3Dカメラの透視で描きます。同じく、見張り役の視野(`VisionComponent`)・経路探索の線(`NavGridComponent` / `PathFollowComponent`)も、XY平面(2D)の時は2Dの正射影、XZ平面(3D)の時は3Dカメラの透視です。
 
 **内部実装メモ**: `RigidbodyComponent::Draw()`が、`PxShape`から実際のジオメトリ(`PxBoxGeometry`/`PxSphereGeometry`)を取得し、Ownerの`Transform`の`scale`だけを一時的に差し替えて描画しています(位置・回転は普段どおりOwnerのTransformをそのまま使う)。枠は三角形ではなく線(`D3D11_PRIMITIVE_TOPOLOGY_LINELIST`)で描いていて、形ごとの輪郭データは`Mesh::CreateCubeOutline()`などで作り、全`RigidbodyComponent`で1つずつ共有しています。
 
@@ -767,8 +785,8 @@ CameraShake::Shake(6.f, 0.2f);   // 強さ6で0.2秒揺らす
 
 | 関数 | カメラ | 内容 |
 |---|---|---|
-| `Image::WorldToScreen2D(ワールド座標)` | 2D用 | ワールド座標 → 画面座標(`XMFLOAT2`)。UIモードの`SpriteRenderer`と同じ計算(奥(Z+)にあるほど小さく、中心に寄って見える。Z=0なら「ワールド座標 - カメラ位置」) |
-| `Image::ScreenToWorld2D(画面座標)` | 2D用 | 画面座標 → Z=0の平面の上のワールド座標(`XMFLOAT3`、zは0)。`WorldToScreen2D`の逆。`Input::GetMouseWorldPosition()`の中身 |
+| `Image::WorldToScreen2D(ワールド座標)` | 2D用 | ワールド座標 → 画面座標(`XMFLOAT2`)。UIモードの`SpriteRenderer`と同じ計算(「ワールド座標 - カメラ位置」。**zは大きさにも位置にも影響しない**) |
+| `Image::ScreenToWorld2D(画面座標)` | 2D用 | 画面座標 → ワールド座標(`XMFLOAT3`、zは0)。`WorldToScreen2D`の逆。`Input::GetMouseWorldPosition()`の中身 |
 | `Image::WorldToScreen3D(ワールド座標)` | 3D用 | ワールド座標 → 画面座標(`XMFLOAT3`)。`MeshRenderer`と同じ透視投影。x,yが画面座標、**zはカメラからの奥行き**。**zが0以下ならカメラの後ろ**(画面に映らない。x,yは0で使えない)なので、使う前に必ず`z > 0`を確かめる |
 | `Image::ScreenPointToRay3D(画面座標, origin, direction)` | 3D用 | 画面の点から奥へ伸びる線(`origin`=手前の描画限界(nearZ)の面の上の点、`direction`=長さ1の向き)。`Physics::Raycast`と組み合わせると、画面のその点に映っている物を探せる |
 
@@ -791,7 +809,7 @@ if (Physics::Raycast(origin, direction, 5000.f, hit, "Enemy")) { /* hit.object �
 
 - **`Input::GetMousePosition()`はY+=下**なので、これらの関数に渡す時はYの符号を反転してください(`GetMouseWorldPosition()`は反転済み)。
 - `Draw`の中で呼ぶと`CameraShake`の揺れが入ったカメラで、`Update`の中で呼ぶと揺れの入らないカメラで計算します。
-- 2D用カメラ(疑似的な正射影)と3D用カメラ(透視投影)は計算の仕方が違うので、関数の名前で`2D`/`3D`を分けています。
+- 2D用カメラ(正射影。zで大きさが変わらない)と3D用カメラ(透視投影)は計算の仕方が違うので、関数の名前で`2D`/`3D`を分けています。
 
 **実例**: 両サンプルの`ButtonComponent::Draw()`(Engine)が、ボタンの文字の位置を`Image::WorldToScreen2D`で求めています。
 
@@ -1321,14 +1339,18 @@ Sample3D/Game/Components/  TitleController, GroundController, PlayerController,
                             HUDController, EnemyManager, BulletManager, SkyboxFollowComponent,
                             ModelDisplayController, HighlightController, GuardController, LanternController, ShadowManager, SpinComponent(未使用)
 Sample3D/Game/Scenes/      TitleScene, GameScene
+
+Demo/Game/Scenes|Objects|Components/   デモ(§38)。カテゴリ別のフォルダ(Common / Core / Render / UI / Render3D / Physics / Behavior / Audio / Data)に分かれている
 ```
 
 - **Sample2D**: トップダウン視点のアリーナシューター。タイトル画面のSTARTボタン(出る時に`TweenComponent`でぴょこっと大きくなる)をクリックすると、画面が暗転してからゲーム開始(ゲーム画面に入ると明転する。`FadeTransition`。§16)(ボタンは`CreateButton(scene, 文字, 位置, クリックされた時の処理)`で作れる汎用部品で、動きはEngineの`ButtonComponent`。他の画面のボタンにも使い回せる。§20)。WASDで移動、Playerは常にマウスの方を向き、左クリックでその方向へ弾を発射。背景はタイル状に敷き詰めた床(`BackgroundController`)で、移動するとスクロールする(カメラはPlayerに付けた`CameraFollowComponent`が追いかける。§14)。敵(`EnemyManager`が一定間隔でPlayerの周囲にランダムスポーンさせる)が壁を避けながらゆっくり追いかけてきて(`PathFollowComponent`。§36)、弾を当てると倒せる(`EventBus`で`"EnemyDefeated"`イベントを発行しスコア加算。倒した位置に「+10」が出て、上に動きながら消える=`CreateScorePopup`。§19。爆発のパーティクルも出る=`CreateExplosion`。§26)。敵に触れるとHPが減り(1秒間の無敵時間つき)、敵から離れる向きに弾かれる(ノックバック。`AddForce`で衝撃を加え、0.2秒間は移動キーが効かない。§23)、画面が少し揺れて(`CameraShake`。§14)、画面の端が赤く点滅する(`ScreenEffect::Vignette`。§15)。HPが0になるとゲームオーバー画面が出てSPACEでタイトルに戻る(黒い丸が閉じて開く`SpriteTransition`。§16)。スコアがハイスコアを超えていたら、ゲームオーバーの時に保存され(`SaveData`。キーは`"Sample2DHighScore"`で、Sample3Dの記録とは別。§18)、画面左上のスコアの下に出る(次に起動しても残る)。タイトル画面の下にはBGMの音量スライダー(`CreateVolumeSlider`。つまみをドラッグして0〜1で変えられ、離すと保存されて次に起動した時も残る。§20)がある。画面左上のHPの文字の下にはHPゲージ(減った分が少し遅れて縮む)、Playerの頭上にも小さなHPバーが出る(`GaugeRenderer`。§20)。当たり判定・物理はPhysXを使い(Player=`CircleRigidbodyComponent`、敵=`SquareRigidbodyComponent`、弾=`CircleRigidbodyComponent`)、Player・敵はDynamic(`SetVelocity()`で速度を渡して動かす。重力なし・回転なし・`SetFreezePositionZ(true)`で奥行き方向に固定)、弾はKinematicのトリガー。3Dカメラは使わない(`CameraController`なし)。画面の左上のHPゲージの下には、画面の外なので描かずに省いた数「Culled」が出る(敵の `SpriteRenderer` は `SetFrustumCulling(true)`。§28)。マップには見張り役の `Guard`(青い `Player` 画像がゆっくり回り、扇形の視野に `Player` が入って壁にさえぎられていなければ赤くなる。視野は線で表示)と、視線をさえぎる壁 `Wall` が2枚置いてある(`VisionComponent`。§28)。敵が壁を避けるための地図として、原点の周りの6000四方の格子 `Navigation`(`CreateNavigation`。`NavGridComponent`。壁は自動で読まれる)が置いてある(§36)。
 - **Sample3D**: Sample2Dと同じアリーナシューターを3D空間で遊べるようにしたもの。タイトル画面のボタン(Sample2Dと同じく、出る時に`TweenComponent`でぴょこっと大きくなる)をクリックすると、Sample2Dと同じく暗転してからゲーム開始(Sample3Dの`CreateButton()`は、位置と大きさをまとめて`Transform`で受け取る形になっている: `CreateButton(scene, 文字, transform, クリックされた時の処理)`)。Player(立方体)は三人称カメラ(`CameraController`。マウス移動で視点回転。カーソルは画面中心に固定され、ESCで解除・左クリックで再固定。TABで一人称に切り替え)と同じ向きを向き、WASDもカメラ基準(W=カメラの前、D=カメラの右)で移動する。左クリックでPlayerの向いている方向へ、地面と水平に弾(球)を発射。敵を倒すと、その位置に爆発のパーティクルが出る(`CreateExplosion`。§26)。敵は2Dの画像(Worldモードの`SpriteRenderer`。Y軸だけカメラの方を向く立て看板)で、地面の上をPlayerに向かって歩いてくる(壁と急な坂を避けて追いかける`PathFollowComponent`を`SetPlane(MovePlane::XZ)`で使う。§36)。歩く間は、敵に付けた`SpriteAnimationComponent`がスプライトシートのコマ(4番と5番)を0.3秒ごとに切り替えて、歩きアニメーションにしている(始まるコマはランダムなので、何体いても足踏みがそろわない。§17)。スコア・ハイスコア(保存先のファイルはSample2Dと同じだが、キーは`"Sample3DHighScore"`で、記録はSample2Dとは別。§18)・HP・無敵時間・被弾時に画面の端が赤く点滅すること・ゲームオーバー(SPACEでタイトルへ。Sample3Dは、黒い帯が左から覆って右へ抜けていく`SpriteTransition(...).SetSwitchFrame(7)`。§16)・`EventBus`のイベント名はSample2Dと同じ。タイトル画面の下のBGMの音量スライダーと、画面左上のHPゲージ(Sample2Dと同じ)、三人称の間だけ出るPlayerの頭上のHPバー(`SetUse3DCamera(true)`の`GaugeRenderer`)もある(§20)。Playerは立方体の見た目とDynamicの`BoxRigidbodyComponent`、敵はDynamicの`CapsuleRigidbodyComponent`(半径40・高さ100の立ったカプセル。§29)(どちらも重力あり・回転なし。Y速度は`GetVelocity().y`を維持したまま`SetVelocity()`で動かす。敵は`PathFollowComponent`がこれをしている)、弾はKinematicのトリガー(`SphereRigidbodyComponent`)。地面は、1000四方のタイルを3Dカメラの描画距離(farZ)の範囲だけ敷き詰めて描く`GroundController`(見た目)と、見えない大きなStaticの板(当たり判定)の組み合わせ。遠景はスカイボックス。地面の端(Playerから斜めに離れた所)には、FBXモデルの見本(`CreateModelDisplay`。`Assets/Models/TestAnim.fbx` の立方体2つ=親と子のパーツ。子の「Top」が、「Spin」(回る)と「Bob」(上下)のアニメーションを3秒ごとに切り替えて再生する。§27)が置いてある(FBXが無い時は何も置かない)。そのとなり(位置 `(1000, -50, 800)`)には、骨2本で曲がる細長い箱(`CreateSkinDisplay`。`Assets/Models/TestSkin.fbx` のアニメーション「Bend」を再生。§27)も置いてある。地面のタイルは、カメラに映る物だけ描く(`Visibility::IsSphereInView3D`)。敵の画像は `SetFrustumCulling(true)` で、画面の外にいる間は描かない。画面の左上のHPゲージの下には、描かずに省いた数「Culled」が出る。`Player` の近く(位置 `(-800, 0, 600)`)には見張り役 `Guard`(青い立方体がゆっくり回り、扇形の視野に `Player` が入って壁にさえぎられていなければ赤くなる。視野は線で表示)と、視線をさえぎる壁 `Wall` が2枚置いてある(`VisionComponent`。§28)。そのとなり(位置 `(400, 50, 300)`)には、半透明で光沢のある水色の板 `GlassPanel`(マテリアルの使用例。当たり判定は無いので通り抜けられる。§30)も置いてある。原点の周りでは、オレンジ色の光(ポイントライト)を持った小さな光る球 `Lantern` が、ふわふわ上下しながらゆっくり回っていて、近くの地面や壁を照らす。`Guard` は、視線の向きに懐中電灯(スポットライト)を持っていて、回ると地面の光の輪が一緒に動く(`LightComponent`。§31)。さらに、太陽の影が有効で(`CreateSun`。`ShadowManager`)、地面に `Player`・壁・FBXモデルの影が落ち、`Guard` の懐中電灯の光は壁や `Player` でさえぎられる(§32)。Playerの東の遠く(位置 `(1500, -50, -2000)` から4000四方)には、高さの画像(`Assets/Terrain/heightmap.png`)から作った、なだらかな丘と谷の地形 `Hills`(`CreateHills`)が置いてある(`TerrainRenderer`。影を受ける。当たり判定の`TerrainRigidbodyComponent`も付いていて、丘の起伏の上を歩ける。Playerの歩く速さ(200)で、丘の最大の傾き(約37度)も越えられる。丘の端はなだらかなスロープなので、地面から歩いて丘に登れる。§34)。その丘の北西のくぼみ(位置 `(2075, -16, 1350)`、650 x 700)には、波打つ半透明の池 `Water`(`CreateWater`)が張ってあります(`WaterRenderer`。青緑の水が波でうねり、日が当たる所がきらっと光り、水の下の地面が透けて見えます。当たり判定は無いので通り抜けられます。§35)。敵が壁と急な坂を避けるための地図として、9000四方の格子 `Navigation`(`CreateNavigation`。丘の高さと傾きも取り込む)が置いてある(池は通れるまま。§36)。Playerの南の遠く(位置 `(0, 0, -6000)` の周り)には、細い柱を15 x 15本並べた `WallField`(`CreateWallField`)が置いてあり、遠い柱を描かない・影を落とさない・枠線を描かない設定(LOD)の見本になっている。画面の左上には、描画命令の数と三角形の数(`Draw` / `Tri`)も出る(§37)。
 
+**デモ**: 機能ごとのデモは、サンプルの中ではなく、別のプロジェクト `Demo`(`Demo.exe`)に集めてある。ゲーム本体(START → `GameScene`)には影響しない。画面の流れ・各デモの内容・新しいデモの足し方は §38。
+
 **Sample3Dの実装メモ**: 向きはすべて`transform.rotate.y`(度)で表し、`rotate.y`の時の正面(ローカルの+Z)は`(sin, 0, cos)`の方向になる(`CameraController::GetYaw()`の式と同じ。`Math::Forward3D()`で求められる)。Worldモードの`SpriteRenderer`は`rotate.y`を使わない(ビルボードの向きとZ軸回転だけを使う)ので、敵の画像の向きは`SetBillboardLock(true, false, true)`でカメラの方へ向けている。Playerは`SetFreezeRotation(true)`で、`RigidbodyComponent`は位置しか同期しないため、`PlayerController`が`rotate.y`が変わった時に`GetActor()`の`setGlobalPose`で当たり判定の箱の回転も合わせている(デバッグ表示の枠と実際の判定が同じ向きになる)。一人称の間は、カメラが立方体の内側に入るのでPlayerの`MeshRenderer`と頭上のHPバー(`GaugeRenderer`)を非表示にしている。
 
-**Sample2Dの実装メモ**: `EnemyManager`/`BulletManager`はどちらも`ObjectPool`を使った使い回し方式(実例は`Engine/Core/ObjectPool.h`)。プールで使い回すオブジェクトは`Scene::CreateObject("Pooled")`で名前だけ付けて作られるため、`GameObject::SetTag()`で組み立て時にタグ("Enemy"/"Bullet")を後付けしている。敵を倒す/Playerがダメージを受ける判定は、それぞれ`EnemyController::OnTriggerEnter2D`(相手のタグが"Bullet")と`PlayerController::OnCollisionStay2D`(相手のタグが"Enemy")が担当する。
+**Sample2Dの実装メモ**: `EnemyManager`/`BulletManager`はどちらも`ObjectPool`を使った使い回し方式(実例は`Engine/Core/ObjectPool.h`)。プールで使い回すオブジェクトは`Scene::CreateObject("Pooled")`で名前だけ付けて作られるため、`GameObject::SetTag()`で組み立て時にタグ("Enemy"/"Bullet")を後付けしている。Sample2Dのスプライトは、背景・壁・見張り役・敵・Player・弾が**2Dモード**(`SpriteMode::World2D`)で、**前後はz座標で決まります**(zが小さい=手前)。割り当ては 背景+100 → 壁+20 → 見張り役+10 → 敵+5 → Player 0 → 弾-5 です(背景のタイルは`BackgroundController`が`Image::Draw`の2Dモードで描く)。爆発(2Dの粒)・ボタン(`SpriteRenderer`のUI)は**UI**で、必ず最前面です(HUDの文字・ゲージは`Direct2D`でさらに手前)。zの差は小さい(最大100)ので、物理(Zを固定した`RigidbodyComponent`。厚み100の壁・敵と重なる)・経路探索(`NavGrid`はXY。壁を探す箱はz=0の厚み10で、壁の厚み100に届く)・視野(`VisionComponent`はXY)には影響しません。Sample2Dのコライダーの枠線・見張り役の視野の線(`Mesh`)は、2Dモードのスプライトと同じ2Dの正射影(`Mesh::DrawLines2D`)・深度テストなしで描かれるので、zが違う物でもスプライトの輪郭に重なり、描いた物の上に見えます(UIより手前には出ません)。敵を倒す/Playerがダメージを受ける判定は、それぞれ`EnemyController::OnTriggerEnter2D`(相手のタグが"Bullet")と`PlayerController::OnCollisionStay2D`(相手のタグが"Enemy")が担当する。
 
 役割分担は「値の持ち主は1か所、他は読むだけ」にしている:
 
@@ -1392,6 +1414,8 @@ GameManager/HUD/EnemyManager/BulletManagerのような「見た目の無い管�
 | 画面の外で省いた数の表示(Culled) | `HUDController::Draw()`(`Visibility::GetCulledCount()`。§28) |
 | 描画命令・三角形・距離で省いた数の表示(Draw / Tri。Sample3D) | `HUDController::Draw()`(`RenderStats::GetDrawCallTotal()` など。§37) |
 | 多数の柱を置いて、遠い物を省く設定(LOD)を試す(Sample3D) | `Objects/WallField.cpp`(`CreateWall` で柱を格子状に並べ、`MeshRenderer::SetLod` で `drawDistance` / `shadowDistance` / `outlineDistance` を渡す。§37)。`GameScene::Init()` に1行。LODのON/OFFを比べる時は `GameScene.cpp` の `lodEnabled` を書き換える |
+| デモの機能を一覧に並べる、新しいデモを足す(Demo) | `Demo/Game/Scenes/Common/DemoRegistry.cpp` の `GetDemoList()` に1行(カテゴリ・名前・説明・2D版/3D版を開く関数。`DemoCategoryScene` が一覧を読んでボタンを並べる。§38) |
+| デモの説明の板・Backボタン・Escで戻る・2D/3Dの切り替え(Tab)・全体の設定を既定に戻す(Demo) | `Demo/Game/Objects/Common/DemoGuide.cpp` と `Demo/Game/Components/Common/DemoGuideController.cpp`(§38) |
 | ゲームオーバーの時にハイスコアを保存する | `GameManager::Init()`の`"PlayerDied"`を受けた所(`SaveData::SetInt` + `Save`。§18) |
 
 Sceneに残してよいのは、オブジェクトの配置と、シーン全体の後片付け(`GameScene::Uninit()`の`EventBus::Get().Clear()`)くらい。新しい処理を足したくなったら、まず「どのオブジェクトの仕事か」を考えて、そのComponentに書くこと。
@@ -1856,9 +1880,9 @@ particles->Burst(10);   // Playしているかに関係なく、一度に10個�
 
 | | 2D(`use3D = false`、既定) | 3D(`use3D = true`) |
 |---|---|---|
-| 描き方 | `SpriteRenderer`のUIモードと同じ(2Dカメラでスクロールする。奥行きで小さくなる) | `SpriteRenderer`のWorldモードと同じ。粒は**常にカメラの方を向く板(ビルボード)**で、手前の3Dオブジェクトに隠れる |
+| 描き方 | `SpriteRenderer`のUI(`SpriteMode::UI`)と同じ(2Dカメラでスクロールする。zで大きさは変わらず、必ず最前面。`drawPriority` → 作った順) | `SpriteRenderer`の3D(`SpriteMode::World3D`)と同じ。粒は**常にカメラの方を向く板(ビルボード)**で、手前の3Dオブジェクトに隠れる |
 | `spreadAngle` | XY平面で向きを±(角度÷2)回す | 向きを軸にした円錐(360なら全方向の球) |
-| 粒の位置 | `x, y`(`z`は奥行き) | `x, y, z` |
+| 粒の位置 | `x, y`(`z`は使わない) | `x, y, z` |
 
 3Dでの対応範囲: 粒は半透明なので、手前の物には隠れますが、粒どうしの前後は描いた順で決まります(加算合成なら見た目はほとんど変わりません)。回転する粒・影・ライトの影響は対応していません。
 
@@ -2021,18 +2045,18 @@ sprite->SetFrustumCulling(true);
 |---|---|
 | `IsSphereInView3D(中心, 半径)` | 3Dカメラ(`Image::GetCamera3D()`)の視錐台に、球が少しでも入っているか |
 | `IsBoxInView3D(中心, 半分の大きさ)` | 同じく軸に沿った箱(回転しない)。半分の大きさは、辺の長さの半分 |
-| `IsCircleInView2D(位置, 半径)` | 2Dカメラ(`Image::GetCamera()`)の画面に、円が少しでも入っているか。位置はワールド座標(`z`は遠近の倍率に使う) |
+| `IsCircleInView2D(位置, 半径)` | 2Dカメラ(`Image::GetCamera()`)の画面に、円が少しでも入っているか。位置はワールド座標(`z`は使わない) |
 | `IsRectInView2D(位置, 半分の大きさ)` | 同じく四角(回転しない) |
 | `GetCulledCount()` | 前のフレームに、描かずに省いた数(HUDに出して確認する) |
 | `SpriteRenderer` / `MeshRenderer` / `ModelRenderer` の `SetFrustumCulling(bool)` | 画面の外なら描かない。**既定は `false`(今までと同じ。全部描く)** |
 
 **2D と 3D の違い**
 - 3Dは「視錐台」と「球・箱」で調べます。視錐台は 1フレームに1回、`GameEngine` が `CameraShake::BeginDraw()` の後に作ります(揺れが入ったカメラで判定するので、画面の端で揺れても一瞬消えたりしません)。ゲーム側が準備を呼ぶ必要はありません。
-- 2Dは「2Dカメラの画面(画面中央が(0,0)、`Y+`=上、単位はピクセル)」と「円・四角」で調べます。`SpriteRenderer`(UIモード)と同じ遠近の倍率(奥の物は小さく中心に寄って見える)を使います。2Dカメラは毎回その場の値を読むので、準備は要りません。
+- 2Dは「2Dカメラの画面(画面中央が(0,0)、`Y+`=上、単位はピクセル)」と「円・四角」で調べます。`SpriteRenderer`(UIモード)と同じ計算(`z`は大きさに影響しない)を使います。2Dカメラは毎回その場の値を読むので、準備は要りません。
 - どちらも、最初のフレーム(準備の前)は「映っている」を返します(消さない側に倒しています)。
 
 **Rendererの画面外判定(`SetFrustumCulling(true)`)の決まり**
-- `SpriteRenderer`: `transform.scale` の幅・高さの対角線の半分を半径にした円(UIモード)か球(`SetWorldSpace(true)` のビルボード)で調べます。`scale` が0以下で画像の大きさを使う時は、大きさが分からないので判定しません(必ず描く)。
+- `SpriteRenderer`: `transform.scale` の幅・高さの対角線の半分を半径にした円(UI・2Dモード)か球(3Dモード=`SetWorldSpace(true)` のビルボード)で調べます。`scale` が0以下で画像の大きさを使う時は、大きさが分からないので判定しません(必ず描く)。
 - `MeshRenderer`: 頂点の「原点から一番遠い点」×最大の拡大率の球で調べます(立方体なら約0.87×`scale`)。`SetDepthWrite(false)`(スカイボックスなど画面全体を覆う物)は、`true` でも判定しません。
 - `ModelRenderer`: 読み込み時に求めた「止まっている姿の一番遠い頂点」(`Model::GetBoundingRadius()`)×1.5(余裕)の球で調べます。骨・アニメーションで大きく動くモデルは、画面の端で消えて見えることがあるので、その時は `false` に戻します。
 - 描画を省くだけで、物理(当たり判定)は止まりません。物が突然消えて見えたら、半径が小さすぎます(`GetCulledCount()` を見ながら確認)。
@@ -2204,7 +2228,7 @@ material.color.w = 0.4f;             // 透明度
 material.depthWrite = false;         // 自分より後ろの物を隠さない
 ```
 
-- 描く順番は `drawPriority` → `z` の小さい順で、**カメラからの距離順ではありません**。半透明の物は、不透明の物より後に描くように `SetDrawPriority` を大きくしてください。
+- 描く順番は `drawPriority` → `z` の小さい順で、**カメラからの距離順ではありません**(UIモードのスプライトは別扱いで、最後に必ず手前へ描かれます。§4)。半透明の物は、不透明の物より後に描くように `SetDrawPriority` を大きくしてください。
 - 半透明の物どうしの前後は、見る角度によってずれることがあります(距離で並べ替える処理が無いため)。
 - `clip` で、ほぼ透明なピクセルは今まで通り描きません。
 - 波打つ水面は、`Material` ではなく専用の `WaterRenderer`(§35)で作ります(色・透明度・光沢は `WaterSettings` で決めます)。
@@ -3150,3 +3174,199 @@ WARP はCPUで描く遊び用のGPUなので、**時間は参考値**です(実�
 - **段階2(メッシュ・モデルの切り替え)・段階3(地形のチャンク分け)・段階4(ディザのフェード。シェーダー変更)**: 上の測定の結果を見て、必要かどうかを決めます(今のSampleは三角形が少ないので、効果が小さい可能性が高い)。
 - 遠い物のアニメーションの更新間隔(`ModelAnimationComponent::SetUpdateInterval`)・遠いスプライトを描かない設定(`SpriteRenderer::SetMaxDrawDistance`)。設計書の「任意」の項目で、今回は作っていません(Sample側の `SetEnabled(false)` で代わりにできます)。
 - 同じ物をまとめて1回で描く(インスタンス描画)。物が数百個ある場面では、LODより効く可能性があります。別の機能として提案する予定です。
+
+---
+
+## 38. デモ(Demoプロジェクト)
+
+Engineの機能を「見て・触って分かる」ようにした、機能ごとの小さなシーン(デモ)を集めた**専用の実行ファイル(`Demo.exe`)**です。ゲーム(`Sample2D` / `Sample3D`)とは別のプロジェクトなので、ゲーム本体には一切影響しません(以前はサンプルのタイトル画面の「DEMO」ボタンから入っていましたが、Demoプロジェクトへ引っ越しました)。全体の設計は [`docs/DemoPlan.md`](docs/DemoPlan.md) にあります。
+
+### 開き方
+
+- ソリューションの `Demo` を右クリック →「スタートアッププロジェクトに設定」して、F5で実行する(§0の `Sample2D`・`Sample3D` と同じ)。
+- または、ビルド済みの `x64\Debug\Demo.exe`(`Release\` も)をダブルクリックする。`Assets\` とシェーダーは、Engineのビルドで同じ場所にコピーされるので、そのまま動く。
+
+### 画面の流れ
+
+起動すると、すぐ**カテゴリ一覧**が出ます(タイトル画面はありません)。
+
+```
+カテゴリ一覧 ──ボタン──▶ 機能一覧 ──ボタン──▶ 各デモ
+  Esc: アプリを終了        Esc: カテゴリ一覧へ     Esc: 機能一覧へ
+```
+
+- **カテゴリ一覧**(`DemoMenuScene`): `Core` `Render` `UI` `Render3D` `Physics` `Behavior` `Audio` `Data` の8個(Engineのフォルダに近い名前)。デモがまだ無いカテゴリがあれば、暗くて押せず「準備中」と出る(今は8個すべてにデモがある)。
+- **機能一覧**(`DemoCategoryScene`): 選んだカテゴリの機能が並ぶ。説明の左に印(`[2D/3D]` 2Dと3Dの両方 / `[2D]` 2Dだけ / `[3D]` 3Dだけ / `[ALL]` 2Dと3Dの区別が無い)が付く。**今の側(2D/3D)の版が無い機能は、ボタンが暗くなって押せない**。
+- **各デモ**: 左上の板に「デモの名前(と今の側の印)」「何のデモか」「操作方法」「使っているEngineのAPI」の4行、左下に「Back」ボタン(Escと同じ。カテゴリ一覧では「Quit」)、右下に2D/3Dの切り替えボタンが出る。
+- シーンの切り替えは、すべて暗転(`FadeTransition`)。
+
+### 2Dと3Dの切り替え
+
+2D版と3D版の両方がある機能(Object・Transform・Math・Sprite・SpriteAnim・Camera・Particle・Tween・Coord・WorldUI・Visibility・Collider・Force・RigidbodySettings・Trigger・Query・Move・Homing・Vision・Path・MovingWall・Sound3D)は、デモの中で切り替えられます。
+
+- **Tabキー**、または**右下のボタン**を押すと、その場で逆の側のデモへ切り替わる(暗転する)。
+- 今の側(2Dか3Dか)は**アプリ全体で1つ**だけ覚えます。起動した時は**3D**です。「Particleの3D版を見ていて、Backで機能一覧へ戻り、別の機能を開く」時も、同じ3Dの側で開きます。**保存はしない**ので、アプリを閉じると3Dに戻ります。
+- カテゴリ一覧と機能一覧でも、Tabか右下のボタンで側を選べる(画面は切り替わらず、機能一覧の暗いボタンが変わる)。
+- 右下のボタンの文字は状態で変わる(ボタンの文字はArial固定で日本語が出ないので、英語):
+
+| 文字 | 意味 |
+|---|---|
+| `To 2D` / `To 3D` | 逆の側の版へ切り替えられる |
+| `3D only` / `2D only` | その機能は片方の側しか無い(暗くて押せない) |
+| `Common` | 2Dと3Dの区別が無い機能(UIなど。暗くて押せない) |
+| `Mode: 3D` / `Mode: 2D` | (メニューのみ)今選んでいる側。押すと入れ替わる |
+
+### 今あるデモ
+
+3Dのデモは、**右ボタンを押しながらマウスを動かす**と視点が変わり、**Q / E** でズームします(カーソルは固定しないので、ボタンも押せます。ゲーム本体のカーソル固定のカメラ(`CameraController`)とは別の、デモ用の`DemoCameraController`です。Cameraデモの3D版だけは、カメラそのものが題材なので、自分で動かすカメラを使います)。
+
+| カテゴリ | 機能(印) | 学べること | 操作 | 使っているAPI |
+|---|---|---|---|---|
+| Core | **Object**(2D/3D。`ObjectDemo2DScene` / `ObjectDemo3DScene`) | 中央の物に、動きの部品(Component)を付ける・止める。部品が付いているかは `GetComponent` で調べる(付いていなければ `nullptr`)。クリックで小さな物を出し、3秒たつと `Destroy` で消える。**Engineには部品を外す関数は無い**ので、「止める」は `SetEnabled(false)` | 1: 回る部品(`SpinComponent`)を付ける / 2: 上下に動く部品(`BobComponent`)を付ける / 3: 付いている部品を全部止める・再開 / クリック: 物を出す(3Dは地面をクリック) / X: 出した物を全部消す | `Scene::CreateObject`、`GameObject::AddComponent` / `GetComponent` / `Destroy`、`Component::SetEnabled`(§1) |
+| Core | **Transform**(2D/3D。`TransformDemo2DScene` / `TransformDemo3DScene`) | 大きい親と、小さい子。親を動かす・回す・大きくすると、子も一緒に動く。子の `position` は親から見た値(ローカル)で、画面の上の位置(ワールド)とは違うことが数字で分かる。親子を切ると、子はその場に残る。2Dは Z軸、3Dは 3つの軸で回せる | 矢印: 親を動かす / R: 親を回す(3Dは T で別の軸) / 1・2: 親の大きさ / SPACE: 親子をつなぐ・切る | `Transform`(`position` / `rotate` / `scale`)、`SetParent`、`GetWorldTransform`(2D)、`GetWorldMatrix`(3D)(§3) |
+| Core | **Time**(共通。`TimeDemoScene`) | 時間の倍率を変えると、`dt` で回る物だけが遅くなり、`GetUnscaledDeltaTime` で回る物はそのまま。ポーズ中も後者は回る。`Timer`(1回だけ・繰り返し)の進みを帯で見る。デモを出る時に倍率を1に戻す | SPACE: スロー(0.3倍) / P: ポーズ / 1: 2秒で1回 / 2: 1秒ごと(もう一度押すと止める) / 3: 5秒で1回 | `Time::GetDeltaTime` / `GetUnscaledDeltaTime` / `GetTime` / `SetTimeScale` / `GetTimeScale` / `IsPaused`、`Timer`(§10) |
+| Core | **Input**(共通。`InputDemoScene`) | キーボード(押している間・押した瞬間・離した瞬間)、マウス(位置・動いた量・ワールドの位置・ボタン)、ゲームパッド(スティック・トリガー・ボタン)の今の状態を表示する。**パッド(XInput)が無くても動き**、「未接続」と出る(つながっているかは、0.5秒ごとに調べる) | 何かキーを押す / マウスを動かす・クリック / パッドをつなぐ / F1: カーソルの固定(固定したままデモを出ないよう、出る時に解除する) | `Input::GetKeyDown` / `GetKeyPress` / `GetKeyUp`、`GetMousePosition` / `GetMouseDelta` / `GetMouseWorldPosition`、`GetPadLeftStick` / `GetPadRightStick` / `GetPadTrigger`、`SetCursorLocked` / `IsCursorLocked`(§0・§9) |
+| Core | **Math**(2D/3D。`MathDemo2DScene` / `MathDemo3DScene`) | `MathUtil` の結果を、点と線で見る。**2D**: Lerp(マウスで割合を決める)/ Clamp / 距離・向き・角度(腕が目標の角度へ回って追う)/ 乱数(分布と円周上の点)。**3D**: Lerp / 内積・外積 / Normalize / MoveTowards(回る目標を追う点)。線は点を並べて描いている | 1〜4: 見る関数を選ぶ / 2D: マウスで値を動かす・SPACE(乱数の4でサイコロ)・クリック(数え直す) / 3D: 3 で矢印とW・Sでベクトルを動かす | `Math::Lerp` / `Clamp` / `Distance` / `Normalize` / `Dot` / `Cross` / `Length` / `MoveTowards` / `AngleToTarget2D` / `MoveTowardsAngle` / `DeltaAngle` / `Forward2D` / `RandomRange` / `RandomOnCircle`(§9) |
+| Core | **Pool**(共通。`PoolDemoScene`) | 弾を出しては消す時、毎回作らずに `ObjectPool` で使い回す。「最初に用意した数・借りた回数・使用中・待機中・作った数」を表示し、プールの中身(緑=使用中、灰色=待機中)を並べる。連射しても、作った数は足りなくなった時だけ増える。`ObjectPool` はComponent(`PoolDemoController`)のメンバ | クリック・SPACE(押し続けると連射): 弾を出す。弾はマウスの方へ飛ぶ | `ObjectPool`(`Prewarm` / `Rent` / `Return` / `GetPoolSize` / `GetObjects`)(§8) |
+| Core | **EventBus**(共通。`EventBusDemoScene`) | 「送る側」「受け取る側(スコア)」「記録係」は、お互いを知らず、イベント名だけでつながる。撃破(引数なし)とコイン取得(オブジェクトを1つ渡す)を送ると、スコアが増えて「スコアが変わった」が流れ、記録係が受信した順に一覧にする。ラムダは `this` を使うので、シーンの `Uninit` で `Clear()` する | Defeat / Coin ボタン(1・2キーも同じ) | `EventBus::Get().Subscribe` / `Publish` / `SubscribeObject` / `PublishObject` / `Clear`(§7) |
+| Core | **Resources**(共通。`ResourcesDemoScene`) | 同じ画像を何枚置いても読み込みは1回で、`LoadTexture` のIDは全員同じ。画像を全部消しても、`UnloadUnused` を呼ぶまでは残る(使われている間は解放されない)。同じ音・モデルを2回借りても、IDや指す先が同じ。借りた音・モデルは、デモを出る時に返す | Add 10: 画像を増やす / Remove: 全部消す / Unload: 使われていない物を解放 / Sound x2・Model x2: 2回借りる / Release: 返す | `Resources::LoadTexture` / `ReleaseTexture` / `LoadSound` / `ReleaseSound` / `LoadModel` / `UnloadUnused`(§11) |
+| Render | **Sprite**(2D/3D。`SpriteDemo2DScene` / `SpriteDemo3DScene`) | 画像のコマ(`SetSpriteIndex`)・色(`SetColor`)・大きさ(`scale`)・回転(`rotate.z`)を変える。**2D**は、下の赤(手前 z=-100)と青(奥 z=+100)を、UI(作った順に重なる。zは使わない)→ 2D(zの深度で前後が決まる。遠近なし)→ 3D(zで大きさも変わる)の3つの描き方に切り替えて、重なり方と大きさを比べる。緑は常にUI(z=+500)で、どのモードでも必ず手前に出る。**3D**は立方体の周りにビルボードのスプライトを置き、固定する軸(`SetBillboardLock`)の違いを、視点を回して見る(手前のスプライトは立方体を隠し、奥のスプライトは隠れる)。**Engineのスプライトには、左右反転の機能は無い**(`scale` が0以下だと画像の大きさになるため) | 1〜4: コマ・色・大きさ・回転の動きの入り切り / 2Dは5: UI・2D・3D / 3Dは右ドラッグで視点 | `SpriteRenderer`(`SetSpriteIndex` / `SetColor` / `SetWorldSpace` / `SetBillboardLock`)、`SetMode(SpriteMode)`、`Transform`(§4) |
+| Render | **SpriteAnim**(2D/3D。`SpriteAnimDemo2DScene` / `SpriteAnimDemo3DScene`) | `player.png`(8列x2行)のコマを、時間で送る。ループする3つ(Walk・Scared・All)と、1回だけで止まる1つ(Eyes。止まると `IsFinished` が true になる)。下の段は同じクリップで、`SetRandomStart(true)` によって始まるコマをずらした5つ(上のWalkと見比べる)。3Dは、ビルボードのスプライトで同じ物を再生する | SPACE: 再生(Play)・停止(Stop。次のPlayは最初のコマから) / 1〜4: 速さ(0.5倍・通常・2倍・止める) / 3Dは右ドラッグで視点 | `SpriteAnimationComponent`(`AddClip` / `Play` / `Stop` / `SetSpeed` / `SetRandomStart` / `IsFinished`)(§17) |
+| Render | **Camera**(2D/3D。`CameraDemo2DScene` / `CameraDemo3DScene`) | **2D**: 自分(おばけ)を `CameraFollowComponent` で2Dカメラが追う。なめらかさ・デッドゾーン(黄色い四角)・映す範囲(赤い枠。自分は枠の外にも出られる)・対象からのずらしを切り替える。**3D**: 3Dカメラを自分で動かす。三人称(後ろから)と一人称(自分の目から)をVで切り替える。どちらも `CameraShake` で揺らせる(2Dは画面のずれ、3Dはカメラから見た右・上へのずれ)。カーソルは固定しない(右ドラッグで向きを変えるので、Escもボタンもそのまま使える) | 2D: WASD(矢印)で動く / 1: なめらかさ / 2: デッドゾーン / 3: 範囲 / 4: ずらし / SPACE: 揺らす。3D: WASD(矢印)で向いている方へ動く / V: 一人称・三人称 / 右ドラッグ: 向き / Q・E: ズーム(三人称) / 1〜3: 揺れの強さ / SPACE: 揺らす | `CameraFollowComponent`(`SetSmoothTime` / `SetDeadZone` / `SetBounds` / `SetOffset`)、`CameraShake::Shake`、`Image::GetCamera3D`、`SetCamera3DAutoSync`(§5・§14) |
+| Render | **ScreenEffect**(共通。`ScreenEffectDemoScene`) | 画面全体の演出を重ねる。Flash(白い光)・Vignette(赤い縁が3回点滅)・Fade(黒/白。暗転し終わったら、渡した関数で明転する)。`IsFading()` の状態と、Fade完了の関数が呼ばれた回数を表示する。演出は文字も隠す。Fadeはシーンをまたいで残るので、デモを出る時に明るい状態へ戻す | 1: Flash / 2: Vignette / 3: Fade(黒) / 4: Fade(白) | `ScreenEffect::Flash` / `Vignette` / `Fade`(`onComplete`) / `IsFading` / `Stop`(§15) |
+| Render | **Transition**(共通。`TransitionDemoScene` と `TransitionDemoBScene`) | 演出を選ぶと、別のシーン(A: 2Dの背景 / B: 3Dの舞台)へ切り替わり、もう一度押すと戻る。Fade(黒・白)と SpriteTransition(丸・ワイプ。`transition_circle.png` `transition_wipe.png`)を見比べる。切り替え中は `Time::IsPaused()` が true になり、経過時間と回る箱が止まる。シーンBは機能一覧には出ない(Aから行く)。Escの戻る(黒のFade)も同じ仕組み | 1: Fade(黒) / 2: Fade(白) / 3: 丸 / 4: ワイプ | `SceneManager::ChangeScene<T>(FadeTransition(...))` / `(SpriteTransition(...))`、`SetSwitchFrame`、`Time::IsPaused`(§16) |
+| Render | **Particle**(2D/3D。`ParticleDemo2DScene` / `ParticleDemo3DScene`) | 爆発(加算合成)・火花(重力)・煙(普通の合成。大きくなって消える)・花火(色が水色からピンクへ変わる)を、設定の違いで作り分ける。出しっぱなしの焚き火(`Play`)の粒の数も表示する。**3D**は同じ設定を `use3D = true` で3D空間に出す(粒はカメラの方を向く板で、手前の物に隠れる。3Dは画面に対して小さく見えるので、速さ・大きさを3倍にしている) | 1〜4: 種類を選ぶ / クリック: その場所で発射(3Dは、マウスの線が地面に当たる場所) / SPACEを押している間: スロー(`Time::SetTimeScale`) | `ParticleSettings`(`additive` / `gravity` / `startColor` `endColor` / `startSize` `endSize` / `use3D`)、`CreateEffect`、`Burst`、`Play`、`Input::GetMouseWorldPosition`、`Image::ScreenPointToRay3D`(§26) |
+| Render | **Tween**(2D/3D。`TweenDemo2DScene` / `TweenDemo3DScene`) | 同じ時間で動く8個。違うのは動きの速さの変化(Ease)だけ。各行に、Easeが返す進み具合(0〜1)が出る(`OutBack`・`OutElastic`は0〜1をはみ出す)。**2D**は丸が右へ動き、位置・色・進み具合を同時に動かす。**3D**は立方体が奥へ動き、位置・大きさ・向き・色・進み具合を同時に動かす | SPACE: 全部を最初からやり直す(出だしの違いが見やすい) | `TweenComponent`(`MoveTo` / `ScaleTo` / `RotateTo` / `ColorTo` / `TweenValue` / `SetLoop(true, true)`)、`Ease::Linear` `InQuad` `OutQuad` `InOutQuad` `OutCubic` `OutBack` `OutElastic` `OutBounce`(§12) |
+| Render | **Coord**(2D/3D。`CoordDemo2DScene` / `CoordDemo3DScene`) | **2D**: マウスの画面の位置を `ScreenToWorld2D` でワールドの位置にして、`WorldToScreen2D` で画面に戻す(`GetMouseWorldPosition` と同じ値)。クリックで印を置き、カメラを動かしても、印はワールドの同じ場所に見える。右の3つは奥行き(z)だけが違うスプライトで、zが違っても大きさ・画面の高さは同じに見える(2Dモードで描いている)。**3D**: 立方体の頭の上に、`WorldToScreen3D` で名前と画面の位置を出す(カメラの後ろは出さない)。マウスの位置から `ScreenPointToRay3D` で線を作り、`Physics::Raycast` で、マウスの下の物・距離・当たった場所を調べる。クリックで物を選ぶ(縁が光る) | 2D: マウス / クリック: 印を置く / R: 印を消す / WASD(矢印): 2Dカメラを動かす。3D: マウス / クリック: 物を選ぶ / 右ドラッグ: 視点 | `Image::WorldToScreen2D` / `ScreenToWorld2D` / `WorldToScreen3D` / `ScreenPointToRay3D`、`Input::GetMouseWorldPosition`、`Physics::Raycast`(§14・§23) |
+| UI | **UI**(共通。`UiDemoScene`) | スライダーを動かすとゲージが変わる。Damage/Healボタンで、減った分が遅れて縮むHPゲージが動く。「Count UP」ボタンで回数が増える(文字は`TextRenderer`)。左右に動く丸には、文字が付いて動く。(画面の9か所の基準 `Anchor` は、下の Rect デモに分けました) | スライダーをドラッグ / ボタンをクリック | `ButtonComponent`、`SliderComponent`、`GaugeRenderer`(`SetValueSource` / `SetDelayedBar`)、`TextRenderer`、`SetAnchor`(§19・§20) |
+| UI | **Rect**(共通。`RectDemoScene`) | 画面の9か所(`Anchor`)に、印(黄色の小さな四角=`GetAnchoredPosition`)と、印に角や辺を合わせた青い四角(`GetAnchoredCenter`)を置く。ドラッグできる大きさの違う3つの四角(`Image::DrawRect`)。画面の大きさ(`Graphics::width` / `height`)も表示する | 下の3つの四角をドラッグして動かす | `Image::DrawRect`、`Anchor`、`GetAnchoredPosition` / `GetAnchoredCenter`(§20) |
+| UI | **Text**(共通。`TextDemoScene`) | 文字の大きさ・色・縁取り・太字・寄せ方(左・中央・右)・フォント(Arialと`LoadFont`で読んだNoto Sans JP)を並べる。キーで入力した文字を、`Text::Measure`で測った板の上に、4つのスタイルで出す。動く物に付いた文字(`TextRenderer`)は、`SetText`で中身を毎フレーム変える | A〜Z・SPACE: 文字を入力 / BackSpace: 消す / 1〜4: 入力した文字のスタイル | `Text::Draw` / `LoadFont` / `Measure`、`TextStyle`、`TextAlign`、`TextRenderer`(`SetText` / `SetOffset`)(§19) |
+| UI | **WorldUI**(2D/3D。`WorldUiDemo2DScene` / `WorldUiDemo3DScene`) | 敵3体の頭の上に、HPゲージ(`GaugeRenderer`の`SetFollowTarget`)と、名前・HPの板(`WorldToScreen2D/3D`で画面の位置に直して`DrawRect`+`Text::Draw`)を出す。敵が動いても、UIはついていく。主人公が近づくと板が赤くなる。倒した敵は非表示になり、ゲージも名前も一緒に消える。3Dはカメラの後ろ(`z <= 0`)では描かない | 矢印: 主人公を動かす / 1・2・3: 敵にダメージ / SPACE: 全回復 / 3Dは右ドラッグで視点 | `Image::WorldToScreen2D` / `WorldToScreen3D`、`GaugeRenderer`(`SetFollowTarget` / `SetUse3DCamera`)、`TextRenderer`(`SetUse3DCamera`)、`Image::DrawRect`(§14・§19・§20) |
+| Render3D | **Shapes**(3Dのみ。`ShapesDemoScene`) | 3列の見本。手前は**形**(立方体・粗い球・細かい球・カプセル・OBJ読み込み。ゆっくり回る)、真ん中は同じオレンジの**球5個**(標準・光沢(鋭い)・光沢(ぼんやり)・発光・縁の光)、奥は**立方体5個**(色・画像・半透明・光を無視・枠線)。球と立方体は、マテリアル(`Material`)だけが違う。各見本の上に、名前とマテリアルの項目名が出る。球の分割数(`rings` / `segments`)が小さいと角ばるのが分かる。(以前 Light デモにあったマテリアルの見本を、ここへ分けました) | 1・2・3: 列の表示オン/オフ / 4: 形を回す / 右ドラッグ: 視点 / Q・E: ズーム | `Mesh::CreateCube` / `CreateSphere(rings, segments)` / `CreateCapsule` / `LoadOBJ`、`MeshRenderer`、`Material`(`specularStrength` `shininess` `emissiveColor` `rimStrength` `lit` `depthWrite` `outlineWidth`)(§4・§30) |
+| Render3D | **Light**(3Dのみ。`LightDemoScene`) | 白い球5個と白い立方体5個(全部同じ材質)に、平行光源(太陽)・左右に動くオレンジの点光源・白いスポットライトを当てて、光の違いを見比べる | 1: 平行光源(太陽) / 2: 点光源 / 3: スポットライト のオン・オフ / 矢印キー: 太陽の向きと高さ | `Image::GetLight`、`LightComponent`(`Point` / `Spot` / `SetSpotAngle`)(§31) |
+| Render3D | **Shadow**(3Dのみ。`ShadowDemoScene`) | 太陽がゆっくり回り、影が動く。球(影を落とす)・立方体(落とさない)・板と下の箱(受ける)・壁。スポットライト(左右に動く白い玉)も影を落とす | 1: 球の`castShadow` / 2: 箱の`receiveShadow` / 3: スポットの影 / 4: 枠線 / 5: 影の縁のぼかし(`pcfRadius`) / 矢印キー: 太陽を手で動かす(SPACEで自動に戻す) | `Shadow::GetSettings`、`Material`(`castShadow` `receiveShadow` `outlineWidth`)、`LightComponent::SetCastShadow`(§32) |
+| Render3D | **Outline**(3Dのみ。`OutlineDemoScene`) | 左: 立方体の外側に、画面上で一定の太さの**枠線**(黄色)を描く(遠くても近くても同じ太さ)。真ん中: 壁の後ろに隠れた球に、**壁越しの枠線**(`seeThrough`。水色)を出す。OFFにすると、壁の後ろの球の枠線は見えなくなる(壁より後に描くよう、球の`drawPriority`を大きくしてある)。右: 暗い球の縁(視線に斜めの所)を内側で光らせる**縁の光**(`SetRimLight`) | 1: 枠線 / 2: 壁越し / 3: 縁の光 のオン・オフ / 上下: 枠線の太さ / 左右: 縁の光の強さ / 右ドラッグ: 視点 | `MeshRenderer::SetOutline(色, 太さ, seeThrough)` / `SetRimLight(色, 強さ)`、`Material`(`outlineWidth` `outlineColor` `outlineSeeThrough` `rimColor` `rimStrength`)(§33) |
+| Render3D | **Terrain**(3Dのみ。`TerrainDemoScene`) | 高さの画像(`heightmap.png`)から作った丘。黄色い玉を動かして、その下の地面の高さ(`GetHeightAt`)・向き(`GetNormalAt`)・地形の中か(`Contains`)を表示する | 矢印キー: 玉を動かす | `Terrain::LoadFromImage`、`TerrainRenderer`(`GetHeightAt` / `GetNormalAt` / `Contains`)(§34) |
+| Render3D | **Water**(3Dのみ。`WaterDemoScene`) | 丘の谷の池の水面。色・波の高さ・波の速さを変えられる。赤い箱は、波の高さに合わせて浮かぶ | 1・2: 波の高さ / 3・4: 波の速さ / 5: 水の色 | `WaterRenderer`(`WaterSettings` / `GetSettings` / `GetHeightAt`)(§35) |
+| Render3D | **Model**(3Dのみ。`ModelDemoScene`) | 同じFBX(`TestParts.fbx`。大きな箱 Base の上に小さな箱 Top が乗った2パーツ)を2体置く。1体は動かし、もう1体は見本。パーツを**名前で探して**(`GetNodeTransform("Top")`)回す・上下・大きさを変えると、そのパーツだけが動く。モデル全体は、置いた物の `Transform` で回す・大きさを変える。読み込んだモデルの情報(パーツ数・親子・位置・半径)も表示する。2体の `Model`(データ)は共有され、パーツの動きは1体ごと | 1: Topを回す / 2: Topを上下 / 3: Topの大きさ / 4: 全体を回す / 5: 全体の大きさ / 右ドラッグ: 視点 | `ModelRenderer`(`GetNodeTransform` / `GetModel`)、`Model`(`GetNodeCount` / `GetNode` / `GetBoundingRadius`)(§27) |
+| Render3D | **SkinAnim**(3Dのみ。`SkinAnimDemoScene`) | 左: 箱(`TestAnim.fbx`。クリップ Spin と Bob)。真ん中: 骨2本で曲がる腕(`TestSkin.fbx`。クリップ Bend)をずっと再生。右: 同じ腕を1回だけ再生(終わると `IsFinished` が true になって、最後の形で止まる)。箱のクリップは、すぐ切り替える(`Play`)か、なめらかに切り替える(`CrossFade` 0.6秒)かを見比べる。速さは3つ同時に変わる。枠線は、骨で曲げた形に付く | 1: Spin / 2: Bob / SPACE: CrossFade / 3: 1回だけの腕を再生し直す / 4: 枠線 / 上下: 速さ / 右ドラッグ: 視点 | `ModelAnimationComponent`(`Play` / `CrossFade` / `SetSpeed` / `IsFinished` / `GetClipNames`)、`ModelRenderer`(§27) |
+| Render3D | **LOD**(3Dのみ。`LodDemoScene`) | 225本(15x15)の柱が並ぶ場所。カメラから遠い柱は、描かない(3000)・影を落とさない(2000)・枠線を描かない(1500)。LODのオン/オフと距離の倍率を変えて、描画命令の数・三角形の数・距離で省いた数(`RenderStats`。前のフレームの数)が変わるのを見る。柱は三角形が多いカプセル。影・枠線も切り替えられる | 1: LODのオン/オフ / 上下: 距離の倍率 / 2: 影 / 3: 枠線 / 右ドラッグ・Q・E: 視点を変えて数の変化を見る | `Lod::SetEnabled` / `SetGlobalScale`、`MeshRenderer::SetLod`、`RenderStats::GetDrawCallCount` / `GetDrawTriangleCount` / `GetShadowDrawCount` / `GetOutlineDrawCount` / `GetLodCulledCount` ほか(§37) |
+| Render3D | **Visibility**(2D/3D。`VisibilityDemo2DScene` / `VisibilityDemo3DScene`) | 広い世界にたくさん置いた物(2Dは箱99個、3Dは球と立方体81個)が、カメラに映っているかを `Visibility` で調べて数える。右の地図(緑=映っている、灰色=映っていない、黄色=カメラの範囲)で、映る範囲が分かる。1キーの `SetFrustumCulling` をONにすると、映っていない物は描かれず、省いた数(`GetCulledCount`。前のフレームの数)が増える(OFFだと0)。**2D**は円(`IsCircleInView2D`)と四角(`IsRectInView2D`)、**3D**は球(`IsSphereInView3D`)と箱(`IsBoxInView3D`)で調べる | 1: 描かない設定のオン/オフ / WASD(矢印): 2Dはカメラ、3Dは見る点を動かす / 3Dは右ドラッグ: 向き、Q・E: ズーム | `Visibility::IsCircleInView2D` / `IsRectInView2D` / `IsSphereInView3D` / `IsBoxInView3D` / `GetCulledCount`、`SpriteRenderer` / `MeshRenderer` の `SetFrustumCulling`(§28) |
+| Physics | **Collider**(2D/3D。`ColliderDemo2DScene` / `ColliderDemo3DScene`) | 当たり判定の形(2D: 円・四角・カプセル / 3D: 球・箱・カプセル)を並べる。床の上の固定の見本(`BodyType::Static`)、左右に往復する台(`Kinematic`。`Transform`を動かして、動く物を押す)、クリックで出す動く物(`Dynamic`)。F1で当たり判定の枠線(緑=通常、黄=トリガー)。**2D**は重力が無い上から見た世界なので、壁で囲んで勢いをつけて出す(重力オフ・Z固定)。**3D**はマウスの下の地面の上から落とす。出せる数は30(超えたら古い物から消える) | クリック: 選んだ形を出す / 1・2・3: 形(円・四角・カプセル) / F1: 枠線 / C: 全部消す | `CircleRigidbodyComponent` `SquareRigidbodyComponent` `Capsule2DRigidbodyComponent` / `SphereRigidbodyComponent` `BoxRigidbodyComponent` `CapsuleRigidbodyComponent`、`BodyType`、`RigidbodyComponent::SetDebugDrawEnabled`(§6・§23・§29) |
+| Physics | **Force**(2D/3D。`ForceDemo2DScene` / `ForceDemo3DScene`) | 軽い箱(質量100)と重い箱(質量500)を、同じ値で押す。`Force`・`Impulse`は質量で割られるので重い箱は動きにくく、`Acceleration`・`VelocityChange`は質量を無視して同じ速さになる。`Force`・`Acceleration`は押し続ける力(SPACEを押している間)、`Impulse`・`VelocityChange`は一瞬(押すたびに1回)。`SetVelocity`は今の速さを上書きし、`AddTorque`は回す(重い箱ほど回りにくい)。箱は横にだけ動くよう、Y・Zを固定してある(3Dは重力も切ってある) | 1〜4: 力の種類 / SPACE: 力をかける / V: 速さを上書き / T: 回す / R: 元の位置へ | `RigidbodyComponent::AddForce` / `AddTorque` / `SetVelocity` / `GetVelocity` / `SetMass` / `SetDrag`、`ForceMode`(§23) |
+| Physics | **RigidbodySettings**(2D/3D。`RigidbodySettingsDemo2DScene` / `RigidbodySettingsDemo3DScene`) | 同じ箱を2つ置く(A=ふつう、B=設定を変えた物)。同じ力(`Impulse`+`AddTorque`)で蹴ると、質量(重いと動きにくい)・空気抵抗(すぐ止まる)・重力(2DはBだけ落ちる、3DはBだけ浮く)・回転固定(回らない)・位置固定(その軸には動かない。もう一度5で軸が変わる。2DはXとY、3DはXとYとZ)の違いが分かる。AとBの今の設定も表示する | 1: 質量 / 2: 抵抗 / 3: 重力 / 4: 回転固定 / 5: 位置固定 / SPACE: 蹴る / R: 元に戻す | `RigidbodyComponent::SetMass` / `SetDrag` / `SetUseGravity` / `SetFreezeRotation` / `SetFreezePositionX` `Y` `Z`、`AddForce`(§23) |
+| Physics | **Trigger**(2D/3D。`TriggerDemo2DScene` / `TriggerDemo3DScene`) | 動かせる球を、黄色い丸(トリガー=すり抜ける)と青い箱(ぶつかる)に近づける。トリガーは `OnTriggerEnter2D`(入った瞬間に1回)・`OnTriggerStay2D`(中にいる間は毎フレーム)・`OnTriggerExit2D`(出た瞬間に1回)、箱は `OnCollisionEnter2D` / `Stay` / `Exit` が呼ばれる。その回数を数えて表示する(数える役は `TouchCounterController`)。トリガーは半透明の黄色(濃さ0.6。暗い背景でも見える濃さ)で、球が中にいる間は0.95に濃くなる。**速く押し付けると跳ね返って `Enter` が何回も呼ばれる**ので、球はゆっくり動かす。**関数の名前は、3Dでも `○○2D`**(Engineの名前) | WASD・矢印: 球を動かす / R: 回数を0に戻す | `Component::OnTriggerEnter2D` / `OnTriggerStay2D` / `OnTriggerExit2D` / `OnCollisionEnter2D` / `OnCollisionStay2D` / `OnCollisionExit2D`、`isTrigger`(§6・§23) |
+| Physics | **Query**(2D/3D。`QueryDemo2DScene` / `QueryDemo3DScene`) | 物理への問い合わせを目で見る。**Raycast**: 出発点(橙)からマウスへ線を飛ばし、最初に当たった物・距離・当たった場所・面の向き(赤い矢印)を出す。**OverlapSphere / OverlapBox**: マウスの周りの球(2Dは円)・箱に入っている物を探し、見つかった物を光らせる(2Dは黄色い枠、3Dは枠線)。調べられる物は、タグ Target(青・緑)と Decoy(橙・赤)の動かない物と、黄色い半透明のトリガー(タグ Target)。4でタグの絞り込み(なし→Target→Decoy)、5でトリガーも探すか(`Ignore` / `Include`)。3Dは、タグを指定しないと地面も見つかる | マウス: 線の向き・範囲の位置 / 1: Raycast / 2: OverlapSphere / 3: OverlapBox / 4: タグ / 5: トリガー | `Physics::Raycast` / `OverlapSphere` / `OverlapBox`、`RaycastHit`、`QueryTriggers`(§23) |
+| Physics | **TerrainCollider**(3Dのみ。`TerrainColliderDemoScene`) | 丘を箱で歩いて登る。丘の見た目と同じデータの当たり判定なので、坂道をそのまま登れる。足元の地面の高さを表示する | WASD: 歩く(R: スタート地点へ。地形の外へ落ちても戻る) | `TerrainRigidbodyComponent`(§34)、`TerrainRenderer::GetHeightAt`、`RigidbodyComponent::SetVelocity` |
+| Behavior | **Move**(2D/3D。`MoveDemo2DScene` / `MoveDemo3DScene`) | 動きの部品の基本。`ChaseComponent`(`MoveComponent` の仲間)は、目的地へ一定の速さでまっすぐ向かい、止まる距離(`SetStopDistance`)より近づくと止まる。青は `SetTarget` で、マウスに付いてくる青い目印を追う。橙は `SetTargetPosition` で、クリックした場所(橙の目印)へ向かう。目印の周りの円が止まる距離。途中の壁にぶつかると、まっすぐ進むだけの動きはそこで止まる(避けて歩くのは Path デモ)。動く物は `Dynamic`(`MoveComponent` は、Dynamic なら `SetVelocity` で動かすので壁に当たる)。2Dは `MovePlane::XY`、3Dは `XZ` | マウス: 目標を動かす / クリック: 橙の目的地 / ↑↓: 速さ / ←→: 止まる距離 / R: 戻す | `ChaseComponent`(`SetTarget` / `SetTargetPosition` / `SetSpeed` / `SetStopDistance` / `SetPlane` / `HasArrived`)(§13) |
+| Behavior | **Homing**(2D/3D。`HomingDemo2DScene` / `HomingDemo3DScene`) | 同じ目標(マウスに付いてくる黄色い目印)を、3つの追いかけ方で追う。青 `ChaseComponent`: 一定の速さでまっすぐ。橙 `AccelerateChaseComponent`: 加速して(空気抵抗あり)勢いで行き過ぎ、戻ってくる。緑 `HomingComponent`: 1秒に曲がれる角度に限りがあり、最初に向いていた上へ飛び出してから、大回りで追う。通った道を点で残し(古いほど小さい)、白い線が今進んでいる向き。3つは `Kinematic`(`Transform` を直接動かす。お互いにすり抜けるので、動きだけを比べられる) | マウス: 目標 / 1・2・3: 青・橙・緑の入り切り / ↑↓: 緑の曲がる速さ / ←→: 橙の加速 / R: 最初の位置へ | `AccelerateChaseComponent`(`SetAcceleration` / `SetMaxSpeed` / `SetDrag`)、`HomingComponent`(`SetTurnSpeed` / `SetFaceMovement`)、`ChaseComponent`(§13) |
+| Behavior | **Vision**(2D/3D。`VisionDemo2DScene` / `VisionDemo3DScene`) | 見張り役(動かない)の視野(扇形)の中にターゲットがいて、壁(タグ "Wall")にさえぎられていなければ「見える」。見えると見張り役が赤くなる。扇形の線(`SetDebugDrawEnabled`)は、見えている時は赤、見えていない時は緑。「扇形の中か(`IsInCone`)」と「見えるか(`CanSee`)」を別々に表示する。壁のタグを外す(`SetObstacleTag("")`)と、壁を考えなくなる。3Dは目の高さ(`SetEyeOffset`)を上げると、低い壁の上から見える | 矢印: ターゲット / A・D: 向き / W・S: 視野の角度 / 1・2: 距離 / SPACE: 自動で回る / 5: 壁のタグ / 3Dは4: 目の高さ / F1: 扇形の線 / R: 戻す | `VisionComponent`(`SetFieldOfView` / `SetRange` / `SetPlane` / `SetFacing` / `SetEyeOffset` / `SetObstacleTag` / `IsInCone` / `CanSee` / `SetDebugDrawEnabled`)(§28) |
+| Behavior | **Path**(2D/3D。`PathDemo2DScene` / `PathDemo3DScene`) | 壁で作った通り道(下から伸びる壁と、上から伸びる壁)を、緑は `PathFollowComponent` が格子(`NavGridComponent`)の上で経路を探して、壁を避けて歩く。赤は `ChaseComponent` でまっすぐ向かうだけなので、最初の壁で止まる。クリックで目的地を動かす。格子は壁を置いた後に作り、壁(タグ "Wall" の `Static`)は最初のフレームの後に自動で読まれる(`IsBaked`)。F1で、通れないマスの輪郭(赤)と今の経路(緑)の線を出す。格子のマスの数・焼いた時間・経路の点の数も表示する | クリック: 目的地 / ↑↓: 速さ / ←→: 探し直す間隔 / F1: 格子と経路の線 / R: 戻す | `NavGridComponent`(`IsBaked` / `GetLastBakeMilliseconds` / `SetDebugDrawEnabled`)、`PathFollowComponent`(`SetNavigation` / `SetRepathInterval` / `HasPath` / `GetPath`)(§36) |
+| Behavior | **MovingWall**(2D/3D。`MovingWallDemo2DScene` / `MovingWallDemo3DScene`) | 真ん中の壁に、すぐ通れるドア(`Kinematic` の動く壁)と、遠回りの広いすき間がある。ドアが閉じると、緑は遠回りの道を通る。格子は `SetAutoRebakeInterval`(0.25秒ごと)で、動く壁を自動で焼き直す。自動の焼き直しを切ると、`RequestRebake` で焼くまで格子は古いまま(ドアが開いても経路は変わらず、閉まったドアにぶつかる)。物理の無い柵は `NavGrid::SetBlockedBox` で格子にだけ登録する(最大6個)。道を全部ふさぐと、経路が無くなって緑は止まる。緑がドアの通り道にいる間は、ドアを閉められない(挟まるのを防ぐ) | 1: ドアを開け閉め / 2: クリックの意味(目的地・柵) / 3: 自動の焼き直し / 4: 今すぐ焼く / C: 柵を消す / F1: 格子と経路の線 / R: 戻す | `NavGridComponent`(`SetAutoRebakeInterval` / `RequestRebake` / `GetLastBakeMilliseconds`)、`NavGrid`(`SetBlockedBox` / `GetVersion`)、`PathFollowComponent`(§36) |
+| Behavior | **TerrainPath**(3Dのみ。`TerrainPathDemoScene`) | 丘の高さ・坂を取り込んだ格子(`NavGridComponent::SetTerrain`)の上を、緑が歩く。登れる坂の角度(`NavGridSettings::maxSlopeDegrees`)で、通れないマス(急な坂)の数と、歩く道が変わる(15度は大回り、20度は少し避ける、30度はほぼまっすぐ。この丘の一番急な所は約32度なので、40度以上だと何も通れなくならない)。角度は格子を作る時に決まるので、変える時は格子を作り直して古い方を `Destroy` し、`SetNavigation` で渡し直す(焼くのに少し時間がかかる)。クリックの位置は、タグ "Terrain" の丘への `Raycast` で調べる | クリック: 目的地 / 1・2・3: 登れる坂(15・20・30度) / ↑↓: 速さ / F1: 格子と経路の線 / R: 戻す / 右ドラッグ: 視点 | `NavGridSettings`(`maxSlopeDegrees`)、`NavGridComponent::SetTerrain`、`PathFollowComponent`、`TerrainRenderer::GetHeightAt`、`Physics::Raycast`(§34・§36) |
+| Audio | **Sound**(共通。`SoundDemoScene`) | BGM(`TitleBGM.wav`。グループ`BGM`・ループ・位置を使わない)と、SE(`shot.wav`は`Audio::PlayOneShot`で重ねて鳴らす。`hit.wav`は`AudioSourceComponent`で鳴らし直すと最初から)。音量は**グループごと**(スライダー2本=`AudioGroup::BGM`と`SE`)で、BGM自体の`SetVolume`とかけ算になる。**フェードアウト/インは、Engineに専用の関数が無いので、`TweenValue`で`SetVolume`を動かして作る**(2秒)。BGMの音量の棒が動くのが見える。SEのスライダーは、離すとSEが1回鳴って聞き比べられる。BGMは、デモを出る時に止める(次の画面で鳴り続けない)。**音声デバイスが無くても落ちず**、鳴らせない時は「鳴らせませんでした」と出る | 1: BGM 入/切 / 2: SE(shot) / 3: フェードアウト / 4: フェードイン / 5: SE(hit) / スライダー: 音量(右のボタンも同じ) | `AudioSourceComponent`(`Play` `Stop` `SetVolume` `SetLoop` `SetGroup` `SetSpatial`)、`Audio::PlayOneShot`、`SetGroupVolume` / `GetGroupVolume`、`AudioGroup`、`TweenComponent::TweenValue`、`SliderComponent`(§24) |
+| Audio | **Sound3D**(2D/3D。`Sound3DDemo2DScene` / `Sound3DDemo3DScene`) | 位置で聞こえ方が変わる音。橙の玉(音源。`AudioSourceComponent`)が回りながら鳴り、青の玉(聞く側。`AudioListenerComponent`)を動かす。**近いほど大きく、左にあれば左から聞こえる**。緑の輪=ここまでは最大音量、黄の輪=ここで聞こえなくなる(`SetDistance`)。`SetSpatial(false)`にすると、どこにいても同じ音量で真ん中から聞こえる。SPACEは、その場所に`Audio::PlayOneShotAt`で1回だけ鳴らす(鳴らした後は動かない)。下の棒は、音源が聞く側の左右どちらにあるかの目安。**2D版も作れた**(`AudioListenerComponent`は2Dでも使え、向きは画面の上が正面で固定)。**3D版**は`SetUse3DCamera(true)`で3Dカメラの向きで聞く(右ドラッグで視点を回すと、左右が変わる)。**ヘッドホンで聞くと分かりやすい**。音源の音は、このデモのために自動で作った`Assets/Demo/DemoTone.wav`(下の「音とデータのデモの補足」) | WASD: 聞く側を動かす(3Dはカメラの向きが前) / 1: 鳴/止 / 2: 位置の効き(ON/OFF) / ↑↓: 聞こえなくなる距離 / ←→: 回る速さ / SPACE: その場所に1回 / (3D)右ドラッグ: 視点 | `AudioSourceComponent`(`SetSpatial` `SetDistance` `SetLoop`)、`AudioListenerComponent`(`SetUse3DCamera`)、`Audio::PlayOneShotAt`(§24) |
+| Data | **Csv**(共通。`CsvDemoScene`) | デモ専用の表(`Assets/Demo/DemoTable.csv`。Name・Hp・Speed・Memoの3行)を読んで、画面に表にする。列の名前で取り出す(`GetString` / `GetInt` / `GetFloat`。`Speed`の`85.5`は`GetFloat`だから小数で出る)。`FindRow`で名前から行を探し、`HasColumn`で列の有無を調べる(列が消えると、見出しが赤くなって「列なし」)。**ホットリロード**: 0.5秒ごとに`IsFileUpdated`で調べ、ファイルが保存し直されたら`Reload`する。読み直すと表の枠が1秒緑に光る。読めない時は赤い文字で知らせる。**ファイルには何も書かない**(読むだけ)。サンプルの`Enemies.csv` / `Waves.csv`は読まない。**編集のしかたは、下の「音とデータのデモの補足」** | メモ帳などで画面に出ているファイルを編集して保存(ゲームは止めない) / R: 今すぐ読み直す | `Csv`(`Load` `IsValid` `GetRowCount` `GetColumnCount` `HasColumn` `GetString` `GetInt` `GetFloat` `FindRow` `IsFileUpdated` `Reload`)、`Timer`(§19) |
+| Data | **Save**(共通。`SaveDemoScene`) | `SaveData`に、整数(`Demo_Count`)・小数(`Demo_Ratio`)・日本語の文字(`Demo_Name`)を書いて、ファイルに保存・読み込みする。**保存してアプリを閉じても、開き直してこの画面に来ると同じ値が出る**。「未保存の変更があります」の印、`DeleteKey`で3つを消す、スロット1〜3(別のファイル)の切り替えもある。保存先(`%LOCALAPPDATA%\3D_FreamWork\save1.txt` など)は画面に出る。**サンプルのセーブは壊さない**: スロット0(サンプルのハイスコアなど)は使わず、キーも`Demo_`で始まる物だけ(下の「音とデータのデモの補足」) | Z: 整数+1 / X: 小数+0.1 / C: 名前を変える / S: 保存 / L: 読込 / D: キーを消す / 1・2・3: スロット(右のボタンも同じ) | `SaveData`(`SetInt` `GetInt` `SetFloat` `GetFloat` `SetString` `GetString` `HasKey` `DeleteKey` `Save` `Load`)(§18) |
+
+(音のデモの`Voice`(再生口を直接使う`StartVoice`など)は作っていません。理由は下の「音とデータのデモの補足」。)
+
+### 音とデータのデモの補足(Audio / Data)
+
+**Csv: 表の編集のしかた(ホットリロードを試す)**
+
+1. Csvデモを開くと、画面の上の「編集するファイル」に、読んでいるファイルの場所が出る(ふつうは `3D_FreamWork\x64\Debug\Assets\Demo\DemoTable.csv`。Releaseなら `x64\Release\...`)。これは**ビルドの時に `3D_FreamWork\Assets\Demo\DemoTable.csv` からコピーされたファイル**(Engineの `CopyRuntimeFiles` が `Assets` ごとコピーするので、`Assets\Demo\` も届く)。
+2. そのファイルをメモ帳などで開き、`Hp` の数字や `Memo` を書き換えて**保存**する。ゲームは止めなくてよい。0.5秒以内に表が変わり、枠が緑に光る(すぐ見たい時は R)。行を足す・`Hp` の列を消す(見出しが赤くなる)・ファイルを消す(表は残り、消えている間は読み直さない)も試せる。
+3. 元の `3D_FreamWork\Assets\Demo\DemoTable.csv` を編集した時は、**次のビルド(F5)で出力先へコピーされる**(`xcopy /d` は、元のファイルの方が新しい時だけコピーする)。出力先を直接編集した後に、元のファイルを触らずにビルドしても、編集は上書きされない。元の内容に戻したい時は、出力先の `DemoTable.csv` を消してからビルドする。
+4. Excelで保存する時は「**CSV UTF-8(コンマ区切り)**」を選ぶ(日本語が文字化けするため)。列の名前(1行目)は半角英数字。
+
+このデモは**読むだけで、ファイルを書き換えません**。サンプルの `Assets/Data/Enemies.csv` / `Waves.csv` は読まず、デモ専用の `DemoTable.csv` だけを使います。
+
+**Save: サンプルのセーブを壊さない決まり**
+
+- `SaveData` は、起動時に自動でスロット0を読み、終了時に「書き換えていれば、最後に読み書きに成功したスロット」へ自動で保存します。サンプルのハイスコアなどはスロット0(`save0.txt`)にあります。
+- Saveデモは、**スロット1〜3だけ**を使います(最初にスロット1を読み込む)。スロット0は読み書きしないので、サンプルのセーブは変わりません(サンプルのキーはメモリから消えますが、`save0.txt` には触りません)。デモを開いただけで、何も書き換えなければ、ファイルは作られません。
+- キーは `Demo_Count` / `Demo_Ratio` / `Demo_Name`(`SaveData` のキーに使える文字は英字・数字・`_` だけなので、`demo.` ではなく `Demo_` にしました)。スロットのファイルは `%LOCALAPPDATA%\3D_FreamWork\save1.txt`〜`save3.txt`(画面にも出る)。消したい時は、そのファイルを消すか、`D` でキーを消してから `S` で保存する。
+- スロットを読めなかった時(ほかのアプリが開いている、など)は、そのスロットを書き換えない(サンプルのデータを別のスロットに写さないため)。
+
+**Audio: 素材と決めたこと**
+
+- BGMは、サンプルのタイトルと同じ `Assets/TitleBGM.wav`、SEは `Assets/Sounds/shot.wav` と `hit.wav` を使います(新しい素材は足していません)。
+- Sound3Dだけ、`Assets/Demo/DemoTone.wav`(2秒・44100Hz・16bit・**モノラル**。220Hzの音を約0.4秒ごとに強弱をつけたもの。最初と最後が0でつながるので、ループしてもプチッと鳴らない)を、このデモのために**自動で作りました**(外のサイトからのダウンロードや、既存の曲の流用はしていません)。位置で聞こえ方を変える音は、モノラルの音でないと左右が出ないため、既存のステレオの音は使えませんでした。同じ名前・同じ形式のwavに差し替えてもかまいません。
+- 音の確認は耳で行う必要があります(ヘッドホン推奨)。音声デバイスが無い環境でも、`Play` が何もしないだけで落ちません(Soundデモは「鳴らせませんでした」と表示)。
+- **`Voice`(再生口を直接使う `LoadWave` / `StartVoice` / `UpdateVoice` / `StopVoice`)のデモは作りません**。これらは `Audio.h` に「Engine内部用(ゲーム側からは呼ばない)」と書かれた関数で、ゲームが使う入口は `AudioSourceComponent` と `PlayOneShot` / `PlayOneShotAt` です(Soundデモ・Sound3Dデモで見られる)。`Resources::LoadSound` の「同じ音は1回だけ読み込む」は、Coreの `Resources` デモで見られます。同時に鳴らせる数は32個まで(`Audio::maxVoices`)、という説明は、`Audio.h` の説明のとおりです。
+### 仕組み(`DemoRegistry`)
+
+```
+Demo/main.cpp          ウィンドウの作成とEngineの初期化 → 最初のシーン(DemoMenuScene)
+Demo/Game/Scenes/      Common: DemoRegistry(デモの一覧と、今の状態), DemoMenuScene(カテゴリ一覧), DemoCategoryScene(機能一覧)
+                       Core / Render / UI / Render3D / Physics / Behavior / Audio / Data: 各デモのシーン
+Demo/Game/Objects/     Common: 全デモで使う部品(DemoGuide, DemoButton, DemoModeButton, DemoMenu, DemoCategoryMenu,
+                               DemoBackground, DemoSkybox, DemoGround, DemoCamera, DemoLights, DemoWalker,
+                               DemoStage3D=3Dの舞台(空・地面・カメラ)をまとめて作る,
+                               DemoBody=物理の剛体付きの物を作る(CreateDemoBody2D / CreateDemoBody3D), DemoWall=壁を作る)
+                       Core / Render / UI / Render3D / Physics / Behavior / Audio / Data: 各デモの部品
+                       (Behavior の DemoAgent=動く物・目印・壁(タグ "Wall")・競技場・経路探索の格子を作る)
+Demo/Game/Components/  Common: DemoGuideController, DemoModeButtonController, DemoCategoryMenuController,
+                               DemoCameraController, DemoWalkerController, BackgroundController, GroundController, SkyboxFollowComponent,
+                               DemoTextStyle(デモの文字の見た目を作る関数), DemoMarker(点・線・文字の印を描く関数),
+                               DemoMouseGround(マウスの下の地面を求める関数), DemoScreenFixController(2Dカメラが動いても、ボタンを画面の同じ場所に出す),
+                               DemoStatus(説明の板の下に状態の板を出す関数), DemoBodyReset(動く剛体を元の位置へ戻す関数),
+                               DemoPlane(動く平面の道具: 2D=XY・3D=XZ の座標の変換、マウスの下の位置、標準の競技場)
+                       Core / Render / UI / Render3D / Physics / Behavior / Audio / Data: 各デモの動き
+```
+
+- **`DemoRegistry.cpp` の `GetDemoList()` が、機能の一覧を1か所に持っています**。1機能につき1行で、`DemoInfo` は `{ カテゴリ, ボタンの名前, 一言説明, 2D版を開く関数, 3D版を開く関数 }`。**`nullptr` かどうかが「2Dあり/3Dあり」の印**になるので、印を別に持ちません(書き間違えない)。2Dと3Dの区別が無い機能は、両方に同じ関数を入れます。
+- 開く関数は `&OpenScene<○○DemoScene>`(`SceneManager::ChangeScene<T>(FadeTransition())`を呼ぶ小さなテンプレート関数)です。`ChangeScene`はテンプレートなので、シーンの型ごとに関数を作って、関数ポインタで一覧に持たせています。
+- 今の状態(2Dか3Dか・今のカテゴリ・最後に開いたデモ)は、`DemoRegistry.cpp` の中の名前の無い名前空間の `static` 変数に持ち、`GetDemoMode()` / `SetDemoMode()` などで読み書きします(Engineの`Image`などと同じ書き方。`Get()`のシングルトンは作らない)。
+- 画面の出入り口も同じファイルにあります: `OpenDemoMenu()`(カテゴリ一覧へ)、`OpenCategory(カテゴリ)`、`OpenCurrentCategory()`(デモの「Back」)、`OpenDemo(DemoInfo)`、`SwitchDemoMode()`(Tabとボタン)、`QuitDemo()`(アプリを終了)。
+- 各画面の説明の板・Back(Quit)ボタン・2D/3Dボタン・Esc/Tabは、`CreateDemoGuide(scene, { 名前, 何のデモか, 操作, API })` の1行で付きます(デモ本体。カテゴリ一覧は第3引数に `DemoScreen::Top`、機能一覧は `DemoScreen::List`)。戻る先は画面で決まります。
+- 2Dと3Dは、**別のシーンのクラス**(`○○Demo2DScene` / `○○Demo3DScene`)にしています。1つのシーンの中で出し入れするより、シーンを切り替える方が、古いシーンの`Uninit`で確実に後片付けできるためです。部品と動きは、できるだけ共有して(`CreateEaseRunner(..., DemoMode)` など)、違いは引数で出します。
+
+### 新しいデモの追加方法
+
+1. `Game/Scenes/<カテゴリ>/○○DemoScene.h/.cpp` を作る(2Dと3Dの両方があるなら `○○Demo2DScene` と `○○Demo3DScene`。`TweenDemo2DScene` などをまねる)。`Init()` には、`CreateDemoGuide(*this, { 名前, 何のデモか, 操作, API });` と、置きたい物の `Create○○(*this)` を並べるだけにする(Sceneには「何を置くか」だけ書く。§22)。2Dのシーンは `CreateDemoBackground` から、3Dのシーンは `CreateDemoStage3D(*this, 見る点, 向き, 距離)`(空・地面・カメラをまとめて置く)から始めるとよい。
+   - **`CreateDemoGuide` は、設定を変えるオブジェクトより先に置く**(3Dカメラ・時間の倍率・光・影などを変えるComponentより前)。ガイドは`Init`でこれらの全体設定を既定へ戻すので、後に置くと、デモが決めた設定まで戻されてしまう。`CreateDemoStage3D`(カメラを含む)も、ガイドの後に呼ぶ。
+2. 部品が必要なら、`Game/Objects/<カテゴリ>/`(工場関数)と `Game/Components/<カテゴリ>/`(動き)に作る。**ファイル名はプロジェクトの中で重複させない**(同じ名前の`.cpp`があると`.obj`が衝突する)。ボタンの文字はArial固定で日本語が出ないので、ボタンは英語、日本語の説明は`TextRenderer`で出す。
+3. **`DemoRegistry.cpp` に、`#include "../<カテゴリ>/○○DemoScene.h"` と、`GetDemoList()` に1行**(`{ DemoCategory::Render, L"ボタンの名前", L"一言説明(30文字くらいまで)", &OpenScene<○○Demo2DScene>, &OpenScene<○○Demo3DScene> },`。片方だけの機能は、無い側を `nullptr` にする)を足す。これで機能一覧にボタンが出る。カテゴリのフォルダが無い時は、`Scenes/` `Objects/` `Components/` の下に作って、フィルターも足す。
+4. 新しいファイルを、`Demo.vcxproj` と `Demo.vcxproj.filters` の両方に登録する(フィルターはフォルダと同じ名前: `Game\Scenes\Render` など)。
+5. デモが**全体の設定**を新しく変える時(下の表に無い設定)は、`DemoGuideController::ResetSettings()` に「戻す処理」を足す(1か所に集めているので、足し忘れると次のデモに設定が残る)。`EventBus` を使う時は、そのシーンの`Uninit()`で`EventBus::Get().Clear()`する。
+6. **2Dカメラ(`Image::GetCamera()`)を動かすデモ**(CameraやCoord)でも、画面のボタンは同じ場所に見えます(`CreateDemoButton` が、ボタンに`DemoScreenFixController`を付けるため)。文字や`Image::DrawRect`は画面の座標なので、元から動きません。2Dのデモの背景(`DemoBackground`)は、2Dモード(z=+2000、いちばん奥)で描いています。UIで描くと、2D・3Dモードのスプライトを後から上書きして隠してしまうためです(2D・3Dのスプライトを使うデモは、背景より手前のzに置く)。点や線の印を描きたい時は、`DemoMarker.h` の `DrawDemoPoint` / `DrawDemoLine` / `DrawDemoLabel` が使えます(2Dと3Dの両方に対応)。3Dで「マウスの下の地面」を求めたい時は `DemoMouseGround.h` の `GetMouseGroundPoint`。
+7. **物理(PhysX)のデモ**は、剛体付きの物を `DemoBody.h` の `CreateDemoBody2D(scene, 設計図)` / `CreateDemoBody3D` で作り、壁は `DemoWall.h`(`CreateDemoArena2D` など)で作る。**2Dの動く物(`Dynamic`)は、`CreateDemoBody2D` が重力オフ・Z固定(奥に動かさない)を必ず付ける**(回転も既定は固定。`canRotate` で解除できる)(付け忘れると、2Dの物が下へ落ちていく。2Dの世界は、3Dと同じ物理の世界で、重力を切って作っている)。作った直後の剛体は、最初の`Update`で位置を合わせ直して**速さが0になる**ので、`SetVelocity`は2フレーム待ってから呼ぶ(`ColliderDemoController`)。動く剛体は`Transform`を書き換えず、`SetVelocity` / `AddForce`で動かす。状態の板は `DemoStatus.h` の `DrawDemoStatus` で出せる。
+8. **動きとAI(Behavior)のデモ**は、2Dと3Dで同じ工場関数・Componentを共有する(`CreateMoveDemo(scene, mode)` など)。動く物・目印・壁・競技場・格子は `Objects/Behavior/DemoAgent.h` の `CreateDemoAgent` / `CreateDemoGoal` / `CreateDemoObstacle` / `CreateDemoField` / `CreateDemoNavigation` で作り、**位置は「平面の点」(2Dは x,y、3Dは x,z)**で渡す(`Components/Common/DemoPlane.h` の `ConvertPlaneToWorld` / `ConvertWorldToPlane` / `GetDemoMousePoint` / `GetDemoField` が、2Dと3Dの違いを吸収する)。壁には**タグ "Wall"** が付く(`VisionComponent` の視線と `NavGrid` の障害物は、このタグの物)。次の決まりがある。
+   - **動く物の `BodyType`**: 壁にぶつけたい物(Move・Path・MovingWall の動く物、Vision のターゲット)は **`Dynamic`** にして、`MoveComponent` に `SetVelocity` で動かさせる。**`Kinematic` の物は、動かない箱(`Static`)とはぶつからず、すり抜ける**(Batch 4 の気付き)。Homing の3つは、お互いにすり抜けて動きだけを比べるため、わざと `Kinematic`(`Transform` を直接動かす)。
+   - **格子(`NavGridComponent`)は、壁を置いた後に作る**。壁は最初のフレームの後(2回目の `Update`)に自動で読まれる。動く壁(ドア)は `Kinematic` で、`SetAutoRebakeInterval` か `RequestRebake` で焼き直す。格子の範囲の外に歩く物がいると止まるので、競技場(壁)の内側を格子にする。
+   - **壁のすき間は、通れる広さにする**: 歩く物は、`agentRadius` と、マスの半分ずつ(両側で1マス)の分だけ、壁から離れないと通れない(マスの一部でも壁に重なると、そのマスは通れない)。すき間が `(agentRadius + cellSize/2) x 2 + cellSize` より狭いと、経路が見つからなくなる(2Dの Path のすき間は110、MovingWall は90と100)。
+   - 全体の設定を変えるデモは、そのComponentの `Uninit` と `ResetSettings` の両方で戻す(`VisionComponent` / `NavGridComponent` / `PathFollowComponent` の `SetDebugDrawEnabled` は、`ResetSettings` に入っている)。
+
+### 全体の設定のリセット
+
+影・光・カメラ・時間の倍率などは、シーンをまたいで残ります。デモに出入りしても、次の画面に設定が残らないように、**`DemoGuideController::ResetSettings()` が、画面に入る時(`Init`)と出る時(`Uninit`)の両方で、次をすべて既定へ戻します**(2D版・3D版で分けず、1か所にまとめています。カテゴリ一覧・機能一覧も`CreateDemoGuide`を使うので、戻ってきた時も戻ります)。
+
+| 設定 | 戻し方 |
+|---|---|
+| 2Dカメラ | `Image::GetCamera().position` を原点へ |
+| 3Dカメラ | `Image::GetCamera3D() = Camera()` と `Image::SetCamera3DAutoSync(true)` |
+| 時間の倍率 | `Time::SetTimeScale(1.f)` |
+| 平行光源 | `Image::GetLight() = Light()` |
+| 影 | `Shadow::SetSettings(Shadow::Settings())` |
+| LOD | `Lod::SetEnabled(true)` / `Lod::SetGlobalScale(1.f)` |
+| 当たり判定・視野・経路の枠線 | `RigidbodyComponent` / `VisionComponent` / `NavGridComponent` / `PathFollowComponent` の `SetDebugDrawEnabled(false)` |
+| 画面エフェクト・カメラの揺れ | `ScreenEffect::Stop()` / `CameraShake::Stop()` |
+| 音量 | `Audio::SetGroupVolume(AudioGroup::BGM, 1)` / `(AudioGroup::SE, 1)` |
+| カーソルの固定 | `Input::SetCursorLocked(false)` |
+
+さらに、デモの`Uninit`でも、自分が変えた物は戻しています(`DemoCameraController`は3Dカメラの自動追従、`ShadowDemoController`は影の設定、`LodDemoController`はLODと影の設定、`VisibilityDemoController`は2Dカメラの位置、`TimeDemoController`は時間の倍率、`InputDemoController`はカーソルの固定、`ResourcesDemoController`は借りた音とモデル、`SoundDemoController`はBGMを止める(借りた音のデータは`AudioSourceComponent`が返す)。`EventBusDemoScene`は`EventBus`の登録。`ScreenEffectDemoController`は暗転の濃さ(`Fade`はシーンをまたいで残るため、すぐ0へ戻す)、`CameraDemoController`は2Dカメラの位置・3Dカメラの自動追従・揺れ、`CoordDemoController`は2Dカメラの位置、`ColliderDemoController`は当たり判定の枠線(`SetDebugDrawEnabled`)。`ForceDemoController`など他の物理デモは、全体の設定を変えない。Behavior では、`VisionDemoController` は視野の線(`VisionComponent::SetDebugDrawEnabled`)、`PathDemoController` / `MovingWallDemoController` / `TerrainPathDemoController` は格子と経路の線(`NavGridComponent` / `PathFollowComponent` の `SetDebugDrawEnabled`)を、デモに入った時に出して、出る時に消す)。`ParticleRenderer`や`LightComponent`のような、オブジェクトに付く物は、Componentが自分の`Uninit`で後片付けするので、ここには入れません。
+
+### 出入りの順序と、後片付け
+
+シーンを切り替える時は「古いシーンの`Uninit` → 新しいシーンの`Init`」の順です(§16)。デモは、画像(`SpriteRenderer` / `MeshRenderer` / `BackgroundController` / `GroundController`)・パーティクルの画像・PhysXの剛体(3Dの歩く箱と地形)・光(`LightComponent`)の登録を、すべてComponentが自分の`Uninit`で返すので、「カテゴリ一覧 → 機能一覧 → デモ → Tabで2D/3D → 戻る」を繰り返してもリソースは増えません。`Resources::UnloadUnused()`が、古いシーンだけが使っていた画像を、切り替えの後で解放します。
+
+### ビルドの設定(`Demo.vcxproj`)
+
+`Sample2D` / `Sample3D` と同じ作りです(`Engine`を`ProjectReference`、`PhysX.props`をImport、x64のDebug/Release、出力先は共有の`x64\Debug`・`x64\Release`)。違いは次の2つです。
+
+- Releaseの `WholeProgramOptimization`(全体最適化)を**切っています**。デモは`.cpp`が多く、全体最適化だとリンクが遅くなるため(サンプルは`true`のまま)。
+- コンパイルのオプションに `/utf-8` を付けています(ソースはBOM付きのUTF-8なので、付けなくても動きますが、念のため)。
+
+`Assets\` とシェーダーを共有の出力先へコピーするのは、今までどおりEngineの`CopyRuntimeFiles`だけです(Demo側には要りません)。

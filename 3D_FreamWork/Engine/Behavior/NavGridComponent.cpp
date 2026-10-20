@@ -124,7 +124,9 @@ void NavGridComponent::Draw() {
     // 光の影響を受けない一定の赤。頂点はワールド座標で作ってあるので、Transformは何も変えない
     static const Light fullBright{ {0.f,-1.f,0.f}, {0.f,0.f,0.f}, {1.f,1.f,1.f} };
     Transform identity;
-    blockedMesh.Draw(identity, Image::GetCamera3D(), XMFLOAT4{ 1.f, 0.f, 0.f, 1.f }, fullBright);
+    // 2D(XY平面)は、2Dスプライトと同じ2D(正射影)で描く。3D(XZ平面)は3Dカメラの透視
+    if (grid.GetSettings().plane == MovePlane::XY) blockedMesh.DrawLines2D(identity, Image::GetCamera(), XMFLOAT4{ 1.f, 0.f, 0.f, 1.f }, fullBright);
+    else blockedMesh.Draw(identity, Image::GetCamera3D(), XMFLOAT4{ 1.f, 0.f, 0.f, 1.f }, fullBright);
 }
 
 void NavGridComponent::Uninit() {

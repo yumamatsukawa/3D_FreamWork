@@ -37,15 +37,16 @@ void SpriteRenderer::Draw() {
     // 画面の外なら描かない(板の対角線の半分を半径にした球・円で調べる。回転しても入る大きさ)
     if (frustumCulling && world.scale.x > 0.f && world.scale.y > 0.f) {
         float radius = 0.5f * sqrtf(world.scale.x * world.scale.x + world.scale.y * world.scale.y);
-        bool visible = worldSpace ? Visibility::IsSphereInView3D(world.position, radius)
-                                  : Visibility::IsCircleInView2D(world.position, radius);
+        // 3Dモードだけ3Dカメラの視錐台、UI・2Dモードは2Dカメラの画面で調べる
+        bool visible = (mode == SpriteMode::World3D) ? Visibility::IsSphereInView3D(world.position, radius)
+                                 : Visibility::IsCircleInView2D(world.position, radius);
         if (!visible) {
             Visibility::CountCulled();
             return;
         }
     }
 
-    Image::Draw(world, texID, color, sheet, worldSpace, billboardLockX, billboardLockY, billboardLockZ);
+    Image::Draw(world, texID, color, sheet, mode, billboardLockX, billboardLockY, billboardLockZ);
 }
 
 void SpriteRenderer::Uninit() {

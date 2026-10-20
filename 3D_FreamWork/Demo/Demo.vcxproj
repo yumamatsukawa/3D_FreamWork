@@ -1,0 +1,515 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>17.0</VCProjectVersion>
+    <Keyword>Win32Proj</Keyword>
+    <ProjectGuid>{5D9A3B7E-2C41-4F86-9E0B-7A1C6D3F8E52}</ProjectGuid>
+    <RootNamespace>Demo</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="Shared">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="..\PhysX.props" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="..\PhysX.props" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>_DEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+      <!-- 複数プロジェクトの並行ビルドでPDB書き込みが衝突しないようにする -->
+      <AdditionalOptions>/utf-8 /FS %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>NDEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+      <AdditionalOptions>/utf-8 /FS %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="main.cpp" />
+    <ClCompile Include="Game\Components\Common\BackgroundController.cpp" />
+    <ClCompile Include="Game\Components\Common\DemoCameraController.cpp" />
+    <ClCompile Include="Game\Components\Common\DemoCategoryMenuController.cpp" />
+    <ClCompile Include="Game\Components\Common\DemoGuideController.cpp" />
+    <ClCompile Include="Game\Components\Common\DemoModeButtonController.cpp" />
+    <ClCompile Include="Game\Components\Common\DemoWalkerController.cpp" />
+    <ClCompile Include="Game\Components\Common\GroundController.cpp" />
+    <ClCompile Include="Game\Components\Physics\TerrainColliderDemoController.cpp" />
+    <ClCompile Include="Game\Components\Render\EaseRunnerController.cpp" />
+    <ClCompile Include="Game\Components\Render\ParticleDemoController.cpp" />
+    <ClCompile Include="Game\Components\Render3D\FloatOnWaterController.cpp" />
+    <ClCompile Include="Game\Components\Render3D\LightDemoController.cpp" />
+    <ClCompile Include="Game\Components\Render3D\ShadowDemoController.cpp" />
+    <ClCompile Include="Game\Components\Render3D\TerrainDemoController.cpp" />
+    <ClCompile Include="Game\Components\Render3D\WaterDemoController.cpp" />
+    <ClCompile Include="Game\Components\UI\UiDemoController.cpp" />
+    <ClCompile Include="Game\Objects\Common\DemoBackground.cpp" />
+    <ClCompile Include="Game\Objects\Common\DemoButton.cpp" />
+    <ClCompile Include="Game\Objects\Common\DemoCamera.cpp" />
+    <ClCompile Include="Game\Objects\Common\DemoCategoryMenu.cpp" />
+    <ClCompile Include="Game\Objects\Common\DemoGround.cpp" />
+    <ClCompile Include="Game\Objects\Common\DemoGuide.cpp" />
+    <ClCompile Include="Game\Objects\Common\DemoLights.cpp" />
+    <ClCompile Include="Game\Objects\Common\DemoMenu.cpp" />
+    <ClCompile Include="Game\Objects\Common\DemoModeButton.cpp" />
+    <ClCompile Include="Game\Objects\Common\DemoSkybox.cpp" />
+    <ClCompile Include="Game\Objects\Common\DemoWalker.cpp" />
+    <ClCompile Include="Game\Objects\Physics\TerrainColliderDemo.cpp" />
+    <ClCompile Include="Game\Objects\Render\Campfire.cpp" />
+    <ClCompile Include="Game\Objects\Render\EaseRunner.cpp" />
+    <ClCompile Include="Game\Objects\Render\ParticleDemo.cpp" />
+    <ClCompile Include="Game\Objects\Render3D\Buoy.cpp" />
+    <ClCompile Include="Game\Objects\Render3D\DemoHills.cpp" />
+    <ClCompile Include="Game\Objects\Render3D\DemoWater.cpp" />
+    <ClCompile Include="Game\Objects\Render3D\LightDemo.cpp" />
+    <ClCompile Include="Game\Objects\Render3D\ShadowDemo.cpp" />
+    <ClCompile Include="Game\Objects\Render3D\TerrainDemo.cpp" />
+    <ClCompile Include="Game\Objects\Render3D\WaterDemo.cpp" />
+    <ClCompile Include="Game\Objects\UI\UiDemo.cpp" />
+    <ClCompile Include="Game\Scenes\Common\DemoCategoryScene.cpp" />
+    <ClCompile Include="Game\Scenes\Common\DemoMenuScene.cpp" />
+    <ClCompile Include="Game\Scenes\Common\DemoRegistry.cpp" />
+    <ClCompile Include="Game\Scenes\Physics\TerrainColliderDemoScene.cpp" />
+    <ClCompile Include="Game\Scenes\Render\ParticleDemo2DScene.cpp" />
+    <ClCompile Include="Game\Scenes\Render\ParticleDemo3DScene.cpp" />
+    <ClCompile Include="Game\Scenes\Render\TweenDemo2DScene.cpp" />
+    <ClCompile Include="Game\Scenes\Render\TweenDemo3DScene.cpp" />
+    <ClCompile Include="Game\Scenes\Render3D\LightDemoScene.cpp" />
+    <ClCompile Include="Game\Scenes\Render3D\ShadowDemoScene.cpp" />
+    <ClCompile Include="Game\Scenes\Render3D\TerrainDemoScene.cpp" />
+    <ClCompile Include="Game\Scenes\Render3D\WaterDemoScene.cpp" />
+    <ClCompile Include="Game\Scenes\UI\UiDemoScene.cpp" />
+    <ClCompile Include="Game\Components\Common\DemoTextStyle.cpp" />
+    <ClCompile Include="Game\Components\Core\BobComponent.cpp" />
+    <ClCompile Include="Game\Components\Core\ObjectDemoController.cpp" />
+    <ClCompile Include="Game\Components\Core\SpinComponent.cpp" />
+    <ClCompile Include="Game\Components\Core\TransformDemoController.cpp" />
+    <ClCompile Include="Game\Objects\Common\DemoStage3D.cpp" />
+    <ClCompile Include="Game\Objects\Core\ObjectDemo.cpp" />
+    <ClCompile Include="Game\Objects\Core\TransformDemo.cpp" />
+    <ClCompile Include="Game\Scenes\Core\ObjectDemo2DScene.cpp" />
+    <ClCompile Include="Game\Scenes\Core\ObjectDemo3DScene.cpp" />
+    <ClCompile Include="Game\Scenes\Core\TransformDemo2DScene.cpp" />
+    <ClCompile Include="Game\Scenes\Core\TransformDemo3DScene.cpp" />
+    <ClCompile Include="Game\Components\Core\InputDemoController.cpp" />
+    <ClCompile Include="Game\Components\Core\MathDemoController.cpp" />
+    <ClCompile Include="Game\Components\Core\TimeDemoController.cpp" />
+    <ClCompile Include="Game\Objects\Core\InputDemo.cpp" />
+    <ClCompile Include="Game\Objects\Core\MathDemo.cpp" />
+    <ClCompile Include="Game\Objects\Core\TimeDemo.cpp" />
+    <ClCompile Include="Game\Scenes\Core\InputDemoScene.cpp" />
+    <ClCompile Include="Game\Scenes\Core\MathDemo2DScene.cpp" />
+    <ClCompile Include="Game\Scenes\Core\MathDemo3DScene.cpp" />
+    <ClCompile Include="Game\Scenes\Core\TimeDemoScene.cpp" />
+    <ClCompile Include="Game\Components\Core\EventLogManager.cpp" />
+    <ClCompile Include="Game\Components\Core\EventScoreManager.cpp" />
+    <ClCompile Include="Game\Components\Core\EventSenderManager.cpp" />
+    <ClCompile Include="Game\Components\Core\PoolBulletController.cpp" />
+    <ClCompile Include="Game\Components\Core\PoolDemoController.cpp" />
+    <ClCompile Include="Game\Components\Core\ResourcesDemoController.cpp" />
+    <ClCompile Include="Game\Objects\Core\EventBusDemo.cpp" />
+    <ClCompile Include="Game\Objects\Core\PoolDemo.cpp" />
+    <ClCompile Include="Game\Objects\Core\ResourcesDemo.cpp" />
+    <ClCompile Include="Game\Scenes\Core\EventBusDemoScene.cpp" />
+    <ClCompile Include="Game\Scenes\Core\PoolDemoScene.cpp" />
+    <ClCompile Include="Game\Scenes\Core\ResourcesDemoScene.cpp" />
+    <ClCompile Include="Game\Components\UI\RectDemoController.cpp" />
+    <ClCompile Include="Game\Components\UI\TextDemoController.cpp" />
+    <ClCompile Include="Game\Components\UI\WorldUiDemoController.cpp" />
+    <ClCompile Include="Game\Objects\UI\RectDemo.cpp" />
+    <ClCompile Include="Game\Objects\UI\TextDemo.cpp" />
+    <ClCompile Include="Game\Objects\UI\WorldUiDemo.cpp" />
+    <ClCompile Include="Game\Scenes\UI\RectDemoScene.cpp" />
+    <ClCompile Include="Game\Scenes\UI\TextDemoScene.cpp" />
+    <ClCompile Include="Game\Scenes\UI\WorldUiDemo2DScene.cpp" />
+    <ClCompile Include="Game\Scenes\UI\WorldUiDemo3DScene.cpp" />
+    <ClCompile Include="Game\Components\Common\DemoMarker.cpp" />
+    <ClCompile Include="Game\Components\Common\DemoMouseGround.cpp" />
+    <ClCompile Include="Game\Components\Render\ScreenEffectDemoController.cpp" />
+    <ClCompile Include="Game\Objects\Render\ScreenEffectDemo.cpp" />
+    <ClCompile Include="Game\Scenes\Render\ScreenEffectDemoScene.cpp" />
+    <ClCompile Include="Game\Components\Render\TransitionDemoController.cpp" />
+    <ClCompile Include="Game\Objects\Render\TransitionDemo.cpp" />
+    <ClCompile Include="Game\Scenes\Render\TransitionDemoScene.cpp" />
+    <ClCompile Include="Game\Scenes\Render\TransitionDemoBScene.cpp" />
+    <ClCompile Include="Game\Components\Render\SpriteDemoController.cpp" />
+    <ClCompile Include="Game\Objects\Render\SpriteDemo.cpp" />
+    <ClCompile Include="Game\Scenes\Render\SpriteDemo2DScene.cpp" />
+    <ClCompile Include="Game\Scenes\Render\SpriteDemo3DScene.cpp" />
+    <ClCompile Include="Game\Components\Render\SpriteAnimDemoController.cpp" />
+    <ClCompile Include="Game\Objects\Render\SpriteAnimDemo.cpp" />
+    <ClCompile Include="Game\Scenes\Render\SpriteAnimDemo2DScene.cpp" />
+    <ClCompile Include="Game\Scenes\Render\SpriteAnimDemo3DScene.cpp" />
+    <ClCompile Include="Game\Components\Common\DemoScreenFixController.cpp" />
+    <ClCompile Include="Game\Components\Render\CameraDemoController.cpp" />
+    <ClCompile Include="Game\Objects\Render\CameraDemo.cpp" />
+    <ClCompile Include="Game\Scenes\Render\CameraDemo2DScene.cpp" />
+    <ClCompile Include="Game\Scenes\Render\CameraDemo3DScene.cpp" />
+    <ClCompile Include="Game\Components\Render\CoordDemoController.cpp" />
+    <ClCompile Include="Game\Objects\Render\CoordDemo.cpp" />
+    <ClCompile Include="Game\Scenes\Render\CoordDemo2DScene.cpp" />
+    <ClCompile Include="Game\Scenes\Render\CoordDemo3DScene.cpp" />
+    <ClCompile Include="Game\Scenes\Render3D\ShapesDemoScene.cpp" />
+    <ClCompile Include="Game\Objects\Render3D\ShapesDemo.cpp" />
+    <ClCompile Include="Game\Components\Render3D\ShapesDemoController.cpp" />
+    <ClCompile Include="Game\Objects\Render3D\LightTargets.cpp" />
+    <ClCompile Include="Game\Scenes\Render3D\OutlineDemoScene.cpp" />
+    <ClCompile Include="Game\Objects\Render3D\OutlineDemo.cpp" />
+    <ClCompile Include="Game\Components\Render3D\OutlineDemoController.cpp" />
+    <ClCompile Include="Game\Scenes\Render3D\ModelDemoScene.cpp" />
+    <ClCompile Include="Game\Objects\Render3D\ModelDemo.cpp" />
+    <ClCompile Include="Game\Components\Render3D\ModelDemoController.cpp" />
+    <ClCompile Include="Game\Scenes\Render3D\SkinAnimDemoScene.cpp" />
+    <ClCompile Include="Game\Objects\Render3D\SkinAnimDemo.cpp" />
+    <ClCompile Include="Game\Components\Render3D\SkinAnimDemoController.cpp" />
+    <ClCompile Include="Game\Scenes\Render3D\LodDemoScene.cpp" />
+    <ClCompile Include="Game\Objects\Render3D\LodDemo.cpp" />
+    <ClCompile Include="Game\Components\Render3D\LodDemoController.cpp" />
+    <ClCompile Include="Game\Scenes\Render3D\VisibilityDemo2DScene.cpp" />
+    <ClCompile Include="Game\Scenes\Render3D\VisibilityDemo3DScene.cpp" />
+    <ClCompile Include="Game\Objects\Render3D\VisibilityDemo.cpp" />
+    <ClCompile Include="Game\Components\Render3D\VisibilityDemoController.cpp" />
+    <ClCompile Include="Game\Components\Common\DemoStatus.cpp" />
+    <ClCompile Include="Game\Components\Common\DemoBodyReset.cpp" />
+    <ClCompile Include="Game\Objects\Common\DemoBody.cpp" />
+    <ClCompile Include="Game\Objects\Common\DemoWall.cpp" />
+    <ClCompile Include="Game\Components\Physics\ColliderDemoController.cpp" />
+    <ClCompile Include="Game\Objects\Physics\ColliderDemo.cpp" />
+    <ClCompile Include="Game\Scenes\Physics\ColliderDemo2DScene.cpp" />
+    <ClCompile Include="Game\Scenes\Physics\ColliderDemo3DScene.cpp" />
+    <ClCompile Include="Game\Components\Physics\ForceDemoController.cpp" />
+    <ClCompile Include="Game\Objects\Physics\ForceDemo.cpp" />
+    <ClCompile Include="Game\Scenes\Physics\ForceDemo2DScene.cpp" />
+    <ClCompile Include="Game\Scenes\Physics\ForceDemo3DScene.cpp" />
+    <ClCompile Include="Game\Components\Physics\RigidbodySettingsDemoController.cpp" />
+    <ClCompile Include="Game\Objects\Physics\RigidbodySettingsDemo.cpp" />
+    <ClCompile Include="Game\Scenes\Physics\RigidbodySettingsDemo2DScene.cpp" />
+    <ClCompile Include="Game\Scenes\Physics\RigidbodySettingsDemo3DScene.cpp" />
+    <ClCompile Include="Game\Components\Physics\TouchCounterController.cpp" />
+    <ClCompile Include="Game\Components\Physics\TriggerDemoController.cpp" />
+    <ClCompile Include="Game\Objects\Physics\TriggerDemo.cpp" />
+    <ClCompile Include="Game\Scenes\Physics\TriggerDemo2DScene.cpp" />
+    <ClCompile Include="Game\Scenes\Physics\TriggerDemo3DScene.cpp" />
+    <ClCompile Include="Game\Components\Physics\QueryDemoController.cpp" />
+    <ClCompile Include="Game\Objects\Physics\QueryDemo.cpp" />
+    <ClCompile Include="Game\Scenes\Physics\QueryDemo2DScene.cpp" />
+    <ClCompile Include="Game\Scenes\Physics\QueryDemo3DScene.cpp" />
+    <ClCompile Include="Game\Components\Common\DemoPlane.cpp" />
+    <ClCompile Include="Game\Objects\Behavior\DemoAgent.cpp" />
+    <ClCompile Include="Game\Objects\Behavior\MoveDemo.cpp" />
+    <ClCompile Include="Game\Components\Behavior\MoveDemoController.cpp" />
+    <ClCompile Include="Game\Scenes\Behavior\MoveDemo2DScene.cpp" />
+    <ClCompile Include="Game\Scenes\Behavior\MoveDemo3DScene.cpp" />
+    <ClCompile Include="Game\Objects\Behavior\HomingDemo.cpp" />
+    <ClCompile Include="Game\Components\Behavior\HomingDemoController.cpp" />
+    <ClCompile Include="Game\Scenes\Behavior\HomingDemo2DScene.cpp" />
+    <ClCompile Include="Game\Scenes\Behavior\HomingDemo3DScene.cpp" />
+    <ClCompile Include="Game\Components\Behavior\DoorController.cpp" />
+    <ClCompile Include="Game\Components\Behavior\MovingWallDemoController.cpp" />
+    <ClCompile Include="Game\Components\Behavior\PathDemoController.cpp" />
+    <ClCompile Include="Game\Components\Behavior\TerrainPathDemoController.cpp" />
+    <ClCompile Include="Game\Components\Behavior\VisionDemoController.cpp" />
+    <ClCompile Include="Game\Objects\Behavior\MovingWallDemo.cpp" />
+    <ClCompile Include="Game\Objects\Behavior\PathDemo.cpp" />
+    <ClCompile Include="Game\Objects\Behavior\TerrainPathDemo.cpp" />
+    <ClCompile Include="Game\Objects\Behavior\VisionDemo.cpp" />
+    <ClCompile Include="Game\Scenes\Behavior\MovingWallDemo2DScene.cpp" />
+    <ClCompile Include="Game\Scenes\Behavior\MovingWallDemo3DScene.cpp" />
+    <ClCompile Include="Game\Scenes\Behavior\PathDemo2DScene.cpp" />
+    <ClCompile Include="Game\Scenes\Behavior\PathDemo3DScene.cpp" />
+    <ClCompile Include="Game\Scenes\Behavior\TerrainPathDemoScene.cpp" />
+    <ClCompile Include="Game\Components\Audio\SoundDemoController.cpp" />
+    <ClCompile Include="Game\Objects\Audio\SoundDemo.cpp" />
+    <ClCompile Include="Game\Scenes\Audio\SoundDemoScene.cpp" />
+    <ClCompile Include="Game\Components\Audio\Sound3DDemoController.cpp" />
+    <ClCompile Include="Game\Objects\Audio\Sound3DDemo.cpp" />
+    <ClCompile Include="Game\Scenes\Audio\Sound3DDemo2DScene.cpp" />
+    <ClCompile Include="Game\Scenes\Audio\Sound3DDemo3DScene.cpp" />
+    <ClCompile Include="Game\Components\Data\CsvDemoController.cpp" />
+    <ClCompile Include="Game\Objects\Data\CsvDemo.cpp" />
+    <ClCompile Include="Game\Scenes\Data\CsvDemoScene.cpp" />
+    <ClCompile Include="Game\Components\Data\SaveDemoController.cpp" />
+    <ClCompile Include="Game\Objects\Data\SaveDemo.cpp" />
+    <ClCompile Include="Game\Scenes\Data\SaveDemoScene.cpp" />
+    <ClCompile Include="Game\Scenes\Behavior\VisionDemo2DScene.cpp" />
+    <ClCompile Include="Game\Scenes\Behavior\VisionDemo3DScene.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Game\Components\Common\BackgroundController.h" />
+    <ClInclude Include="Game\Components\Common\DemoCameraController.h" />
+    <ClInclude Include="Game\Components\Common\DemoCategoryMenuController.h" />
+    <ClInclude Include="Game\Components\Common\DemoGuideController.h" />
+    <ClInclude Include="Game\Components\Common\DemoModeButtonController.h" />
+    <ClInclude Include="Game\Components\Common\DemoWalkerController.h" />
+    <ClInclude Include="Game\Components\Common\GroundController.h" />
+    <ClInclude Include="Game\Components\Common\SkyboxFollowComponent.h" />
+    <ClInclude Include="Game\Components\Physics\TerrainColliderDemoController.h" />
+    <ClInclude Include="Game\Components\Render\EaseRunnerController.h" />
+    <ClInclude Include="Game\Components\Render\ParticleDemoController.h" />
+    <ClInclude Include="Game\Components\Render3D\FloatOnWaterController.h" />
+    <ClInclude Include="Game\Components\Render3D\LightDemoController.h" />
+    <ClInclude Include="Game\Components\Render3D\ShadowDemoController.h" />
+    <ClInclude Include="Game\Components\Render3D\TerrainDemoController.h" />
+    <ClInclude Include="Game\Components\Render3D\WaterDemoController.h" />
+    <ClInclude Include="Game\Components\UI\UiDemoController.h" />
+    <ClInclude Include="Game\Objects\Common\DemoBackground.h" />
+    <ClInclude Include="Game\Objects\Common\DemoButton.h" />
+    <ClInclude Include="Game\Objects\Common\DemoCamera.h" />
+    <ClInclude Include="Game\Objects\Common\DemoCategoryMenu.h" />
+    <ClInclude Include="Game\Objects\Common\DemoGround.h" />
+    <ClInclude Include="Game\Objects\Common\DemoGuide.h" />
+    <ClInclude Include="Game\Objects\Common\DemoLights.h" />
+    <ClInclude Include="Game\Objects\Common\DemoMenu.h" />
+    <ClInclude Include="Game\Objects\Common\DemoModeButton.h" />
+    <ClInclude Include="Game\Objects\Common\DemoSkybox.h" />
+    <ClInclude Include="Game\Objects\Common\DemoWalker.h" />
+    <ClInclude Include="Game\Objects\Physics\TerrainColliderDemo.h" />
+    <ClInclude Include="Game\Objects\Render\Campfire.h" />
+    <ClInclude Include="Game\Objects\Render\EaseRunner.h" />
+    <ClInclude Include="Game\Objects\Render\ParticleDemo.h" />
+    <ClInclude Include="Game\Objects\Render3D\Buoy.h" />
+    <ClInclude Include="Game\Objects\Render3D\DemoHills.h" />
+    <ClInclude Include="Game\Objects\Render3D\DemoWater.h" />
+    <ClInclude Include="Game\Objects\Render3D\LightDemo.h" />
+    <ClInclude Include="Game\Objects\Render3D\ShadowDemo.h" />
+    <ClInclude Include="Game\Objects\Render3D\TerrainDemo.h" />
+    <ClInclude Include="Game\Objects\Render3D\WaterDemo.h" />
+    <ClInclude Include="Game\Objects\UI\UiDemo.h" />
+    <ClInclude Include="Game\Scenes\Common\DemoCategoryScene.h" />
+    <ClInclude Include="Game\Scenes\Common\DemoMenuScene.h" />
+    <ClInclude Include="Game\Scenes\Common\DemoRegistry.h" />
+    <ClInclude Include="Game\Scenes\Physics\TerrainColliderDemoScene.h" />
+    <ClInclude Include="Game\Scenes\Render\ParticleDemo2DScene.h" />
+    <ClInclude Include="Game\Scenes\Render\ParticleDemo3DScene.h" />
+    <ClInclude Include="Game\Scenes\Render\TweenDemo2DScene.h" />
+    <ClInclude Include="Game\Scenes\Render\TweenDemo3DScene.h" />
+    <ClInclude Include="Game\Scenes\Render3D\LightDemoScene.h" />
+    <ClInclude Include="Game\Scenes\Render3D\ShadowDemoScene.h" />
+    <ClInclude Include="Game\Scenes\Render3D\TerrainDemoScene.h" />
+    <ClInclude Include="Game\Scenes\Render3D\WaterDemoScene.h" />
+    <ClInclude Include="Game\Scenes\UI\UiDemoScene.h" />
+    <ClInclude Include="Game\Components\Common\DemoTextStyle.h" />
+    <ClInclude Include="Game\Components\Core\BobComponent.h" />
+    <ClInclude Include="Game\Components\Core\ObjectDemoController.h" />
+    <ClInclude Include="Game\Components\Core\SpinComponent.h" />
+    <ClInclude Include="Game\Components\Core\TransformDemoController.h" />
+    <ClInclude Include="Game\Objects\Common\DemoStage3D.h" />
+    <ClInclude Include="Game\Objects\Core\ObjectDemo.h" />
+    <ClInclude Include="Game\Objects\Core\TransformDemo.h" />
+    <ClInclude Include="Game\Scenes\Core\ObjectDemo2DScene.h" />
+    <ClInclude Include="Game\Scenes\Core\ObjectDemo3DScene.h" />
+    <ClInclude Include="Game\Scenes\Core\TransformDemo2DScene.h" />
+    <ClInclude Include="Game\Scenes\Core\TransformDemo3DScene.h" />
+    <ClInclude Include="Game\Components\Core\InputDemoController.h" />
+    <ClInclude Include="Game\Components\Core\MathDemoController.h" />
+    <ClInclude Include="Game\Components\Core\TimeDemoController.h" />
+    <ClInclude Include="Game\Objects\Core\InputDemo.h" />
+    <ClInclude Include="Game\Objects\Core\MathDemo.h" />
+    <ClInclude Include="Game\Objects\Core\TimeDemo.h" />
+    <ClInclude Include="Game\Scenes\Core\InputDemoScene.h" />
+    <ClInclude Include="Game\Scenes\Core\MathDemo2DScene.h" />
+    <ClInclude Include="Game\Scenes\Core\MathDemo3DScene.h" />
+    <ClInclude Include="Game\Scenes\Core\TimeDemoScene.h" />
+    <ClInclude Include="Game\Components\Core\EventLogManager.h" />
+    <ClInclude Include="Game\Components\Core\EventScoreManager.h" />
+    <ClInclude Include="Game\Components\Core\EventSenderManager.h" />
+    <ClInclude Include="Game\Components\Core\PoolBulletController.h" />
+    <ClInclude Include="Game\Components\Core\PoolDemoController.h" />
+    <ClInclude Include="Game\Components\Core\ResourcesDemoController.h" />
+    <ClInclude Include="Game\Objects\Core\EventBusDemo.h" />
+    <ClInclude Include="Game\Objects\Core\PoolDemo.h" />
+    <ClInclude Include="Game\Objects\Core\ResourcesDemo.h" />
+    <ClInclude Include="Game\Scenes\Core\EventBusDemoScene.h" />
+    <ClInclude Include="Game\Scenes\Core\PoolDemoScene.h" />
+    <ClInclude Include="Game\Scenes\Core\ResourcesDemoScene.h" />
+    <ClInclude Include="Game\Components\UI\RectDemoController.h" />
+    <ClInclude Include="Game\Components\UI\TextDemoController.h" />
+    <ClInclude Include="Game\Components\UI\WorldUiDemoController.h" />
+    <ClInclude Include="Game\Objects\UI\RectDemo.h" />
+    <ClInclude Include="Game\Objects\UI\TextDemo.h" />
+    <ClInclude Include="Game\Objects\UI\WorldUiDemo.h" />
+    <ClInclude Include="Game\Scenes\UI\RectDemoScene.h" />
+    <ClInclude Include="Game\Scenes\UI\TextDemoScene.h" />
+    <ClInclude Include="Game\Scenes\UI\WorldUiDemo2DScene.h" />
+    <ClInclude Include="Game\Scenes\UI\WorldUiDemo3DScene.h" />
+    <ClInclude Include="Game\Components\Common\DemoMarker.h" />
+    <ClInclude Include="Game\Components\Common\DemoMouseGround.h" />
+    <ClInclude Include="Game\Components\Render\ScreenEffectDemoController.h" />
+    <ClInclude Include="Game\Objects\Render\ScreenEffectDemo.h" />
+    <ClInclude Include="Game\Scenes\Render\ScreenEffectDemoScene.h" />
+    <ClInclude Include="Game\Components\Render\TransitionDemoController.h" />
+    <ClInclude Include="Game\Objects\Render\TransitionDemo.h" />
+    <ClInclude Include="Game\Scenes\Render\TransitionDemoScene.h" />
+    <ClInclude Include="Game\Scenes\Render\TransitionDemoBScene.h" />
+    <ClInclude Include="Game\Components\Render\SpriteDemoController.h" />
+    <ClInclude Include="Game\Objects\Render\SpriteDemo.h" />
+    <ClInclude Include="Game\Scenes\Render\SpriteDemo2DScene.h" />
+    <ClInclude Include="Game\Scenes\Render\SpriteDemo3DScene.h" />
+    <ClInclude Include="Game\Components\Render\SpriteAnimDemoController.h" />
+    <ClInclude Include="Game\Objects\Render\SpriteAnimDemo.h" />
+    <ClInclude Include="Game\Scenes\Render\SpriteAnimDemo2DScene.h" />
+    <ClInclude Include="Game\Scenes\Render\SpriteAnimDemo3DScene.h" />
+    <ClInclude Include="Game\Components\Common\DemoScreenFixController.h" />
+    <ClInclude Include="Game\Components\Render\CameraDemoController.h" />
+    <ClInclude Include="Game\Objects\Render\CameraDemo.h" />
+    <ClInclude Include="Game\Scenes\Render\CameraDemo2DScene.h" />
+    <ClInclude Include="Game\Scenes\Render\CameraDemo3DScene.h" />
+    <ClInclude Include="Game\Components\Render\CoordDemoController.h" />
+    <ClInclude Include="Game\Objects\Render\CoordDemo.h" />
+    <ClInclude Include="Game\Scenes\Render\CoordDemo2DScene.h" />
+    <ClInclude Include="Game\Scenes\Render\CoordDemo3DScene.h" />
+    <ClInclude Include="Game\Scenes\Render3D\ShapesDemoScene.h" />
+    <ClInclude Include="Game\Objects\Render3D\ShapesDemo.h" />
+    <ClInclude Include="Game\Components\Render3D\ShapesDemoController.h" />
+    <ClInclude Include="Game\Objects\Render3D\LightTargets.h" />
+    <ClInclude Include="Game\Scenes\Render3D\OutlineDemoScene.h" />
+    <ClInclude Include="Game\Objects\Render3D\OutlineDemo.h" />
+    <ClInclude Include="Game\Components\Render3D\OutlineDemoController.h" />
+    <ClInclude Include="Game\Scenes\Render3D\ModelDemoScene.h" />
+    <ClInclude Include="Game\Objects\Render3D\ModelDemo.h" />
+    <ClInclude Include="Game\Components\Render3D\ModelDemoController.h" />
+    <ClInclude Include="Game\Scenes\Render3D\SkinAnimDemoScene.h" />
+    <ClInclude Include="Game\Objects\Render3D\SkinAnimDemo.h" />
+    <ClInclude Include="Game\Components\Render3D\SkinAnimDemoController.h" />
+    <ClInclude Include="Game\Scenes\Render3D\LodDemoScene.h" />
+    <ClInclude Include="Game\Objects\Render3D\LodDemo.h" />
+    <ClInclude Include="Game\Components\Render3D\LodDemoController.h" />
+    <ClInclude Include="Game\Scenes\Render3D\VisibilityDemo2DScene.h" />
+    <ClInclude Include="Game\Scenes\Render3D\VisibilityDemo3DScene.h" />
+    <ClInclude Include="Game\Objects\Render3D\VisibilityDemo.h" />
+    <ClInclude Include="Game\Components\Render3D\VisibilityDemoController.h" />
+    <ClInclude Include="Game\Components\Common\DemoStatus.h" />
+    <ClInclude Include="Game\Components\Common\DemoBodyReset.h" />
+    <ClInclude Include="Game\Objects\Common\DemoBody.h" />
+    <ClInclude Include="Game\Objects\Common\DemoWall.h" />
+    <ClInclude Include="Game\Components\Physics\ColliderDemoController.h" />
+    <ClInclude Include="Game\Objects\Physics\ColliderDemo.h" />
+    <ClInclude Include="Game\Scenes\Physics\ColliderDemo2DScene.h" />
+    <ClInclude Include="Game\Scenes\Physics\ColliderDemo3DScene.h" />
+    <ClInclude Include="Game\Components\Physics\ForceDemoController.h" />
+    <ClInclude Include="Game\Objects\Physics\ForceDemo.h" />
+    <ClInclude Include="Game\Scenes\Physics\ForceDemo2DScene.h" />
+    <ClInclude Include="Game\Scenes\Physics\ForceDemo3DScene.h" />
+    <ClInclude Include="Game\Components\Physics\RigidbodySettingsDemoController.h" />
+    <ClInclude Include="Game\Objects\Physics\RigidbodySettingsDemo.h" />
+    <ClInclude Include="Game\Scenes\Physics\RigidbodySettingsDemo2DScene.h" />
+    <ClInclude Include="Game\Scenes\Physics\RigidbodySettingsDemo3DScene.h" />
+    <ClInclude Include="Game\Components\Physics\TouchCounterController.h" />
+    <ClInclude Include="Game\Components\Physics\TriggerDemoController.h" />
+    <ClInclude Include="Game\Objects\Physics\TriggerDemo.h" />
+    <ClInclude Include="Game\Scenes\Physics\TriggerDemo2DScene.h" />
+    <ClInclude Include="Game\Scenes\Physics\TriggerDemo3DScene.h" />
+    <ClInclude Include="Game\Components\Physics\QueryDemoController.h" />
+    <ClInclude Include="Game\Objects\Physics\QueryDemo.h" />
+    <ClInclude Include="Game\Scenes\Physics\QueryDemo2DScene.h" />
+    <ClInclude Include="Game\Scenes\Physics\QueryDemo3DScene.h" />
+    <ClInclude Include="Game\Components\Common\DemoPlane.h" />
+    <ClInclude Include="Game\Objects\Behavior\DemoAgent.h" />
+    <ClInclude Include="Game\Objects\Behavior\MoveDemo.h" />
+    <ClInclude Include="Game\Components\Behavior\MoveDemoController.h" />
+    <ClInclude Include="Game\Scenes\Behavior\MoveDemo2DScene.h" />
+    <ClInclude Include="Game\Scenes\Behavior\MoveDemo3DScene.h" />
+    <ClInclude Include="Game\Objects\Behavior\HomingDemo.h" />
+    <ClInclude Include="Game\Components\Behavior\HomingDemoController.h" />
+    <ClInclude Include="Game\Scenes\Behavior\HomingDemo2DScene.h" />
+    <ClInclude Include="Game\Scenes\Behavior\HomingDemo3DScene.h" />
+    <ClInclude Include="Game\Components\Behavior\DoorController.h" />
+    <ClInclude Include="Game\Components\Behavior\MovingWallDemoController.h" />
+    <ClInclude Include="Game\Components\Behavior\PathDemoController.h" />
+    <ClInclude Include="Game\Components\Behavior\TerrainPathDemoController.h" />
+    <ClInclude Include="Game\Components\Behavior\VisionDemoController.h" />
+    <ClInclude Include="Game\Objects\Behavior\MovingWallDemo.h" />
+    <ClInclude Include="Game\Objects\Behavior\PathDemo.h" />
+    <ClInclude Include="Game\Objects\Behavior\TerrainPathDemo.h" />
+    <ClInclude Include="Game\Objects\Behavior\VisionDemo.h" />
+    <ClInclude Include="Game\Scenes\Behavior\MovingWallDemo2DScene.h" />
+    <ClInclude Include="Game\Scenes\Behavior\MovingWallDemo3DScene.h" />
+    <ClInclude Include="Game\Scenes\Behavior\PathDemo2DScene.h" />
+    <ClInclude Include="Game\Scenes\Behavior\PathDemo3DScene.h" />
+    <ClInclude Include="Game\Scenes\Behavior\TerrainPathDemoScene.h" />
+    <ClInclude Include="Game\Components\Audio\SoundDemoController.h" />
+    <ClInclude Include="Game\Objects\Audio\SoundDemo.h" />
+    <ClInclude Include="Game\Scenes\Audio\SoundDemoScene.h" />
+    <ClInclude Include="Game\Components\Audio\Sound3DDemoController.h" />
+    <ClInclude Include="Game\Objects\Audio\Sound3DDemo.h" />
+    <ClInclude Include="Game\Scenes\Audio\Sound3DDemo2DScene.h" />
+    <ClInclude Include="Game\Scenes\Audio\Sound3DDemo3DScene.h" />
+    <ClInclude Include="Game\Components\Data\CsvDemoController.h" />
+    <ClInclude Include="Game\Objects\Data\CsvDemo.h" />
+    <ClInclude Include="Game\Scenes\Data\CsvDemoScene.h" />
+    <ClInclude Include="Game\Components\Data\SaveDemoController.h" />
+    <ClInclude Include="Game\Objects\Data\SaveDemo.h" />
+    <ClInclude Include="Game\Scenes\Data\SaveDemoScene.h" />
+    <ClInclude Include="Game\Scenes\Behavior\VisionDemo2DScene.h" />
+    <ClInclude Include="Game\Scenes\Behavior\VisionDemo3DScene.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Engine\Engine.vcxproj">
+      <Project>{ea30298e-6fac-420b-9c8e-70b4363ff1f0}</Project>
+    </ProjectReference>
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+  <!--
+    デバッグ実行の設定はMicrosoft.Cpp.targetsの後に書く(先に書くと既定値で上書きされて
+    消えてしまう)。Assets/シェーダーはEngineのCopyRuntimeFilesで共有OutDirへコピーされる
+    (Engineが先にビルドされるため)ので、F5デバッグ実行時の作業ディレクトリもそこに合わせる。
+  -->
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <LocalDebuggerWorkingDirectory>$(TargetDir)</LocalDebuggerWorkingDirectory>
+    <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <LocalDebuggerWorkingDirectory>$(TargetDir)</LocalDebuggerWorkingDirectory>
+    <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
+  </PropertyGroup>
+</Project>

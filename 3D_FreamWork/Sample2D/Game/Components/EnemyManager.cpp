@@ -17,6 +17,7 @@ namespace {
     // 敵の速さの表と、出現ウェーブの表(Excelで編集できる。パスはここだけに書く)
     constexpr const wchar_t* enemiesCsvPath = L"Assets/Data/Enemies.csv";   // 列: Name, Speed
     constexpr const wchar_t* wavesCsvPath = L"Assets/Data/Waves.csv";       // 列: Time, Count, Interval, Repeat
+    constexpr float enemyZ = 5.0f;   // 敵のz(2Dモードの前後。Z固定の物理もこの高さで動く)
     constexpr const wchar_t* enemyName = L"Slime";                          // Enemies.csvのどの行の敵か(Name列)
 
     void Log(const std::wstring& message) {
@@ -32,6 +33,7 @@ namespace {
         auto* sprite = obj->AddComponent<SpriteRenderer>(L"Assets/player.png", 8, 2);
         sprite->SetSpriteIndex(5);
         sprite->SetColor(1.0f, 0.0f, 1.0f, 1.0f);
+        sprite->SetMode(SpriteMode::World2D);   // 2Dモード: zで大きさは変わらず、zが小さいほど手前(敵はz=+5。Player(0)の奥、見張り役(+10)の手前)
         sprite->SetFrustumCulling(true);   // 画面の外にいる間は描かない(物理と動きは止まらない)
 
         // 当たり判定+物理演算(PhysX)
@@ -195,7 +197,7 @@ void EnemyManager::Update(float dt) {
             XMFLOAT3 pos = {
                 target->transform.position.x + offset.x,
                 target->transform.position.y + offset.y,
-                0.0f
+                enemyZ
             };
             if (navigation) pos = navigation->GetGrid().ClampToGrid(pos);   // 格子の外では敵が止まるので、格子の中に収める(Playerが外にいる時は、格子の縁に出る)
             Spawn(pos);

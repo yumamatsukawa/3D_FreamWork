@@ -6,7 +6,7 @@
 
 GameObject* CreateBackground(Scene& scene) {
     GameObject* background = scene.CreateObject("Background");
-    // 必ず一番最初に描く(=他の全てのスプライトの奥に表示される)
+    // 必ず一番最初に描く(背景のタイルはz=+100の2Dモードなので、zでも一番奥になる)
     background->SetDrawPriority(INT_MIN);
 
     // タイルの画像と、1枚の大きさ

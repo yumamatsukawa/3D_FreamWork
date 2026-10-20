@@ -22,6 +22,13 @@ enum class BlendMode {
                 //   そのためAdditive/Softは、画像の明るさ(RGB)で形と濃さを表す(アルファは不透明のままにする)
 };
 
+// スプライトの描き方(3種類)
+enum class SpriteMode {
+    UI,        // UI: zで大きさは変わらない。深度を使わず、必ず最前面(drawPriority → 作った順)。HUD・ボタン・背景など
+    World2D,   // 2D: zで大きさは変わらない(遠近なし)。2Dカメラでスクロールし、zが小さい(手前)ほど手前に描く(深度バッファ)
+    World3D    // 3D: 3Dカメラの透視(奥ほど小さい)。カメラの方を向く板(ビルボード)で、深度バッファで前後が決まる
+};
+
 struct Vertex {
     XMFLOAT2 Position;
     XMFLOAT4 Color;
@@ -64,7 +71,7 @@ private:
     bool CreateBlendState();
     bool CreateDepthStencilState();
     bool CreateRasterizerState();
-    XMMATRIX BuildWorldMatrix(const Transform& transform, bool worldSpace,
+    XMMATRIX BuildWorldMatrix(const Transform& transform, SpriteMode mode,
         bool lockX, bool lockY, bool lockZ) const;
 
     // Worldモード用: 3Dメッシュと同じ(camera3Dの本物のView/Projection行列を使う)、
@@ -74,12 +81,15 @@ private:
 
 public:
     bool Init();
-    // worldSpace = false(既定): UIのように常に手前に描画される(今までの挙動)
-    // worldSpace = true        : 3Dオブジェクトのように、奥行きで前後関係が決まる
+    // 注意: World2Dの深度は3Dカメラからの距離(viewZ)から作るので、zは「3Dカメラのz(既定-500)より+5以上奥」にすること(viewZ <= 0 は、深度が0=最前面になる。2DのzをカメラのzやそれよりZが小さい値にしない)
+    // mode: SpriteMode(UI / World2D / World3D)。bool版の worldSpace は false=UI、true=World3D(今までの呼び方)
+    // UIは深度を使わず描いた順に重なる(必ず最前面にしたい時はImage::Draw経由で積む)
     // blend: 画像の重ね方(BlendMode参照)。depthWrite: Worldモードで深度を書くか(半透明の粒はfalse。UIモードでは関係ない)
     void Draw(Transform transform, XMFLOAT4 color, const SpriteSheet& sheet = SpriteSheet(), bool worldSpace = false,
         bool lockX = false, bool lockY = false, bool lockZ = false,
         BlendMode blend = BlendMode::Normal, bool depthWrite = true);
+    void Draw(Transform transform, XMFLOAT4 color, const SpriteSheet& sheet, SpriteMode mode,
+        bool lockX, bool lockY, bool lockZ, BlendMode blend, bool depthWrite);
     void Uninit();
 
     int GetTextureWidth()  const { return texWidth; }

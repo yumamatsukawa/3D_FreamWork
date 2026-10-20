@@ -145,7 +145,9 @@ void PathFollowComponent::DrawLine(XMFLOAT3 from, XMFLOAT3 to) {
 
     // 光の影響を受けない一定の緑
     static const Light fullBright{ {0.f,-1.f,0.f}, {0.f,0.f,0.f}, {1.f,1.f,1.f} };
-    lineMesh.Draw(t, Image::GetCamera3D(), XMFLOAT4{ 0.f, 1.f, 0.f, 1.f }, fullBright);
+    // XY平面(2D)は、2Dスプライトと同じ2D(正射影)で描く。XZ平面(3D)は3Dカメラの透視
+    if (plane == MovePlane::XY) lineMesh.DrawLines2D(t, Image::GetCamera(), XMFLOAT4{ 0.f, 1.f, 0.f, 1.f }, fullBright);
+    else lineMesh.Draw(t, Image::GetCamera3D(), XMFLOAT4{ 0.f, 1.f, 0.f, 1.f }, fullBright);
 }
 
 void PathFollowComponent::Draw() {

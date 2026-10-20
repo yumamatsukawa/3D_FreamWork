@@ -178,27 +178,19 @@ bool Sprite::CreateRasterizerState() {
 //   Transform → ワールド行列（平行移動・回転・スケール）を組み立てる
 //   最終的に NDC 変換まで含めた行列を返す
 // ---------------------------------------------------------------------------
-XMMATRIX Sprite::BuildWorldMatrix(const Transform& transform, bool worldSpace,
+XMMATRIX Sprite::BuildWorldMatrix(const Transform& transform, SpriteMode mode,
     bool lockX, bool lockY, bool lockZ) const {
     // Worldモードは、3Dメッシュ(Mesh)と全く同じcamera3DのView/Projection行列を使う
     // 「常にカメラの方を向く板(ビルボード)」として描画する(CameraControllerでカメラを
     // 動かしても、2Dオブジェクトが3Dオブジェクトと同じように正しく追従して見える)
-    if (worldSpace && camera3D) {
+    // (UI・World2Dは、下の2D用の計算を使う)
+    if (mode == SpriteMode::World3D && camera3D) {
         return BuildBillboardMatrix(transform, lockX, lockY, lockZ);
     }
 
+    // ★ UIモード、とWorld2Dモードは、zで大きさを変えない(遠近なし)
     float w = (transform.scale.x > 0.f) ? transform.scale.x : (float)texWidth;
     float h = (transform.scale.y > 0.f) ? transform.scale.y : (float)texHeight;
-
-    // ★ カメラとのZ距離による遠近スケール。遠いほど小さく、カメラ中心寄りに見える。
-    //   focalLengthの距離にいる時が等倍(depthScale=1)。カメラが無ければ効果なし。
-    float depthScale = 1.f;
-    if (camera) {
-        float depth = transform.position.z - camera->position.z;
-        if (depth > 0.f) depthScale = camera->focalLength / depth;
-    }
-    w *= depthScale;
-    h *= depthScale;
 
     // --- 各変換行列を生成 ---
     // ① スケール行列: ローカル座標 [-0.5, 0.5] → ピクセルサイズに拡大
@@ -211,11 +203,10 @@ XMMATRIX Sprite::BuildWorldMatrix(const Transform& transform, bool worldSpace,
     // ③ 平行移動行列: ワールド座標 → カメラからの相対座標 → NDC
     //    カメラのposition(x,y)ぶんだけ引くことで、カメラを動かすと
     //    画面全体がスクロールしているように見える。
-    //    さらにdepthScaleを掛けることで、奥にあるものほど中心に寄って見える(視差)
     float camX = camera ? camera->position.x : 0.f;
     float camY = camera ? camera->position.y : 0.f;
-    float worldX = (transform.position.x - camX) * depthScale;
-    float worldY = (transform.position.y - camY) * depthScale;
+    float worldX = transform.position.x - camX;
+    float worldY = transform.position.y - camY;
 
     //    NDC_x = pixel_x / (resW / 2)   NDC_y = pixel_y / (resH / 2)
     //    ★ position.yはY+が上方向(標準的な数学と同じ、3D側と統一した慣習)なので、
@@ -223,11 +214,12 @@ XMMATRIX Sprite::BuildWorldMatrix(const Transform& transform, bool worldSpace,
     float ndcX = worldX / (resW * 0.5f);
     float ndcY = worldY / (resH * 0.5f);
 
-    // ★ Worldモードの時だけ、深度バッファに書き込むためのZ値(0〜1)を計算する。
-    //   3D用カメラ(camera3D)からの距離を、Meshと同じ透視投影の式でNDC深度に変換する。
+    // ★ World2Dモードの時だけ、深度バッファに書き込むためのZ値(0〜1)を計算する。
+    //   3D用カメラ(camera3D)からの距離を、Meshと同じ透視投影の式でNDC深度に変換する(zが小さいほど手前)。
+    //   見た目の大きさは変えず、前後の判定にだけ使う。
     //   UIモードの時は深度テスト自体をしないので、0のままでよい
     float ndcZ = 0.f;
-    if (worldSpace && camera3D) {
+    if (mode == SpriteMode::World2D && camera3D) {
         float viewZ = transform.position.z - camera3D->position.z;
         if (viewZ > 0.f) {
             float nearZ = camera3D->nearZ;
@@ -297,6 +289,12 @@ XMMATRIX Sprite::BuildBillboardMatrix(const Transform& transform, bool lockX, bo
 // ---------------------------------------------------------------------------
 void Sprite::Draw(Transform transform, XMFLOAT4 color, const SpriteSheet& sheet, bool worldSpace,
     bool lockX, bool lockY, bool lockZ, BlendMode blend, bool depthWrite) {
+    Draw(transform, color, sheet, worldSpace ? SpriteMode::World3D : SpriteMode::UI, lockX, lockY, lockZ, blend, depthWrite);
+}
+
+void Sprite::Draw(Transform transform, XMFLOAT4 color, const SpriteSheet& sheet, SpriteMode mode,
+    bool lockX, bool lockY, bool lockZ, BlendMode blend, bool depthWrite) {
+    const bool worldSpace = (mode != SpriteMode::UI);   // 深度を使うか(World2D・World3D)
     assert(context && "context が nullptr");
     assert(vertexBuffer && "vertexBuffer が nullptr");
     assert(constantBuffer && "constantBuffer が nullptr");
@@ -357,7 +355,7 @@ void Sprite::Draw(Transform transform, XMFLOAT4 color, const SpriteSheet& sheet,
     // 2. 定数バッファ（ワールド行列）更新
     // ------------------------------------------------------------------
     ConstantBuffer cb;
-    cb.world = BuildWorldMatrix(transform, worldSpace, lockX, lockY, lockZ);
+    cb.world = BuildWorldMatrix(transform, mode, lockX, lockY, lockZ);
 
     context->Map(constantBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &msr);
     memcpy(msr.pData, &cb, sizeof(cb));

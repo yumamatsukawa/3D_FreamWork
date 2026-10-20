@@ -69,6 +69,7 @@ private:
     static ID3D11BlendState* blendState;
     static ID3D11DepthStencilState* depthStencilState;
     static ID3D11DepthStencilState* depthStencilStateNoWrite; // スカイボックス用: テストはするが書き込みしない
+    static ID3D11DepthStencilState* depthStencilStateNone;    // 深度テストも書き込みもしない(2Dの線用)
     static ID3D11DepthStencilState* outlineMarkState;   // 枠線用: 本物の見えている画素のステンシルを書き換える(深度は書かない)
     static ID3D11DepthStencilState* outlineMarkAllState;          // 枠線(壁越し): 深度テストなしで、シルエット全体のステンシルを書き換える
     static ID3D11DepthStencilState* outlineRingSeeThroughState;   // 枠線(壁越し): 深度テストなしで、シルエットの外側だけに描く
@@ -88,6 +89,9 @@ private:
     static bool CreateSampler();
     static bool CreateBlendState();
     static bool CreateDepthStencilState();
+    // 行列を直接渡して描く(Draw と DrawLines2D の共通の中身)
+    void DrawWithMatrices(const XMMATRIX& world, const XMMATRIX& viewMatrix, const XMMATRIX& projMatrix, XMFLOAT3 eyePosition,
+        const Material& material, const Light& light, ID3D11DepthStencilState* depthState);
     static bool CreateRasterizerState();
     static bool CreateWhiteTexture();
 
@@ -119,6 +123,11 @@ public:
     // 色だけ指定する版(既定のマテリアルで描く)。writeDepth = false で深度に書き込まない
     void Draw(const Transform& transform, const Camera& camera, XMFLOAT4 color, const Light& light, bool writeDepth = true);
     void Draw(const XMMATRIX& world, const Camera& camera, XMFLOAT4 color, const Light& light, bool writeDepth = true);
+    // 2D用の線の描き方: 2Dスプライト(SpriteMode::World2D)と同じ「2D(正射影)」で描く。ワールドの x,y から camera2D(Image::GetCamera())の x,y を引いた値が、
+    // そのまま画面のピクセルになる(zで位置・大きさは変わらない)。深度テストも書き込みもしないので、描いた時点で、それまでに描いた物の上に出る(UIより手前には出ない: UIは最後に描く)。
+    // 2D(XY平面)のデバッグ線(コライダーの枠・視野・経路)用。線のメッシュ(Create○○Outline)と組み合わせる
+    void DrawLines2D(const XMMATRIX& world, const Camera& camera2D, XMFLOAT4 color, const Light& light);
+    void DrawLines2D(const Transform& transform, const Camera& camera2D, XMFLOAT4 color, const Light& light);
     // 枠線を描く(本物を Draw した直後に呼ぶ)。物の外側に、画面上で widthPixels ピクセルの太さの線を color で描く(遠くても近くても同じ太さ)。
     // 法線の向きに膨らませた物の裏向きの面だけを描く。widthPixels <= 0 や color.w <= 0、線のメッシュでは何もしない。
     // 深度は書く(本物の裏側の深さを、太さに応じて少し手前へずらした値)ので、手前の物には隠される。本物の見えている画素には、ステンシルで描かない(内側に漏れない)。影は落とさず・受けず、光の影響も受けない。

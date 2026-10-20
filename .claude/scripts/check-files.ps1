@@ -1,4 +1,4 @@
-﻿# ビルド前のファイルチェック。Engine/Sample2D/Sample3D の .h/.cpp について、
+﻿# ビルド前のファイルチェック。Engine/Sample2D/Sample3D/Demo の .h/.cpp について、
 #   1. 日本語を含むのにBOMが無いファイル(MSVCでC4819+構文エラーになる)
 #   2. ディスクにあるのに .vcxproj / .vcxproj.filters に登録されていないファイル
 #   3. .vcxproj に登録されているのにディスクに無いファイル
@@ -20,7 +20,7 @@ function Get-ListedFiles([string]$path) {
     return @($items | Where-Object { $_ } | ForEach-Object { $_.Include })
 }
 
-foreach ($proj in "Engine", "Sample2D", "Sample3D") {
+foreach ($proj in "Engine", "Sample2D", "Sample3D", "Demo") {
     $dir = Join-Path $sol $proj
     if (-not (Test-Path $dir)) { continue }
     $files = Get-ChildItem $dir -Recurse -Include *.cpp, *.h -File

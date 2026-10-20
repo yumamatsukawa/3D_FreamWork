@@ -12,11 +12,6 @@ namespace Visibility {
         int culledCount = 0;           // このフレームに省いた数(数えている途中)
         int lastCulledCount = 0;       // 前のフレームに省いた数(GetCulledCountが返す)
 
-        // 2D描画の遠近の倍率(Image.cppのGetDepthScale2D・Sprite::BuildWorldMatrixと同じ式)。カメラより手前なら等倍のまま
-        float GetDepthScale2D(const Camera& camera, float worldZ) {
-            float depth = worldZ - camera.position.z;
-            return (depth > 0.f) ? camera.focalLength / depth : 1.f;
-        }
     }
 
     void BeginFrame() {
@@ -66,12 +61,11 @@ namespace Visibility {
 
     bool IsCircleInView2D(XMFLOAT3 position, float radius) {
         const Camera& camera = Image::GetCamera();
-        float scale = GetDepthScale2D(camera, position.z);
 
-        // 画面座標(画面中央が(0,0))と、画面での半径
-        float screenX = (position.x - camera.position.x) * scale;
-        float screenY = (position.y - camera.position.y) * scale;
-        float screenRadius = (radius > 0.f ? radius : 0.f) * scale;
+        // 画面座標(画面中央が(0,0))と、画面での半径(zは大きさに影響しない)
+        float screenX = position.x - camera.position.x;
+        float screenY = position.y - camera.position.y;
+        float screenRadius = (radius > 0.f ? radius : 0.f);
 
         // 画面の四角(±半分の大きさ)から、円の中心までの距離で比べる(角の外側も正しく判定する)
         float outsideX = fabsf(screenX) - Graphics::width * 0.5f;
@@ -83,12 +77,11 @@ namespace Visibility {
 
     bool IsRectInView2D(XMFLOAT3 position, XMFLOAT2 halfSize) {
         const Camera& camera = Image::GetCamera();
-        float scale = GetDepthScale2D(camera, position.z);
 
-        float screenX = (position.x - camera.position.x) * scale;
-        float screenY = (position.y - camera.position.y) * scale;
-        float screenHalfW = fabsf(halfSize.x) * scale;
-        float screenHalfH = fabsf(halfSize.y) * scale;
+        float screenX = position.x - camera.position.x;
+        float screenY = position.y - camera.position.y;
+        float screenHalfW = fabsf(halfSize.x);
+        float screenHalfH = fabsf(halfSize.y);
 
         // 四角同士の重なり(中心の距離が、半分の大きさの合計以下なら重なっている)
         return fabsf(screenX) <= Graphics::width * 0.5f + screenHalfW

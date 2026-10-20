@@ -163,7 +163,7 @@ namespace Visibility {
     bool IsBoxInView3D(XMFLOAT3 center, XMFLOAT3 halfSize);      // 軸に沿った箱(回転しない)
 
     // 2D: 今の2Dカメラ(Image::GetCamera())の画面に、円・四角が少しでも入っているか
-    // (SpriteRenderer(UIモード)と同じ遠近の倍率を使う。画面の大きさは Graphics::width / height)
+    // (SpriteRenderer(UIモード)と同じ計算で、zは大きさに影響しない。画面の大きさは Graphics::width / height)
     bool IsCircleInView2D(XMFLOAT3 position, float radius);
     bool IsRectInView2D(XMFLOAT3 position, XMFLOAT2 halfSize);
 
@@ -202,7 +202,7 @@ public:
 - **3Dは `DirectXCollision.h` の `BoundingFrustum`(DirectXMathに付いている)を使います。** `BoundingFrustum(camera.GetProjectionMatrix(aspect))` で視錐台を作り、`Transform` でカメラのワールド行列(`GetViewMatrix` の逆行列)を掛けて、ワールド座標の視錐台にします。`Intersects(BoundingSphere)` で球の判定ができます。エンジンはLH(左手系)なので、`BoundingFrustum` の既定(LH)のままで合います。
 - **視錐台を作るのは1フレームに1回**(`Visibility::BeginFrame`)。呼ぶ場所は `CameraShake::BeginDraw()` の**後**です(揺れが入ったカメラで判定しないと、画面の端で揺れた時に一瞬描かれない物が出ます)。`Update` の中で呼ぶと「1つ前のフレームの描画に使ったカメラ」で判定します(敵のAIを省く程度なら問題ない。コメントに書く)。
 - **縦横比**: 今、`Image.cpp` の無名namespaceの中にある `GetAspectRatio` と同じ式です。`Image.h` に公開するか、`Visibility.cpp` に同じ式を書くかを実装時に決めます(同じ式が3か所になるので公開を推奨)。
-- **2Dは、`SpriteRenderer`(UIモード)と同じ遠近の倍率で画面座標に直して、画面の矩形(`±Graphics::width/2`, `±Graphics::height/2`)と比べます。** `Image::WorldToScreen2D(worldPosition)` が使えます(`z` が奥にあるほど `focalLength / (z - camera.z)` 倍で小さくなる)。画面上の半径は「半径 × 同じ倍率」です。カメラより手前(`depth <= 0`)は倍率1のまま扱う(`Image.cpp` の `GetDepthScale2D` と同じ)。
+- **2Dは、`SpriteRenderer`(UIモード)と同じ計算で画面座標に直して、画面の矩形(`±Graphics::width/2`, `±Graphics::height/2`)と比べます。** `Image::WorldToScreen2D(worldPosition)` が使えます(`z` は大きさにも位置にも影響しない。画面上の半径は「半径」のまま)。※設計当時は `z` が奥にあるほど `focalLength / (z - camera.z)` 倍で小さくなる仕様だったが、その後「zで大きさを変えない」仕様に変えたので、今は倍率を使わない。
 - **バウンディング球の半径**:
   - 立方体(`Mesh::CreateCube`、一辺1): 半径 = `0.5 × √3 × max(scale)` ≒ `0.87 × max(scale)`
   - 球(`Mesh::CreateSphere`、半径0.5): 半径 = `0.5 × max(scale)`
