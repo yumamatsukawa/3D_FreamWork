@@ -5,6 +5,7 @@
 #include "../../../../Engine/Core/Time.h"
 #include "../../../../Engine/Core/MathUtil.h"
 #include "../../../../Engine/Render/Image.h"
+#include "../../../../Engine/UI/TextRenderer.h"
 
 namespace {
     constexpr float infoX = -610.f;      // 説明の文字の左端
@@ -44,6 +45,11 @@ void WorldUiDemoController::Update(float dt) {
         if (enemy.hp <= 0.f) enemy.object->SetActive(false);
     }
 
+    // M: 主人公の名前の大きさの決め方を切り替える(Screen: 変わらない ⇄ World: 奥行きで変わる)
+    if (Input::GetKeyDown(KEY_M)) {
+        heroText->SetSizeMode(heroText->GetSizeMode() == TextSizeMode::Screen ? TextSizeMode::World : TextSizeMode::Screen);
+    }
+
     // SPACE: 全員を全回復して、倒れた敵も戻す
     if (Input::GetKeyDown(KEY_SPACE)) {
         for (Enemy& enemy : enemies) {
@@ -58,6 +64,14 @@ void WorldUiDemoController::Draw() {
     Text::Draw(L"主人公が敵に近づくと、名前の板が赤くなります", infoX, infoY, MakeDemoTextStyle(20.f));
     Text::Draw(L"HPゲージ: GaugeRenderer(SetFollowTarget)   名前: 敵の頭上の位置を画面の位置に直して描く", infoX, infoY - 28.f,
         MakeDemoTextStyle(18.f, { 0.8f, 0.8f, 0.8f, 1.0f }));
+
+    // 主人公の名前(TextRenderer)の大きさの決め方。3Dだけ、World にすると奥行きで大きさが変わる
+    const bool world = heroText->GetSizeMode() == TextSizeMode::World;
+    const wchar_t* modeLabel = world
+        ? (mode == DemoMode::Mode3D ? L"World(奥行きで大きさが変わる。遠いほど小さい)" : L"World(2Dカメラには奥行きが無いので、大きさは変わらない)")
+        : L"Screen(大きさは変わらない)";
+    Text::Draw(std::wstring(L"M: 主人公の名前の大きさ = ") + modeLabel, infoX, infoY - 56.f,
+        MakeDemoTextStyle(18.f, { 1.0f, 0.9f, 0.4f, 1.0f }));
 
     // 敵ごとの名前の板(倒れて非表示の敵には出さない)
     for (const Enemy& enemy : enemies) {

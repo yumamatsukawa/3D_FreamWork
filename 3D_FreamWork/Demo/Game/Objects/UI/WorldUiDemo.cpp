@@ -48,10 +48,12 @@ GameObject* CreateWorldUiDemo(Scene& scene, DemoMode mode) {
     heroText->SetStyle(MakeDemoTextStyle(20.f, { 1.0f, 0.9f, 0.4f, 1.0f }, TextAlign::Center));
     heroText->SetOffset({ 0.f, 50.f, 0.f });
     heroText->SetUse3DCamera(is3D);
+    heroText->SetReferenceDistance(800.f);    // Mキーで World にした時、カメラから800離れている時が20ピクセル
+    heroText->SetSizeRange(10.f, 50.f);       // 遠くても読める・近くても大きくなりすぎない
 
     // 操作役(敵のHPの持ち主)
     GameObject* demo = scene.CreateObject("WorldUiDemo");
-    WorldUiDemoController* controller = demo->AddComponent<WorldUiDemoController>(mode, hero);
+    WorldUiDemoController* controller = demo->AddComponent<WorldUiDemoController>(mode, hero, heroText);
 
     // 敵3体: 動く敵もいる。頭上のHPゲージは、敵に付けて「敵を追う」設定にする(ゲージは値を読むだけ)
     for (const EnemySpec& spec : enemySpecs) {

@@ -1126,11 +1126,17 @@ text->SetOffset({ 0.f, 60.f, 0.f });   // オブジェクトの位置から、�
 | `SetColor(色)` | 文字の色だけ変える(`w` を下げると縁取りも一緒に薄くなる。消えていく演出に使う) |
 | `SetOffset(ずらす量)` | オブジェクトの位置からずらす量(ワールド) |
 | `SetUse3DCamera(true)` | 3Dのオブジェクトに付ける時に使う。3D用カメラで画面座標に直し(`Image::WorldToScreen3D`)、カメラの後ろにある時は描かない |
+| `SetSizeMode(TextSizeMode)` / `GetSizeMode()` | 大きさの決め方。`TextSizeMode::Screen`(既定。カメラからの距離で変わらない)か `TextSizeMode::World`(奥行きで変わる) |
+| `SetReferenceDistance(距離)` | `World` で、`style.size` のピクセルになる奥行き(ワールド。既定 500。0以下は既定の500として扱う) |
+| `SetSizeRange(最小, 最大)` | `World` で、大きさの限界(ピクセル。既定は最小 8、最大は `style.size` の3倍。最大に0以下を渡すと3倍) |
 
 - 2Dでは、`SpriteRenderer`(UIモード)と同じく2Dカメラと一緒にスクロールします
-- 文字の大きさは、カメラからの距離では変わりません(いつも `size` のピクセル)
+- 文字の大きさは、既定(`Screen`)ではカメラからの距離で変わりません(いつも `size` のピクセル)
+- `World` にすると、3Dカメラからの奥行きに反比例して、遠いほど小さく近いほど大きくなります(`size × 基準の奥行き ÷ 奥行き`。3Dの物と同じ遠近感)。小さすぎ・大きすぎは `SetSizeRange` の限界で止まります(描かなくなることはありません)。縁取りの太さも大きさに合わせて変わります
+- `World` が効くのは `SetUse3DCamera(true)` の時だけです。2Dカメラには奥行きが無いので、2Dで `World` を選んでも大きさは変わりません
+- 文字はいつも画面の一番上に出ます(Direct2Dで描くため、3Dの物の後ろには隠れません)
 
-**実例**: Sample2Dで敵を倒すと、その位置に「+10」が出て、上に少し動きながら消えます。`Objects/ScorePopup.cpp` の `CreateScorePopup(scene, 位置)` が、`TextRenderer` と `TweenComponent`(§12。`MoveTo` で上へ動かし、`TweenValue` で文字の濃さを1→0にして、`SetOnComplete` で自分を `Destroy`)を付けたオブジェクトを作ります。呼んでいるのは `EnemyController::OnTriggerEnter2D`(倒された時の処理)です。
+**実例**: Sample2Dで敵を倒すと、その位置に「+10」が出て、上に少し動きながら消えます。`Objects/ScorePopup.cpp` の `CreateScorePopup(scene, 位置)` が、`TextRenderer` と `TweenComponent`(§12。`MoveTo` で上へ動かし、`TweenValue` で文字の濃さを1→0にして、`SetOnComplete` で自分を `Destroy`)を付けたオブジェクトを作ります。呼んでいるのは `EnemyController::OnTriggerEnter`(倒された時の処理)です。
 
 ### 注意
 - **文字はいつも画面の一番上に出ます**(Direct2Dで、画像や3Dの描画が全部終わった後に描かれるため)。画像の後ろに文字を隠すことはできません。画面エフェクト(§15)とシーン切り替え(§16)は、文字よりさらに上に出ます

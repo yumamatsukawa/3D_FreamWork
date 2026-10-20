@@ -2,7 +2,7 @@
 #include "../../../../Engine/Core/Component.h"
 #include <string>
 
-// 当たり判定のコールバック(OnTrigger○○2D / OnCollision○○2D)が呼ばれた回数を数える。Triggerデモが使う。
+// 当たり判定のコールバック(OnTrigger○○ / OnCollision○○)が呼ばれた回数を数える。Triggerデモが使う。
 // 付けた物に、tag のタグを持つ物が当たった時だけ数える。
 // トリガー(すり抜ける)は Enter(入った瞬間)・Stay(中にいる間は毎フレーム)・Exit(出た瞬間)、
 // 通常の当たり判定(ぶつかる)は CollisionEnter・Stay・Exit が呼ばれる。その回数を、別々に数える
@@ -29,10 +29,10 @@ public:
     bool IsTouching() const { return touching > 0; }      // 今トリガーの中に相手がいるか
     void ResetCounts() { trigger = Counts(); collision = Counts(); }   // 回数を0に戻す(今中にいるかは変えない)
 
-    void OnTriggerEnter2D(Collider2D* other) override;
-    void OnTriggerStay2D(Collider2D* other) override;
-    void OnTriggerExit2D(Collider2D* other) override;
-    void OnCollisionEnter2D(CollisionInfo info) override;
-    void OnCollisionStay2D(CollisionInfo info) override;
-    void OnCollisionExit2D(CollisionInfo info) override;
+    void OnTriggerEnter(Collider2D* other) override;
+    void OnTriggerStay(Collider2D* other) override;
+    void OnTriggerExit(Collider2D* other) override;
+    void OnCollisionEnter(CollisionInfo info) override;
+    void OnCollisionStay(CollisionInfo info) override;
+    void OnCollisionExit(CollisionInfo info) override;
 };
