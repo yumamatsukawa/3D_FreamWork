@@ -711,7 +711,7 @@ Physics の P1〜P5(Collider・Force・RigidbodySettings・Trigger・Query)を�
 | P1 Collider(2D/3D) | 固定の見本(Static)3つ・往復する台(Kinematic)・クリックで出す動く物(Dynamic)。1・2・3 で形、F1 で枠線、C で全部消す。2D は壁で囲み、勢いをつけて出す。3D は地面の上から落とす。30個まで | `Uninit` で `SetDebugDrawEnabled(false)`(枠線は全体の設定。ガイドの `ResetSettings` でも戻る)。出した物は `Destroy` で消す(剛体は `Uninit` で解放) |
 | P2 Force(2D/3D) | 軽い箱(質量100)と重い箱(質量500)を同じ値で押す。1〜4: `Force` `Impulse` `Acceleration` `VelocityChange`、SPACE: かける、V: `SetVelocity`(上書き)、T: `AddTorque`、R: 戻す。Y・Z 固定(3D は重力も切る) | なし(全体の設定を変えない) |
 | P3 RigidbodySettings(2D/3D) | 同じ箱 A(ふつう)と B(設定を変えた物)を、同じ力(`Impulse`+`AddTorque`)で蹴る。1: 質量 / 2: 抵抗 / 3: 重力 / 4: 回転固定 / 5: 位置固定(もう一度で軸を変える)。Aと Bの設定を表示 | なし |
-| P4 Trigger(2D/3D) | 動かせる球を、トリガー(黄色い丸)と箱(青)に近づけて、`OnTriggerEnter/Stay/Exit2D` と `OnCollisionEnter/Stay/Exit2D` の呼ばれた回数を表示(数える役は `TouchCounterController`)。球は `SetVelocity` で動かす(ゆっくり) | なし |
+| P4 Trigger(2D/3D) | 動かせる球を、トリガー(黄色い丸)と箱(青)に近づけて、`OnTriggerEnter/Stay/Exit` と `OnCollisionEnter/Stay/Exit` の呼ばれた回数を表示(数える役は `TouchCounterController`)。球は `SetVelocity` で動かす(ゆっくり) | なし |
 | P5 Query(2D/3D) | Raycast(出発点からマウスへ。当たった物・距離・場所・面の向き)、OverlapSphere / OverlapBox(マウスの周り。見つかった物を光らせる)。4: タグの絞り込み(なし・Target・Decoy)、5: トリガーも探すか(`QueryTriggers`)。調べられる物は動かない(Static) | なし(3Dは `SetOutline` を物に付けるだけ) |
 
 **設計書に案が無く、安全側に決めたこと**:
@@ -719,7 +719,7 @@ Physics の P1〜P5(Collider・Force・RigidbodySettings・Trigger・Query)を�
 - **2D で動く物を出した直後は、`SetVelocity` が消える**: 剛体は最初の `Update` で位置を合わせ直して速さを0にする(Engineの決まり。`justActivated`)。P1 は、2フレーム待ってから速さを入れる(スクラッチのテストで確認)。
 - **P2**: 力の大きさは、軽い箱が「加速度1500 / 速さ350」になる値を、2つの箱に同じ値で渡す(`Force`・`Impulse` は質量をかけた値)。箱は Y・Z を固定し、重力を切る(3D版も。力の違いだけを見せるため)。空気抵抗 0.6 で、押すのをやめるとだんだん止まる。`AddTorque` は、軽い箱が約6rad/sで回る大きさを、2つに同じ値で渡す(重い箱は約0.4)。
 - **P3**: 設計書の「1〜5: 設定を切替」は、「Bに変える設定を選ぶ」にした(Aはいつも既定)。2D は重力が無い世界なので、重力の比べ方は「Bだけ重力を入れる」、3D は「Bだけ重力を切る」。蹴る速さは、2D=400、3D=800(3D は地面の摩擦で止まるため)。位置固定は、2D は X・Y、3D は X・Y・Z(もう一度5で切り替え)。
-- **P4**: 球の速さを 180 にした。速く(約200以上)押し付けると、PhysX の跳ね返り(`bounceThreshold` 約196)で `OnCollisionEnter` が何回も呼ばれるため。2D・3D とも `OnTriggerEnter2D` のように **Engine の名前は `○○2D`**。球は Dynamic(Kinematic にすると、静止した箱との当たりが検出されない。下の「Engineに無いもの」)。Collision の `Stay` は、動いている間だけ数える(止まって眠ると呼ばれない)。
+- **P4**: 球の速さを 180 にした。速く(約200以上)押し付けると、PhysX の跳ね返り(`bounceThreshold` 約196)で `OnCollisionEnter` が何回も呼ばれるため。2D・3D とも `OnTriggerEnter` のように **Engine の名前は `○○`(旧 `○○2D`)**。球は Dynamic(Kinematic にすると、静止した箱との当たりが検出されない。下の「Engineに無いもの」)。Collision の `Stay` は、動いている間だけ数える(止まって眠ると呼ばれない)。
 - **トリガーの見た目**: 半透明の黄色(濃さ0.6。最初は0.4・0.35で、暗い背景では見えなかったため上げた。球が中にいる間は0.95)。2D は box.png の黄色い丸の1コマ、3D は黄色い半透明の球。箱は青(2D は button.png、3D は青い箱)で、トリガー=黄色・すり抜ける、箱=青・ぶつかるが2D/3Dで揃う。
 - **P5**: 3D の線・範囲は、物の真ん中の高さ(y=0)の水平な面を、マウスの下に見つけて使う。3D でタグを指定しないと、地面(`DemoGround`)も見つかる(教材として残した)。2D の Overlap の箱は、奥行きを100にした(物の厚みより大きく)。
 - **画面の配置(1280x720で確認)**: 状態の板は説明の板の下(左上)。2D のデモは、板と重ならないように、壁の高さ・物の高さを決めた(例: P1 は壁で囲んだ範囲を画面の右側 x=40〜610 にした)。3D は、見る点を高くして、物が板の下に映るようにした。

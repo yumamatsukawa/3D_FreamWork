@@ -28,7 +28,7 @@ private:
 public:
     void Init() override;
     void Update(float dt) override;
-    void OnCollisionStay2D(CollisionInfo info) override;
+    void OnCollisionStay(CollisionInfo info) override;
 
     // HUDなどが表示に使う
     int GetHp() const { return hp; }

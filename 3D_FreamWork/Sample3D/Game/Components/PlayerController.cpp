@@ -90,14 +90,14 @@ void PlayerController::Update(float dt) {
     }
 }
 
-void PlayerController::OnCollisionStay2D(CollisionInfo info) {
+void PlayerController::OnCollisionStay(CollisionInfo info) {
     if (info.other->GetTag() == "Enemy") {
         touchingEnemy = true;
 
         MeshRenderer* renderer = GetOwner()->GetComponent<MeshRenderer>();
         if (renderer) renderer->SetColor(1.0f, 1.0f, 0.0f, 1.0f);
 
-        // OnCollisionStay2Dは接触中ずっと毎フレーム呼ばれるので、無敵時間で連続ダメージを防ぐ
+        // OnCollisionStayは接触中ずっと毎フレーム呼ばれるので、無敵時間で連続ダメージを防ぐ
         if (hp <= 0 || !invincibleTimer.IsFinished()) return;
         hp--;
         invincibleTimer.Reset();

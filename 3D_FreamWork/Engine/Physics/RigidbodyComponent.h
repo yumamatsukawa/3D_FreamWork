@@ -26,7 +26,7 @@ enum class BodyType {
 //
 // Dynamicの時はPhysXの計算結果をTransformへ、Kinematicの時はTransformの値をPhysXへ反映する
 //
-// 当たり判定のコールバック(OnTriggerEnter2D/OnCollisionEnter2Dなど)も、このComponentが
+// 当たり判定のコールバック(OnTriggerEnter/OnCollisionEnterなど)も、このComponentが
 // 内部に持つCollider2Dを介して呼ばれる
 //
 // 形状ごとの違いは[ BoxRigidbodyComponent / SphereRigidbodyComponent ]が担う
@@ -97,13 +97,13 @@ public:
     // ロックした軸(SetFreezePositionX/Y/Z・SetFreezeRotation)の向きの力は0になる(力をかけてもその向きには動かない)
 
     // 力を加える。例: rigidbody->AddForce(away * 600.f, ForceMode::VelocityChange);
-    // OnCollisionStay2DなどPhysXのコールバックの中で呼んでもよい(その場合はPhysXの計算の直後にまとめて加わる)
+    // OnCollisionStayなどPhysXのコールバックの中で呼んでもよい(その場合はPhysXの計算の直後にまとめて加わる)
     void AddForce(DirectX::XMFLOAT3 force, ForceMode mode = ForceMode::Force);
     // 回す力を加える(SetFreezeRotation(true)の時は回らない)。コールバックの中で呼んでもよい
     void AddTorque(DirectX::XMFLOAT3 torque, ForceMode mode = ForceMode::Force);
 
     // 重さを変える(作った時は「密度×体積」で自動計算されている)。0以下は無視する。
-    // ※PhysXのコールバック(OnCollisionStay2Dなど)の中からは呼ばない(Init/Updateで呼ぶ)
+    // ※PhysXのコールバック(OnCollisionStayなど)の中からは呼ばない(Init/Updateで呼ぶ)
     void SetMass(float mass);
     // 今の重さ(Static・作成失敗の時は0)。Impulseの強さを「速さ×重さ」で決める時などに使う
     float GetMass() const;
@@ -126,7 +126,7 @@ private:
 // --------------------------- 引数 ----------------------------------
 // size            : サイズ。質量の計算にも使われる。規定ならOwnerのtransform.scaleになる。
 // density         : 密度(質量 = 密度×体積として自動計算される)。1.0fが規定。Dynamic以外では無視される
-// isTrigger       : trueだと、すり抜ける当たり判定(OnTriggerEnter2D等)になる
+// isTrigger       : trueだと、すり抜ける当たり判定(OnTriggerEnter等)になる
 // isStaticForPush : trueだと、Kinematic同士がぶつかった時に「押し戻されない」側になる
 class BoxRigidbodyComponent : public RigidbodyComponent {
 private:
@@ -144,7 +144,7 @@ public:
 // --------------------------- 引数 ----------------------------------
 // radius          : 半径。既定ならOwnerのtransform.scale.xの半分を使う
 // density         : 密度(質量 = 密度×体積として自動計算される)。1.0fが規定。Dynamic以外では無視される
-// isTrigger       : trueだと、すり抜ける当たり判定(OnTriggerEnter2D等)になる
+// isTrigger       : trueだと、すり抜ける当たり判定(OnTriggerEnter等)になる
 // isStaticForPush : trueだと、Kinematic同士がぶつかった時に「押し戻されない」側になる
 class SphereRigidbodyComponent : public RigidbodyComponent {
 private:
@@ -163,7 +163,7 @@ public:
 // --------------------------- 引数 ----------------------------------
 // radius          : 半径。既定ならOwnerのtransform.scale.xの半分を使う
 // density         : 密度(質量 = 密度×体積として自動計算される)。1.0fが規定。Dynamic以外では無視される
-// isTrigger       : trueだと、すり抜ける当たり判定(OnTriggerEnter2D等)になる
+// isTrigger       : trueだと、すり抜ける当たり判定(OnTriggerEnter等)になる
 // isStaticForPush : trueだと、Kinematic同士がぶつかった時に「押し戻されない」側になる
 class CircleRigidbodyComponent : public RigidbodyComponent {
 private:
@@ -184,7 +184,7 @@ public:
 // --------------------------- 引数 ----------------------------------
 // size            : 一辺の長さ。既定(0)ならOwnerのtransform.scale.xを使う(奥行きも同じ長さになる)
 // density         : 密度(質量 = 密度×体積として自動計算される)。1.0fが規定。Dynamic以外では無視される
-// isTrigger       : trueだと、すり抜ける当たり判定(OnTriggerEnter2D等)になる
+// isTrigger       : trueだと、すり抜ける当たり判定(OnTriggerEnter等)になる
 // isStaticForPush : trueだと、Kinematic同士がぶつかった時に「押し戻されない」側になる
 class SquareRigidbodyComponent : public RigidbodyComponent {
 private:
@@ -206,7 +206,7 @@ public:
 // height          : 全体の高さ(両端の半球を含む。Unityと同じ)。既定(0)ならOwnerのtransform.scale.yを使う。
 //                   2×半径より小さい時は、(PhysXは円柱部分が0だと無効な形のため)ほぼ球になる値にする
 // density         : 密度(質量 = 密度×体積として自動計算される)。1.0fが規定。Dynamic以外では無視される
-// isTrigger       : trueだと、すり抜ける当たり判定(OnTriggerEnter2D等)になる
+// isTrigger       : trueだと、すり抜ける当たり判定(OnTriggerEnter等)になる
 // isStaticForPush : trueだと、Kinematic同士がぶつかった時に「押し戻されない」側になる
 // axis            : 長い向き(X/Y/Z)。既定はY(立った形)
 class CapsuleRigidbodyComponent : public RigidbodyComponent {

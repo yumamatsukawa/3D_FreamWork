@@ -14,5 +14,5 @@ public:
         pool = ownerPool;
     }
 
-    void OnTriggerEnter2D(Collider2D* other) override;
+    void OnTriggerEnter(Collider2D* other) override;
 };

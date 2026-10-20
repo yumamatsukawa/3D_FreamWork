@@ -15,7 +15,7 @@ void BulletController::Update(float dt) {
     }
 }
 
-void BulletController::OnTriggerEnter2D(Collider2D* other) {
+void BulletController::OnTriggerEnter(Collider2D* other) {
     // 敵に当たったら消える(プールに返す)
     if (other->GetTag() == "Enemy" && pool) {
         pool->Return(GetOwner());

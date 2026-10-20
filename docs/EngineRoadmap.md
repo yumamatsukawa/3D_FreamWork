@@ -486,12 +486,12 @@ chase->SetSpeed(60.f);
 >
 > 設計から変えた・足した所:
 > - `enum class QueryTriggers { Ignore, Include }` を `Physics.h` に足した。最初は `bool includeTriggers = false` にしたが、呼ぶ側で `..., "Item", true)` と書くと `true` が何の意味か読めないので、名前で分かる `enum class` に変えた(`ForceMode` と同じ形)
-> - トリガー同士が重なっても `OnTriggerEnter2D` / `OnTriggerExit2D` は呼ばれない(PhysX 4.1の仕様。`PxShape.h` / `PxSimulationEventCallback.h` に記載。Unityとは違う)。トリガー同士の重なりを知りたい時は、範囲の側が `Physics::OverlapBox(..., "Bullet", QueryTriggers::Include)` などで自分から探す(README「当たり判定」の注意に記載)
+> - トリガー同士が重なっても `OnTriggerEnter` / `OnTriggerExit` は呼ばれない(PhysX 4.1の仕様。`PxShape.h` / `PxSimulationEventCallback.h` に記載。Unityとは違う)。トリガー同士の重なりを知りたい時は、範囲の側が `Physics::OverlapBox(..., "Bullet", QueryTriggers::Include)` などで自分から探す(README「当たり判定」の注意に記載)
 > - `RaycastHit` と `ForceMode` は `Physics.h` に置いた(`RigidbodyComponent.h` は `Physics.h` を読み込む)
 > - 当たったアクターから `GameObject*` を取り出す方法は、当たり判定のコールバックと同じ(`actor->userData` の `Collider2D` の `owner`)。探す物はPhysXの `PxQueryFilterCallback`(preFilter)で選ぶ: タグ・トリガー・**非アクティブ/Destroy済み**(`SetActive(false)` したアクターがシーンから外れるのは次の `Physics::Update()` なので、その間も返さないように `GameObject` の状態で確かめる)。シーンから外れたアクターはPhysXが探さない
 > - `Raycast` は、始点が中に入っている物には当たらない(PhysXは「距離0で当たった」と返すので、postFilterで外す。Unityと同じ。自分の中心から線を飛ばしても自分に当たらない)。`direction` は中で長さ1にする(長さ0・`maxDistance <= 0` ならfalse)。tag指定時は、そのタグの物のうち一番近い物を返す
 > - `OverlapSphere` / `OverlapBox` は、見つかった数に上限が無い(64件ずつ受け取ってvectorに集める)。同じGameObjectは1回だけ入る。半径・大きさが0以下なら空。箱は回転しない
-> - **`AddForce` / `AddTorque` は、PhysXのコールバックの中(`OnCollisionStay2D` など)で呼んでもよい**。PhysXはコールバックの中でのSDKへの書き込みを禁止している(`PxSimulationEventCallback` の注意書き)ので、`fetchResults()` の途中で呼ばれた時は `Physics` が預かり、`fetchResults()` とシーンへの追加/削除の予約が終わった直後に加える(Engine内部用 `Physics::ApplyForce`)。`CancelQueuedSceneChange` は預かった力も取り消す
+> - **`AddForce` / `AddTorque` は、PhysXのコールバックの中(`OnCollisionStay` など)で呼んでもよい**。PhysXはコールバックの中でのSDKへの書き込みを禁止している(`PxSimulationEventCallback` の注意書き)ので、`fetchResults()` の途中で呼ばれた時は `Physics` が預かり、`fetchResults()` とシーンへの追加/削除の予約が終わった直後に加える(Engine内部用 `Physics::ApplyForce`)。`CancelQueuedSceneChange` は預かった力も取り消す
 > - ロックした軸(`SetFreezePositionX/Y/Z`・`SetFreezeRotation`)の向きの成分は、加える前に0にする(PhysXに任せず、確実にその向きへ動かないように)
 > - Dynamic以外で呼ばれた時の「効きません」の表示は、Componentごとに1回だけ(毎フレーム呼ばれても出力ウィンドウが埋まらないように)。非アクティブ(シーンに入っていない)間の `AddForce` は何もしない
 > - `SetMass` は `PxRigidBodyExt::setMassAndUpdateInertia`(回りにくさも計算し直す)。0以下は無視。`SetDrag` は `setLinearDamping`(負の値は0)。この2つはコールバックの中からは呼ばない(コメントに注意書き)
@@ -540,11 +540,11 @@ void SetDrag(float drag);                                            // 空気�
 - PhysXの `PxForceMode` がUnityと同じ4種類なので、そのまま対応させます。
 - 当たったPhysXの形から `GameObject*` を取り出す方法は、今の当たり判定のコールバックと同じ仕組み(`Physics.cpp`)を使います。
 - トリガー(弾など、すり抜ける当たり判定)を `Raycast` / `Overlap` の対象に含めるかは未決定(含めるかを選ぶ引数を足す案がある)。
-- `OnTriggerEnter2D` などのコールバックの中から呼んでも、読むだけなので安全です。
+- `OnTriggerEnter` などのコールバックの中から呼んでも、読むだけなので安全です。
 
 **置き換えるSampleのコード(使用例)**:
 ```cpp
-// Sample2D PlayerController::OnCollisionStay2D: 敵に当たったら後ろに弾かれる
+// Sample2D PlayerController::OnCollisionStay: 敵に当たったら後ろに弾かれる
 XMFLOAT3 away = Math::DirectionTo(info.other->owner->transform.position, t.position);
 rigidbody->AddForce(away * 500.f, ForceMode::Impulse);
 ```
@@ -675,7 +675,7 @@ namespace ScreenEffect {
 
 **置き換えるSampleのコード(使用例)**:
 ```cpp
-// PlayerController::OnCollisionStay2D: ダメージを受けた時
+// PlayerController::OnCollisionStay: ダメージを受けた時
 ScreenEffect::Vignette({ 1.f, 0.f, 0.f, 0.6f }, 0.5f, 2);
 
 // StartButtonを押した時: 暗転してからシーンを切り替える
@@ -853,7 +853,7 @@ gauge->SetFollowTarget(player, { 0.f, 70.f });
 > - **TextRenderer**: `SetText` / `SetStyle` / `SetOffset` / `SetUse3DCamera` に加えて、`GetText` / `GetStyle` / `SetColor`(色だけ変える。消えていく演出用)を足した。2Dは `GetWorldTransform().position`(SpriteRendererと同じ)+offset を `WorldToScreen2D`、3Dは `GetWorldMatrix()` の位置+offset を `WorldToScreen3D` で画面座標にし、z<=0(カメラの後ろ)なら描かない。文字の大きさは距離で変えない
 > - **今までの `Text::Draw(text, x, y, size, color, fontName)`**: 中で `TextStyle`(中心・縁取り無し・太字無し)に直して新しい `Draw` を呼ぶ。描き方(レイアウトの原点、`ja-jp`、普通の太さ)は今までと同じなので見た目も同じ(スクラッチのテストで、置き換え前の `Text::Draw` の処理と、今の書き方で描いた画面を比べ、ピクセルが1つも違わないことを確認。HUD・タイトル・半透明の文字など)
 > - Sample: 両サンプルの `HUDController` に `Init()` を足して `LoadFont`(返った名前をメンバ `fontName` に)。Score / High Score / HP は左寄せ+黒い縁取り(x=-560 などの値はそのまま。5.10 の `Anchor` で置き換える)。GAME OVER と「press SPACE ...」も同じフォント・黒い縁取り(中央寄せ)。`TitleController` も `Init()` で `LoadFont` して、タイトル文字をNoto Sans JPで描く(大きさ100、縁取り無し)
-> - Sample2D: `CreateScorePopup(Scene&, XMFLOAT3 position)` は、`TextRenderer`(「+10」、黄色・太字・黒い縁取り、大きさ32)と `TweenComponent`(`MoveTo` で0.8秒かけて60上へ、`TweenValue` で文字の濃さを1→0、その `SetOnComplete` で `Destroy`)を付けたオブジェクトを作る。`EnemyController::OnTriggerEnter2D` で、プールに返す前に今の位置で呼ぶ
+> - Sample2D: `CreateScorePopup(Scene&, XMFLOAT3 position)` は、`TextRenderer`(「+10」、黄色・太字・黒い縁取り、大きさ32)と `TweenComponent`(`MoveTo` で0.8秒かけて60上へ、`TweenValue` で文字の濃さを1→0、その `SetOnComplete` で `Destroy`)を付けたオブジェクトを作る。`EnemyController::OnTriggerEnter` で、プールに返す前に今の位置で呼ぶ
 > - **設計から変えた所**: なし(関数は設計どおり。足した物は上の `outlineWidth` と TextRenderer のゲッター・`SetColor`)
 
 **目的**: 文字の左寄せ・縁取り・自前のフォントを使えるようにする。オブジェクトに付いて動く文字(ダメージの数字など)を出せるようにする。
@@ -1116,7 +1116,7 @@ float speed = table.GetFloat(row, "Speed", 60.f);
 
 **目的**: 爆発・煙・火花などを、たくさんの小さな粒で表現する。
 
-> **実装済み**: `Engine/Render/ParticleRenderer.h/.cpp`(`ParticleSettings` + `ParticleRenderer`)、`Engine/Render/Effect.h/.cpp`(`CreateEffect`)、`Assets/particle.png`。下の「対象」のSampleのコード(両サンプルの「敵を倒した時」)も置き換え済み(`Game/Objects/Explosion.h/.cpp` の `CreateExplosion` を `EnemyController::OnTriggerEnter2D` から呼ぶ)。使い方は `README.md` の「26. パーティクル」を参照。
+> **実装済み**: `Engine/Render/ParticleRenderer.h/.cpp`(`ParticleSettings` + `ParticleRenderer`)、`Engine/Render/Effect.h/.cpp`(`CreateEffect`)、`Assets/particle.png`。下の「対象」のSampleのコード(両サンプルの「敵を倒した時」)も置き換え済み(`Game/Objects/Explosion.h/.cpp` の `CreateExplosion` を `EnemyController::OnTriggerEnter` から呼ぶ)。使い方は `README.md` の「26. パーティクル」を参照。
 >
 > **変えたEngineのファイル**: 新規 `ParticleRenderer.h/.cpp`・`Effect.h/.cpp`、既存の `Sprite.h/.cpp`(重ね方 `BlendMode` と、加算合成・ふわっとした合成のブレンド状態、深度を書かない状態を追加)・`Image.h/.cpp`(`Draw` に `blend`・`depthWrite` の引数を追加。既定値は今までと同じ)・`Engine.vcxproj(.filters)`。`Shader*.hlsl` は変えていない
 >
@@ -1170,7 +1170,7 @@ GameObject* CreateEffect(Scene& scene, const ParticleSettings& settings, XMFLOAT
 
 **置き換えるSampleのコード(使用例)**:
 ```cpp
-// EnemyController::OnTriggerEnter2D: 弾に当たった時に爆発
+// EnemyController::OnTriggerEnter: 弾に当たった時に爆発
 ParticleSettings explosion;
 explosion.texture = L"Assets/particle.png";
 explosion.spreadAngle = 360.f;

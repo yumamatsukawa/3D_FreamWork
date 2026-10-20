@@ -6,7 +6,7 @@
 #include "../Objects/ScorePopup.h"
 #include "../Objects/Explosion.h"
 
-void EnemyController::OnTriggerEnter2D(Collider2D* other) {
+void EnemyController::OnTriggerEnter(Collider2D* other) {
     // もう倒されている(プールに返した後)なら何もしない(同じフレームに2発当たっても、倒した知らせは1回だけ)
     if (!GetOwner()->GetIsActive()) return;
 

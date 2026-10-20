@@ -6,7 +6,7 @@
 class GameObject;
 
 // 当たり判定は今はPhysX(RigidbodyComponent)が計算している。
-// このクラスは、Component::OnTriggerEnter2Dなどのコールバックで「誰と当たったか」を
+// このクラスは、Component::OnTriggerEnterなどのコールバックで「誰と当たったか」を
 // 伝えるための軽いハンドルとしてだけ存在する(実際の形状・判定計算は持たない)
 class Collider2D {
 public:

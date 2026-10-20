@@ -24,5 +24,5 @@ public:
     }
 
     void Update(float dt) override;
-    void OnTriggerEnter2D(Collider2D* other) override;
+    void OnTriggerEnter(Collider2D* other) override;
 };

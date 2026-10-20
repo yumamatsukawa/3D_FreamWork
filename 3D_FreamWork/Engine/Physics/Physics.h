@@ -53,7 +53,7 @@ namespace Physics {
     physx::PxCooking* GetCooking();
 
     // アクターをシーンに追加/削除したいことを予約する。
-    // OnTriggerEnter2D/OnCollisionEnter2Dなど、PhysXのシミュレーションコールバックの中(または
+    // OnTriggerEnter/OnCollisionEnterなど、PhysXのシミュレーションコールバックの中(または
     // そこから呼ばれる処理)からは、addActor/removeActorを直接呼んではいけない
     // (PhysXが「コールバック中のAPI書き込み禁止」という制約を持っているため)。
     // 代わりにこれを呼んでおくと、次のUpdate()のfetchResults()が終わった直後、
@@ -67,9 +67,9 @@ namespace Physics {
     // (SetActive(false)でプールに戻った直後にシーンが切り替わる、などの場合に起こりうる)
     void CancelQueuedSceneChange(physx::PxRigidActor* actor);
 
-    // actorが入っている「トリガーに重なっている組み合わせ」(OnTriggerStay2Dを毎フレーム呼ぶために覚えている物)を忘れる。
+    // actorが入っている「トリガーに重なっている組み合わせ」(OnTriggerStayを毎フレーム呼ぶために覚えている物)を忘れる。
     // RigidbodyComponentが、SetActive(false)でシーンから外す時と、actor->release()する直前に必ず呼ぶこと。
-    // 呼ばずに解放すると、次のUpdate()でOnTriggerStay2Dを呼ぶ時に、解放済みのアクターへアクセスしてクラッシュする
+    // 呼ばずに解放すると、次のUpdate()でOnTriggerStayを呼ぶ時に、解放済みのアクターへアクセスしてクラッシュする
     void ForgetTriggerPairs(physx::PxRigidActor* actor);
 
     // ─── 問い合わせ(「この線の先に何があるか」「この範囲に何がいるか」) ─────────────
@@ -80,7 +80,7 @@ namespace Physics {
     // - 非アクティブ(ObjectPoolに戻った)・Destroy済みのオブジェクトは返さない
     // - 位置は、最後にPhysXが計算した時(このフレームの始め)のもの。このフレームにtransformを
     //   動かしたKinematicや、出したばかりのオブジェクトは、次のフレームから見つかる
-    // - 読むだけなので、OnTriggerEnter2DなどPhysXのコールバックの中から呼んでもよい
+    // - 読むだけなので、OnTriggerEnterなどPhysXのコールバックの中から呼んでもよい
 
     // originからdirectionの向きへ最大maxDistanceまで線を飛ばし、最初に当たった物をhitに入れる。
     // 当たればtrue。directionは長さ1でなくてもよい(中で長さ1にする。長さ0ならfalse)。
@@ -97,7 +97,7 @@ namespace Physics {
         const std::string& tag = "", QueryTriggers triggers = QueryTriggers::Ignore);
 
     // ─── Engine内部用(RigidbodyComponent::AddForce / AddTorque だけが使う) ─────────────
-    // actor(Dynamic)に力・回す力を加える。PhysXのコールバックの中(OnCollisionStay2Dなど)で呼ばれた時は、
+    // actor(Dynamic)に力・回す力を加える。PhysXのコールバックの中(OnCollisionStayなど)で呼ばれた時は、
     // その場で加えずに預かり、fetchResults()が終わった直後にまとめて加える(コールバック中の書き込み禁止のため)
     void ApplyForce(physx::PxRigidActor* actor, DirectX::XMFLOAT3 value, ForceMode mode, bool torque);
 }

@@ -29,14 +29,14 @@ public:
     // 反応したいComponent(例: PlayerController)だけがoverrideすればよい。
 
     // すり抜ける当たり判定
-    virtual void OnTriggerEnter2D(Collider2D* other) {}    // あたった瞬間
-    virtual void OnTriggerStay2D(Collider2D* other) {}     // あたっている間
-    virtual void OnTriggerExit2D(Collider2D* other) {}     // 離れた瞬間
+    virtual void OnTriggerEnter(Collider2D* other) {}    // あたった瞬間
+    virtual void OnTriggerStay(Collider2D* other) {}     // あたっている間
+    virtual void OnTriggerExit(Collider2D* other) {}     // 離れた瞬間
 
     // すり抜けない当たり判定
-    virtual void OnCollisionEnter2D(CollisionInfo info) {} // あたった瞬間
-    virtual void OnCollisionStay2D(CollisionInfo info) {}  // あたっている間
-    virtual void OnCollisionExit2D(CollisionInfo info) {}  // 離れた瞬間
+    virtual void OnCollisionEnter(CollisionInfo info) {} // あたった瞬間
+    virtual void OnCollisionStay(CollisionInfo info) {}  // あたっている間
+    virtual void OnCollisionExit(CollisionInfo info) {}  // 離れた瞬間
 
     void SetOwner(GameObject* go) { owner = go; }  // GameObjectを設定
     GameObject* GetOwner() const { return owner; } // GameObjectを返す

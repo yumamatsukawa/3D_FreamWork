@@ -288,7 +288,7 @@ void RigidbodyComponent::Uninit() {
         //   残っていることがある。先にそれを取り消してからでないと、次のPhysics::Update()で
         //   既に解放済み(もう存在しない)アクターへアクセスしてクラッシュする
         Physics::CancelQueuedSceneChange(actor);
-        Physics::ForgetTriggerPairs(actor);   // 同じ理由で、OnTriggerStay2D用に覚えている組み合わせも忘れる
+        Physics::ForgetTriggerPairs(actor);   // 同じ理由で、OnTriggerStay用に覚えている組み合わせも忘れる
         actor->release();
         actor = nullptr;
     }
@@ -296,7 +296,7 @@ void RigidbodyComponent::Uninit() {
 
 void RigidbodyComponent::OnActiveChanged(bool active) {
     if (!actor) return;
-    // ★ OnTriggerEnter2D/OnCollisionEnter2D経由(PhysXのコールバックの中)から呼ばれる
+    // ★ OnTriggerEnter/OnCollisionEnter経由(PhysXのコールバックの中)から呼ばれる
     //   可能性があるため、addActor/removeActorを直接呼ばずQueueSceneChangeで予約する
     if (active) {
         if (!inScene) {
@@ -306,8 +306,8 @@ void RigidbodyComponent::OnActiveChanged(bool active) {
         justActivated = true;
     }
     else {
-        // プールに戻ったら、トリガーに重なっている組み合わせを忘れる(OnTriggerStay2Dを止める。
-        // また使われた時は、重なっていればOnTriggerEnter2Dからやり直しになる)
+        // プールに戻ったら、トリガーに重なっている組み合わせを忘れる(OnTriggerStayを止める。
+        // また使われた時は、重なっていればOnTriggerEnterからやり直しになる)
         Physics::ForgetTriggerPairs(actor);
         if (inScene) {
             Physics::QueueSceneChange(actor, false);

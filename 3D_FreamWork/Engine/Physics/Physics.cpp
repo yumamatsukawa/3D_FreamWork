@@ -13,7 +13,7 @@ using namespace physx;
 namespace {
     // ★ PhysXの既定フィルターシェーダーは、パフォーマンスのためキネマティック同士・
     //   キネマティックと静的物体同士の接触を検出しないことがある。このゲームは
-    //   Player/Enemyのようなキネマティックなオブジェクト同士の当たり判定(OnCollisionEnter2D等)
+    //   Player/Enemyのようなキネマティックなオブジェクト同士の当たり判定(OnCollisionEnter等)
     //   を必要とするため、全てのペアで接触/トリガー通知を要求する専用のシェーダーを使う
     PxFilterFlags CollisionFilterShader(
         PxFilterObjectAttributes attributes0, PxFilterData filterData0,
@@ -49,9 +49,9 @@ namespace {
         return dynamic && !(dynamic->getRigidBodyFlags() & PxRigidBodyFlag::eKINEMATIC);
     }
 
-    // ─── トリガーの「重なっている間」(OnTriggerStay2D) ─────────────
+    // ─── トリガーの「重なっている間」(OnTriggerStay) ─────────────
     // ★ PhysX 4.1はトリガーの「重なっている間」の通知を出さないので、Enterで組み合わせを覚えて、
-    //   Exitで忘れ、Physics::Update()の最後に、覚えている組み合わせへ毎回OnTriggerStay2Dを呼ぶ
+    //   Exitで忘れ、Physics::Update()の最後に、覚えている組み合わせへ毎回OnTriggerStayを呼ぶ
 
     // トリガーに重なっている組み合わせ1つ分
     struct TriggerPair {
@@ -80,7 +80,7 @@ namespace {
         gTriggerPairs.push_back({ triggerActor, otherActor, gStepCount });
     }
 
-    // OnTriggerStay2Dを呼んでよいか: まだ覚えていて、両方とも動いているオブジェクトか
+    // OnTriggerStayを呼んでよいか: まだ覚えていて、両方とも動いているオブジェクトか
     bool CanCallTriggerStay(const TriggerPair& pair) {
         if (FindTriggerPair(pair.triggerActor, pair.otherActor) == gTriggerPairs.end()) return false;
         Collider2D* colTrigger = static_cast<Collider2D*>(pair.triggerActor->userData);
@@ -88,7 +88,7 @@ namespace {
         return colTrigger && colOther && IsWorkingObject(colTrigger->owner) && IsWorkingObject(colOther->owner);
     }
 
-    // 覚えている組み合わせすべてに、OnTriggerStay2Dを両方向で呼ぶ
+    // 覚えている組み合わせすべてに、OnTriggerStayを両方向で呼ぶ
     void CallTriggerStay() {
         // ★ コールバックの中でプールに戻す・Destroy・SetActive・新しいオブジェクトを作るなどで
         //   一覧が変わっても壊れないように、コピーを回す。呼ぶ前に毎回「まだ覚えているか」を確かめる
@@ -99,15 +99,15 @@ namespace {
             if (!CanCallTriggerStay(pair)) continue;
             Collider2D* colTrigger = static_cast<Collider2D*>(pair.triggerActor->userData);
             Collider2D* colOther = static_cast<Collider2D*>(pair.otherActor->userData);
-            colTrigger->owner->OnTriggerStay2D(colOther);
+            colTrigger->owner->OnTriggerStay(colOther);
 
             // 1つ目のコールバックで、どちらかをプールに戻した・Destroyした時は、もう片方には呼ばない
             if (!CanCallTriggerStay(pair)) continue;
-            colOther->owner->OnTriggerStay2D(colTrigger);
+            colOther->owner->OnTriggerStay(colTrigger);
         }
     }
 
-    // PhysXのシミュレーション結果を、GameObjectのOnTriggerEnter2D/OnCollisionEnter2Dなどの
+    // PhysXのシミュレーション結果を、GameObjectのOnTriggerEnter/OnCollisionEnterなどの
     // コールバックへ変換して届ける。旧・自作2D当たり判定システム(Collider.cpp)が担っていた役割。
     class SimulationEventCallback : public PxSimulationEventCallback {
     public:
@@ -171,16 +171,16 @@ namespace {
                 }
 
                 if (pair.events & PxPairFlag::eNOTIFY_TOUCH_FOUND) {
-                    colA->owner->OnCollisionEnter2D(infoA);
-                    colB->owner->OnCollisionEnter2D(infoB);
+                    colA->owner->OnCollisionEnter(infoA);
+                    colB->owner->OnCollisionEnter(infoB);
                 }
                 else if (pair.events & PxPairFlag::eNOTIFY_TOUCH_PERSISTS) {
-                    colA->owner->OnCollisionStay2D(infoA);
-                    colB->owner->OnCollisionStay2D(infoB);
+                    colA->owner->OnCollisionStay(infoA);
+                    colB->owner->OnCollisionStay(infoB);
                 }
                 else if (pair.events & PxPairFlag::eNOTIFY_TOUCH_LOST) {
-                    colA->owner->OnCollisionExit2D(infoA);
-                    colB->owner->OnCollisionExit2D(infoB);
+                    colA->owner->OnCollisionExit(infoA);
+                    colB->owner->OnCollisionExit(infoB);
                 }
             }
         }
@@ -207,14 +207,14 @@ namespace {
                     if (IsWorkingObject(colTrigger->owner) && IsWorkingObject(colOther->owner)) {
                         RememberTriggerPair(pair.triggerActor, pair.otherActor);
                     }
-                    colTrigger->owner->OnTriggerEnter2D(colOther);
-                    colOther->owner->OnTriggerEnter2D(colTrigger);
+                    colTrigger->owner->OnTriggerEnter(colOther);
+                    colOther->owner->OnTriggerEnter(colTrigger);
                 }
                 else if (pair.status & PxPairFlag::eNOTIFY_TOUCH_LOST) {
                     auto found = FindTriggerPair(pair.triggerActor, pair.otherActor);
                     if (found != gTriggerPairs.end()) gTriggerPairs.erase(found);
-                    colTrigger->owner->OnTriggerExit2D(colOther);
-                    colOther->owner->OnTriggerExit2D(colTrigger);
+                    colTrigger->owner->OnTriggerExit(colOther);
+                    colOther->owner->OnTriggerExit(colTrigger);
                 }
             }
         }
@@ -371,10 +371,10 @@ namespace Physics {
     }
 
     void Update(float dt) {
-        if (!gScene || dt <= 0.f) return;   // ポーズ中はOnTriggerStay2Dも呼ばない
+        if (!gScene || dt <= 0.f) return;   // ポーズ中はOnTriggerStayも呼ばない
         gStepCount++;
         gScene->simulate(dt);
-        gFetchingResults = true;    // この間にonContact/onTrigger(OnCollisionStay2Dなど)が呼ばれる
+        gFetchingResults = true;    // この間にonContact/onTrigger(OnCollisionStayなど)が呼ばれる
         gScene->fetchResults(true);
         gFetchingResults = false;
 
@@ -399,7 +399,7 @@ namespace Physics {
         }
         gPendingForces.clear();
 
-        // トリガーに重なっている組み合わせへOnTriggerStay2Dを呼ぶ。
+        // トリガーに重なっている組み合わせへOnTriggerStayを呼ぶ。
         // fetchResults()の外なので、この中で呼ばれたAddForceなどはその場で効く
         CallTriggerStay();
     }

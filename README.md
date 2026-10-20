@@ -6,6 +6,8 @@ DirectX11製の、Unity風のコンポーネント指向ゲームフレームワ
 
 今後のEngine機能追加の計画(関数の設計案・作る順番)は [`docs/EngineRoadmap.md`](docs/EngineRoadmap.md) を参照してください。
 
+Engineの各ファイル・関数・使い方と、設計図(継承図・描画の順番など)の解説(HTML。ブラウザで開く)は [`docs/EngineGuide/index.html`](docs/EngineGuide/index.html) を参照してください。
+
 ---
 
 ## 0. プロジェクト構成
@@ -317,27 +319,27 @@ bullet->AddComponent<CircleRigidbodyComponent>(BodyType::Kinematic, 8.0f, 1.0f, 
 
 ```cpp
 // isTrigger = true の時
-void OnTriggerEnter2D(Collider2D* other) override;  // 入った瞬間
-void OnTriggerStay2D(Collider2D* other) override;   // 入ったフレームの次から、出るまで毎フレーム
-void OnTriggerExit2D(Collider2D* other) override;   // 出た瞬間
+void OnTriggerEnter(Collider2D* other) override;  // 入った瞬間
+void OnTriggerStay(Collider2D* other) override;   // 入ったフレームの次から、出るまで毎フレーム
+void OnTriggerExit(Collider2D* other) override;   // 出た瞬間
 
 // isTrigger = false の時(押し返しも自動で行われる)
-void OnCollisionEnter2D(CollisionInfo info) override;  // info.otherで相手のColliderが取れる
-void OnCollisionStay2D(CollisionInfo info) override;
-void OnCollisionExit2D(CollisionInfo info) override;
+void OnCollisionEnter(CollisionInfo info) override;  // info.otherで相手のColliderが取れる
+void OnCollisionStay(CollisionInfo info) override;
+void OnCollisionExit(CollisionInfo info) override;
 ```
 
 相手のタグは `other->GetTag()` (Trigger) / `info.other->GetTag()` (Collision) で判定します(`Collider2D`は当たり判定の計算自体は持たない、コールバック用の軽いハンドルです)。
 
-**`OnTriggerStay2D` が呼ばれるタイミング**
-- 入ったフレームは `OnTriggerEnter2D` だけで、**次のフレームから**、出る(`OnTriggerExit2D`)まで毎フレーム呼ばれます(Unityと同じ順番)。トリガー側と入ってきた側の両方に呼ばれます
+**`OnTriggerStay` が呼ばれるタイミング**
+- 入ったフレームは `OnTriggerEnter` だけで、**次のフレームから**、出る(`OnTriggerExit`)まで毎フレーム呼ばれます(Unityと同じ順番)。トリガー側と入ってきた側の両方に呼ばれます
 - ポーズ中(`Time::SetTimeScale(0.0f)` で、PhysXの計算が止まっている間)は呼ばれません
-- どちらかが非アクティブ(`ObjectPool` に戻った)・`Destroy()` 済みの間は呼ばれません。プールに戻した物をまた使った時は、重なっていれば `OnTriggerEnter2D` からやり直しになります
-- `OnTriggerStay2D` の中で、相手をプールに戻す・`Destroy()` する・`AddForce` するのは大丈夫です(`AddForce` はその場で効きます)
+- どちらかが非アクティブ(`ObjectPool` に戻った)・`Destroy()` 済みの間は呼ばれません。プールに戻した物をまた使った時は、重なっていれば `OnTriggerEnter` からやり直しになります
+- `OnTriggerStay` の中で、相手をプールに戻す・`Destroy()` する・`AddForce` するのは大丈夫です(`AddForce` はその場で効きます)
 - PhysXはトリガーの「重なっている間」の知らせを出さないので、`Engine/Physics/Physics.cpp` が Enter で組み合わせを覚えて、Exit で忘れ、`Physics::Update()` の最後に毎回呼んでいます
 
 **注意: トリガー同士が重なっても、トリガーのコールバックは呼ばれません**
-- 両方が `isTrigger = true` の物同士が重なっても、`OnTriggerEnter2D` / `OnTriggerStay2D` / `OnTriggerExit2D` は呼ばれません。これはPhysX 4.1の仕様です(`PxShape.h` / `PxSimulationEventCallback.h` に書かれています)。Unityでは、どちらかにRigidbodyがあればトリガー同士でも呼ばれるので、ここはUnityと違います
+- 両方が `isTrigger = true` の物同士が重なっても、`OnTriggerEnter` / `OnTriggerStay` / `OnTriggerExit` は呼ばれません。これはPhysX 4.1の仕様です(`PxShape.h` / `PxSimulationEventCallback.h` に書かれています)。Unityでは、どちらかにRigidbodyがあればトリガー同士でも呼ばれるので、ここはUnityと違います
 - トリガーと普通の当たり判定(`isTrigger = false`)の組み合わせは呼ばれます(今のサンプルの「弾(トリガー)と敵」や、ゴールをトリガーにしてPlayerが触れる場合など)
 - トリガー同士で重なりを知りたい時の対策:
   1. 片方をトリガーにしない(ただし普通の当たり判定は、ぶつかって止まる/押し返す動きになります)
@@ -777,7 +779,7 @@ CameraShake::Shake(6.f, 0.2f);   // 強さ6で0.2秒揺らす
 - `CameraShake::Stop()` で揺れをすぐに止められます(描画の途中で呼ばれても、カメラはちゃんと元の位置に戻ります)。
 - **シーンを切り替えると、揺れは止まります**(前のシーンの揺れが次のシーンに残らない)。止めるのは古いシーンの`Uninit`の後・新しいシーンの`Init`の前なので、新しいシーンの`Init`で`Shake`した揺れは消えません。
 
-**実例**: Sample2Dの`PlayerController::OnCollisionStay2D()`で、敵に当たってダメージを受けた時に揺らしています(強さ・時間は`PlayerController.h`の`damageShakeStrength`/`damageShakeDuration`)。
+**実例**: Sample2Dの`PlayerController::OnCollisionStay()`で、敵に当たってダメージを受けた時に揺らしています(強さ・時間は`PlayerController.h`の`damageShakeStrength`/`damageShakeDuration`)。
 
 ### 座標の変換(ワールド ⇔ 画面)
 
@@ -862,7 +864,7 @@ SceneManager::Get().ChangeScene<GameScene>(FadeTransition());
 - 「終わった時の処理の中で`ChangeScene`する」使い方もできます(ただしシーン切り替えの演出には、§16の方が簡単です)。終わった時の処理は呼ばれた時点で取り出されているので、その後のシーンの切り替えで捨てられることも、二重に呼ばれることもありません。ただし、その中でもう一度「終わった時の処理」付きの`Fade`を始めると、すぐ後のシーンの切り替えで捨てられます(次のシーンで続けたい演出は、次のシーンの`Init`で始めてください)。
 
 **実例**:
-- 両サンプルの`PlayerController::OnCollisionStay2D()`: ダメージを受けた時に`Vignette`(色・時間・回数は`PlayerController.h`の`damageVignetteColor`/`damageVignetteDuration`/`damageVignetteBlinkCount`)
+- 両サンプルの`PlayerController::OnCollisionStay()`: ダメージを受けた時に`Vignette`(色・時間・回数は`PlayerController.h`の`damageVignetteColor`/`damageVignetteDuration`/`damageVignetteBlinkCount`)
 - STARTボタンの暗転・明転は、§16の`FadeTransition`に置き換えました(`ScreenEffect::Fade`はシーン切り替え以外の演出用に残しています)
 
 ---
@@ -1350,7 +1352,7 @@ Demo/Game/Scenes|Objects|Components/   デモ(§38)。カテゴリ別のフォ�
 
 **Sample3Dの実装メモ**: 向きはすべて`transform.rotate.y`(度)で表し、`rotate.y`の時の正面(ローカルの+Z)は`(sin, 0, cos)`の方向になる(`CameraController::GetYaw()`の式と同じ。`Math::Forward3D()`で求められる)。Worldモードの`SpriteRenderer`は`rotate.y`を使わない(ビルボードの向きとZ軸回転だけを使う)ので、敵の画像の向きは`SetBillboardLock(true, false, true)`でカメラの方へ向けている。Playerは`SetFreezeRotation(true)`で、`RigidbodyComponent`は位置しか同期しないため、`PlayerController`が`rotate.y`が変わった時に`GetActor()`の`setGlobalPose`で当たり判定の箱の回転も合わせている(デバッグ表示の枠と実際の判定が同じ向きになる)。一人称の間は、カメラが立方体の内側に入るのでPlayerの`MeshRenderer`と頭上のHPバー(`GaugeRenderer`)を非表示にしている。
 
-**Sample2Dの実装メモ**: `EnemyManager`/`BulletManager`はどちらも`ObjectPool`を使った使い回し方式(実例は`Engine/Core/ObjectPool.h`)。プールで使い回すオブジェクトは`Scene::CreateObject("Pooled")`で名前だけ付けて作られるため、`GameObject::SetTag()`で組み立て時にタグ("Enemy"/"Bullet")を後付けしている。Sample2Dのスプライトは、背景・壁・見張り役・敵・Player・弾が**2Dモード**(`SpriteMode::World2D`)で、**前後はz座標で決まります**(zが小さい=手前)。割り当ては 背景+100 → 壁+20 → 見張り役+10 → 敵+5 → Player 0 → 弾-5 です(背景のタイルは`BackgroundController`が`Image::Draw`の2Dモードで描く)。爆発(2Dの粒)・ボタン(`SpriteRenderer`のUI)は**UI**で、必ず最前面です(HUDの文字・ゲージは`Direct2D`でさらに手前)。zの差は小さい(最大100)ので、物理(Zを固定した`RigidbodyComponent`。厚み100の壁・敵と重なる)・経路探索(`NavGrid`はXY。壁を探す箱はz=0の厚み10で、壁の厚み100に届く)・視野(`VisionComponent`はXY)には影響しません。Sample2Dのコライダーの枠線・見張り役の視野の線(`Mesh`)は、2Dモードのスプライトと同じ2Dの正射影(`Mesh::DrawLines2D`)・深度テストなしで描かれるので、zが違う物でもスプライトの輪郭に重なり、描いた物の上に見えます(UIより手前には出ません)。敵を倒す/Playerがダメージを受ける判定は、それぞれ`EnemyController::OnTriggerEnter2D`(相手のタグが"Bullet")と`PlayerController::OnCollisionStay2D`(相手のタグが"Enemy")が担当する。
+**Sample2Dの実装メモ**: `EnemyManager`/`BulletManager`はどちらも`ObjectPool`を使った使い回し方式(実例は`Engine/Core/ObjectPool.h`)。プールで使い回すオブジェクトは`Scene::CreateObject("Pooled")`で名前だけ付けて作られるため、`GameObject::SetTag()`で組み立て時にタグ("Enemy"/"Bullet")を後付けしている。Sample2Dのスプライトは、背景・壁・見張り役・敵・Player・弾が**2Dモード**(`SpriteMode::World2D`)で、**前後はz座標で決まります**(zが小さい=手前)。割り当ては 背景+100 → 壁+20 → 見張り役+10 → 敵+5 → Player 0 → 弾-5 です(背景のタイルは`BackgroundController`が`Image::Draw`の2Dモードで描く)。爆発(2Dの粒)・ボタン(`SpriteRenderer`のUI)は**UI**で、必ず最前面です(HUDの文字・ゲージは`Direct2D`でさらに手前)。zの差は小さい(最大100)ので、物理(Zを固定した`RigidbodyComponent`。厚み100の壁・敵と重なる)・経路探索(`NavGrid`はXY。壁を探す箱はz=0の厚み10で、壁の厚み100に届く)・視野(`VisionComponent`はXY)には影響しません。Sample2Dのコライダーの枠線・見張り役の視野の線(`Mesh`)は、2Dモードのスプライトと同じ2Dの正射影(`Mesh::DrawLines2D`)・深度テストなしで描かれるので、zが違う物でもスプライトの輪郭に重なり、描いた物の上に見えます(UIより手前には出ません)。敵を倒す/Playerがダメージを受ける判定は、それぞれ`EnemyController::OnTriggerEnter`(相手のタグが"Bullet")と`PlayerController::OnCollisionStay`(相手のタグが"Enemy")が担当する。
 
 役割分担は「値の持ち主は1か所、他は読むだけ」にしている:
 
@@ -1379,18 +1381,18 @@ GameManager/HUD/EnemyManager/BulletManagerのような「見た目の無い管�
 | STARTボタンをぴょこっと出す | `Objects/StartButton.cpp`(`TweenComponent`を付けて`ScaleTo`。§12) |
 | `"FireBullet"`を受けて弾を出す | `BulletManager::Init()` |
 | 表(`Waves.csv`)の時間に敵を出す | `EnemyManager::Update()`(表は`Init()`で読む。§25) |
-| 敵を倒した位置に「+10」を出す(Sample2D) | `EnemyController::OnTriggerEnter2D()`から`CreateScorePopup()`を呼ぶ(動き・消え方は`Objects/ScorePopup.cpp`で付けた`TweenComponent`。§19) |
-| 敵を倒した位置に爆発を出す | `EnemyController::OnTriggerEnter2D()`から`CreateExplosion()`を呼ぶ(両サンプル。粒の設定は各サンプルの`Objects/Explosion.cpp`、粒の動き・描画はEngineの`ParticleRenderer`。§26) |
+| 敵を倒した位置に「+10」を出す(Sample2D) | `EnemyController::OnTriggerEnter()`から`CreateScorePopup()`を呼ぶ(動き・消え方は`Objects/ScorePopup.cpp`で付けた`TweenComponent`。§19) |
+| 敵を倒した位置に爆発を出す | `EnemyController::OnTriggerEnter()`から`CreateExplosion()`を呼ぶ(両サンプル。粒の設定は各サンプルの`Objects/Explosion.cpp`、粒の動き・描画はEngineの`ParticleRenderer`。§26) |
 | FBXモデルの見本を置く、Topパーツのアニメーションを切り替える(Sample3D) | `Objects/ModelDisplay.cpp`(`ModelRenderer`と`ModelAnimationComponent`を付ける)と `ModelDisplayController::Update()`(3秒ごとに`CrossFade`。§27) |
 | 骨で曲げるFBXモデルの見本を置いて "Bend" を再生する(Sample3D) | `Objects/SkinDisplay.cpp`(`ModelRenderer`と`ModelAnimationComponent`を付け、`Play("Bend")`。§27) |
 | 敵がPlayerを追いかける(壁を避ける) | 敵に付けた`PathFollowComponent`(Engine。§36)。相手・速さ・格子は`EnemyManager::Spawn()`が渡す |
 | 敵が壁を避けるための地図(格子)を置く | `Objects/Navigation.cpp`(`NavGridComponent`を付ける。壁は最初のフレームの後に自動で読まれる。Sample3Dは丘の`TerrainRenderer`も渡す。§36)。`GameScene`で壁・丘の後に置く |
 | 敵の歩きアニメーション(Sample3D) | 敵に付けた`SpriteAnimationComponent`(Engine。§17)。クリップの登録と再生は`EnemyManager`の`SetupEnemy` |
-| 敵に当たったら弾かれる(Sample2D) | `PlayerController::OnCollisionStay2D()`(`AddForce`。§23) |
-| 敵に当たったら画面が揺れる(Sample2D) | `PlayerController::OnCollisionStay2D()`(`CameraShake::Shake`。§14) |
-| 敵に当たったら画面の端が赤く点滅する | `PlayerController::OnCollisionStay2D()`(`ScreenEffect::Vignette`。§15) |
+| 敵に当たったら弾かれる(Sample2D) | `PlayerController::OnCollisionStay()`(`AddForce`。§23) |
+| 敵に当たったら画面が揺れる(Sample2D) | `PlayerController::OnCollisionStay()`(`CameraShake::Shake`。§14) |
+| 敵に当たったら画面の端が赤く点滅する | `PlayerController::OnCollisionStay()`(`ScreenEffect::Vignette`。§15) |
 | タイトルのBGM音量スライダー | `Objects/VolumeSlider.cpp`(`SliderComponent`を付け、動かしたら`TitleController::SetVolume()`、離したら`SaveData::Save()`。§20) |
-| 発射音・敵を倒した音 | `BulletManager::Fire()`(`shot.wav`)・`EnemyController::OnTriggerEnter2D()`(`hit.wav`)から`Audio::PlayOneShotAt`(その場所で鳴る。連射しても重なる。§24) |
+| 発射音・敵を倒した音 | `BulletManager::Fire()`(`shot.wav`)・`EnemyController::OnTriggerEnter()`(`hit.wav`)から`Audio::PlayOneShotAt`(その場所で鳴る。連射しても重なる。§24) |
 | 音を聞く位置 | `Objects/Player.cpp`で付けた`AudioListenerComponent`(Engine。Sample3Dは`SetUse3DCamera(true)`も。§24) |
 | 画面左上のHPゲージ | `Objects/HUD.cpp`(`GaugeRenderer`を付け、`SetValueSource`で`PlayerController`のHPを読む。§20) |
 | Playerの頭上のHPバー | `Objects/Player.cpp`(`GaugeRenderer`の`SetFollowTarget`。Sample3Dは`SetUse3DCamera(true)`も。一人称の間は`PlayerController`が隠す。§20) |
@@ -1483,7 +1485,7 @@ BoxRigidbodyComponent(BodyType bodyType, XMFLOAT3 size, float density,
 
 - `bodyType`: 上記3種類
 - サイズ・半径を省略すると、Ownerの`transform.scale`から自動で決まる
-- `isTrigger`: `true`ですり抜ける当たり判定(`OnTriggerEnter2D`)になる。既定`false`(押し返される、`OnCollisionEnter2D`)
+- `isTrigger`: `true`ですり抜ける当たり判定(`OnTriggerEnter`)になる。既定`false`(押し返される、`OnCollisionEnter`)
 - `isStaticForPush`: `true`だと、Kinematic同士がぶつかった時に自分は押し戻されない側になる(Enemyのように、自分は動かず相手だけ押し返したい時に使う。`BodyType::Static`とは別の概念で、Kinematic同士の手動押し戻しにだけ関係する)
 - 実例: Sample3Dの`Game/Objects/Player.cpp`(Dynamic)・`Game/Objects/Ground.cpp`(Static)、Sample2Dの`Game/Components/BulletManager.cpp`(弾=Kinematic)・`Game/Components/EnemyManager.cpp`(敵=Dynamic)・`Game/Objects/Player.cpp`(Dynamic)
 
@@ -1527,7 +1529,7 @@ if (rigidbody) rigidbody->SetVelocity(velocity);
 - `SetVelocity()`/`SetUseGravity()`/`SetFreezeRotation()`/`SetFreezePositionY()`は全て`Kinematic`/`Static`では何もしません(`Dynamic`専用)。PhysXの生のAPIをもっと細かく触りたい時だけ`GetActor()`を使ってください
 - `ObjectPool`で使い回されるオブジェクト(Bulletなど)は、`SetActive()`が呼ばれると`OnActiveChanged()`経由でPhysXのシーンから着脱される。再度有効化された直後は、前回位置からの掃引(スイープ)で誤ったヒット判定が出ないよう、次の`Update()`で`setKinematicTarget()`ではなく直接`setGlobalPose()`でテレポートするようにしている
 
-**重要な注意(ハマりやすいポイント)**: `OnTriggerEnter2D`/`OnCollisionEnter2D`などのコールバックは、PhysXのシミュレーションコールバックの中から呼ばれています。PhysXは「コールバックの中でシーンを書き換えるAPI(`scene->addActor()`/`removeActor()`など)を直接呼んではいけない」という制約を持っているため、これらのコールバック内(や、そこから呼ばれる`ObjectPool::Return()`のような処理)で`SetActive(false)`する場合は要注意です。`RigidbodyComponent`はこれに対応済み(`Physics::QueueSceneChange()`で安全なタイミングまで遅延させている)ですが、**今後もし`OnTriggerEnter2D`などの中から新しくPhysXのシーンを直接触るコードを書く場合は、同じように`Physics::QueueSceneChange()`を使うか、フラグを立てて次のフレームで処理するようにしてください**。直接呼ぶと`Concurrent API write call ... during a callback function are not permitted`というアサーションでクラッシュします。(`RigidbodyComponent::AddForce()`/`AddTorque()`も対応済みで、コールバックの中で呼ばれた時は、PhysXの計算が終わった直後にまとめて加えます。次の節を参照)
+**重要な注意(ハマりやすいポイント)**: `OnTriggerEnter`/`OnCollisionEnter`などのコールバックは、PhysXのシミュレーションコールバックの中から呼ばれています。PhysXは「コールバックの中でシーンを書き換えるAPI(`scene->addActor()`/`removeActor()`など)を直接呼んではいけない」という制約を持っているため、これらのコールバック内(や、そこから呼ばれる`ObjectPool::Return()`のような処理)で`SetActive(false)`する場合は要注意です。`RigidbodyComponent`はこれに対応済み(`Physics::QueueSceneChange()`で安全なタイミングまで遅延させている)ですが、**今後もし`OnTriggerEnter`などの中から新しくPhysXのシーンを直接触るコードを書く場合は、同じように`Physics::QueueSceneChange()`を使うか、フラグを立てて次のフレームで処理するようにしてください**。直接呼ぶと`Concurrent API write call ... during a callback function are not permitted`というアサーションでクラッシュします。(`RigidbodyComponent::AddForce()`/`AddTorque()`も対応済みで、コールバックの中で呼ばれた時は、PhysXの計算が終わった直後にまとめて加えます。次の節を参照)
 
 `GameEngine::Run()`では、`Physics::Update(dt)`を`SceneManager::Get().Update(dt)`より**先に**呼ぶようにしています。逆順にすると、RigidbodyComponentが1フレーム古い物理結果をTransformに反映してしまいます。
 
@@ -1574,7 +1576,7 @@ for (GameObject* item : Physics::OverlapSphere(t.position, 200.f, "Item", QueryT
 - 非アクティブ(`ObjectPool` に戻った)・`Destroy()` 済みのオブジェクトは返しません。
 - `Raycast` は、始点が中に入っている物には当たりません(自分の中心から線を飛ばしても、自分には当たらない。Unityと同じ)。
 - 位置は、最後にPhysXが計算した時(そのフレームの始め)のものです。そのフレームに `transform` を動かしたKinematicや、出したばかりのオブジェクトは、次のフレームから見つかります。
-- 読むだけなので、`OnTriggerEnter2D` などのコールバックの中から呼んでも大丈夫です。
+- 読むだけなので、`OnTriggerEnter` などのコールバックの中から呼んでも大丈夫です。
 
 ```cpp
 // 敵から離れる向きへ、一瞬で速さ600だけ弾く
@@ -1598,11 +1600,11 @@ rigidbody->AddForce(away * 600.f, ForceMode::VelocityChange);
 **力の決まり**:
 - **Dynamicにしか効きません。** Kinematic/Staticでは何もせず、出力ウィンドウに1回だけ「Dynamicではないので効きません」と表示されます。非アクティブ(プールに戻っている)間も何もしません。
 - ロックした軸(`SetFreezePositionX/Y/Z`・`SetFreezeRotation`)の向きの力は0になります(力をかけても、その向きには動かない・回らない)。
-- `AddForce`/`AddTorque` は、`OnCollisionStay2D` などのコールバックの中で呼んでも大丈夫です(PhysXの計算が終わった直後にまとめて加わります)。`SetMass`/`SetDrag` はコールバックの中では呼ばず、`Init`/`Update` で呼んでください。
+- `AddForce`/`AddTorque` は、`OnCollisionStay` などのコールバックの中で呼んでも大丈夫です(PhysXの計算が終わった直後にまとめて加わります)。`SetMass`/`SetDrag` はコールバックの中では呼ばず、`Init`/`Update` で呼んでください。
 - 毎フレーム `SetVelocity()` で速度を上書きしているオブジェクト(Playerなど)は、上書きした時点で力で付いた勢いが消えます。力で動かしている間は `SetVelocity()` を止めてください(下の実例)。
 - `Impulse`/`Force` は重さで割られるので、重いオブジェクトほど動きません。重さに関係なく決まった速さにしたい時は、`VelocityChange`/`Acceleration` を使うか、強さを「速さ × `GetMass()`」にします。
 
-**実例(Sample2Dのノックバック)**: `PlayerController::OnCollisionStay2D` で、敵に当たってダメージを受けた時に、敵から離れる向き(`Math::DirectionTo`、XY平面)へ `AddForce(..., ForceMode::Impulse)` で弾いています。Playerは重い(密度100)ので、強さは「弾かれる速さ(`knockbackSpeed`)× `GetMass()`」にしています。弾かれている0.2秒間(`knockbackTimer`)は、移動キーでの `SetVelocity()` をしないようにして、弾かれた勢いを残しています。
+**実例(Sample2Dのノックバック)**: `PlayerController::OnCollisionStay` で、敵に当たってダメージを受けた時に、敵から離れる向き(`Math::DirectionTo`、XY平面)へ `AddForce(..., ForceMode::Impulse)` で弾いています。Playerは重い(密度100)ので、強さは「弾かれる速さ(`knockbackSpeed`)× `GetMass()`」にしています。弾かれている0.2秒間(`knockbackTimer`)は、移動キーでの `SetVelocity()` をしないようにして、弾かれた勢いを残しています。
 
 ### ワールド単位について
 
@@ -1686,7 +1688,7 @@ Audio::SetGroupVolume(AudioGroup::SE, 1.0f);
 ### Sampleでの使われ方
 
 - 両サンプルの `BulletManager::Fire()` が、弾を出す時に `Audio::PlayOneShotAt(L"Assets/Sounds/shot.wav", position)`。
-- 両サンプルの `EnemyController::OnTriggerEnter2D()` が、敵を倒した時に `hit.wav` を倒された場所で鳴らす。
+- 両サンプルの `EnemyController::OnTriggerEnter()` が、敵を倒した時に `hit.wav` を倒された場所で鳴らす。
 - 両サンプルの `Objects/Player.cpp` に `AudioListenerComponent`(Sample3Dは `SetUse3DCamera(true)` 付き)。
 
 ### 注意
@@ -1902,7 +1904,7 @@ particles->Burst(10);   // Playしているかに関係なく、一度に10個�
 
 ### Sampleでの使われ方
 
-両サンプルの`EnemyController::OnTriggerEnter2D()`が、弾に当たって倒された位置で`CreateExplosion()`(`Game/Objects/Explosion.cpp`。Sample2DとSample3Dに、それぞれ別の設定で置いてある)を呼びます。`CreateExplosion`は、オレンジ色の加算合成の粒を全方向に出す`CreateEffect`+`Burst`です(Sample3Dは`use3D = true`で、重力で少し落ちる)。粒が消えるとエフェクトのオブジェクトは自動で消えます。Sceneには置きません(敵を倒した時に呼びます)。
+両サンプルの`EnemyController::OnTriggerEnter()`が、弾に当たって倒された位置で`CreateExplosion()`(`Game/Objects/Explosion.cpp`。Sample2DとSample3Dに、それぞれ別の設定で置いてある)を呼びます。`CreateExplosion`は、オレンジ色の加算合成の粒を全方向に出す`CreateEffect`+`Burst`です(Sample3Dは`use3D = true`で、重力で少し落ちる)。粒が消えるとエフェクトのオブジェクトは自動で消えます。Sceneには置きません(敵を倒した時に呼びます)。
 
 なお、`EnemyController`の弾に当たった処理の先頭で「もう消えている(`GetIsActive()`がfalse)なら何もしない」を確認しています。同じフレームに2発当たっても、「倒した」の知らせ(`"EnemyDefeated"`)・音・爆発が2回出ないようにするためです。
 
@@ -3241,7 +3243,7 @@ Engineの機能を「見て・触って分かる」ようにした、機能ご�
 | UI | **UI**(共通。`UiDemoScene`) | スライダーを動かすとゲージが変わる。Damage/Healボタンで、減った分が遅れて縮むHPゲージが動く。「Count UP」ボタンで回数が増える(文字は`TextRenderer`)。左右に動く丸には、文字が付いて動く。(画面の9か所の基準 `Anchor` は、下の Rect デモに分けました) | スライダーをドラッグ / ボタンをクリック | `ButtonComponent`、`SliderComponent`、`GaugeRenderer`(`SetValueSource` / `SetDelayedBar`)、`TextRenderer`、`SetAnchor`(§19・§20) |
 | UI | **Rect**(共通。`RectDemoScene`) | 画面の9か所(`Anchor`)に、印(黄色の小さな四角=`GetAnchoredPosition`)と、印に角や辺を合わせた青い四角(`GetAnchoredCenter`)を置く。ドラッグできる大きさの違う3つの四角(`Image::DrawRect`)。画面の大きさ(`Graphics::width` / `height`)も表示する | 下の3つの四角をドラッグして動かす | `Image::DrawRect`、`Anchor`、`GetAnchoredPosition` / `GetAnchoredCenter`(§20) |
 | UI | **Text**(共通。`TextDemoScene`) | 文字の大きさ・色・縁取り・太字・寄せ方(左・中央・右)・フォント(Arialと`LoadFont`で読んだNoto Sans JP)を並べる。キーで入力した文字を、`Text::Measure`で測った板の上に、4つのスタイルで出す。動く物に付いた文字(`TextRenderer`)は、`SetText`で中身を毎フレーム変える | A〜Z・SPACE: 文字を入力 / BackSpace: 消す / 1〜4: 入力した文字のスタイル | `Text::Draw` / `LoadFont` / `Measure`、`TextStyle`、`TextAlign`、`TextRenderer`(`SetText` / `SetOffset`)(§19) |
-| UI | **WorldUI**(2D/3D。`WorldUiDemo2DScene` / `WorldUiDemo3DScene`) | 敵3体の頭の上に、HPゲージ(`GaugeRenderer`の`SetFollowTarget`)と、名前・HPの板(`WorldToScreen2D/3D`で画面の位置に直して`DrawRect`+`Text::Draw`)を出す。敵が動いても、UIはついていく。主人公が近づくと板が赤くなる。倒した敵は非表示になり、ゲージも名前も一緒に消える。3Dはカメラの後ろ(`z <= 0`)では描かない | 矢印: 主人公を動かす / 1・2・3: 敵にダメージ / SPACE: 全回復 / 3Dは右ドラッグで視点 | `Image::WorldToScreen2D` / `WorldToScreen3D`、`GaugeRenderer`(`SetFollowTarget` / `SetUse3DCamera`)、`TextRenderer`(`SetUse3DCamera`)、`Image::DrawRect`(§14・§19・§20) |
+| UI | **WorldUI**(2D/3D。`WorldUiDemo2DScene` / `WorldUiDemo3DScene`) | 敵3体の頭の上に、HPゲージ(`GaugeRenderer`の`SetFollowTarget`)と、名前・HPの板(`WorldToScreen2D/3D`で画面の位置に直して`DrawRect`+`Text::Draw`)を出す。敵が動いても、UIはついていく。主人公が近づくと板が赤くなる。倒した敵は非表示になり、ゲージも名前も一緒に消える。3Dはカメラの後ろ(`z <= 0`)では描かない。主人公の頭の上の名前(`TextRenderer`)は、Mキーで大きさの決め方を切り替えられる(`Screen`=変わらない / `World`=3Dでは奥行きで変わる。2Dでは変わらない) | 矢印: 主人公を動かす / 1・2・3: 敵にダメージ / SPACE: 全回復 / M: 名前の大きさの決め方を切り替え / 3Dは右ドラッグで視点 | `Image::WorldToScreen2D` / `WorldToScreen3D`、`GaugeRenderer`(`SetFollowTarget` / `SetUse3DCamera`)、`TextRenderer`(`SetUse3DCamera` / `SetSizeMode` / `SetReferenceDistance` / `SetSizeRange`)、`Image::DrawRect`(§14・§19・§20) |
 | Render3D | **Shapes**(3Dのみ。`ShapesDemoScene`) | 3列の見本。手前は**形**(立方体・粗い球・細かい球・カプセル・OBJ読み込み。ゆっくり回る)、真ん中は同じオレンジの**球5個**(標準・光沢(鋭い)・光沢(ぼんやり)・発光・縁の光)、奥は**立方体5個**(色・画像・半透明・光を無視・枠線)。球と立方体は、マテリアル(`Material`)だけが違う。各見本の上に、名前とマテリアルの項目名が出る。球の分割数(`rings` / `segments`)が小さいと角ばるのが分かる。(以前 Light デモにあったマテリアルの見本を、ここへ分けました) | 1・2・3: 列の表示オン/オフ / 4: 形を回す / 右ドラッグ: 視点 / Q・E: ズーム | `Mesh::CreateCube` / `CreateSphere(rings, segments)` / `CreateCapsule` / `LoadOBJ`、`MeshRenderer`、`Material`(`specularStrength` `shininess` `emissiveColor` `rimStrength` `lit` `depthWrite` `outlineWidth`)(§4・§30) |
 | Render3D | **Light**(3Dのみ。`LightDemoScene`) | 白い球5個と白い立方体5個(全部同じ材質)に、平行光源(太陽)・左右に動くオレンジの点光源・白いスポットライトを当てて、光の違いを見比べる | 1: 平行光源(太陽) / 2: 点光源 / 3: スポットライト のオン・オフ / 矢印キー: 太陽の向きと高さ | `Image::GetLight`、`LightComponent`(`Point` / `Spot` / `SetSpotAngle`)(§31) |
 | Render3D | **Shadow**(3Dのみ。`ShadowDemoScene`) | 太陽がゆっくり回り、影が動く。球(影を落とす)・立方体(落とさない)・板と下の箱(受ける)・壁。スポットライト(左右に動く白い玉)も影を落とす | 1: 球の`castShadow` / 2: 箱の`receiveShadow` / 3: スポットの影 / 4: 枠線 / 5: 影の縁のぼかし(`pcfRadius`) / 矢印キー: 太陽を手で動かす(SPACEで自動に戻す) | `Shadow::GetSettings`、`Material`(`castShadow` `receiveShadow` `outlineWidth`)、`LightComponent::SetCastShadow`(§32) |
@@ -3255,7 +3257,7 @@ Engineの機能を「見て・触って分かる」ようにした、機能ご�
 | Physics | **Collider**(2D/3D。`ColliderDemo2DScene` / `ColliderDemo3DScene`) | 当たり判定の形(2D: 円・四角・カプセル / 3D: 球・箱・カプセル)を並べる。床の上の固定の見本(`BodyType::Static`)、左右に往復する台(`Kinematic`。`Transform`を動かして、動く物を押す)、クリックで出す動く物(`Dynamic`)。F1で当たり判定の枠線(緑=通常、黄=トリガー)。**2D**は重力が無い上から見た世界なので、壁で囲んで勢いをつけて出す(重力オフ・Z固定)。**3D**はマウスの下の地面の上から落とす。出せる数は30(超えたら古い物から消える) | クリック: 選んだ形を出す / 1・2・3: 形(円・四角・カプセル) / F1: 枠線 / C: 全部消す | `CircleRigidbodyComponent` `SquareRigidbodyComponent` `Capsule2DRigidbodyComponent` / `SphereRigidbodyComponent` `BoxRigidbodyComponent` `CapsuleRigidbodyComponent`、`BodyType`、`RigidbodyComponent::SetDebugDrawEnabled`(§6・§23・§29) |
 | Physics | **Force**(2D/3D。`ForceDemo2DScene` / `ForceDemo3DScene`) | 軽い箱(質量100)と重い箱(質量500)を、同じ値で押す。`Force`・`Impulse`は質量で割られるので重い箱は動きにくく、`Acceleration`・`VelocityChange`は質量を無視して同じ速さになる。`Force`・`Acceleration`は押し続ける力(SPACEを押している間)、`Impulse`・`VelocityChange`は一瞬(押すたびに1回)。`SetVelocity`は今の速さを上書きし、`AddTorque`は回す(重い箱ほど回りにくい)。箱は横にだけ動くよう、Y・Zを固定してある(3Dは重力も切ってある) | 1〜4: 力の種類 / SPACE: 力をかける / V: 速さを上書き / T: 回す / R: 元の位置へ | `RigidbodyComponent::AddForce` / `AddTorque` / `SetVelocity` / `GetVelocity` / `SetMass` / `SetDrag`、`ForceMode`(§23) |
 | Physics | **RigidbodySettings**(2D/3D。`RigidbodySettingsDemo2DScene` / `RigidbodySettingsDemo3DScene`) | 同じ箱を2つ置く(A=ふつう、B=設定を変えた物)。同じ力(`Impulse`+`AddTorque`)で蹴ると、質量(重いと動きにくい)・空気抵抗(すぐ止まる)・重力(2DはBだけ落ちる、3DはBだけ浮く)・回転固定(回らない)・位置固定(その軸には動かない。もう一度5で軸が変わる。2DはXとY、3DはXとYとZ)の違いが分かる。AとBの今の設定も表示する | 1: 質量 / 2: 抵抗 / 3: 重力 / 4: 回転固定 / 5: 位置固定 / SPACE: 蹴る / R: 元に戻す | `RigidbodyComponent::SetMass` / `SetDrag` / `SetUseGravity` / `SetFreezeRotation` / `SetFreezePositionX` `Y` `Z`、`AddForce`(§23) |
-| Physics | **Trigger**(2D/3D。`TriggerDemo2DScene` / `TriggerDemo3DScene`) | 動かせる球を、黄色い丸(トリガー=すり抜ける)と青い箱(ぶつかる)に近づける。トリガーは `OnTriggerEnter2D`(入った瞬間に1回)・`OnTriggerStay2D`(中にいる間は毎フレーム)・`OnTriggerExit2D`(出た瞬間に1回)、箱は `OnCollisionEnter2D` / `Stay` / `Exit` が呼ばれる。その回数を数えて表示する(数える役は `TouchCounterController`)。トリガーは半透明の黄色(濃さ0.6。暗い背景でも見える濃さ)で、球が中にいる間は0.95に濃くなる。**速く押し付けると跳ね返って `Enter` が何回も呼ばれる**ので、球はゆっくり動かす。**関数の名前は、3Dでも `○○2D`**(Engineの名前) | WASD・矢印: 球を動かす / R: 回数を0に戻す | `Component::OnTriggerEnter2D` / `OnTriggerStay2D` / `OnTriggerExit2D` / `OnCollisionEnter2D` / `OnCollisionStay2D` / `OnCollisionExit2D`、`isTrigger`(§6・§23) |
+| Physics | **Trigger**(2D/3D。`TriggerDemo2DScene` / `TriggerDemo3DScene`) | 動かせる球を、黄色い丸(トリガー=すり抜ける)と青い箱(ぶつかる)に近づける。トリガーは `OnTriggerEnter`(入った瞬間に1回)・`OnTriggerStay`(中にいる間は毎フレーム)・`OnTriggerExit`(出た瞬間に1回)、箱は `OnCollisionEnter` / `Stay` / `Exit` が呼ばれる。その回数を数えて表示する(数える役は `TouchCounterController`)。トリガーは半透明の黄色(濃さ0.6。暗い背景でも見える濃さ)で、球が中にいる間は0.95に濃くなる。**速く押し付けると跳ね返って `Enter` が何回も呼ばれる**ので、球はゆっくり動かす。**関数の名前は、2D・3D共通で `○○`**(Engineの名前。旧 `○○2D`) | WASD・矢印: 球を動かす / R: 回数を0に戻す | `Component::OnTriggerEnter` / `OnTriggerStay` / `OnTriggerExit` / `OnCollisionEnter` / `OnCollisionStay` / `OnCollisionExit`、`isTrigger`(§6・§23) |
 | Physics | **Query**(2D/3D。`QueryDemo2DScene` / `QueryDemo3DScene`) | 物理への問い合わせを目で見る。**Raycast**: 出発点(橙)からマウスへ線を飛ばし、最初に当たった物・距離・当たった場所・面の向き(赤い矢印)を出す。**OverlapSphere / OverlapBox**: マウスの周りの球(2Dは円)・箱に入っている物を探し、見つかった物を光らせる(2Dは黄色い枠、3Dは枠線)。調べられる物は、タグ Target(青・緑)と Decoy(橙・赤)の動かない物と、黄色い半透明のトリガー(タグ Target)。4でタグの絞り込み(なし→Target→Decoy)、5でトリガーも探すか(`Ignore` / `Include`)。3Dは、タグを指定しないと地面も見つかる | マウス: 線の向き・範囲の位置 / 1: Raycast / 2: OverlapSphere / 3: OverlapBox / 4: タグ / 5: トリガー | `Physics::Raycast` / `OverlapSphere` / `OverlapBox`、`RaycastHit`、`QueryTriggers`(§23) |
 | Physics | **TerrainCollider**(3Dのみ。`TerrainColliderDemoScene`) | 丘を箱で歩いて登る。丘の見た目と同じデータの当たり判定なので、坂道をそのまま登れる。足元の地面の高さを表示する | WASD: 歩く(R: スタート地点へ。地形の外へ落ちても戻る) | `TerrainRigidbodyComponent`(§34)、`TerrainRenderer::GetHeightAt`、`RigidbodyComponent::SetVelocity` |
 | Behavior | **Move**(2D/3D。`MoveDemo2DScene` / `MoveDemo3DScene`) | 動きの部品の基本。`ChaseComponent`(`MoveComponent` の仲間)は、目的地へ一定の速さでまっすぐ向かい、止まる距離(`SetStopDistance`)より近づくと止まる。青は `SetTarget` で、マウスに付いてくる青い目印を追う。橙は `SetTargetPosition` で、クリックした場所(橙の目印)へ向かう。目印の周りの円が止まる距離。途中の壁にぶつかると、まっすぐ進むだけの動きはそこで止まる(避けて歩くのは Path デモ)。動く物は `Dynamic`(`MoveComponent` は、Dynamic なら `SetVelocity` で動かすので壁に当たる)。2Dは `MovePlane::XY`、3Dは `XZ` | マウス: 目標を動かす / クリック: 橙の目的地 / ↑↓: 速さ / ←→: 止まる距離 / R: 戻す | `ChaseComponent`(`SetTarget` / `SetTargetPosition` / `SetSpeed` / `SetStopDistance` / `SetPlane` / `HasArrived`)(§13) |

@@ -10,7 +10,7 @@ void TriggerDemo2DScene::Init()
     CreateDemoGuide(*this, { L"トリガーのデモ(Trigger)",
         L"黄色い丸はすり抜けるトリガー、青い箱はぶつかる箱です。球を動かして、呼ばれる関数と回数の違いを見ます。",
         L"操作: WASD・矢印 球を動かす / R 回数を0に戻す / Tab: 3D版へ / Esc 戻る",
-        L"使っているAPI: Component::OnTriggerEnter2D, OnTriggerStay2D, OnTriggerExit2D, OnCollisionEnter2D, isTrigger" });
+        L"使っているAPI: Component::OnTriggerEnter, OnTriggerStay, OnTriggerExit, OnCollisionEnter, isTrigger" });
     CreateTriggerDemo(*this, DemoMode::Mode2D);
 }
 

@@ -12,5 +12,5 @@ public:
     // 出現する度に呼ばれ、返却先を受け取る
     void Spawn(ObjectPool* ownerPool) { pool = ownerPool; }
 
-    void OnTriggerEnter2D(Collider2D* other) override;
+    void OnTriggerEnter(Collider2D* other) override;
 };
