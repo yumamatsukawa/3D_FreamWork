@@ -5,6 +5,7 @@
 #include "SceneManager.h"
 #include "../Audio/Audio.h"
 #include "../UI/Text.h"
+#include "../UI/TextTexture.h"
 #include "../Physics/Physics.h"
 #include "Time.h"
 #include "Resources.h"
@@ -77,6 +78,7 @@ void GameEngine::Uninit()
     Shadow::Shutdown();             // 影のテクスチャ・ステートの解放(同じくImage::Uninitより先に)
     SpriteTransition::UnloadAll();  // Text::Uninitより先に(切り替えの演出の画像はTextの描画先から作っているため)
     Resources::UnloadAll();  // Image::Uninitより先に(画像の解放にImageを使うため)
+    TextTexture::ReleaseAll();      // 看板の文字のテクスチャ(Direct3Dを解放するより先に)
     Physics::Uninit();
     ScreenEffect::Uninit();   // Text::Uninitより先に(ブラシはTextの描画先から作っているため)
     Image::ReleaseDrawRectBrush();   // 同じ理由でText::Uninitより先に

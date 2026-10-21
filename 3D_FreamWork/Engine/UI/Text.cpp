@@ -317,6 +317,10 @@ namespace Text {
         return familyName;
     }
 
+    IDWriteTextLayout* CreateTextLayout(const std::wstring& text, const TextStyle& style, DWRITE_TEXT_METRICS& metrics) {
+        return CreateLayout(text, style, metrics);
+    }
+
     XMFLOAT2 Measure(const std::wstring& text, const TextStyle& style) {
         DWRITE_TEXT_METRICS metrics{};
         IDWriteTextLayout* layout = CreateLayout(text, style, metrics);

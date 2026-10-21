@@ -93,6 +93,7 @@
     <ClCompile Include="Render3D\LightComponent.cpp" />
     <ClCompile Include="Render3D\Lighting.cpp" />
     <ClCompile Include="Render3D\Lod.cpp" />
+    <ClCompile Include="Render3D\WorldTextRenderer.cpp" />
     <ClCompile Include="Render3D\RenderStats.cpp" />
     <ClCompile Include="Render3D\Shadow.cpp" />
     <ClCompile Include="Core\MathUtil.cpp" />
@@ -124,6 +125,7 @@
     <ClCompile Include="Render3D\TerrainRenderer.cpp" />
     <ClCompile Include="UI\Text.cpp" />
     <ClCompile Include="UI\TextRenderer.cpp" />
+    <ClCompile Include="UI\TextTexture.cpp" />
     <ClCompile Include="Render\Texture.cpp" />
     <ClCompile Include="Core\Time.cpp" />
     <ClCompile Include="Animation\TweenComponent.cpp" />
@@ -181,6 +183,7 @@
     <ClInclude Include="Render3D\Material.h" />
     <ClInclude Include="Render3D\Mesh.h" />
     <ClInclude Include="Render3D\MeshRenderer.h" />
+    <ClInclude Include="Render3D\WorldTextRenderer.h" />
     <ClInclude Include="Render3D\Model.h" />
     <ClInclude Include="Animation\ModelAnimationComponent.h" />
     <ClInclude Include="Render3D\ModelRenderer.h" />
@@ -209,6 +212,7 @@
     <ClInclude Include="Render3D\TerrainRenderer.h" />
     <ClInclude Include="UI\Text.h" />
     <ClInclude Include="UI\TextRenderer.h" />
+    <ClInclude Include="UI\TextTexture.h" />
     <ClInclude Include="Render\Texture.h" />
     <ClInclude Include="Core\Time.h" />
     <ClInclude Include="Core\Timer.h" />

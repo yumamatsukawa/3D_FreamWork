@@ -171,6 +171,9 @@
     <ClCompile Include="Game\Scenes\UI\TextDemoScene.cpp" />
     <ClCompile Include="Game\Scenes\UI\WorldUiDemo2DScene.cpp" />
     <ClCompile Include="Game\Scenes\UI\WorldUiDemo3DScene.cpp" />
+    <ClCompile Include="Game\Scenes\UI\WorldTextDemoScene.cpp" />
+    <ClCompile Include="Game\Objects\UI\WorldTextDemo.cpp" />
+    <ClCompile Include="Game\Components\UI\WorldTextDemoController.cpp" />
     <ClCompile Include="Game\Components\Common\DemoMarker.cpp" />
     <ClCompile Include="Game\Components\Common\DemoMouseGround.cpp" />
     <ClCompile Include="Game\Components\Render\ScreenEffectDemoController.cpp" />
@@ -380,6 +383,9 @@
     <ClInclude Include="Game\Scenes\UI\TextDemoScene.h" />
     <ClInclude Include="Game\Scenes\UI\WorldUiDemo2DScene.h" />
     <ClInclude Include="Game\Scenes\UI\WorldUiDemo3DScene.h" />
+    <ClInclude Include="Game\Scenes\UI\WorldTextDemoScene.h" />
+    <ClInclude Include="Game\Objects\UI\WorldTextDemo.h" />
+    <ClInclude Include="Game\Components\UI\WorldTextDemoController.h" />
     <ClInclude Include="Game\Components\Common\DemoMarker.h" />
     <ClInclude Include="Game\Components\Common\DemoMouseGround.h" />
     <ClInclude Include="Game\Components\Render\ScreenEffectDemoController.h" />

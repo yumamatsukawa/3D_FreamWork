@@ -32,7 +32,7 @@
 </nav>
 <main>
 <h1>ファイル索引</h1>
-<div class="lead">Engine の全ファイル(<code>.h</code> / <code>.cpp</code>)の一覧です。<strong>131 ファイル</strong>。文字を入力すると絞り込めます。名前をクリックすると、そのファイルの解説に飛びます。</div>
+<div class="lead">Engine の全ファイル(<code>.h</code> / <code>.cpp</code>)の一覧です。<strong>135 ファイル</strong>。文字を入力すると絞り込めます。名前をクリックすると、そのファイルの解説に飛びます。</div>
 <p><input type="search" id="filter" class="filter" placeholder="絞り込み(例: Scene, Physics, Raycast)" autocomplete="off"></p>
 <div class="tw"><table class="api" id="filetable"><thead><tr><th>フォルダ</th><th>ファイル</th><th>役割</th></tr></thead><tbody>
 <tr><td>Core</td><td class="fn"><a href="Core.html#f-Component"><code>Component.h</code></a></td><td>すべての Component の親クラス(基底クラス)。Unity の <code>MonoBehaviour</code> に近い役割です。動きや見た目は、これを継承したクラスを作って <code>Init</code> / <code>Update</code> / <code>Draw</code> などを <code>override</code>(上書き)して書きます。</td></tr>
@@ -105,6 +105,8 @@
 <tr><td>Render3D</td><td class="fn"><a href="Render3D.html#f-TerrainRenderer"><code>TerrainRenderer.h</code></a></td><td>地形(<code>Terrain</code>)を描く Component です。オーナーの Transform の位置が「地形の左手前の角」で、Y がそのまま高さ 0 です。見た目は <code>MeshRenderer</code> と同じ <code>Material</code> で決めます。</td></tr>
 <tr><td>Render3D</td><td class="fn"><a href="Render3D.html#f-WaterRenderer"><code>WaterRenderer.cpp</code></a></td><td>水面(波打つ半透明の面)を描く Component です。オーナーの Transform の位置が水面の中心で、Y が水位です。地形のくぼみに水を張る、池・湖・海のように使います。波は頂点シェーダーが時間から計算します。</td></tr>
 <tr><td>Render3D</td><td class="fn"><a href="Render3D.html#f-WaterRenderer"><code>WaterRenderer.h</code></a></td><td>水面(波打つ半透明の面)を描く Component です。オーナーの Transform の位置が水面の中心で、Y が水位です。地形のくぼみに水を張る、池・湖・海のように使います。波は頂点シェーダーが時間から計算します。</td></tr>
+<tr><td>Render3D</td><td class="fn"><a href="Render3D.html#f-WorldTextRenderer"><code>WorldTextRenderer.cpp</code></a></td><td>3D の世界に貼り付ける文字(看板の文字)を描く Component です。<code>TextRenderer</code>(画面の文字)と違い、文字は 3D の板になるので、壁に貼って傾けられ、物の後ろに隠れ、遠いほど小さく見えます。</td></tr>
+<tr><td>Render3D</td><td class="fn"><a href="Render3D.html#f-WorldTextRenderer"><code>WorldTextRenderer.h</code></a></td><td>3D の世界に貼り付ける文字(看板の文字)を描く Component です。<code>TextRenderer</code>(画面の文字)と違い、文字は 3D の板になるので、壁に貼って傾けられ、物の後ろに隠れ、遠いほど小さく見えます。</td></tr>
 <tr><td>Physics</td><td class="fn"><a href="Physics.html#f-Collider"><code>Collider.cpp</code></a></td><td>コールバックで「誰と当たったか」を知らせるための、軽い札です(形や判定の計算は持ちません。判定は PhysX がやります)。型の名前に <code>2D</code> と付いていますが、3D の剛体でも同じ型が使われます(<code>OnTriggerEnter</code> などのコールバックは 2D・3D 共通)。</td></tr>
 <tr><td>Physics</td><td class="fn"><a href="Physics.html#f-Collider"><code>Collider.h</code></a></td><td>コールバックで「誰と当たったか」を知らせるための、軽い札です(形や判定の計算は持ちません。判定は PhysX がやります)。型の名前に <code>2D</code> と付いていますが、3D の剛体でも同じ型が使われます(<code>OnTriggerEnter</code> などのコールバックは 2D・3D 共通)。</td></tr>
 <tr><td>Physics</td><td class="fn"><a href="Physics.html#f-Physics"><code>Physics.cpp</code></a></td><td>PhysX の初期化・毎フレームの更新・終了と、「この線の先に何があるか」「この範囲に何がいるか」を調べる問い合わせ(Raycast / Overlap)です。PhysX の結果を、Component の <code>OnCollisionEnter</code> / <code>OnTriggerEnter</code> などのコールバックに変換して届けるのもここです。</td></tr>
@@ -123,6 +125,8 @@
 <tr><td>UI</td><td class="fn"><a href="UI.html#f-Text"><code>Text.h</code></a></td><td>画面に文字を描きます(Direct2D / DirectWrite)。<code>Component::Draw</code> の中で <code>Text::Draw</code> を呼びます。文字の見た目は <code>TextStyle</code> にまとめます。</td></tr>
 <tr><td>UI</td><td class="fn"><a href="UI.html#f-TextRenderer"><code>TextRenderer.cpp</code></a></td><td>GameObject に付いて一緒に動く文字(ダメージの数字・キャラクターの名前など)を描く Component です。</td></tr>
 <tr><td>UI</td><td class="fn"><a href="UI.html#f-TextRenderer"><code>TextRenderer.h</code></a></td><td>GameObject に付いて一緒に動く文字(ダメージの数字・キャラクターの名前など)を描く Component です。</td></tr>
+<tr><td>UI</td><td class="fn"><a href="UI.html#f-TextTexture"><code>TextTexture.cpp</code></a></td><td>文字を描いたテクスチャを作って、<strong>同じ絵のテクスチャをみんなで共有する</strong> 道具です(<code>WorldTextRenderer</code> が使う Engine 内部用。ゲームのコードからは直接呼びません)。</td></tr>
+<tr><td>UI</td><td class="fn"><a href="UI.html#f-TextTexture"><code>TextTexture.h</code></a></td><td>文字を描いたテクスチャを作って、<strong>同じ絵のテクスチャをみんなで共有する</strong> 道具です(<code>WorldTextRenderer</code> が使う Engine 内部用。ゲームのコードからは直接呼びません)。</td></tr>
 <tr><td>Animation</td><td class="fn"><a href="Animation.html#f-Ease"><code>Ease.h</code></a></td><td>イージング関数(動きの「速さの変化」)です。どれも <code>t</code>(進み具合 0〜1)を受け取って 0〜1 の値を返します。Unity の DOTween の <code>Ease</code> や、CSS の <code>ease-in-out</code> と同じ考え方で、式は easings.net と同じです。</td></tr>
 <tr><td>Animation</td><td class="fn"><a href="Animation.html#f-ModelAnimationComponent"><code>ModelAnimationComponent.cpp</code></a></td><td>FBX モデルのパーツの動き(Maya で付けたキーフレーム)を再生する Component です。同じオブジェクトの <code>ModelRenderer</code> に付けます。位置・スケールは線形、回転はクォータニオンで補間して、毎フレーム <code>ModelRenderer</code> のパーツの動きに書き込みます。</td></tr>
 <tr><td>Animation</td><td class="fn"><a href="Animation.html#f-ModelAnimationComponent"><code>ModelAnimationComponent.h</code></a></td><td>FBX モデルのパーツの動き(Maya で付けたキーフレーム)を再生する Component です。同じオブジェクトの <code>ModelRenderer</code> に付けます。位置・スケールは線形、回転はクォータニオンで補間して、毎フレーム <code>ModelRenderer</code> のパーツの動きに書き込みます。</td></tr>

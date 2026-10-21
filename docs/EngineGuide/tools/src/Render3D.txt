@@ -401,3 +401,36 @@ WaterSettings::receiveShadow | bool | 他の物の影を受けるか(水面は�
 - オーナーの Transform は位置(と親)だけを使います(拡大縮小・回転は使えない)。
 =demo Render3D カテゴリの「Water」
 =readme §35
+=file Engine/Render3D/WorldTextRenderer.h, WorldTextRenderer.cpp
+=class WorldTextRenderer
+=role
+3D の世界に貼り付ける文字(看板の文字)を描く Component です。`TextRenderer`(画面の文字)と違い、文字は 3D の板になるので、壁に貼って傾けられ、物の後ろに隠れ、遠いほど小さく見えます。
+=table
+SetText(const std::wstring& value) / GetText() | void / const std::wstring& | 表示する文字(同じ文字なら何もしない)
+SetStyle(const TextStyle& value) / GetStyle() | void / const TextStyle& | 見た目(大きさ・色・フォント・縁取り・寄せ方)。`size` は **テクスチャ上のピクセル**
+SetColor(XMFLOAT4 color) | void | 文字の色だけ変える(w は板全体の濃さ。w だけ変える時は絵を作り直さない)
+SetPixelsPerUnit(float value) / GetPixelsPerUnit() | void / float | 1 ワールド単位あたりのピクセル数(既定 2)。板の大きさ = テクスチャのピクセル数 ÷ この値
+SetBackground(XMFLOAT4 color, float paddingPixels) | void | 背景の板の色(a=0 で無し)と余白(ピクセル)。看板の板に使う
+SetBillboard(bool value) / IsBillboard() | void / bool | `true` でいつもカメラの方を向く。`false`(既定)でオーナーの回転のまま(壁に貼り付く)
+SetBillboardLock(bool x, bool y, bool z) | void | ビルボードで止める軸(`true` にした軸は回らない)。`(true, false, true)` で横だけカメラに向く立て看板
+SetDoubleSided(bool value) / IsDoubleSided() | void / bool | 裏から見えるか(既定 `true`。裏から見ても文字が読める向きになる。`false` なら裏からは見えない)
+SetLit(bool value) / IsLit() | void / bool | 光を受けるか(既定 `false`=読みやすい)
+SetFrustumCulling(bool enabled) / SetLod(const LodSettings&) | void | 画面の外・遠い(`drawDistance`)時は描かない(`MeshRenderer` と同じ)
+GetWorldSize() / GetTextureWidth() / GetTextureHeight() | XMFLOAT2 / int | 板のワールドでの大きさと、今借りているテクスチャの大きさ
+GetSharedTextureCount() / GetSharedTextureBytes() | static int / static size_t | 今ある文字のテクスチャの数と、おおよその合計のメモリ(バイト)。デバッグ用
+Init() / Draw() / Uninit() | void (override) | 内部の処理
+=code Demo/Game/Objects/UI/WorldTextDemo.cpp:73-76
+=code Demo/Game/Components/UI/WorldTextDemoController.cpp:34-34
+=code Demo/Game/Components/UI/WorldTextDemoController.cpp:48-48
+=notes
+- **仕組み**: 文字を Direct2D(`Text` と同じフォント・並べ方)で **テクスチャに描き**、四角い板(`Mesh`)に貼って、`MeshRenderer` と同じ経路(Shader3D・深度バッファ)で描きます。画面の文字(`TextRenderer`)は Direct2D で最後に画面へ重ねるので、3D の物の後ろには隠れません。壁に貼る・物に隠れる文字は `WorldTextRenderer` を使います。
+- **向き**: 板の正面は `-Z` 側(`SpriteRenderer` のビルボードと同じ)。位置・向き・大きさは、オーナーの `transform`(親子込み)。`align` が `Left` なら板の左端、`Right` なら右端がオーナーの位置、`Center` は板の中心です。
+- **ビルボード**: `SetBillboard(true)` でオーナーの回転を使わず、いつもカメラ(CameraShake 込み)の方を向きます。`transform.rotate.z` だけは板の中の回転になります。
+- **大きさ**: 板の大きさ = テクスチャのピクセル数 ÷ `SetPixelsPerUnit`。例: 64 ピクセルの文字は、既定で高さ 32 ワールド。`transform.scale` でさらに拡大縮小できます。テクスチャは 2048 ピクセルまでで、超える文字は **見た目の大きさを変えずに細かさを下げ**、出力ウィンドウに知らせます。
+- **半透明と描く順番**: 文字のふちのなめらかさ(アンチエイリアス)を保つため、半透明で重ね、深度には書きません(物の後ろには隠れますが、後ろの物は隠しません)。そのため **壁などの不透明な物より後に描く** 必要があり、`Init` でオーナーの `drawPriority` が 0 なら 10 にします(変えたい時は `GetOwner()->SetDrawPriority()`)。背景が不透明(`SetBackground` の a=1、文字の濃さ 1)なら、深度にも書くふつうの板になります。
+- **テクスチャの共有**: 文字・フォント・ピクセルの大きさ・太字・色・縁取り・寄せ方・背景・テクスチャの大きさ(絵を決める設定)が **すべて同じなら、板が何枚あってもテクスチャは 1 枚** です。板の大きさ・向き・ビルボード・光・両面は絵に関係しないので、共有を妨げません。同じ看板を 100 枚並べても 1 枚分のメモリです。
+- **文字や見た目を変えた時**: 共有テクスチャは作ったあと **書き換えません**。変えると、今のテクスチャを手放し(借りている数を 1 減らす)、新しい設定のテクスチャを借りに行きます(あれば共有、無ければ新しく描く)。ほかの看板の文字は変わりません。借りている数が 0 になったテクスチャは **すぐ解放** されます(シーンを出た時も、`Engine` の終了時も)。
+- **制限**: 毎フレーム変わる文字(カウントなど)は共有されず、変わるたびに新しいテクスチャを描く(Direct2D で描いて GPU に送る)ので重くなります。**数字が変わった時だけ** `SetText` を呼びます(同じ文字なら何もしません)。共有のテクスチャが 256 枚を超えると、出力ウィンドウに 1 回知らせます(止めはしません)。
+- 日本語を使う時は `Text::LoadFont` で読んだフォント名を `style.fontName` に入れます(`TextRenderer` と同じ)。影は落とさず・受けません。
+=demo UI カテゴリの「WorldText」(壁に貼る・傾く・ビルボード・柱に隠れる・同じ看板 60 枚の共有)
+=readme §19

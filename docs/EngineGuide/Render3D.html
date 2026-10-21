@@ -50,6 +50,7 @@
 <li><a href="#f-Terrain">Terrain.h / Terrain.cpp</a></li>
 <li><a href="#f-TerrainRenderer">TerrainRenderer.h / TerrainRenderer.cpp</a></li>
 <li><a href="#f-WaterRenderer">WaterRenderer.h / WaterRenderer.cpp</a></li>
+<li><a href="#f-WorldTextRenderer">WorldTextRenderer.h / WorldTextRenderer.cpp</a></li>
 </ul></div>
 <p><strong>Demo で見る</strong>: Demo プロジェクトの <strong>Render3D カテゴリ</strong>に、Shapes / Light / Shadow / Outline / Terrain / Water / Model / SkinAnim / LOD / Visibility の10個のデモがあります(Terrain の当たり判定は Physics カテゴリの TerrainCollider)。</p>
 <section class="file" id="f-MeshRenderer">
@@ -536,6 +537,42 @@ water-&gt;AddComponent&lt;WaterRenderer&gt;(settings);</code></pre></div>
 <li><strong>当たり判定は付きません</strong>(通り抜けられます)。物を浮かべるには <code>GetHeightAt</code> で波の高さを調べます。</li>
 <li>波の時間は <code>Time::GetTime()</code> なので、ポーズ中は波も止まります。</li>
 <li>オーナーの Transform は位置(と親)だけを使います(拡大縮小・回転は使えない)。</li>
+</ul></div>
+</section>
+<section class="file" id="f-WorldTextRenderer">
+<h3><code>Engine/Render3D/WorldTextRenderer.h</code> <code>Engine/Render3D/WorldTextRenderer.cpp</code></h3>
+<p class="role">3D の世界に貼り付ける文字(看板の文字)を描く Component です。<code>TextRenderer</code>(画面の文字)と違い、文字は 3D の板になるので、壁に貼って傾けられ、物の後ろに隠れ、遠いほど小さく見えます。</p>
+<div class="tw"><table class="api"><thead><tr><th>名前</th><th>引数・戻り値</th><th>何をするか</th></tr></thead><tbody>
+<tr><td class="fn"><code>SetText(const std::wstring&amp; value) / GetText()</code></td><td class="sig"><code>void / const std::wstring&amp;</code></td><td>表示する文字(同じ文字なら何もしない)</td></tr>
+<tr><td class="fn"><code>SetStyle(const TextStyle&amp; value) / GetStyle()</code></td><td class="sig"><code>void / const TextStyle&amp;</code></td><td>見た目(大きさ・色・フォント・縁取り・寄せ方)。<code>size</code> は <strong>テクスチャ上のピクセル</strong></td></tr>
+<tr><td class="fn"><code>SetColor(XMFLOAT4 color)</code></td><td class="sig"><code>void</code></td><td>文字の色だけ変える(w は板全体の濃さ。w だけ変える時は絵を作り直さない)</td></tr>
+<tr><td class="fn"><code>SetPixelsPerUnit(float value) / GetPixelsPerUnit()</code></td><td class="sig"><code>void / float</code></td><td>1 ワールド単位あたりのピクセル数(既定 2)。板の大きさ = テクスチャのピクセル数 &#247; この値</td></tr>
+<tr><td class="fn"><code>SetBackground(XMFLOAT4 color, float paddingPixels)</code></td><td class="sig"><code>void</code></td><td>背景の板の色(a=0 で無し)と余白(ピクセル)。看板の板に使う</td></tr>
+<tr><td class="fn"><code>SetBillboard(bool value) / IsBillboard()</code></td><td class="sig"><code>void / bool</code></td><td><code>true</code> でいつもカメラの方を向く。<code>false</code>(既定)でオーナーの回転のまま(壁に貼り付く)</td></tr>
+<tr><td class="fn"><code>SetBillboardLock(bool x, bool y, bool z)</code></td><td class="sig"><code>void</code></td><td>ビルボードで止める軸(<code>true</code> にした軸は回らない)。<code>(true, false, true)</code> で横だけカメラに向く立て看板</td></tr>
+<tr><td class="fn"><code>SetDoubleSided(bool value) / IsDoubleSided()</code></td><td class="sig"><code>void / bool</code></td><td>裏から見えるか(既定 <code>true</code>。裏から見ても文字が読める向きになる。<code>false</code> なら裏からは見えない)</td></tr>
+<tr><td class="fn"><code>SetLit(bool value) / IsLit()</code></td><td class="sig"><code>void / bool</code></td><td>光を受けるか(既定 <code>false</code>=読みやすい)</td></tr>
+<tr><td class="fn"><code>SetFrustumCulling(bool enabled) / SetLod(const LodSettings&amp;)</code></td><td class="sig"><code>void</code></td><td>画面の外・遠い(<code>drawDistance</code>)時は描かない(<code>MeshRenderer</code> と同じ)</td></tr>
+<tr><td class="fn"><code>GetWorldSize() / GetTextureWidth() / GetTextureHeight()</code></td><td class="sig"><code>XMFLOAT2 / int</code></td><td>板のワールドでの大きさと、今借りているテクスチャの大きさ</td></tr>
+<tr><td class="fn"><code>GetSharedTextureCount() / GetSharedTextureBytes()</code></td><td class="sig"><code>static int / static size_t</code></td><td>今ある文字のテクスチャの数と、おおよその合計のメモリ(バイト)。デバッグ用</td></tr>
+<tr><td class="fn"><code>Init() / Draw() / Uninit()</code></td><td class="sig"><code>void (override)</code></td><td>内部の処理</td></tr>
+</tbody></table></div>
+<div class="ex"><div class="exhead">使い方の例 <span class="src">出典: <code>Demo/Game/Objects/UI/WorldTextDemo.cpp:73-76</code></span></div><pre><code>WorldTextRenderer* board = boardObject-&gt;AddComponent&lt;WorldTextRenderer&gt;();
+board-&gt;SetText(L&quot;傾く看板&quot;);
+board-&gt;SetStyle(MakeDemoTextStyle(56.f, { 1.0f, 1.0f, 1.0f, 1.0f }, TextAlign::Center));
+board-&gt;SetBackground({ 0.35f, 0.2f, 0.1f, 1.0f }, 14.f);</code></pre></div>
+<div class="ex"><div class="exhead">使い方の例 <span class="src">出典: <code>Demo/Game/Components/UI/WorldTextDemoController.cpp:34-34</code></span></div><pre><code>if (billboardSign) billboardSign-&gt;SetBillboard(billboardOn);</code></pre></div>
+<div class="ex"><div class="exhead">使い方の例 <span class="src">出典: <code>Demo/Game/Components/UI/WorldTextDemoController.cpp:48-48</code></span></div><pre><code>counterSign-&gt;SetText(L&quot;Count: &quot; + std::to_wstring(count));</code></pre></div>
+<div class="notes"><strong>気を付ける点</strong><ul>
+<li><strong>仕組み</strong>: 文字を Direct2D(<code>Text</code> と同じフォント・並べ方)で <strong>テクスチャに描き</strong>、四角い板(<code>Mesh</code>)に貼って、<code>MeshRenderer</code> と同じ経路(Shader3D・深度バッファ)で描きます。画面の文字(<code>TextRenderer</code>)は Direct2D で最後に画面へ重ねるので、3D の物の後ろには隠れません。壁に貼る・物に隠れる文字は <code>WorldTextRenderer</code> を使います。</li>
+<li><strong>向き</strong>: 板の正面は <code>-Z</code> 側(<code>SpriteRenderer</code> のビルボードと同じ)。位置・向き・大きさは、オーナーの <code>transform</code>(親子込み)。<code>align</code> が <code>Left</code> なら板の左端、<code>Right</code> なら右端がオーナーの位置、<code>Center</code> は板の中心です。</li>
+<li><strong>ビルボード</strong>: <code>SetBillboard(true)</code> でオーナーの回転を使わず、いつもカメラ(CameraShake 込み)の方を向きます。<code>transform.rotate.z</code> だけは板の中の回転になります。</li>
+<li><strong>大きさ</strong>: 板の大きさ = テクスチャのピクセル数 &#247; <code>SetPixelsPerUnit</code>。例: 64 ピクセルの文字は、既定で高さ 32 ワールド。<code>transform.scale</code> でさらに拡大縮小できます。テクスチャは 2048 ピクセルまでで、超える文字は <strong>見た目の大きさを変えずに細かさを下げ</strong>、出力ウィンドウに知らせます。</li>
+<li><strong>半透明と描く順番</strong>: 文字のふちのなめらかさ(アンチエイリアス)を保つため、半透明で重ね、深度には書きません(物の後ろには隠れますが、後ろの物は隠しません)。そのため <strong>壁などの不透明な物より後に描く</strong> 必要があり、<code>Init</code> でオーナーの <code>drawPriority</code> が 0 なら 10 にします(変えたい時は <code>GetOwner()-&gt;SetDrawPriority()</code>)。背景が不透明(<code>SetBackground</code> の a=1、文字の濃さ 1)なら、深度にも書くふつうの板になります。</li>
+<li><strong>テクスチャの共有</strong>: 文字・フォント・ピクセルの大きさ・太字・色・縁取り・寄せ方・背景・テクスチャの大きさ(絵を決める設定)が <strong>すべて同じなら、板が何枚あってもテクスチャは 1 枚</strong> です。板の大きさ・向き・ビルボード・光・両面は絵に関係しないので、共有を妨げません。同じ看板を 100 枚並べても 1 枚分のメモリです。</li>
+<li><strong>文字や見た目を変えた時</strong>: 共有テクスチャは作ったあと <strong>書き換えません</strong>。変えると、今のテクスチャを手放し(借りている数を 1 減らす)、新しい設定のテクスチャを借りに行きます(あれば共有、無ければ新しく描く)。ほかの看板の文字は変わりません。借りている数が 0 になったテクスチャは <strong>すぐ解放</strong> されます(シーンを出た時も、<code>Engine</code> の終了時も)。</li>
+<li><strong>制限</strong>: 毎フレーム変わる文字(カウントなど)は共有されず、変わるたびに新しいテクスチャを描く(Direct2D で描いて GPU に送る)ので重くなります。<strong>数字が変わった時だけ</strong> <code>SetText</code> を呼びます(同じ文字なら何もしません)。共有のテクスチャが 256 枚を超えると、出力ウィンドウに 1 回知らせます(止めはしません)。</li>
+<li>日本語を使う時は <code>Text::LoadFont</code> で読んだフォント名を <code>style.fontName</code> に入れます(<code>TextRenderer</code> と同じ)。影は落とさず・受けません。</li>
 </ul></div>
 </section>
 

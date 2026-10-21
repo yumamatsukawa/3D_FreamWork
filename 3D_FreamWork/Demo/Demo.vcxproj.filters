@@ -385,6 +385,15 @@
     <ClCompile Include="Game\Scenes\UI\WorldUiDemo3DScene.cpp">
       <Filter>Game\Scenes\UI</Filter>
     </ClCompile>
+    <ClCompile Include="Game\Scenes\UI\WorldTextDemoScene.cpp">
+      <Filter>Game\Scenes\UI</Filter>
+    </ClCompile>
+    <ClCompile Include="Game\Objects\UI\WorldTextDemo.cpp">
+      <Filter>Game\Objects\UI</Filter>
+    </ClCompile>
+    <ClCompile Include="Game\Components\UI\WorldTextDemoController.cpp">
+      <Filter>Game\Components\UI</Filter>
+    </ClCompile>
     <ClCompile Include="Game\Components\Common\DemoMarker.cpp">
       <Filter>Game\Components\Common</Filter>
     </ClCompile>
@@ -1007,6 +1016,15 @@
     </ClInclude>
     <ClInclude Include="Game\Scenes\UI\WorldUiDemo3DScene.h">
       <Filter>Game\Scenes\UI</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\Scenes\UI\WorldTextDemoScene.h">
+      <Filter>Game\Scenes\UI</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\Objects\UI\WorldTextDemo.h">
+      <Filter>Game\Objects\UI</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\Components\UI\WorldTextDemoController.h">
+      <Filter>Game\Components\UI</Filter>
     </ClInclude>
     <ClInclude Include="Game\Components\Common\DemoMarker.h">
       <Filter>Game\Components\Common</Filter>

@@ -29,7 +29,7 @@ Engineの各ファイル・関数・使い方と、設計図(継承図・描画�
 - **Engine**: `GameObject`/`Component`/`RigidbodyComponent`/描画/音声などフレームワーク本体。それ単体では実行できない静的ライブラリ(`Engine.lib`)で、基本的にみんなで触る場所ではありません。
 - **Sample2D** / **Sample3D**: それぞれ独立した実行ファイル。どちらも同じ`Engine.lib`をリンクしているので、**Engineを直した内容は、両方のサンプルを再ビルドするだけで反映されます**。中身の`Game\Objects\`/`Game\Components\`/`Game\Scenes\`は、後述の「2. オブジェクトの作り方」と同じパターンです。
 - **Demo**: Engineの機能を、見て・触って分かるようにしたデモ集の実行ファイル(§38)。ゲームではなく、機能ごとの小さなシーンをカテゴリ別に並べ、2D版と3D版をその場で切り替えて見られる。同じ`Engine.lib`をリンクしているので、Engineの機能を足したら、ここにデモを足して紹介する。
-- 外部ライブラリは、リポジトリ直下(`3D_FreamWork\`の1つ上)の`ThirdParty\`にあります: `ThirdParty/PhysX/`(物理演算。§23)と `ThirdParty/ufbx/`(FBXの読み込み。§27。MITかパブリックドメインのどちらかを選べるライセンスで、条文は同じフォルダの`LICENSE`)。
+- 外部ライブラリは、リポジトリ直下(`3D_FreamWork\`の1つ上)の`ThirdParty\`にあります: `ThirdParty/PhysX/`(物理演算。§23。BSD 3-Clause型のライセンスで、条文は同じフォルダの`LICENSE.txt`)と `ThirdParty/ufbx/`(FBXの読み込み。§27。MITかパブリックドメインのどちらかを選べるライセンスで、条文は同じフォルダの`LICENSE`)。
 - ビルド後、`Engine.lib`/`Sample2D.exe`/`Sample3D.exe`/`Demo.exe`は全て同じ`x64\Debug\`(`Release\`)フォルダに出力されます。`Assets\`とシェーダーは、Engineのビルドのたびに(`Engine.vcxproj`の`CopyRuntimeFiles`)、新しいファイルだけがそこへ自動コピーされます。Engineのコードが変わっていなくても動き、`Assets/`とシェーダーを高速最新チェックの入力に登録してあるので(`UpToDateCheckInput`)、`Assets/`だけ編集して実行(F5)しても反映されます。ビルド済みの`.exe`をダブルクリックするだけでも動きます。
 - ソリューションを開いてF5で実行する時は、実行したいもの(Sample2D・Sample3D・Demoのどれか)をソリューションエクスプローラーで右クリック→「スタートアッププロジェクトに設定」してから実行してください(複数のスタートアッププロジェクトを同時に起動する設定も可能です)。
 
@@ -1141,6 +1141,46 @@ text->SetOffset({ 0.f, 60.f, 0.f });   // オブジェクトの位置から、�
 ### 注意
 - **文字はいつも画面の一番上に出ます**(Direct2Dで、画像や3Dの描画が全部終わった後に描かれるため)。画像の後ろに文字を隠すことはできません。画面エフェクト(§15)とシーン切り替え(§16)は、文字よりさらに上に出ます
 - フォントの設定(フォント名・大きさ・太字の組み合わせ)は、1回作ったら取っておいて使い回します(64種類を超えたら全部作り直します)。毎フレーム大きさを変えるアニメーションをしても大丈夫です
+### WorldTextRenderer(3Dの世界に貼る文字・看板)
+
+壁に貼り付けて傾ける・物の後ろに隠れる・いつもカメラの方を向く、という**3Dの世界の文字**は `WorldTextRenderer` を使います(`Engine/Render3D/WorldTextRenderer.h`)。文字を Direct2D で**テクスチャに描き**、3Dの板(`Mesh`)に貼って、`MeshRenderer` と同じ経路(深度バッファ)で描きます。
+
+| | `TextRenderer` | `WorldTextRenderer` |
+|---|---|---|
+| 使う場面 | 画面の文字・UI・頭の上の名前・ダメージの数字 | 3Dの世界の看板・壁の文字 |
+| 出る場所 | 画面の一番上(3Dの物の後ろには隠れない) | 3Dの世界の中(物の後ろに隠れる) |
+| 向き | いつも画面に正面 | 壁に貼り付く(`transform.rotate`)/ ビルボード(`SetBillboard(true)`)を選べる |
+| 大きさ | 画面のピクセル(`World`にすると奥行きで変わる) | ワールドの大きさ(遠近が正しく出る) |
+
+```cpp
+#include "../../../Engine/Render3D/WorldTextRenderer.h"
+
+auto* sign = obj->AddComponent<WorldTextRenderer>();
+sign->SetText(L"WELCOME");
+sign->SetStyle(style);                          // 見た目(TextStyle。sizeはテクスチャ上のピクセル)
+obj->transform.rotate = { 0.f, 30.f, 0.f };     // 板の向き(壁に貼って傾ける)
+sign->SetBillboard(true);                       // いつもカメラの方を向く
+```
+
+| 関数 | 内容 |
+|---|---|
+| `SetText(文字)` / `SetStyle(style)` / `SetColor(色)` | 文字と見た目。同じ内容なら何もしない |
+| `SetPixelsPerUnit(値)` | 1ワールド単位あたりのピクセル数(既定 2)。板の大きさ = テクスチャのピクセル数 ÷ この値。`transform.scale` でも拡大縮小できる |
+| `SetBackground(色, 余白)` | 背景の板の色(a=0で無し)。看板の板に使う |
+| `SetBillboard(bool)` / `SetBillboardLock(x, y, z)` | 既定は `false`(オーナーの回転のまま)。`true` でいつもカメラの方を向く。`SetBillboardLock(true, false, true)` で横だけ向く立て看板 |
+| `SetDoubleSided(bool)` | 裏から見えるか(既定 `true`。裏から見ても読める向きになる) |
+| `SetLit(bool)` | 光を受けるか(既定 `false`) |
+| `SetFrustumCulling(bool)` / `SetLod(設定)` | 画面の外・遠い時に描かない(`MeshRenderer` と同じ) |
+| `WorldTextRenderer::GetSharedTextureCount()` / `GetSharedTextureBytes()` | 今ある文字のテクスチャの数と、おおよその合計のメモリ(デバッグ用) |
+
+- 板の正面は `-Z` 側(カメラが `+Z` を向く既定の向きで、文字が普通に読めます)。`align` が `Left`/`Right` なら板の左端/右端がオーナーの位置になります
+- 文字のふちのなめらかさを保つため半透明で描き、深度には書きません。そのため**壁より後に描く**必要があり、`Init` でオーナーの `drawPriority` が0なら10にします(変えたい時は `SetDrawPriority`)。背景が不透明な時は深度にも書きます
+- テクスチャは2048ピクセルまで。超える文字は、見た目の大きさを変えずに細かさを下げます(出力ウィンドウに知らせます)
+- 日本語は `Text::LoadFont` で読んだフォント名を `style.fontName` に入れます
+- **同じ絵のテクスチャは共有します。** 文字・フォント・大きさ・太字・色・縁取り・寄せ方・背景(とテクスチャの大きさ)が**すべて同じ**なら、看板が何枚あってもテクスチャは1枚です(板の大きさ・向き・ビルボード・光・両面は絵に関係しないので、別の向きや大きさの看板でも共有できます)。1つでも違えば別のテクスチャです
+- 共有テクスチャは作ったあと**書き換えません**。`SetText` などで変えると、今のテクスチャを手放して、新しい絵のテクスチャを借り直します(ほかの看板は変わりません)。借りている数が0になったテクスチャは、すぐ解放されます(シーンを出た時も、アプリの終了時も)
+- **毎フレーム変わる文字(カウントなど)は共有されず**、変わるたびに新しいテクスチャを描くので重くなります。数字が変わった時だけ `SetText` します(同じ文字なら何もしません)。共有のテクスチャが256枚を超えると、出力ウィンドウに1回知らせます
+- **実例**: Demoの UI カテゴリ「WorldText」(§38)
 
 ---
 
@@ -3250,6 +3290,7 @@ Engineの機能を「見て・触って分かる」ようにした、機能ご�
 | UI | **Rect**(共通。`RectDemoScene`) | 画面の9か所(`Anchor`)に、印(黄色の小さな四角=`GetAnchoredPosition`)と、印に角や辺を合わせた青い四角(`GetAnchoredCenter`)を置く。ドラッグできる大きさの違う3つの四角(`Image::DrawRect`)。画面の大きさ(`Graphics::width` / `height`)も表示する | 下の3つの四角をドラッグして動かす | `Image::DrawRect`、`Anchor`、`GetAnchoredPosition` / `GetAnchoredCenter`(§20) |
 | UI | **Text**(共通。`TextDemoScene`) | 文字の大きさ・色・縁取り・太字・寄せ方(左・中央・右)・フォント(Arialと`LoadFont`で読んだNoto Sans JP)を並べる。キーで入力した文字を、`Text::Measure`で測った板の上に、4つのスタイルで出す。動く物に付いた文字(`TextRenderer`)は、`SetText`で中身を毎フレーム変える | A〜Z・SPACE: 文字を入力 / BackSpace: 消す / 1〜4: 入力した文字のスタイル | `Text::Draw` / `LoadFont` / `Measure`、`TextStyle`、`TextAlign`、`TextRenderer`(`SetText` / `SetOffset`)(§19) |
 | UI | **WorldUI**(2D/3D。`WorldUiDemo2DScene` / `WorldUiDemo3DScene`) | 敵3体の頭の上に、HPゲージ(`GaugeRenderer`の`SetFollowTarget`)と、名前・HPの板(`WorldToScreen2D/3D`で画面の位置に直して`DrawRect`+`Text::Draw`)を出す。敵が動いても、UIはついていく。主人公が近づくと板が赤くなる。倒した敵は非表示になり、ゲージも名前も一緒に消える。3Dはカメラの後ろ(`z <= 0`)では描かない。主人公の頭の上の名前(`TextRenderer`)は、Mキーで大きさの決め方を切り替えられる(`Screen`=変わらない / `World`=3Dでは奥行きで変わる。2Dでは変わらない) | 矢印: 主人公を動かす / 1・2・3: 敵にダメージ / SPACE: 全回復 / M: 名前の大きさの決め方を切り替え / 3Dは右ドラッグで視点 | `Image::WorldToScreen2D` / `WorldToScreen3D`、`GaugeRenderer`(`SetFollowTarget` / `SetUse3DCamera`)、`TextRenderer`(`SetUse3DCamera` / `SetSizeMode` / `SetReferenceDistance` / `SetSizeRange`)、`Image::DrawRect`(§14・§19・§20) |
+| UI | **WorldText**(3Dのみ。`WorldTextDemoScene`) | 3Dの世界に貼る文字(`WorldTextRenderer`)。壁に貼った題名・カウントの看板、柱の後ろに隠れる看板(視点を回すと見える)、背景付きで回せる傾く看板(裏から見ても読める/見えないを切り替え)、いつもカメラの方を向くビルボードの看板。壁の右側には小さな看板60枚を並べ、HUDに「看板の数・文字のテクスチャの数・合計のMB」を出す(全部同じ文字ならテクスチャは1枚=共有。全部違う文字にすると60枚に増える) | B: ビルボードのオン/オフ / D: 傾く看板の裏の見え方 / 左右: 傾く看板を回す / C: カウント / 1: 小さな看板を同じ文字・違う文字に切り替え / 右ドラッグ: 視点 / Q・E: ズーム | `WorldTextRenderer`(`SetText` / `SetStyle` / `SetBillboard` / `SetDoubleSided` / `SetBackground` / `GetSharedTextureCount` / `GetSharedTextureBytes`)(§19) |
 | Render3D | **Shapes**(3Dのみ。`ShapesDemoScene`) | 3列の見本。手前は**形**(立方体・粗い球・細かい球・カプセル・OBJ読み込み。ゆっくり回る)、真ん中は同じオレンジの**球5個**(標準・光沢(鋭い)・光沢(ぼんやり)・発光・縁の光)、奥は**立方体5個**(色・画像・半透明・光を無視・枠線)。球と立方体は、マテリアル(`Material`)だけが違う。各見本の上に、名前とマテリアルの項目名が出る。球の分割数(`rings` / `segments`)が小さいと角ばるのが分かる。(以前 Light デモにあったマテリアルの見本を、ここへ分けました) | 1・2・3: 列の表示オン/オフ / 4: 形を回す / 右ドラッグ: 視点 / Q・E: ズーム | `Mesh::CreateCube` / `CreateSphere(rings, segments)` / `CreateCapsule` / `LoadOBJ`、`MeshRenderer`、`Material`(`specularStrength` `shininess` `emissiveColor` `rimStrength` `lit` `depthWrite` `outlineWidth`)(§4・§30) |
 | Render3D | **Light**(3Dのみ。`LightDemoScene`) | 白い球5個と白い立方体5個(全部同じ材質)に、平行光源(太陽)・左右に動くオレンジの点光源・白いスポットライトを当てて、光の違いを見比べる | 1: 平行光源(太陽) / 2: 点光源 / 3: スポットライト のオン・オフ / 矢印キー: 太陽の向きと高さ | `Image::GetLight`、`LightComponent`(`Point` / `Spot` / `SetSpotAngle`)(§31) |
 | Render3D | **Shadow**(3Dのみ。`ShadowDemoScene`) | 太陽がゆっくり回り、影が動く。球(影を落とす)・立方体(落とさない)・板と下の箱(受ける)・壁。スポットライト(左右に動く白い玉)も影を落とす | 1: 球の`castShadow` / 2: 箱の`receiveShadow` / 3: スポットの影 / 4: 枠線 / 5: 影の縁のぼかし(`pcfRadius`) / 矢印キー: 太陽を手で動かす(SPACEで自動に戻す) | `Shadow::GetSettings`、`Material`(`castShadow` `receiveShadow` `outlineWidth`)、`LightComponent::SetCastShadow`(§32) |

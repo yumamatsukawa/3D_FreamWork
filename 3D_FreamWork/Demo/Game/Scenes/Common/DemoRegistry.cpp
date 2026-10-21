@@ -31,6 +31,7 @@
 #include "../UI/TextDemoScene.h"
 #include "../UI/WorldUiDemo2DScene.h"
 #include "../UI/WorldUiDemo3DScene.h"
+#include "../UI/WorldTextDemoScene.h"
 #include "../Render3D/ShapesDemoScene.h"
 #include "../Render3D/LightDemoScene.h"
 #include "../Render3D/OutlineDemoScene.h"
@@ -110,6 +111,7 @@ const std::vector<DemoInfo>& GetDemoList() {
         { DemoCategory::UI,       L"Rect",              L"四角を描く。画面の9か所(Anchor)に置く",        &OpenScene<RectDemoScene>,                &OpenScene<RectDemoScene> },
         { DemoCategory::UI,       L"Text",              L"文字の大きさ・色・縁取り・寄せ方・フォント",   &OpenScene<TextDemoScene>,                &OpenScene<TextDemoScene> },
         { DemoCategory::UI,       L"WorldUI",           L"物の頭上に出るHPゲージと名前",                 &OpenScene<WorldUiDemo2DScene>,           &OpenScene<WorldUiDemo3DScene> },
+        { DemoCategory::UI,       L"WorldText",         L"壁に貼る・傾ける・カメラへ向く看板の文字",     nullptr,                                  &OpenScene<WorldTextDemoScene> },
         { DemoCategory::Render3D, L"Shapes",            L"図形の種類と、材質(Material)の違い",           nullptr,                                  &OpenScene<ShapesDemoScene> },
         { DemoCategory::Render3D, L"Light",             L"太陽・点光源・スポットライトを見比べる",       nullptr,                                  &OpenScene<LightDemoScene> },
         { DemoCategory::Render3D, L"Shadow",            L"太陽が回ると影が動く。影の設定を切り替える",   nullptr,                                  &OpenScene<ShadowDemoScene> },

@@ -61,4 +61,6 @@ namespace Text {
 
     // ─── Engine内部用(ScreenEffectなどEngineの中だけで使う。ゲーム側からは呼ばない) ─────────────
     ID2D1RenderTarget* GetRenderTarget();   // 文字を描いているDirect2Dの描画先(BeginDraw〜EndDrawの間だけ描ける。Initの前はnullptr)
+    // 文字を並べたレイアウトを作る(TextTexture が、画面の文字と同じフォント・並べ方でテクスチャに描くのに使う)。使い終わったらReleaseする。作れなかったらnullptr
+    IDWriteTextLayout* CreateTextLayout(const std::wstring& text, const TextStyle& style, DWRITE_TEXT_METRICS& metrics);
 }

@@ -6,7 +6,7 @@ UI の座標は **画面の中央が (0,0)、Y+ が上、単位はゲーム画�
 =p
 **描かれる順番**: 文字と `Image::DrawRect` の四角は、**UI スプライトの後に、呼んだ順** に描かれます(Direct2D で描くため。[設計図の描画の順番](architecture.html#draw))。
 =p
-**Demo で見る**: Demo プロジェクトの **UI カテゴリ**に、UI(ボタン・スライダー・ゲージ・TextRenderer)/ Rect / Text / WorldUI の4個のデモがあります。
+**Demo で見る**: Demo プロジェクトの **UI カテゴリ**に、UI(ボタン・スライダー・ゲージ・TextRenderer)/ Rect / Text / WorldUI / WorldText の5個のデモがあります。
 
 =file Engine/UI/Text.h, Text.cpp
 =class Text(名前空間), TextStyle, TextAlign
@@ -19,6 +19,7 @@ Measure(const std::wstring& text, const TextStyle& style) | XMFLOAT2 | 描いた
 LoadFont(const std::wstring& path) | std::wstring | フォントファイル(.ttf / .otf)を読み込み、`TextStyle::fontName` に入れる名前を返す。同じファイルは 2 回読まない。失敗したら空
 Init() / Uninit() / BeginDraw() / EndDraw() | bool / void | 内部用: GameEngine が呼ぶ
 GetRenderTarget() | ID2D1RenderTarget* | 内部用: Direct2D の描画先(ScreenEffect などが使う)
+CreateTextLayout(const std::wstring& text, const TextStyle& style, DWRITE_TEXT_METRICS& metrics) | IDWriteTextLayout* | 内部用: 文字を並べたレイアウトを作る(TextTexture が、画面の文字と同じフォントでテクスチャに描くのに使う)。使い終わったら Release
 =table TextStyle(文字の見た目)
 size | float | 文字の大きさ(ピクセル。既定 32)
 color | XMFLOAT4 | 色(w は濃さ。縁取りも一緒に薄くなる)
@@ -155,3 +156,19 @@ Update(float dt) / Draw() / OnActiveChanged(bool) / Uninit() | void (override) |
 - 位置は `SetAnchor` で決めます(溝の anchor 側の角が合う)。画面に固定して表示し、カメラの影響を受けません。
 =demo UI カテゴリの「UI」、Audio カテゴリの「Sound」(音量スライダー)
 =readme §20
+
+=file Engine/UI/TextTexture.h, TextTexture.cpp
+=class TextTexture
+=role
+文字を描いたテクスチャを作って、**同じ絵のテクスチャをみんなで共有する** 道具です(`WorldTextRenderer` が使う Engine 内部用。ゲームのコードからは直接呼びません)。
+=table
+Measure(const std::wstring& text, const TextStyle& style, float padding, int& width, int& height) | bool | 文字を描くのに要るテクスチャの大きさ(ピクセル。縁取りと余白を含む)を測る
+Acquire(const Desc& desc) | Shared* | テクスチャを借りる(同じ設定のものがあれば共有。無ければ描いて作る)。作れなかったら `nullptr`
+Release(Shared* shared) | void | 返す。借りている数が 0 になったら、すぐ解放する
+ReleaseAll() | void | 共有表を空にする。`GameEngine::Uninit` が、Direct3D を解放するより前に呼ぶ
+GetCount() / GetBytes() | int / size_t | 今ある共有テクスチャの数と、おおよその合計のメモリ(バイト)
+=notes
+- 絵を決める設定(`Desc`: 文字・フォント名・大きさ・太字・色・縁取り・寄せ方・背景・幅・高さ)が **1 つでも違えば別のテクスチャ** です。文字の濃さ(`color.w`)は絵に入れず、板の色の濃さで表します。
+- 共有テクスチャは作ったあと **書き換えません**。変える時は、返して、新しい設定で借り直します。
+- 描き方: Direct2D で乗算済みアルファの絵を描き、ふつうのアルファに直して、ミップマップ付きのテクスチャにします(遠くで文字がちらつかない)。
+=readme §19

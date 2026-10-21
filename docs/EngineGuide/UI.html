@@ -41,9 +41,10 @@ UI の座標は <strong>画面の中央が (0,0)、Y+ が上、単位はゲー�
 <li><a href="#f-ButtonComponent">ButtonComponent.h / ButtonComponent.cpp</a></li>
 <li><a href="#f-GaugeRenderer">GaugeRenderer.h / GaugeRenderer.cpp</a></li>
 <li><a href="#f-SliderComponent">SliderComponent.h / SliderComponent.cpp</a></li>
+<li><a href="#f-TextTexture">TextTexture.h / TextTexture.cpp</a></li>
 </ul></div>
 <p><strong>描かれる順番</strong>: 文字と <code>Image::DrawRect</code> の四角は、<strong>UI スプライトの後に、呼んだ順</strong> に描かれます(Direct2D で描くため。<a href="architecture.html#draw">設計図の描画の順番</a>)。</p>
-<p><strong>Demo で見る</strong>: Demo プロジェクトの <strong>UI カテゴリ</strong>に、UI(ボタン・スライダー・ゲージ・TextRenderer)/ Rect / Text / WorldUI の4個のデモがあります。</p>
+<p><strong>Demo で見る</strong>: Demo プロジェクトの <strong>UI カテゴリ</strong>に、UI(ボタン・スライダー・ゲージ・TextRenderer)/ Rect / Text / WorldUI / WorldText の5個のデモがあります。</p>
 <section class="file" id="f-Text">
 <h3><code>Engine/UI/Text.h</code> <code>Engine/UI/Text.cpp</code></h3>
 <p class="role">画面に文字を描きます(Direct2D / DirectWrite)。<code>Component::Draw</code> の中で <code>Text::Draw</code> を呼びます。文字の見た目は <code>TextStyle</code> にまとめます。</p>
@@ -54,6 +55,7 @@ UI の座標は <strong>画面の中央が (0,0)、Y+ が上、単位はゲー�
 <tr><td class="fn"><code>LoadFont(const std::wstring&amp; path)</code></td><td class="sig"><code>std::wstring</code></td><td>フォントファイル(.ttf / .otf)を読み込み、<code>TextStyle::fontName</code> に入れる名前を返す。同じファイルは 2 回読まない。失敗したら空</td></tr>
 <tr><td class="fn"><code>Init() / Uninit() / BeginDraw() / EndDraw()</code></td><td class="sig"><code>bool / void</code></td><td>内部用: GameEngine が呼ぶ</td></tr>
 <tr><td class="fn"><code>GetRenderTarget()</code></td><td class="sig"><code>ID2D1RenderTarget*</code></td><td>内部用: Direct2D の描画先(ScreenEffect などが使う)</td></tr>
+<tr><td class="fn"><code>CreateTextLayout(const std::wstring&amp; text, const TextStyle&amp; style, DWRITE_TEXT_METRICS&amp; metrics)</code></td><td class="sig"><code>IDWriteTextLayout*</code></td><td>内部用: 文字を並べたレイアウトを作る(TextTexture が、画面の文字と同じフォントでテクスチャに描くのに使う)。使い終わったら Release</td></tr>
 </tbody></table></div>
 <h4>TextStyle(文字の見た目)</h4>
 <div class="tw"><table class="api"><thead><tr><th>名前</th><th>引数・戻り値</th><th>何をするか</th></tr></thead><tbody>
@@ -263,6 +265,22 @@ slider-&gt;SetOnDragEnd([](float) { SaveData::Save(); });</code></pre></div>
 <li>ポーズ中・シーン切り替え中(<code>Time::IsPaused()</code>)は操作できません。</li>
 <li><strong>つかんでいる間に、このコンポーネントだけを <code>SetEnabled(false)</code> しない</strong>(<code>IsAnyDragging()</code> が <code>true</code> のままになり、ボタンが反応しなくなる)。止めたい時は GameObject ごと <code>SetActive(false)</code> にします。</li>
 <li>位置は <code>SetAnchor</code> で決めます(溝の anchor 側の角が合う)。画面に固定して表示し、カメラの影響を受けません。</li>
+</ul></div>
+</section>
+<section class="file" id="f-TextTexture">
+<h3><code>Engine/UI/TextTexture.h</code> <code>Engine/UI/TextTexture.cpp</code></h3>
+<p class="role">文字を描いたテクスチャを作って、<strong>同じ絵のテクスチャをみんなで共有する</strong> 道具です(<code>WorldTextRenderer</code> が使う Engine 内部用。ゲームのコードからは直接呼びません)。</p>
+<div class="tw"><table class="api"><thead><tr><th>名前</th><th>引数・戻り値</th><th>何をするか</th></tr></thead><tbody>
+<tr><td class="fn"><code>Measure(const std::wstring&amp; text, const TextStyle&amp; style, float padding, int&amp; width, int&amp; height)</code></td><td class="sig"><code>bool</code></td><td>文字を描くのに要るテクスチャの大きさ(ピクセル。縁取りと余白を含む)を測る</td></tr>
+<tr><td class="fn"><code>Acquire(const Desc&amp; desc)</code></td><td class="sig"><code>Shared*</code></td><td>テクスチャを借りる(同じ設定のものがあれば共有。無ければ描いて作る)。作れなかったら <code>nullptr</code></td></tr>
+<tr><td class="fn"><code>Release(Shared* shared)</code></td><td class="sig"><code>void</code></td><td>返す。借りている数が 0 になったら、すぐ解放する</td></tr>
+<tr><td class="fn"><code>ReleaseAll()</code></td><td class="sig"><code>void</code></td><td>共有表を空にする。<code>GameEngine::Uninit</code> が、Direct3D を解放するより前に呼ぶ</td></tr>
+<tr><td class="fn"><code>GetCount() / GetBytes()</code></td><td class="sig"><code>int / size_t</code></td><td>今ある共有テクスチャの数と、おおよその合計のメモリ(バイト)</td></tr>
+</tbody></table></div>
+<div class="notes"><strong>気を付ける点</strong><ul>
+<li>絵を決める設定(<code>Desc</code>: 文字・フォント名・大きさ・太字・色・縁取り・寄せ方・背景・幅・高さ)が <strong>1 つでも違えば別のテクスチャ</strong> です。文字の濃さ(<code>color.w</code>)は絵に入れず、板の色の濃さで表します。</li>
+<li>共有テクスチャは作ったあと <strong>書き換えません</strong>。変える時は、返して、新しい設定で借り直します。</li>
+<li>描き方: Direct2D で乗算済みアルファの絵を描き、ふつうのアルファに直して、ミップマップ付きのテクスチャにします(遠くで文字がちらつかない)。</li>
 </ul></div>
 </section>
 

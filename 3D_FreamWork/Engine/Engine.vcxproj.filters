@@ -102,6 +102,9 @@
     <ClCompile Include="Render3D\Lod.cpp">
       <Filter>Render3D</Filter>
     </ClCompile>
+    <ClCompile Include="Render3D\WorldTextRenderer.cpp">
+      <Filter>Render3D</Filter>
+    </ClCompile>
     <ClCompile Include="Render3D\RenderStats.cpp">
       <Filter>Render3D</Filter>
     </ClCompile>
@@ -193,6 +196,9 @@
       <Filter>UI</Filter>
     </ClCompile>
     <ClCompile Include="UI\TextRenderer.cpp">
+      <Filter>UI</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\TextTexture.cpp">
       <Filter>UI</Filter>
     </ClCompile>
     <ClCompile Include="Render\Texture.cpp">
@@ -321,6 +327,9 @@
     <ClInclude Include="Render3D\MeshRenderer.h">
       <Filter>Render3D</Filter>
     </ClInclude>
+    <ClInclude Include="Render3D\WorldTextRenderer.h">
+      <Filter>Render3D</Filter>
+    </ClInclude>
     <ClInclude Include="Render3D\Model.h">
       <Filter>Render3D</Filter>
     </ClInclude>
@@ -403,6 +412,9 @@
       <Filter>UI</Filter>
     </ClInclude>
     <ClInclude Include="UI\TextRenderer.h">
+      <Filter>UI</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\TextTexture.h">
       <Filter>UI</Filter>
     </ClInclude>
     <ClInclude Include="Render\Texture.h">
