@@ -358,6 +358,7 @@ swprintf_s(buf, L&quot;Tri: %d  LodCulled: %d  LOD: %s&quot;, RenderStats::GetTr
 <tr><td class="fn"><code>GetNodeCount()</code></td><td class="sig"><code>int</code></td><td>パーツの数</td></tr>
 <tr><td class="fn"><code>FindNode(const std::string&amp; name)</code></td><td class="sig"><code>int</code></td><td>名前でパーツを探す(無ければ -1)</td></tr>
 <tr><td class="fn"><code>GetNode(int index)</code></td><td class="sig"><code>const ModelNode&amp;</code></td><td>パーツのデータ</td></tr>
+<tr><td class="fn"><code>GetNodeColor(int index)</code></td><td class="sig"><code>XMFLOAT4</code></td><td>パーツのマテリアルの diffuse 色(読み取り専用。マテリアルが無い・色が無い・画像のマテリアルは白。範囲外も白)</td></tr>
 <tr><td class="fn"><code>GetPath()</code></td><td class="sig"><code>const std::wstring&amp;</code></td><td>読み込んだファイルのパス</td></tr>
 <tr><td class="fn"><code>GetBoundingRadius()</code></td><td class="sig"><code>float</code></td><td>原点から一番遠い頂点までの距離(画面判定の半径)</td></tr>
 <tr><td class="fn"><code>GetClipCount()</code></td><td class="sig"><code>int</code></td><td>アニメーションクリップの数</td></tr>
@@ -365,7 +366,7 @@ swprintf_s(buf, L&quot;Tri: %d  LodCulled: %d  LOD: %s&quot;, RenderStats::GetTr
 <tr><td class="fn"><code>FindClip(const std::string&amp; name)</code></td><td class="sig"><code>int</code></td><td>名前でクリップを探す(無ければ -1)</td></tr>
 <tr><td class="fn"><code>QuaternionToEuler(const XMFLOAT4&amp; q)</code></td><td class="sig"><code>static XMFLOAT3</code></td><td>クォータニオンを <code>Transform::rotate</code> と同じ向きのオイラー角(度)にする</td></tr>
 <tr><td class="fn"><code>GetMesh(int index) / GetSkinMesh(int index)</code></td><td class="sig"><code>Mesh* / SkinMesh*</code></td><td>内部用: ModelRenderer が描画用バッファを取り出す</td></tr>
-<tr><td class="fn"><code>ModelNode</code></td><td class="sig"><code>struct</code></td><td>パーツ 1 つ: <code>name</code>・<code>parent</code>・<code>position</code>・<code>rotate</code>・<code>scale</code>・<code>vertices</code>・<code>texturePath</code>、スキン用の <code>skinVertices</code> など。<code>IsSkinned()</code></td></tr>
+<tr><td class="fn"><code>ModelNode</code></td><td class="sig"><code>struct</code></td><td>パーツ 1 つ: <code>name</code>・<code>parent</code>・<code>position</code>・<code>rotate</code>・<code>scale</code>・<code>vertices</code>・<code>texturePath</code>・<code>color</code>、スキン用の <code>skinVertices</code> など。<code>IsSkinned()</code></td></tr>
 <tr><td class="fn"><code>ModelPose</code></td><td class="sig"><code>struct</code></td><td>パーツの、ある時刻の位置・回転(クォータニオン)・スケール</td></tr>
 <tr><td class="fn"><code>ModelClip</code></td><td class="sig"><code>struct</code></td><td>クリップ 1 つ: <code>name</code>・<code>duration</code>・<code>fps</code>・<code>frameCount</code>・<code>nodePoses</code></td></tr>
 </tbody></table></div>
@@ -386,8 +387,9 @@ swprintf_s(buf, L&quot;Tri: %d  LodCulled: %d  LOD: %s&quot;, RenderStats::GetTr
 <div class="tw"><table class="api"><thead><tr><th>名前</th><th>引数・戻り値</th><th>何をするか</th></tr></thead><tbody>
 <tr><td class="fn"><code>ModelRenderer(const std::wstring&amp; path)</code></td><td class="sig"><code>コンストラクタ</code></td><td>FBX / OBJ のパスを渡す。読めなかった時は何も描かない(出力ウィンドウに理由が出る)</td></tr>
 <tr><td class="fn"><code>SetTexture(const std::wstring&amp; path)</code></td><td class="sig"><code>void</code></td><td>全パーツに同じ画像を貼る(呼ばなければ FBX に書かれたパーツごとの画像を使う)</td></tr>
-<tr><td class="fn"><code>SetColor(float r, float g, float b, float a)</code></td><td class="sig"><code>void</code></td><td>色</td></tr>
+<tr><td class="fn"><code>SetColor(float r, float g, float b, float a)</code></td><td class="sig"><code>void</code></td><td>色(パーツの色に掛け算される。README &#167;27)</td></tr>
 <tr><td class="fn"><code>GetColor()</code></td><td class="sig"><code>XMFLOAT4</code></td><td>今の色</td></tr>
+<tr><td class="fn"><code>SetUseModelColors(bool enabled) / IsUseModelColors()</code></td><td class="sig"><code>void / bool</code></td><td>FBXのマテリアルの色をパーツの色として使うか(既定 true)</td></tr>
 <tr><td class="fn"><code>SetMaterial(const Material&amp; value)</code></td><td class="sig"><code>void</code></td><td>全パーツ共通のマテリアルを設定する</td></tr>
 <tr><td class="fn"><code>GetMaterial()</code></td><td class="sig"><code>Material&amp;</code></td><td>手直し用</td></tr>
 <tr><td class="fn"><code>SetRimLight(XMFLOAT3 color, float strength, float power)</code></td><td class="sig"><code>void</code></td><td>縁の光</td></tr>
@@ -410,6 +412,8 @@ if (top) top-&gt;rotate.y += spinSpeed * dt;</code></pre></div>
 <li><code>GetNodeTransform</code> の値は「親のパーツからの相対」です。この Transform には親子関係を設定していないので、<code>GetWorldMatrix()</code> は使えません。</li>
 <li><strong>アニメーションを再生している間は、<code>ModelAnimationComponent</code> が毎フレームその値を上書き</strong> します。手で動かしても、アニメが動かすパーツは次のフレームに戻ります。</li>
 <li><code>ModelAnimationComponent</code> は <strong>ModelRenderer の後に</strong> <code>AddComponent</code> します。</li>
+<li>FBX のマテリアルの diffuse 色を、パーツごとの色として使います(画像が無くても色が出ます)。描く色 = パーツの色 &#215; <code>SetColor</code> の色(画像があれば画像 &#215; 色)。頂点カラーとアルファは読みません。</li>
+<li>マテリアルが無い・色が無い・画像のマテリアルのパーツは白です。Maya の Lambert 既定(0.5)のように灰色のマテリアルは灰色で描かれます。使いたくない時は <code>SetUseModelColors(false)</code>。枠線の色には影響しません。</li>
 <li>画面判定の半径は「止まっている姿の一番遠い頂点 &#215; 1.5」です。アニメーションで大きくはみ出すモデルは、<code>SetFrustumCulling</code> を <code>false</code> のままにします。</li>
 </ul></div>
 </section>

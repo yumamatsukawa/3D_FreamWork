@@ -127,6 +127,9 @@
     <ClCompile Include="Game\Components\Render\ParticleDemoController.cpp">
       <Filter>Game\Components\Render</Filter>
     </ClCompile>
+    <ClCompile Include="Game\Components\Render3D\BuoyancyController.cpp">
+      <Filter>Game\Components\Render3D</Filter>
+    </ClCompile>
     <ClCompile Include="Game\Components\Render3D\FloatOnWaterController.cpp">
       <Filter>Game\Components\Render3D</Filter>
     </ClCompile>
@@ -191,6 +194,9 @@
       <Filter>Game\Objects\Render</Filter>
     </ClCompile>
     <ClCompile Include="Game\Objects\Render3D\Buoy.cpp">
+      <Filter>Game\Objects\Render3D</Filter>
+    </ClCompile>
+    <ClCompile Include="Game\Objects\Render3D\FloatingBall.cpp">
       <Filter>Game\Objects\Render3D</Filter>
     </ClCompile>
     <ClCompile Include="Game\Objects\Render3D\DemoHills.cpp">
@@ -759,6 +765,9 @@
     <ClInclude Include="Game\Components\Render\ParticleDemoController.h">
       <Filter>Game\Components\Render</Filter>
     </ClInclude>
+    <ClInclude Include="Game\Components\Render3D\BuoyancyController.h">
+      <Filter>Game\Components\Render3D</Filter>
+    </ClInclude>
     <ClInclude Include="Game\Components\Render3D\FloatOnWaterController.h">
       <Filter>Game\Components\Render3D</Filter>
     </ClInclude>
@@ -823,6 +832,9 @@
       <Filter>Game\Objects\Render</Filter>
     </ClInclude>
     <ClInclude Include="Game\Objects\Render3D\Buoy.h">
+      <Filter>Game\Objects\Render3D</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\Objects\Render3D\FloatingBall.h">
       <Filter>Game\Objects\Render3D</Filter>
     </ClInclude>
     <ClInclude Include="Game\Objects\Render3D\DemoHills.h">

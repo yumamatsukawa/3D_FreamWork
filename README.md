@@ -1979,7 +1979,9 @@ if (turret) turret->rotate.y += 90.f * dt;       // 見つからない時はnull
 |---|---|
 | `ModelRenderer(パス)` | モデルのファイル(`.fbx`。`.obj` も読めて、その場合はパーツ1つのモデルになる)。読み込めなかった時は何も描かず、出力ウィンドウに理由が出る |
 | `SetTexture(パス)` | 全パーツに同じ画像を貼る |
-| `SetColor(r, g, b, a)` | 色 |
+| `SetColor(r, g, b, a)` | 色。FBXのマテリアルの色(下の「マテリアルの色」)に掛け算される |
+| `SetUseModelColors(bool)` | FBXのマテリアルの色を使うか(既定 `true`)。`false` なら使わない(白になる) |
+| `Model::GetNodeColor(番号)` | パーツのマテリアルの色(`XMFLOAT4`。読み取り専用。無ければ白) |
 | `GetNodeTransform(名前)` | パーツの動き(`Transform`)を返す。無い名前は `nullptr` |
 | `Model::Load(パス)` / `GetNodeCount()` / `FindNode(名前)` | モデルのデータそのもの(`Engine/Render3D/Model.h`)。普通は `ModelRenderer` が使うので、直接使うことは少ない |
 | `Resources::LoadModel(パス)` | モデルを借りる。同じパスは同じ `Model` を返す(§11)。`ModelRenderer` が中で自動で使う |
@@ -1991,6 +1993,16 @@ if (turret) turret->rotate.y += 90.f * dt;       // 見つからない時はnull
 - **モデルのデータと、パーツの動きは別です。** 形や親子関係(`Model`)は同じファイルのオブジェクトみんなで共有し、パーツの今の位置・回転は `ModelRenderer` が1体ごとに持ちます。同じ戦車を3台置いて、それぞれ砲台の向きを変えられます。
 - 描画は `MeshRenderer` と同じ仕組み(`Shader3D.hlsl`、3D用カメラ、シーン共通の光源)です。パーツごとに「親→子へ累積したワールド行列」で描きます。
 - 読み込んだモデルは、画像と同じく `Resources` が管理します。誰も使わなくなったモデルは、シーン切り替えの時に解放されます。
+
+### マテリアルの色(diffuse色)
+
+- FBXのマテリアルの **diffuse色**(Mayaなら Lambert / Phong の Color)を読み、**パーツごとの色**として描きます。画像が無くても色が付きます。1つのパーツに複数のマテリアルがある時は、最初のマテリアルの色を使います。
+- 描く色 = **FBXのパーツの色 × `SetColor` の色**(画像があれば、画像 × 色)。`SetColor` は上書きされず、掛け算になります。枠線(`SetOutline`)の色には影響しません。
+- **読むのはマテリアルのdiffuse色だけ**です。頂点カラーは読みません。透明度(アルファ)も読まず、常に不透明です。
+- **マテリアルが無い・色が書かれていない・画像が貼られたマテリアル**のパーツは**白**です(今までと同じ見た目)。
+- **注意**: Mayaの Lambert の既定色(0.5)やMODOの既定(0.8)のように、マテリアルが灰色のままのFBXは、白ではなく**灰色**で描かれます。色を使いたくない時は `SetUseModelColors(false)` にするか、書き出す前にマテリアルを白にしてください。
+- Maya・MODOから書き出す時は、パーツのマテリアルに色を付けてから書き出してください(色を付けないと灰色になります)。
+- 動作確認用に、赤・緑・青の箱が3つ並んだ `Assets/Models/TestColor.fbx`(手書きのASCII FBX)があります。Demo の Model が奥に置き、`robot.fbx` と合わせて、`8` キーで色の使う・使わないを切り替えます。
 
 ### 単位と座標系(読み込む時に変換します)
 
@@ -2050,7 +2062,7 @@ if (anim->IsFinished()) anim->CrossFade("Idle", 0.2f);
 - 形式は **FBX**(バイナリでもASCIIでも読めます)。Up Axis は **Y**、単位は **センチメートル**(違っていても変換されますが、cmが一番分かりやすい)
 - **Triangulate** はオンでもオフでもかまいません
 - **Embed Media(メディアを埋め込む)は使いません。** 画像は別に **PNG** で `Assets/` に置きます
-- 画像の貼り方: FBXに書かれた画像の**ファイル名だけ**を使い、`Assets/ファイル名` から探します(例: Mayaで `tank_body.png` を貼ったら `Assets/tank_body.png`)。フォルダ名は無視します。PNG以外(tga など)は読めないので、PNGにして `Assets/` に置いてください。パーツに画像が無ければ白で表示されます(`SetTexture` や `SetColor` で変えられます)
+- 画像の貼り方: FBXに書かれた画像の**ファイル名だけ**を使い、`Assets/ファイル名` から探します(例: Mayaで `tank_body.png` を貼ったら `Assets/tank_body.png`)。フォルダ名は無視します。PNG以外(tga など)は読めないので、PNGにして `Assets/` に置いてください。パーツに画像もマテリアルの色も無ければ白で表示されます(`SetTexture` や `SetColor` で変えられます)
 - 1つのパーツ(メッシュ)に複数のマテリアルを付けても、貼れる画像は**1つだけ**です(画像のある最初のマテリアルのもの)
 - モデルのファイルは `Assets/Models/` に置くとよいです。元の `.mb` も `Assets/Source/` などに残しておくと、後で直せます
 - アニメーション(キーフレーム)の作り方と書き出し: Mayaでパーツ(グループやメッシュ)を動かしてキーを打ち、FBXの書き出しで **Animation をオン**にします。Maya側では、**Bake Animation(アニメーションのベイク)をオン**にするのがおすすめです(IK・拘束・エクスプレッションなどを使っていても、キーの値に焼き込まれて確実に再生できる)。複数の動き(歩く・走る・攻撃)は、**Game Exporter でクリップ(Take)に分けて**書き出すか、1つずつ別のクリップとして書き出します。クリップの名前がそのまま `Play("名前")` の名前になります。骨(スキン)で体を曲げる動きは、次の「骨で曲げるモデル」の手順で書き出します
@@ -3296,8 +3308,8 @@ Engineの機能を「見て・触って分かる」ようにした、機能ご�
 | Render3D | **Shadow**(3Dのみ。`ShadowDemoScene`) | 太陽がゆっくり回り、影が動く。球(影を落とす)・立方体(落とさない)・板と下の箱(受ける)・壁。スポットライト(左右に動く白い玉)も影を落とす | 1: 球の`castShadow` / 2: 箱の`receiveShadow` / 3: スポットの影 / 4: 枠線 / 5: 影の縁のぼかし(`pcfRadius`) / 矢印キー: 太陽を手で動かす(SPACEで自動に戻す) | `Shadow::GetSettings`、`Material`(`castShadow` `receiveShadow` `outlineWidth`)、`LightComponent::SetCastShadow`(§32) |
 | Render3D | **Outline**(3Dのみ。`OutlineDemoScene`) | 左: 立方体の外側に、画面上で一定の太さの**枠線**(黄色)を描く(遠くても近くても同じ太さ)。真ん中: 壁の後ろに隠れた球に、**壁越しの枠線**(`seeThrough`。水色)を出す。OFFにすると、壁の後ろの球の枠線は見えなくなる(壁より後に描くよう、球の`drawPriority`を大きくしてある)。右: 暗い球の縁(視線に斜めの所)を内側で光らせる**縁の光**(`SetRimLight`) | 1: 枠線 / 2: 壁越し / 3: 縁の光 のオン・オフ / 上下: 枠線の太さ / 左右: 縁の光の強さ / 右ドラッグ: 視点 | `MeshRenderer::SetOutline(色, 太さ, seeThrough)` / `SetRimLight(色, 強さ)`、`Material`(`outlineWidth` `outlineColor` `outlineSeeThrough` `rimColor` `rimStrength`)(§33) |
 | Render3D | **Terrain**(3Dのみ。`TerrainDemoScene`) | 高さの画像(`heightmap.png`)から作った丘。黄色い玉を動かして、その下の地面の高さ(`GetHeightAt`)・向き(`GetNormalAt`)・地形の中か(`Contains`)を表示する | 矢印キー: 玉を動かす | `Terrain::LoadFromImage`、`TerrainRenderer`(`GetHeightAt` / `GetNormalAt` / `Contains`)(§34) |
-| Render3D | **Water**(3Dのみ。`WaterDemoScene`) | 丘の谷の池の水面。色・波の高さ・波の速さを変えられる。赤い箱は、波の高さに合わせて浮かぶ | 1・2: 波の高さ / 3・4: 波の速さ / 5: 水の色 | `WaterRenderer`(`WaterSettings` / `GetSettings` / `GetHeightAt`)(§35) |
-| Render3D | **Model**(3Dのみ。`ModelDemoScene`) | 同じFBX(`TestParts.fbx`。大きな箱 Base の上に小さな箱 Top が乗った2パーツ)を2体置く。1体は動かし、もう1体は見本。パーツを**名前で探して**(`GetNodeTransform("Top")`)回す・上下・大きさを変えると、そのパーツだけが動く。モデル全体は、置いた物の `Transform` で回す・大きさを変える。読み込んだモデルの情報(パーツ数・親子・位置・半径)も表示する。2体の `Model`(データ)は共有され、パーツの動きは1体ごと | 1: Topを回す / 2: Topを上下 / 3: Topの大きさ / 4: 全体を回す / 5: 全体の大きさ / 右ドラッグ: 視点 | `ModelRenderer`(`GetNodeTransform` / `GetModel`)、`Model`(`GetNodeCount` / `GetNode` / `GetBoundingRadius`)(§27) |
+| Render3D | **Water**(3Dのみ。`WaterDemoScene`) | 丘をおおう広い海(5000x5000)の水面。水位300で、丘の高い所(面積の約13%)だけが島になって出る。色・波の高さ・波の速さ・水位を変えられる。赤い箱(2つ。大きさ違い)は、`GetHeightAt` で波の高さを調べて高さを合わせて浮かぶ(物理ではなく、波の式を読む)。赤い球(1つ)は物理(Dynamic)の剛体で、上から落ちてきて、沈んだ深さに応じた上向きの力(浮力。`BuoyancyController` が `RigidbodyComponent::AddForce` で加える)と水の抵抗で浮く。水位や波が変わっても追従する。画面の左に説明が出る | 1・2: 波の高さ / 3・4: 波の速さ / 5: 水の色 / ↑↓: 水位 | `WaterRenderer`(`WaterSettings` / `GetSettings` / `GetHeightAt`)、`RigidbodyComponent`(`AddForce`)(§35) |
+| Render3D | **Model**(3Dのみ。`ModelDemoScene`) | 同じFBX(`TestParts.fbx`。大きな箱 Base の上に小さな箱 Top が乗った2パーツ)を2体置く。1体は動かし、もう1体は見本。パーツを**名前で探して**(`GetNodeTransform("Top")`)回す・上下・大きさを変えると、そのパーツだけが動く。モデル全体は、置いた物の `Transform` で回す・大きさを変える。読み込んだモデルの情報(パーツ数・親子・位置・半径)も表示する。2体の `Model`(データ)は共有され、パーツの動きは1体ごと。左には、試しに読んだ別のFBX(`robot.fbx`。自作のロボット。32パーツの親子で、4色のマテリアルを持つ。アニメーションは入っていない)も置く(元が高さ約6cmと小さいので28倍)。`7` キーで `SetColor` の色(1より大きい値で明るくできる)を掛けて、明るい黄色に染める。奥には、パーツごとに違う色のマテリアル(赤・緑・青)を持つFBX(`TestColor.fbx`)を置く。`8` キーで、この箱とロボットの両方で「FBXの色を使う / 使わない(白になる)」を切り替える | 1: Topを回す / 2: Topを上下 / 3: Topの大きさ / 4: 全体を回す / 5: 全体の大きさ / 6: ロボットの表示 / 7: ロボットを明るい黄色に染める / 8: FBXの色を使う・使わない / 右ドラッグ: 視点 | `ModelRenderer`(`GetNodeTransform` / `GetModel` / `SetUseModelColors`)、`Model`(`GetNodeCount` / `GetNode` / `GetNodeColor` / `GetBoundingRadius`)(§27) |
 | Render3D | **SkinAnim**(3Dのみ。`SkinAnimDemoScene`) | 左: 箱(`TestAnim.fbx`。クリップ Spin と Bob)。真ん中: 骨2本で曲がる腕(`TestSkin.fbx`。クリップ Bend)をずっと再生。右: 同じ腕を1回だけ再生(終わると `IsFinished` が true になって、最後の形で止まる)。箱のクリップは、すぐ切り替える(`Play`)か、なめらかに切り替える(`CrossFade` 0.6秒)かを見比べる。速さは3つ同時に変わる。枠線は、骨で曲げた形に付く | 1: Spin / 2: Bob / SPACE: CrossFade / 3: 1回だけの腕を再生し直す / 4: 枠線 / 上下: 速さ / 右ドラッグ: 視点 | `ModelAnimationComponent`(`Play` / `CrossFade` / `SetSpeed` / `IsFinished` / `GetClipNames`)、`ModelRenderer`(§27) |
 | Render3D | **LOD**(3Dのみ。`LodDemoScene`) | 225本(15x15)の柱が並ぶ場所。カメラから遠い柱は、描かない(3000)・影を落とさない(2000)・枠線を描かない(1500)。LODのオン/オフと距離の倍率を変えて、描画命令の数・三角形の数・距離で省いた数(`RenderStats`。前のフレームの数)が変わるのを見る。柱は三角形が多いカプセル。影・枠線も切り替えられる | 1: LODのオン/オフ / 上下: 距離の倍率 / 2: 影 / 3: 枠線 / 右ドラッグ・Q・E: 視点を変えて数の変化を見る | `Lod::SetEnabled` / `SetGlobalScale`、`MeshRenderer::SetLod`、`RenderStats::GetDrawCallCount` / `GetDrawTriangleCount` / `GetShadowDrawCount` / `GetOutlineDrawCount` / `GetLodCulledCount` ほか(§37) |
 | Render3D | **Visibility**(2D/3D。`VisibilityDemo2DScene` / `VisibilityDemo3DScene`) | 広い世界にたくさん置いた物(2Dは箱99個、3Dは球と立方体81個)が、カメラに映っているかを `Visibility` で調べて数える。右の地図(緑=映っている、灰色=映っていない、黄色=カメラの範囲)で、映る範囲が分かる。1キーの `SetFrustumCulling` をONにすると、映っていない物は描かれず、省いた数(`GetCulledCount`。前のフレームの数)が増える(OFFだと0)。**2D**は円(`IsCircleInView2D`)と四角(`IsRectInView2D`)、**3D**は球(`IsSphereInView3D`)と箱(`IsBoxInView3D`)で調べる | 1: 描かない設定のオン/オフ / WASD(矢印): 2Dはカメラ、3Dは見る点を動かす / 3Dは右ドラッグ: 向き、Q・E: ズーム | `Visibility::IsCircleInView2D` / `IsRectInView2D` / `IsSphereInView3D` / `IsBoxInView3D` / `GetCulledCount`、`SpriteRenderer` / `MeshRenderer` の `SetFrustumCulling`(§28) |

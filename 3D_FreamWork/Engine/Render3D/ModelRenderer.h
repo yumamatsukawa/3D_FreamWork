@@ -27,8 +27,10 @@ private:
     Material material;                         // 全パーツ共通の見た目の設定(material.texture が空なら、各パーツの画像を使う)
     std::vector<XMMATRIX> modelMatrices;       // 描画用の作業場所: パーツごとの「モデル空間」の行列(毎フレーム作り直す)
     std::vector<XMMATRIX> boneMatrices;        // 描画用の作業場所: 骨で曲げるパーツのスキン行列
+    Material partMaterial;                     // 描画用の作業場所: パーツの色を掛けたmaterial(毎回作り直す)
     bool frustumCulling = false;               // trueなら、画面の外にある時は描かない
     LodSettings lod;                           // 距離で省く設定(既定はすべて使わない)
+    bool useModelColors = true;                // trueなら、FBXのマテリアルの色をパーツごとに掛ける
 
     static constexpr float cullingMargin = 1.5f;   // 画面判定の球に持たせる余裕(骨・アニメーションで、止まっている姿よりはみ出すため)
 
@@ -49,6 +51,11 @@ public:
 
     void SetColor(float r, float g, float b, float a) { material.color = { r, g, b, a }; }
     XMFLOAT4 GetColor() const { return material.color; }
+
+    // FBXのマテリアルのdiffuse色を、パーツごとの色として使うか(既定true)。描く色 = パーツの色 × SetColor の色(画像があれば画像 × 色)。
+    // マテリアルが無い・色が無い・画像のマテリアルのパーツは白(そのまま)。falseにすると、FBXの色は使わない。枠線の色には影響しない
+    void SetUseModelColors(bool enabled) { useModelColors = enabled; }
+    bool IsUseModelColors() const { return useModelColors; }
 
     // マテリアル(色・光沢・自発光・半透明など)を全パーツ共通で設定する。
     // material.texture が空なら各パーツの画像を使い、パスを入れると全パーツにその画像を貼る(SetTextureと同じ)

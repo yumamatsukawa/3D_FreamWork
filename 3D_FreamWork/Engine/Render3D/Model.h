@@ -15,6 +15,7 @@ struct ModelNode {
     XMFLOAT3 scale{ 1.f, 1.f, 1.f };         // 親からの相対スケール
     std::vector<MeshVertex> vertices;        // 形(三角形の頂点。パーツの中心が原点。形が無いパーツは空)
     std::wstring texturePath;                // このパーツの画像(無ければ空)
+    XMFLOAT4 color{ 1.f, 1.f, 1.f, 1.f };    // マテリアルのdiffuse色(マテリアルが無い・色が無い・画像のマテリアルは白。アルファは常に1)
     // ─── 骨で曲げるメッシュの時だけ入る(スキンが無ければskinVerticesは空) ───
     std::vector<SkinVertex> skinVertices;    // 骨の番号・影響度つきの頂点(verticesと同じ並び・同じ数)。骨は最大4本、影響度は合計1に直してある
     std::vector<int> skinBones;              // このメッシュが使う骨のパーツの番号(skinVerticesのBoneIndicesは、このリストの何番目か)
@@ -65,6 +66,10 @@ public:
     // 名前でパーツを探す(無ければ-1)
     int FindNode(const std::string& name) const;
     const ModelNode& GetNode(int index) const { return nodes[index]; }
+    // パーツのマテリアルのdiffuse色(読み取り専用。ModelRenderer が描く時に、SetColor の色へ掛ける)。範囲外は白
+    XMFLOAT4 GetNodeColor(int index) const {
+        return (index >= 0 && index < (int)nodes.size()) ? nodes[index].color : XMFLOAT4{ 1.f, 1.f, 1.f, 1.f };
+    }
     const std::wstring& GetPath() const { return path; }
     // モデルの原点から、止まっている姿の一番遠い頂点までの距離(画面判定の球の半径。ModelRendererが使う)。
     // 骨・アニメーションで動くとはみ出すので、使う側で余裕を持たせる

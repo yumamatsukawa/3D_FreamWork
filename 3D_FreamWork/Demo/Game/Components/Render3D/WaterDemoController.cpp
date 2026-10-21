@@ -1,6 +1,7 @@
 ﻿#include "WaterDemoController.h"
 #include "../../../../Engine/Core/Input.h"
 #include "../../../../Engine/Core/MathUtil.h"
+#include "../../../../Engine/Core/GameObject.h"
 #include "../../../../Engine/Render3D/WaterRenderer.h"
 #include "../../../../Engine/UI/Text.h"
 #include "../../../../Engine/UI/Anchor.h"
@@ -22,6 +23,9 @@ namespace {
     constexpr float maxWaveHeight = 40.f;     // 波の高さの上限
     constexpr float waveSpeedStep = 30.f;     // [3][4]を1回押すごとに変わる、波の速さ
     constexpr float maxWaveSpeed = 300.f;     // 波の速さの上限
+    constexpr float waterLevelSpeed = 100.f;  // [↑][↓]を押している間に、水位が変わる速さ(1秒あたり)
+    constexpr float minWaterLevel = 100.f;    // 水位の下限(これより低いと、島が大きくなる)
+    constexpr float maxWaterLevel = 480.f;    // 水位の上限(丘の一番高い所は約500)
     constexpr DirectX::XMFLOAT2 listOffset = { 40.f, -170.f };   // 左上から: 状態の一覧の1行目
     constexpr float listGap = 28.f;                              // 一覧の行の間隔
 }
@@ -44,6 +48,12 @@ void WaterDemoController::Update(float dt) {
         colorIndex = (colorIndex + 1) % waterColorCount;
         settings.color = waterColors[colorIndex].color;
     }
+
+    // 水位を変える: 水面のオブジェクトのYを動かす(押している間。浮いている箱も一緒に動く)
+    Transform& waterTransform = water->GetOwner()->transform;
+    if (Input::GetKeyPress(KEY_UP)) waterTransform.position.y += waterLevelSpeed * dt;
+    if (Input::GetKeyPress(KEY_DOWN)) waterTransform.position.y -= waterLevelSpeed * dt;
+    waterTransform.position.y = Math::Clamp(waterTransform.position.y, minWaterLevel, maxWaterLevel);
 }
 
 void WaterDemoController::Draw() {
@@ -70,4 +80,16 @@ void WaterDemoController::Draw() {
     draw(buf);
     swprintf_s(buf, L"[5] 水の色(color): %ls", waterColors[colorIndex].name);
     draw(buf);
+    swprintf_s(buf, L"[↑][↓] 水位(水面のY): %.0f", water->GetOwner()->transform.position.y);
+    draw(buf);
+
+    // 浮いている赤い箱と球の説明
+    style.size = 18.f;
+    style.color = { 1.0f, 0.75f, 0.7f, 1.0f };
+    line++;
+    draw(L"赤い箱(2つ)は GetHeightAt(x, z) で波の高さを調べ、");
+    draw(L"箱の高さを直接合わせます(物理ではなく、波の式を読む)。");
+    draw(L"赤い球は物理(Dynamic)の剛体で、上から落ちてきます。");
+    draw(L"沈んだ深さに応じた上向きの力(浮力)と水の抵抗で浮き、");
+    draw(L"水位や波が変わっても、浮力が追従します。");
 }

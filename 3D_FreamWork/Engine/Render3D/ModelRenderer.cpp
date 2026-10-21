@@ -108,6 +108,15 @@ void ModelRenderer::Draw() {
         unsigned int texID = (overrideTexID != UINT_MAX) ? overrideTexID : nodeTexIDs[i];
         ID3D11ShaderResourceView* texture = (texID != UINT_MAX) ? Image::GetTextureView(texID) : nullptr;
 
+        // パーツの色: FBXのマテリアルの色を、SetColor の色に掛ける(白のパーツは、共通のmaterialをそのまま使う)
+        const Material* drawMaterial = &material;
+        if (useModelColors && (node.color.x != 1.f || node.color.y != 1.f || node.color.z != 1.f || node.color.w != 1.f)) {
+            partMaterial = material;
+            partMaterial.color = { material.color.x * node.color.x, material.color.y * node.color.y,
+                                   material.color.z * node.color.z, material.color.w * node.color.w };
+            drawMaterial = &partMaterial;
+        }
+
         // 骨で曲げるパーツ: 骨のパーツの今の行列から、スキン行列(逆バインド行列 × 骨の行列)を作って送る。
         // パーツ自身の位置は使わない(頂点が骨に付いて動くため)。骨のパーツ自体は形が無いので描かれない
         if (node.IsSkinned()) {
@@ -118,7 +127,7 @@ void ModelRenderer::Draw() {
                     boneMatrices[k] = XMLoadFloat4x4(&node.skinInverseBind[k]) * modelMatrices[node.skinBones[k]];
                 }
                 skinMesh->SetTexture(texture);
-                skinMesh->Draw(ownerWorld, boneMatrices.data(), (int)boneMatrices.size(), Image::GetCamera3D(), material, Image::GetLight());
+                skinMesh->Draw(ownerWorld, boneMatrices.data(), (int)boneMatrices.size(), Image::GetCamera3D(), *drawMaterial, Image::GetLight());
                 if (drawOutline) {
                     skinMesh->DrawOutline(ownerWorld, boneMatrices.data(), (int)boneMatrices.size(), Image::GetCamera3D(), material.outlineColor, material.outlineWidth, material.outlineSeeThrough);
                 }
@@ -130,7 +139,7 @@ void ModelRenderer::Draw() {
         Mesh* mesh = model->GetMesh(i);
         if (!mesh) continue;
         mesh->SetTexture(texture);
-        mesh->Draw(modelMatrices[i] * ownerWorld, Image::GetCamera3D(), material, Image::GetLight());
+        mesh->Draw(modelMatrices[i] * ownerWorld, Image::GetCamera3D(), *drawMaterial, Image::GetLight());
         if (drawOutline) mesh->DrawOutline(modelMatrices[i] * ownerWorld, Image::GetCamera3D(), material.outlineColor, material.outlineWidth, material.outlineSeeThrough);
     }
 }

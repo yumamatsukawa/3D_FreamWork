@@ -85,6 +85,7 @@
     <ClCompile Include="Game\Components\Physics\TerrainColliderDemoController.cpp" />
     <ClCompile Include="Game\Components\Render\EaseRunnerController.cpp" />
     <ClCompile Include="Game\Components\Render\ParticleDemoController.cpp" />
+    <ClCompile Include="Game\Components\Render3D\BuoyancyController.cpp" />
     <ClCompile Include="Game\Components\Render3D\FloatOnWaterController.cpp" />
     <ClCompile Include="Game\Components\Render3D\LightDemoController.cpp" />
     <ClCompile Include="Game\Components\Render3D\ShadowDemoController.cpp" />
@@ -107,6 +108,7 @@
     <ClCompile Include="Game\Objects\Render\EaseRunner.cpp" />
     <ClCompile Include="Game\Objects\Render\ParticleDemo.cpp" />
     <ClCompile Include="Game\Objects\Render3D\Buoy.cpp" />
+    <ClCompile Include="Game\Objects\Render3D\FloatingBall.cpp" />
     <ClCompile Include="Game\Objects\Render3D\DemoHills.cpp" />
     <ClCompile Include="Game\Objects\Render3D\DemoWater.cpp" />
     <ClCompile Include="Game\Objects\Render3D\LightDemo.cpp" />
@@ -297,6 +299,7 @@
     <ClInclude Include="Game\Components\Physics\TerrainColliderDemoController.h" />
     <ClInclude Include="Game\Components\Render\EaseRunnerController.h" />
     <ClInclude Include="Game\Components\Render\ParticleDemoController.h" />
+    <ClInclude Include="Game\Components\Render3D\BuoyancyController.h" />
     <ClInclude Include="Game\Components\Render3D\FloatOnWaterController.h" />
     <ClInclude Include="Game\Components\Render3D\LightDemoController.h" />
     <ClInclude Include="Game\Components\Render3D\ShadowDemoController.h" />
@@ -319,6 +322,7 @@
     <ClInclude Include="Game\Objects\Render\EaseRunner.h" />
     <ClInclude Include="Game\Objects\Render\ParticleDemo.h" />
     <ClInclude Include="Game\Objects\Render3D\Buoy.h" />
+    <ClInclude Include="Game\Objects\Render3D\FloatingBall.h" />
     <ClInclude Include="Game\Objects\Render3D\DemoHills.h" />
     <ClInclude Include="Game\Objects\Render3D\DemoWater.h" />
     <ClInclude Include="Game\Objects\Render3D\LightDemo.h" />

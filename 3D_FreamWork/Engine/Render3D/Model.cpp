@@ -93,6 +93,36 @@ namespace {
         return result;
     }
 
+    // パーツの色を求める(マテリアルのdiffuse色 × diffuseの係数。画像があるマテリアル・色が無いマテリアルは白)
+    XMFLOAT4 FindMaterialColor(const ufbx_node* node) {
+        auto pickFrom = [](const ufbx_material_list& materials, XMFLOAT4& out) -> bool {
+            for (size_t i = 0; i < materials.count; i++) {
+                const ufbx_material* material = materials.data[i];
+                if (!material) continue;
+                // 画像が貼ってあるなら、画像の色をそのまま見せたいので白のまま
+                if (material->fbx.diffuse_color.texture || material->pbr.base_color.texture) return false;
+                if (material->fbx.diffuse_color.has_value) {
+                    float factor = material->fbx.diffuse_factor.has_value ? (float)material->fbx.diffuse_factor.value_real : 1.f;
+                    ufbx_vec3 c = material->fbx.diffuse_color.value_vec3;
+                    out = { (float)c.x * factor, (float)c.y * factor, (float)c.z * factor, 1.f };
+                    return true;
+                }
+                if (material->pbr.base_color.has_value) {
+                    float factor = material->pbr.base_factor.has_value ? (float)material->pbr.base_factor.value_real : 1.f;
+                    ufbx_vec3 c = material->pbr.base_color.value_vec3;
+                    out = { (float)c.x * factor, (float)c.y * factor, (float)c.z * factor, 1.f };
+                    return true;
+                }
+                return false;   // 色が書かれていないマテリアル
+            }
+            return false;
+        };
+
+        XMFLOAT4 color{ 1.f, 1.f, 1.f, 1.f };
+        if (!pickFrom(node->materials, color) && node->mesh) pickFrom(node->mesh->materials, color);
+        return color;
+    }
+
     // スキンの骨の番号と影響度を頂点に入れる(影響の大きい上位4本だけ使い、合計が1になるように直す)
     void FillSkin(const ufbx_skin_deformer* skin, uint32_t vertexId, SkinVertex& v) {
         for (int k = 0; k < 4; k++) v.BoneIndices[k] = 0;
@@ -205,6 +235,7 @@ namespace {
             }
             BuildVertices(source->mesh, node.vertices, skin, node.skinVertices);
             node.texturePath = FindTexturePath(source);
+            node.color = FindMaterialColor(source);
         }
 
         int index = (int)nodes.size();

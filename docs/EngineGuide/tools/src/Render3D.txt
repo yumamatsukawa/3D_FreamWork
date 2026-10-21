@@ -253,6 +253,7 @@ Load(const std::wstring& path) | static std::shared_ptr<Model> | `.fbx` / `.obj`
 GetNodeCount() | int | パーツの数
 FindNode(const std::string& name) | int | 名前でパーツを探す(無ければ -1)
 GetNode(int index) | const ModelNode& | パーツのデータ
+GetNodeColor(int index) | XMFLOAT4 | パーツのマテリアルの diffuse 色(読み取り専用。マテリアルが無い・色が無い・画像のマテリアルは白。範囲外も白)
 GetPath() | const std::wstring& | 読み込んだファイルのパス
 GetBoundingRadius() | float | 原点から一番遠い頂点までの距離(画面判定の半径)
 GetClipCount() | int | アニメーションクリップの数
@@ -260,7 +261,7 @@ GetClip(int index) | const ModelClip& | クリップのデータ
 FindClip(const std::string& name) | int | 名前でクリップを探す(無ければ -1)
 QuaternionToEuler(const XMFLOAT4& q) | static XMFLOAT3 | クォータニオンを `Transform::rotate` と同じ向きのオイラー角(度)にする
 GetMesh(int index) / GetSkinMesh(int index) | Mesh* / SkinMesh* | 内部用: ModelRenderer が描画用バッファを取り出す
-ModelNode | struct | パーツ 1 つ: `name`・`parent`・`position`・`rotate`・`scale`・`vertices`・`texturePath`、スキン用の `skinVertices` など。`IsSkinned()`
+ModelNode | struct | パーツ 1 つ: `name`・`parent`・`position`・`rotate`・`scale`・`vertices`・`texturePath`・`color`、スキン用の `skinVertices` など。`IsSkinned()`
 ModelPose | struct | パーツの、ある時刻の位置・回転(クォータニオン)・スケール
 ModelClip | struct | クリップ 1 つ: `name`・`duration`・`fps`・`frameCount`・`nodePoses`
 =code Demo/Game/Components/Core/ResourcesDemoController.cpp:65-69
@@ -278,8 +279,9 @@ FBX モデル(複数のパーツ)を描く Component です。パーツごとに
 =table
 ModelRenderer(const std::wstring& path) | コンストラクタ | FBX / OBJ のパスを渡す。読めなかった時は何も描かない(出力ウィンドウに理由が出る)
 SetTexture(const std::wstring& path) | void | 全パーツに同じ画像を貼る(呼ばなければ FBX に書かれたパーツごとの画像を使う)
-SetColor(float r, float g, float b, float a) | void | 色
+SetColor(float r, float g, float b, float a) | void | 色(パーツの色に掛け算される。README §27)
 GetColor() | XMFLOAT4 | 今の色
+SetUseModelColors(bool enabled) / IsUseModelColors() | void / bool | FBXのマテリアルの色をパーツの色として使うか(既定 true)
 SetMaterial(const Material& value) | void | 全パーツ共通のマテリアルを設定する
 GetMaterial() | Material& | 手直し用
 SetRimLight(XMFLOAT3 color, float strength, float power) | void | 縁の光
@@ -296,6 +298,8 @@ Init() / Draw() / Uninit() / DrawShadow(...) | void (override) | 内部の処理
 - `GetNodeTransform` の値は「親のパーツからの相対」です。この Transform には親子関係を設定していないので、`GetWorldMatrix()` は使えません。
 - **アニメーションを再生している間は、`ModelAnimationComponent` が毎フレームその値を上書き** します。手で動かしても、アニメが動かすパーツは次のフレームに戻ります。
 - `ModelAnimationComponent` は **ModelRenderer の後に** `AddComponent` します。
+- FBX のマテリアルの diffuse 色を、パーツごとの色として使います(画像が無くても色が出ます)。描く色 = パーツの色 × `SetColor` の色(画像があれば画像 × 色)。頂点カラーとアルファは読みません。
+- マテリアルが無い・色が無い・画像のマテリアルのパーツは白です。Maya の Lambert 既定(0.5)のように灰色のマテリアルは灰色で描かれます。使いたくない時は `SetUseModelColors(false)`。枠線の色には影響しません。
 - 画面判定の半径は「止まっている姿の一番遠い頂点 × 1.5」です。アニメーションで大きくはみ出すモデルは、`SetFrustumCulling` を `false` のままにします。
 =demo Render3D カテゴリの「Model」「SkinAnim」
 =readme §27
