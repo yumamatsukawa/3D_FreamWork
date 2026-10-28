@@ -20,7 +20,7 @@ GameObject* CreateWall(Scene& scene, DirectX::XMFLOAT2 position, DirectX::XMFLOA
     sprite->SetMode(SpriteMode::World2D);   // 2Dモード: zで大きさは変わらず、zが小さいほど手前
 
     // 物理演算(PhysX): 動かない壁(奥行きは、Zを固定した2Dの物と重なる厚みを持たせる)
-    wall->AddComponent<BoxRigidbodyComponent>(BodyType::Static, DirectX::XMFLOAT3{ size.x, size.y, 100.0f });
+    wall->AddComponent<SquareRigidbodyComponent>(BodyType::Static);
 
     return wall;
 }

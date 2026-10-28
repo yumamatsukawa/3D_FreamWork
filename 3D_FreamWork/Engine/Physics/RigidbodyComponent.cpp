@@ -3,6 +3,7 @@
 #include "../Render3D/Mesh.h"
 #include "../Render/Image.h"
 #include "../Render3D/Terrain.h"
+#include "../Core/MathUtil.h"
 #include <windows.h>
 #include <cmath>
 #include <cstdio>
@@ -468,19 +469,19 @@ void CircleRigidbodyComponent::Init() {
 
 // ─────────────────────────── SquareRigidbodyComponent(2D用) ───────────────────────────
 
-SquareRigidbodyComponent::SquareRigidbodyComponent(BodyType bodyType, float size, float density,
+SquareRigidbodyComponent::SquareRigidbodyComponent(BodyType bodyType, XMFLOAT2 size, float density,
     bool isTrigger, bool isStaticForPush)
     : RigidbodyComponent(bodyType, density, isTrigger, isStaticForPush), size(size) {
     flat2D = true;
 }
 
 void SquareRigidbodyComponent::Init() {
-    float s = (size > 0.f) ? size : GetOwner()->transform.scale.x;
+    XMFLOAT2 s = (size.x > 0.0f && size.x > 0.0f) ? size : Math::ToXY(GetOwner()->transform.scale);
     // ★ 奥行き(Z)も一辺と同じ長さにする(実質的には立方体)。以前は1.0の薄い箱にしていたが、
     //   PhysXは紙のように薄い形状同士の角の接触が苦手で、角同士がかすめるとすり抜けることがあった。
     //   2Dゲームでは SetFreezePositionZ(true) で奥行き方向に動かないようにしておけば、
     //   厚みがあっても見た目や動きには影響しない
-    InitWithGeometry(PxBoxGeometry(s * 0.5f, s * 0.5f, s * 0.5f));
+    InitWithGeometry(PxBoxGeometry(s.x * 0.5f, s.y * 0.5f, 100.0f * 0.5f));
 }
 
 // ─────────────────────────── CapsuleRigidbodyComponent ───────────────────────────

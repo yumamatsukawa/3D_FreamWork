@@ -37,7 +37,7 @@ namespace {
         sprite->SetFrustumCulling(true);   // 画面の外にいる間は描かない(物理と動きは止まらない)
 
         // 当たり判定+物理演算(PhysX)
-        auto* rigidbody = obj->AddComponent<SquareRigidbodyComponent>(BodyType::Dynamic, 100.0f, 1.0f);
+        auto* rigidbody = obj->AddComponent<SquareRigidbodyComponent>(BodyType::Dynamic, XMFLOAT2{ 100.0f, 100.f }, 1.0f);
         rigidbody->SetUseGravity(false);
         rigidbody->SetFreezeRotation(true);
         rigidbody->SetFreezePositionZ(true);

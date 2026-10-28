@@ -188,11 +188,11 @@ public:
 // isStaticForPush : trueだと、Kinematic同士がぶつかった時に「押し戻されない」側になる
 class SquareRigidbodyComponent : public RigidbodyComponent {
 private:
-    float size;
+    XMFLOAT2 size;
 
 public:
     explicit SquareRigidbodyComponent(BodyType bodyType = BodyType::Dynamic,
-        float size = 0.f, float density = 1.0f,
+        XMFLOAT2 size = { 0.f, 0.0f}, float density = 1.0f,
         bool isTrigger = false, bool isStaticForPush = false);
 
     void Init() override;
