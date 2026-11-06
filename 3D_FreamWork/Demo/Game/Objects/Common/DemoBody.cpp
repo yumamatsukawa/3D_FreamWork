@@ -37,7 +37,7 @@ GameObject* CreateDemoBody2D(Scene& scene, const DemoBodyDesc& desc) {
         rigidbody = body->AddComponent<CircleRigidbodyComponent>(desc.type, desc.size * 0.5f, 1.f, desc.isTrigger);
         break;
     case DemoShape::Block:
-        rigidbody = body->AddComponent<SquareRigidbodyComponent>(desc.type, desc.size, 1.f, desc.isTrigger);
+        rigidbody = body->AddComponent<SquareRigidbodyComponent>(desc.type, DirectX::XMFLOAT2{ desc.size, desc.size }, 1.f, desc.isTrigger);
         break;
     case DemoShape::Capsule:
         rigidbody = body->AddComponent<Capsule2DRigidbodyComponent>(desc.type, desc.size * 0.5f, height, 1.f, desc.isTrigger, false, CapsuleAxis::Y);

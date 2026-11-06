@@ -175,11 +175,14 @@
   </ImportGroup>
   <!--
     デバッグ実行の設定はMicrosoft.Cpp.targetsの後に書く(先に書くと既定値で上書きされて
-    消えてしまう)。Assets/シェーダーはEngineのCopyRuntimeFilesで共有OutDirへコピーされる
-    (Engineが先にビルドされるため)ので、F5デバッグ実行時の作業ディレクトリもそこに合わせる。
+    消えてしまう)。
+    Debug(F5): 作業ディレクトリをソリューション直下にして、Assets/シェーダーをソースのまま直接読む
+      (編集してもコピー待ちが要らない)。PhysXのDLLはexeの隣から読まれるので影響しない。
+    Release(F5): EngineのCopyRuntimeFilesで共有OutDirへコピーされたAssets/シェーダーを読むので、
+      作業ディレクトリもそこ(exeの隣)に合わせる。
   -->
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <LocalDebuggerWorkingDirectory>$(TargetDir)</LocalDebuggerWorkingDirectory>
+    <LocalDebuggerWorkingDirectory>$(SolutionDir)</LocalDebuggerWorkingDirectory>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
