@@ -1,0 +1,229 @@
+﻿=page Network
+=title Network(LAN 通信。ホストが計算して、結果を配る)
+=lead
+`Engine/Network/` は、同じ LAN につないだ **2〜4 台の PC** で 1 つのゲームを一緒に遊ぶための仕組みです。方式は**ホスト式**: 1 台が「ホスト」になって**ルールと物理(PhysX)の計算をホストだけ**で行い、「クライアント」は**入力**を送って、ホストから届いた**結果(位置・向き)を表示**します。PhysX は別の PC で同じ結果になる保証が無いので、みんなで同じ計算をするのではなく、「結果を配る」方式にしています。通信ライブラリは **ENet**(`ThirdParty/enet/`。MIT ライセンス)で、ゲームのコードは ENet を直接さわりません。
+=p
+**ゲームが触るのは `Network`(窓口。名前空間)と、2 つの Component(`NetworkIdentityComponent` / `NetworkTransformComponent`)だけ**です。`StartHost` / `Join` / `StartSearch` を呼ばない限り何もしないので、Sample2D / Sample3D は変わりません(オフラインでも `IsHost()` は `true`、`GetInput(0)` は自分の入力で、1 人用としてそのまま動きます)。
+=p
+**層は 4 つ**: 通信(`NetworkTransport` + ENet)→ 部屋(`NetworkSession` / `LanDiscovery`)→ 同期(`NetworkObjects` / Identity / Transform)→ ゲーム側。`GameEngine::Run` の中の順番は、`Input::Update` → **`Network::Update`**(受信)→ `Physics::Update` → シーンの `Update` → `Audio::Update` → **`Network::EndFrame`**(送信)です(設計図のページの「1 フレームの流れ」の図にも出ています)。
+=p
+**Demo で見る**: Demo プロジェクトの **Network カテゴリ**に、NetworkBasic(つなぐ・文字を送る)/ NetworkDiscovery(LAN のホストを探す)/ NetworkTransform(位置の同期。2D/3D)/ NetworkInput(入力の同期。2D/3D)/ NetworkEvent(スイッチと扉)/ NetworkSpawn(弾の出し入れ。2D/3D)の 6 つがあります。1 台で `Demo.exe` を 2 つ起動して試せます(README の §39)。
+
+=file Engine/Network/Network.h, Network.cpp
+=class Network(名前空間), NetworkState, NetworkTarget, NetworkStats
+=role
+ゲームが呼ぶ**窓口**です(`Input` / `Audio` / `Time` と同じ「名前空間 + 関数」の形で、`Get()` は無い)。ホストになる・探す・参加する、状態の取得、入力、出来事、共有の値、スポーン、シーンの同期をここに集めています。接続は**シーンをまたいで残ります**(アプリ全体で 1 つ)。
+=table 準備・つなぐ
+SetGameId(const std::string& gameId) | void | 同じ ID のゲームどうしだけつながる(ほかの人のゲームと混ざらない)
+StartHost(const std::string& playerName, int port) | bool | 部屋を作る。自分はプレイヤー番号 0。失敗(ポート使用中など)は `false`(理由は `GetLastError`)
+Join(const std::string& address, int port, const std::string& playerName) | bool | 参加を申し込む。結果は `GetState()` か `EventBus` の `"NetworkConnected"` で分かる
+Disconnect() | void | 抜ける(ホストなら部屋を閉じる)。ホスト探索も止める
+StartSearch() | void | LAN のホストを探す(1 秒おきに呼びかける)
+StopSearch() | void | 探すのをやめる
+GetFoundHosts() | const std::vector<NetworkHostInfo>& | 見つかったホストの一覧(返事が来なくなったホストは数秒で消える)
+IsSearching() | bool | 探している最中か
+=table 状態を調べる
+GetState() | NetworkState | `Offline` / `Hosting` / `Connecting` / `Connected`
+IsOnline() | bool | ホスト中または参加中(参加の途中も含む)
+IsHost() | bool | ホスト中か。**オフラインの時も `true`**(1 人で遊ぶ時は自分がホスト扱い)
+IsClient() | bool | 参加中(途中も含む)か
+GetLocalPlayerIndex() | int | 自分のプレイヤー番号(ホストとオフラインは 0)
+GetPlayerCount() | int | 今の人数
+IsPlayerConnected(int playerIndex) | bool | その番号の人がいるか
+GetPlayerName(int playerIndex) | std::string | その番号の人の名前
+GetPing() | float | ホストとの往復の時間(秒)。ホストは 0
+GetStats() | NetworkStats | 直近 1 秒の送受信のバイト数・パケット数
+GetLastError() | const std::string& | 直近の失敗の理由(断られた・つながらないなど)
+GetLocalAddresses() | std::vector<std::string> | このPCのIPアドレス(ホスト画面に出して、手入力で参加する人に教える)
+GetSnapshotAge() | float | クライアント: 最後に位置が届いてからの秒数
+=table 入力・出来事・共有の値
+SetLocalInput(const NetworkInput& input) | void | 自分の入力を渡す(毎フレーム)。「押した瞬間」は自動で求める
+GetInput(int playerIndex) | const NetworkInput& | そのプレイヤーの最新の入力(ホストが読む)。範囲外は全部ゼロ
+SendEvent(const std::string& name, NetworkTarget target) | void | 中身の無い出来事を信頼して送る。受け取り側で `EventBus::Publish(name)` も呼ばれる
+SendEvent(const std::string& name, const NetworkWriter& payload, NetworkTarget target) | void | 中身つきの出来事
+Subscribe(const std::string& name, EventHandler handler) | void | 出来事を受け取る。ラムダが `this` を使うなら、Scene の `Uninit` で `ClearHandlers`
+ClearHandlers() | void | 出来事の登録・プレハブの登録・シーンの記憶を消す
+SetSharedValue(const std::string& key, int value) | void | 共有の値を変える(**ホストだけ**)。全員に届き、途中参加の人にも渡る
+GetSharedValue(const std::string& key, int defaultValue) | int | 共有の値を読む
+=table スポーン・シーン・調整
+RegisterPrefab(int prefabId, PrefabFactory factory) | void | 「この番号はこの工場関数で作る」を登録(ホストもクライアントも同じ登録をする)
+Spawn(Scene& scene, int prefabId, int ownerPlayerIndex, XMFLOAT3 position) | GameObject* | **ホストだけ**。作って全員に知らせる(オフラインでも使える)
+Despawn(GameObject* object) | void | **ホストだけ**。消して全員に知らせる
+SetDespawnHandler(int prefabId, std::function<void(GameObject*)> handler) | void | 消す時の処理(既定は `Destroy`。`ObjectPool` の物は `Return` を入れる)
+RegisterScene(int sceneId, std::function<void()> changeScene) | void | 「この番号のシーンへの切り替え方」を登録
+ChangeSceneForAll(int sceneId) | void | **ホストだけ**。全員をそのシーンへ
+NotifySceneReady(Scene& scene, int sceneId) | void | 各シーンの `Init` の最後で呼ぶ(「準備できた」。ホストはこれを待って今の状態を送る)
+SetPlayerJoinedHandler(std::function<void(int playerIndex)> handler) | void | 誰かが入った時の処理
+SetPlayerLeftHandler(std::function<void(int playerIndex)> handler) | void | 誰かが出た時の処理
+SetSnapshotRate(int hz) | void | 位置を送る回数(10〜60)
+SetInterpolationDelay(float seconds) | void | 補間の遅れ(Wi-Fi で揺れる時は長めに)
+SetDebugLogEnabled(bool enabled) | void | 送受信したパケットの種類を出力ウィンドウに出す
+Update() / EndFrame() / Shutdown() | void | 内部用: GameEngine が呼ぶ(受信 / 送信 / 終了)
+=code Demo/Game/Objects/Network/NetworkBody.cpp:5-17
+=code Demo/Game/Components/Network/NetworkBoxController.cpp:20-35
+=notes
+- **ルールを書く Component は、`Update` の最初に `if (!identity->HasAuthority()) return;`** と書きます。クライアントでは動かさず、ホストが計算した結果を表示するだけにするためです。
+- **クライアントのコピーを Dynamic にしてはいけません**(クライアントの PhysX が勝手に動かし、ホストの位置とずれる)。工場関数で `Network::IsHost()` を見て、ホストは Dynamic、クライアントは Kinematic にします。
+- 「Host / Join を同じシーンの中で押す」デモでは、役割が変わった時に同期する物を作り直す必要があります(Demo の `NetworkWorldController`)。ロビーのシーンで先につないでからゲームのシーンへ移る作りなら要りません。
+- `this` を使うラムダを `Subscribe` / `RegisterPrefab` したら、**Scene の `Uninit` で `Network::ClearHandlers()`** を呼びます(`EventBus::Clear()` と同じ決まり)。
+- **`SceneManager` は切り替え中の `ChangeScene` を無視する**ので、クライアントは切り替えが終わらなければ、2 秒ごとに最大 3 回やり直します。
+- タイムアウトは 10〜20 秒です(ウィンドウをドラッグしている間やデバッガで止めた間は、ゲームが止まって応答できないため)。
+- **同じ LAN の信頼できる相手が前提**です(暗号化・認証・ずる対策は無い)。インターネット越し(ルーター越し)は対象外です。クライアント予測と Owner 権限は、まだ作っていません。
+=demo Network カテゴリの「NetworkBasic」「NetworkDiscovery」
+=readme §39
+
+=file Engine/Network/NetworkConfig.h
+=role
+ネットワークの**定数を 1 か所に集めた**ファイルです。最大人数(`maxPlayers`)・通信の版(`protocolVersion`)・ポート(`defaultPort` / `discoveryPort`)・送る回数(`defaultSnapshotRate` / `inputRate`)・タイムアウト・上限の数などがあります。
+=notes
+- **最大人数を変える時は、ここの `maxPlayers` だけ**を直します(1〜16 くらいまで。名簿・入力・Accept の人数に使われます)。
+- `protocolVersion` は、通信の仕様を変えた時に上げます。版が違う相手とは、つながらずに「Protocol version mismatch」で断られます。
+- `static constexpr` の camelCase で、`Network::` の名前空間の中にあります(`Network::defaultPort` のように読む)。
+
+=file Engine/Network/NetworkMessage.h, NetworkMessage.cpp
+=class NetworkWriter, NetworkReader, PacketType, RejectReason
+=role
+パケットの**種類**(`PacketType`)と、数値や文字を並べて書く `NetworkWriter`、読む `NetworkReader` です。`NetworkReader` は**範囲外を読もうとすると 0 を返して「失敗」の印を付ける**だけで、落ちません。浮動小数点が NaN / 無限大の時も失敗にします(壊れたパケット対策)。
+=table NetworkWriter
+WriteU8(uint8_t value) | void | 1 バイトの整数を書く
+WriteU16(uint16_t value) | void | 2 バイトの整数を書く
+WriteU32(uint32_t value) | void | 4 バイトの整数を書く
+WriteI32(int32_t value) | void | 4 バイトの整数(負も可)を書く
+WriteFloat(float value) | void | 小数を書く
+WriteDouble(double value) | void | 倍精度の小数を書く(時刻など)
+WriteString(const std::string& value) | void | 長さ(1 バイト)+ 文字。255 文字を超える分は切り捨てる
+WriteBytes(const void* bytes, size_t size) | void | 生のバイトを書く
+=table NetworkReader
+ReadU8() | uint8_t | 1 バイトの整数を読む(失敗したら 0)
+ReadU16() | uint16_t | 2 バイトの整数を読む
+ReadU32() | uint32_t | 4 バイトの整数を読む
+ReadI32() | int32_t | 4 バイトの整数(負も可)を読む
+ReadFloat() | float | 小数を読む(NaN・無限大は失敗)
+ReadDouble() | double | 倍精度の小数を読む
+ReadString(size_t maxLength) | std::string | 文字を読む(`maxLength` より長いと失敗)
+IsOk() | bool | ここまでの読み取りが全部成功したか。**読み終わったら必ず確かめる**
+GetRemaining() | size_t | 残りのバイト数
+=code Demo/Game/Components/Network/NetworkDoorController.cpp:25-34
+=code Demo/Game/Components/Network/NetworkDoorController.cpp:38-49
+=notes
+- 書く順番と読む順番を、送る側と受け取る側で**同じにします**(`WriteString` したら `ReadString`)。
+- 出来事の名前は 32 文字まで、中身は 512 バイトまでです。超えると送られず、出力ウィンドウに知らせます。
+
+=file Engine/Network/NetworkTransport.h, NetworkTransport.cpp
+=class NetworkTransport
+=role
+**ENet を包んだクラス**です。接続・送信・受信だけを担当します。**ENet を知っているのは、このファイルと `LanDiscovery.cpp` だけ**で、公開ヘッダーに `enet/enet.h` は出ません(`enet.h` は `winsock2.h` を読み込み、`windows.h` と衝突するため、ENet を読む `.cpp` は `#include "enet/enet.h"` を最初の行に書きます)。接続相手は `peerId`(整数)で呼びます。`Network` の外でも `new` できるので、ウィンドウ無しのテストで使えます。
+=table
+StartServer(int port, int maxPeers) | bool | 待ち受けを始める(失敗なら `false`)
+StartClient() | bool | 接続する側の準備
+Connect(const std::string& address, int port) | int | 接続を始める。相手の番号を返す(始められなければ -1)
+Stop() | void | 全員に切断を知らせて(最大 0.2 秒待って)閉じる
+Poll(Event& out) | bool | 溜まっている出来事(接続・切断・受信)を 1 つ取り出す。`false` になるまで呼ぶ
+Send(int peerId, int channel, const void* data, size_t size, bool reliable) | bool | 送る。`reliable` が `true` なら必ず届く(届くまで送り直す)
+Flush() | void | 溜めた送信をすぐ流す
+DisconnectPeer(int peerId) | void | 溜めた送信を流してから切る
+SetTimeouts(int minMs, int maxMs) | void | 応答が無い時に切るまでの時間
+GetPeerRoundTrip(int peerId) | float | ENet が測った往復の時間(秒)
+UpdateStats(float dt) | void | 1 秒ごとの送受信量を数え直す
+=notes
+- チャンネルは 3 つ: 0 = 信頼する通信(参加・出来事・スポーン)、1 = 入力・ping(信頼しない)、2 = 位置のスナップショット(信頼しない)。**チャンネルが違えば、お互いを待ちません**(信頼する通信の再送で、位置が遅れない)。
+- 信頼しない通信は、ENet が「古い物が新しい物の後に届いたら捨てる」順序付きで送ります。
+
+=file Engine/Network/NetworkSession.h, NetworkSession.cpp
+=class NetworkSession
+=role
+「今つながっているみんな」のまとまり(**セッション**)です。参加者の名簿・プレイヤー番号の割り当て・参加の受付(Join / Accept / Reject)・切断の検知・ping を担当します。入力・出来事・同期など、ゲームの中身のパケットは `onPacket` で上の層(`Network`)に渡します。
+=table
+StartHost(const std::string& playerName, int port) | bool | 部屋を作る(最大人数より少し多く接続を受け、満員の人には断りの返事を送れるようにする)
+Join(const std::string& address, int port, const std::string& playerName) | bool | 参加を申し込む。つながったら `Join` パケットを送る
+Disconnect() | void | 抜ける / 部屋を閉じる
+Update(float dt) | void | 受信と、タイムアウト・ping の処理(毎フレーム)
+SendTo(int playerIndex, const NetworkWriter& packet, int channel, bool reliable) | bool | そのプレイヤーへ送る
+SendToAll(const NetworkWriter& packet, int channel, bool reliable, int exceptPlayer) | void | ホストだけ: 接続中のクライアント全員へ
+SendToHost(const NetworkWriter& packet, int channel, bool reliable) | bool | クライアントだけ: ホストへ
+GetPlayerCount() | int | 今の人数
+GetPing() | float | ホストとの往復の時間
+=notes
+- **断る理由**: 満員(5 人目)/ 通信の版が違う / ゲーム ID が違う / 壊れた Join。断られたクライアントは `GetLastError()` に理由が入り、`Offline` に戻ります。
+- **番号の付け方**: 一番若い空き番号(1〜3)を渡します。抜けた人の番号は、次に参加した人が使います。
+- 送り主のプレイヤー番号は、**パケットの中身ではなく接続(peer)から決めます**(偽装されない)。参加していない相手が送れるのは `Join` だけです。
+- 接続してから `Join` が来ない相手は、5 秒で切ります。
+
+=file Engine/Network/LanDiscovery.h, LanDiscovery.cpp
+=class LanDiscovery
+=role
+**LAN でホストを探す**仕組みです。ゲーム本体とは別の UDP ポート(`discoveryPort`)を使い、探す側が LAN 全体へ呼びかけ(ブロードキャスト)、ホストが呼びかけた相手だけに返事(ゲーム ID・ポート・ホスト名・人数)を返します。ゲーム ID が違う相手は無視します。
+=table
+StartResponder(const std::string& name, int port, int portOfDiscovery) | bool | ホスト側を始める(探索用ポートを使えなければ `false`。使えなくても IP 直接入力では参加できる)
+StopResponder() | void | ホスト側をやめる
+StartSearch(int portOfDiscovery) | bool | 探す側を始める(1 秒おきに呼びかける)
+StopSearch() | void | 探す側をやめる
+Update(float dt) | void | 呼びかけ・返事の処理。数秒返事が無いホストは一覧から消す
+GetFoundHosts() | const std::vector<NetworkHostInfo>& | 見つかったホストの一覧
+GetLocalAddresses() | static std::vector<std::string> | このPCのIPv4アドレスの一覧
+=notes
+- 呼びかけは、全体向け(`255.255.255.255`)・それぞれのネットワークの中向け(複数のアダプタがあっても届くように)・このPC自身(同じPCの別プロセス用)に送ります。
+- **学校・公共の Wi-Fi は、ブロードキャストや端末どうしの通信を禁止している**ことがあります。その時は探索が動かないので、**IP アドレスの手入力(`Join`)を必ず残します**。
+- 同じ探索用ポートを待ち受けられるのは 1 つのプロセスだけです。同じ PC の 2 つ目の `Demo.exe` は、探す側 / 参加する側として使います。
+
+=file Engine/Network/NetworkObjects.h, NetworkObjects.cpp
+=class NetworkObjects(名前空間), NetworkSpawnInfo
+=role
+同期する物の**登録簿**(`NetworkId → GameObject`)と、**プレハブ**(番号 → 工場関数)・スポーンした物の記録です。各 Component の `Init` / `Uninit` / `OnActiveChanged` が自動で登録・解除するので、**シーンが変わっても前のシーンのポインタが残りません**。ゲーム側が直接呼ぶことはほとんどありません(`NetworkSpawnInfo` は、工場関数が受け取る情報)。
+=table
+Register(int networkId, NetworkIdentityComponent* identity) | void | 登録する(同じ番号が既にあれば上書きして知らせる)
+Unregister(NetworkIdentityComponent* identity) | void | 登録を外す
+Find(int networkId) | NetworkIdentityComponent* | 番号から探す(無ければ `nullptr`)
+GetTransformSyncs() | const std::vector<NetworkTransformComponent*>& | 位置を同期する Component の一覧
+RegisterPrefab(int prefabId, PrefabFactory factory) | void | プレハブの登録
+SetDespawnHandler(int prefabId, DespawnHandler handler) | void | 消す時の処理の登録
+AllocateSpawnId(double now) | int | スポーン用の NetworkId(1000〜65535)を 1 つ割り当てる。消したばかりの番号は 5 秒使わない
+=notes
+- NetworkId は、シーンに置く物が 1〜999(ゲーム側が番号を付ける)、スポーンした物が 1000 以上(ホストが付ける)です。
+- 消した番号をすぐ使い回すと、古いスナップショットが新しい物に当たってしまうので、5 秒は使いません。
+
+=file Engine/Network/NetworkIdentityComponent.h, NetworkIdentityComponent.cpp
+=class NetworkIdentityComponent
+=role
+**同期する物に付ける印**です(NetworkId・所有者・Authority)。ホストの物にも、クライアントのコピーにも同じ Component を付けます。違いは `HasAuthority()` が決めます。
+=table
+SetSceneId(int id) | void | シーンに最初から置く物の番号(1〜999)。ホストとクライアントで同じ番号にする
+GetNetworkId() | int | 番号(0 = まだ無い)
+GetOwnerPlayerIndex() | int | 所有者(この物を操作するプレイヤー)。-1 = 誰のでもない
+SetOwnerPlayerIndex(int playerIndex) | void | 所有者を決める
+IsOwner() | bool | 所有者が自分か
+HasAuthority() | bool | 本当の状態を決める側か(ホストとオフライン = `true`、クライアント = `false`)
+SetSpawnInfo(int id, int prefab, int owner) | void | 内部用: Network がスポーンの時に呼ぶ
+=notes
+- 非アクティブ(`ObjectPool` に返した)になると登録簿から外れます。**スポーンした物は番号を手放す**ので、次の `Spawn` で新しい番号が付きます(古い番号で登録し直されて、別の物とぶつからない)。
+- 同じ番号を 2 つの物に付けると、出力ウィンドウに知らせて、後の物が勝ちます。
+
+=file Engine/Network/NetworkTransformComponent.h, NetworkTransformComponent.cpp
+=class NetworkTransformComponent, NetworkTransformSettings
+=role
+**位置・向き(・大きさ)の同期**です。ホストでは Transform を読んでスナップショットに入れ(30 回/秒)、クライアントでは届いた写真を 0.1 秒ほど遅れて**なめらかにつないで**、Transform に書きます。書く・読むタイミングは `Network` が決める(`Update` では何もしない。Rigidbody との順番の影響を受けないため)。
+=table
+WriteState(NetworkWriter& writer) | void | 内部用(ホスト): 今の Transform をスナップショットの 1 件として書く
+ReadState(NetworkReader& reader, double hostTime) | bool | 内部用(クライアント): 1 件読んで写真を溜める(壊れていたら `false`)
+Interpolate(double renderTime) | void | 内部用(クライアント): 表示の時刻に合わせて Transform に書く
+ClearSamples() | void | 溜めた写真を捨てる
+LerpAngle(float from, float to, float t) | static float | 角度(度)の補間。360 度をまたぐ時は近い向きに回る
+=notes
+- 設定(`NetworkTransformSettings`): `syncPosition` / `syncRotation` / `syncScale`(変わった時だけ送る)/ `is2D`(`position.xy` と `rotate.z` だけ送る)/ `teleportDistance`(これ以上離れたら補間せずに飛ぶ。既定 500)。
+- **同期するのは親を持たない(ルートの)オブジェクトだけ**です。
+- 表示の時刻が最新より後(通信が遅れた)なら、最新の位置で止めます(予測では動かさない)。
+- 受け取った位置は ±1,000,000 に収め、NaN・知らない印・短すぎる写真は捨てます。
+
+=file Engine/Network/NetworkInput.h
+=class NetworkInput
+=role
+入力の中身です(2D / 3D どちらにも使える汎用の形)。軸 2 組(移動・視点)と、ボタン 16 個(押している状態と、押した瞬間)です。クライアントがホストへ送り、ホストが `Network::GetInput` で読みます。
+=table
+SetButton(int bit, bool down) | void | ボタン(0〜15)の押している状態を決める。番号の意味(0 = Jump など)はゲーム側で決める
+IsButtonDown(int bit) | bool | 押している間 `true`
+WasButtonPressed(int bit) | bool | 押した瞬間だけ `true`(1 フレームの間)
+=code Demo/Game/Components/Network/NetworkPlayerInputController.cpp:7-23
+=notes
+- 押した瞬間(`pressed`)は、`SetLocalInput` が前回との差から**自動で計算**します。クライアントは直近 3 回の送信に重ねて入れるので、パケットが 1 つ落ちても取りこぼしません。
+- 入力が 1 秒届かなかったら、ホストはその人の入力を 0 に戻します(押しっぱなしのまま止まらない)。
+- キーの割り当ては、ゲームによって違うので、集める Component は Engine ではなくゲーム側に置きます。

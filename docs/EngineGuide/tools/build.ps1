@@ -40,7 +40,7 @@ $navItems = @(
     @('Core.html', 'Core'), @('Render.html', 'Render'), @('Render3D.html', 'Render3D'),
     @('Physics.html', 'Physics'), @('UI.html', 'UI'), @('Animation.html', 'Animation'),
     @('Transition.html', 'Transition'), @('Behavior.html', 'Behavior'), @('Audio.html', 'Audio'),
-    @('Data.html', 'Data'), @('ThirdParty.html', 'ThirdParty'), @('files.html', 'ファイル索引'), @('glossary.html', '用語集')
+    @('Data.html', 'Data'), @('Network.html', 'Network'), @('ThirdParty.html', 'ThirdParty'), @('files.html', 'ファイル索引'), @('glossary.html', '用語集')
 )
 function Wrap($fileName, $title, $body) {
     $nav = New-Object System.Text.StringBuilder
@@ -332,7 +332,7 @@ $fb = New-Object System.Text.StringBuilder
 [void]$fb.AppendLine("<div class=`"lead`">Engine の全ファイル(<code>.h</code> / <code>.cpp</code>)の一覧です。<strong>$($allEngineFiles.Count) ファイル</strong>。文字を入力すると絞り込めます。名前をクリックすると、そのファイルの解説に飛びます。</div>")
 [void]$fb.AppendLine('<p><input type="search" id="filter" class="filter" placeholder="絞り込み(例: Scene, Physics, Raycast)" autocomplete="off"></p>')
 [void]$fb.AppendLine('<div class="tw"><table class="api" id="filetable"><thead><tr><th>フォルダ</th><th>ファイル</th><th>役割</th></tr></thead><tbody>')
-$order = 'Core', 'Render', 'Render3D', 'Physics', 'UI', 'Animation', 'Transition', 'Behavior', 'Audio', 'Data', 'ThirdParty'
+$order = 'Core', 'Render', 'Render3D', 'Physics', 'UI', 'Animation', 'Transition', 'Behavior', 'Audio', 'Data', 'Network', 'ThirdParty'
 foreach ($folder in $order) {
     foreach ($row in ($fileRows | Where-Object { $_.folder -eq $folder } | Sort-Object { $_.path })) {
         $nm = $row.path.Substring($row.path.LastIndexOf('/') + 1)

@@ -4,12 +4,14 @@ DirectX11 + PhysX 4.1 で作った、Unity風(GameObject + Component)のC++ゲ�
 
 ## 構成
 
-- `3D_FreamWork/3D_FreamWork.sln` に3プロジェクト(x64のみ、Debug/Release)
-  - `Engine/` : 静的ライブラリ。全サンプル共通の機能
+- `3D_FreamWork/3D_FreamWork.sln` に4プロジェクト(x64のみ、Debug/Release)
+  - `Engine/` : 静的ライブラリ。全サンプル共通の機能(機能ごとに12フォルダ。LAN通信は `Engine/Network/`)
   - `Sample2D/` : トップダウンの2Dアリーナシューター
   - `Sample3D/` : 3D空間のショーケース
-- 各サンプルの中身は `Game/Objects/`(工場関数) / `Game/Components/`(動き・ルール) / `Game/Scenes/`(配置)
-- `Assets/` と `Shader*.hlsl` は全サンプル共有。PhysXは `ThirdParty/PhysX/`(設定は `3D_FreamWork/PhysX.props`)
+  - `Demo/` : Engineの機能を機能ごとに小さなシーンで見せるデモ集
+- 各サンプル・Demoの中身は `Game/Objects/`(工場関数) / `Game/Components/`(動き・ルール) / `Game/Scenes/`(配置)
+- `Assets/` と `Shader*.hlsl` は全サンプル共有。PhysXは `ThirdParty/PhysX/`(設定は `3D_FreamWork/PhysX.props`)、ENet(LAN通信)は `ThirdParty/enet/`
+- 機能ごとの解説HTMLは `docs/EngineGuide/`(元データは `docs/EngineGuide/tools/src/`、`tools/build.ps1` で作り直す)
 
 ## 必ず守るルール
 
@@ -60,7 +62,8 @@ Componentの名前は役割で語尾をそろえる:
 ### 設計
 - **Sceneには「何を置くか」だけを書く**(`Create○○(*this)` を並べるだけ)。動き・ルールは各オブジェクトのComponentに書く
 - オブジェクトは `Game/Objects/○○.h/.cpp` の工場関数 `Create○○(Scene&, 依存...)` で組み立てる。Componentと同じ名前のファイルを作らない(例: `Player` ↔ `PlayerController`、`GameSystem` ↔ `GameManager`、`EnemySpawner` ↔ `EnemyManager`)
-- 他のComponentの情報が必要な時は、工場関数の引数でポインタを受け取る。シングルトン(`Get()`)はアプリ全体で1つのサービス(EventBus/SceneManager/Input/Audio)だけ
+- 他のComponentの情報が必要な時は、工場関数の引数でポインタを受け取る。シングルトン(`Get()`)はアプリ全体で1つのサービス(EventBus/SceneManager/Input/Audio/Network)だけ。Network は Input/Audio と同じ `namespace Network` の形で `Get()` は無い
+- ネットワーク対応のオブジェクトは、ルールを書く Component の最初で `if (!identity->HasAuthority()) return;` と書いて、ホストだけ動かす。クライアントのコピーは Dynamic にせず Kinematic にする
 - お互いを知らない管理役同士は `EventBus` でつなぐ。`this` をキャプチャしたラムダを登録したら、そのSceneの `Uninit()` で `EventBus::Get().Clear()` する
 - `ObjectPool` は、そのシーンのGameObjectにアタッチしたComponentのメンバとして持つ(static変数にしない)
 - PhysXのDynamicな剛体は、Transformを直接書き換えずに `RigidbodyComponent::SetVelocity()` で動かす

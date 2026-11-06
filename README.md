@@ -6,6 +6,8 @@ DirectX11製の、Unity風のコンポーネント指向ゲームフレームワ
 
 今後のEngine機能追加の計画(関数の設計案・作る順番)は [`docs/EngineRoadmap.md`](docs/EngineRoadmap.md) を参照してください。
 
+LAN通信(ネットワーク。Part 4-1〜4-5)の設計は [`docs/EngineRoadmap4.md`](docs/EngineRoadmap4.md)、使い方は本書の§39を参照してください。
+
 Engineの各ファイル・関数・使い方と、設計図(継承図・描画の順番など)の解説(HTML。ブラウザで開く)は [`docs/EngineGuide/index.html`](docs/EngineGuide/index.html) を参照してください。
 
 ---
@@ -29,13 +31,13 @@ Engineの各ファイル・関数・使い方と、設計図(継承図・描画�
 - **Engine**: `GameObject`/`Component`/`RigidbodyComponent`/描画/音声などフレームワーク本体。それ単体では実行できない静的ライブラリ(`Engine.lib`)で、基本的にみんなで触る場所ではありません。
 - **Sample2D** / **Sample3D**: それぞれ独立した実行ファイル。どちらも同じ`Engine.lib`をリンクしているので、**Engineを直した内容は、両方のサンプルを再ビルドするだけで反映されます**。中身の`Game\Objects\`/`Game\Components\`/`Game\Scenes\`は、後述の「2. オブジェクトの作り方」と同じパターンです。
 - **Demo**: Engineの機能を、見て・触って分かるようにしたデモ集の実行ファイル(§38)。ゲームではなく、機能ごとの小さなシーンをカテゴリ別に並べ、2D版と3D版をその場で切り替えて見られる。同じ`Engine.lib`をリンクしているので、Engineの機能を足したら、ここにデモを足して紹介する。
-- 外部ライブラリは、リポジトリ直下(`3D_FreamWork\`の1つ上)の`ThirdParty\`にあります: `ThirdParty/PhysX/`(物理演算。§23。BSD 3-Clause型のライセンスで、条文は同じフォルダの`LICENSE.txt`)と `ThirdParty/ufbx/`(FBXの読み込み。§27。MITかパブリックドメインのどちらかを選べるライセンスで、条文は同じフォルダの`LICENSE`)。
+- 外部ライブラリは、リポジトリ直下(`3D_FreamWork\`の1つ上)の`ThirdParty\`にあります: `ThirdParty/PhysX/`(物理演算。§23。BSD 3-Clause型のライセンスで、条文は同じフォルダの`LICENSE.txt`)と `ThirdParty/ufbx/`(FBXの読み込み。§27。MITかパブリックドメインのどちらかを選べるライセンスで、条文は同じフォルダの`LICENSE`)と `ThirdParty/enet/`(LAN通信。§39。MITライセンスで、条文は同じフォルダの`LICENSE`。`Engine.vcxproj` がCのソースを直接ビルドしている)。
 - ビルド後、`Engine.lib`/`Sample2D.exe`/`Sample3D.exe`/`Demo.exe`は全て同じ`x64\Debug\`(`Release\`)フォルダに出力されます。`Assets\`とシェーダーは、Engineのビルドのたびに(`Engine.vcxproj`の`CopyRuntimeFiles`)、新しいファイルだけがそこへ自動コピーされます。Engineのコードが変わっていなくても動き、`Assets/`とシェーダーを高速最新チェックの入力に登録してあるので(`UpToDateCheckInput`)、`Assets/`だけ編集して実行(F5)しても反映されます。ビルド済みの`.exe`をダブルクリックするだけでも動きます。**ただし、Debugの実行(F5)だけは、作業フォルダをソリューション直下(`3D_FreamWork\`)にしてあり、コピーではなく`3D_FreamWork\Assets\`とシェーダーを直接読みます**(編集がコピー無しですぐ反映されます)。Releaseの実行(F5)と、`.exe`の直接起動・Ctrl+F5では、従来どおり`.exe`の隣のコピーを読みます。
 - ソリューションを開いてF5で実行する時は、実行したいもの(Sample2D・Sample3D・Demoのどれか)をソリューションエクスプローラーで右クリック→「スタートアッププロジェクトに設定」してから実行してください(複数のスタートアッププロジェクトを同時に起動する設定も可能です)。
 
 ### Engineのフォルダ構成
 
-`Engine\`の中は、機能ごとに11個のフォルダに分けてあります(`.h`と`.cpp`は同じフォルダに入れます)。
+`Engine\`の中は、機能ごとに12個のフォルダに分けてあります(`.h`と`.cpp`は同じフォルダに入れます)。
 
 | フォルダ | 役割 |
 |---|---|
@@ -49,6 +51,7 @@ Engineの各ファイル・関数・使い方と、設計図(継承図・描画�
 | `Transition\` | シーン切り替えの演出(フェード・スプライトを使った切り替え) |
 | `Behavior\` | 動きの部品。移動・追いかけ・ホーミング・視界判定・経路探索(壁を避けて追いかける。§36)など、そのまま付けて使うComponent |
 | `Data\` | データの読み書き。CSVの表・セーブデータ |
+| `Network\` | LAN通信(ネットワーク)。ホスト/参加・ホスト探索・位置の同期・入力・出来事・スポーン(§39) |
 | `ThirdParty\` | 外部のコード(WICTextureLoader11)をそのまま置く場所 |
 
 新しいファイルを作る時は、一番近い役割のフォルダに置きます。迷ったら、同じ仲間のファイル(例: 新しいComponentが「追いかける動き」なら`Behavior\`)と同じ場所にしてください。`.vcxproj`と`.vcxproj.filters`の登録(フィルターは同じフォルダ名)も忘れずに。
@@ -398,6 +401,8 @@ EventBus::Get().PublishObject("FireBullet", owner);
 
 **重要**: ラムダの中で`this`(SceneやGameObjectなど)をキャプチャして使う場合、そのSceneが終わる時に必ず`EventBus::Get().Clear()`を呼んでください(`GameScene::Uninit()`を参照)。呼び忘れると、次のシーンで既に壊れたポインタを触りにいくバグになります。
 
+**ネットワーク越しにも使えます**(§39): `Network::SendEvent("DoorOpened")` のように中身の無い出来事を送ると、受け取った全員の画面で `EventBus::Get().Publish("DoorOpened")` が呼ばれるので、既存の `Subscribe` のコードがそのまま動きます。中身(数値や文字)のある出来事は、`EventBus` が引数を運べないので `Network::Subscribe` で受けます。
+
 ---
 
 ## 8. ObjectPool(オブジェクトの使い回し)
@@ -420,6 +425,8 @@ pool.Return(obj);
 **注意**: 使い回されるオブジェクトは、`Init()`が2回目以降は呼ばれません(最初に`AddComponent`された時の1回だけ)。位置や向き、寿命タイマーなどの状態は、`Init()`ではなく「借りた/発射した時に呼ぶ専用の関数」(`BulletController::Fire()`のような)でリセットしてください。
 
 **ObjectPoolは、そのシーンのGameObjectにアタッチしたComponentのメンバとして持たせてください**(Sample2Dの`BulletManager`/`EnemyManager`を参照)。こうするとプールの寿命がシーンと同じになり、シーン終了時にプールの中身と一緒に片付けられます。ファイルのstatic変数のように、シーンをまたいで生かし続けると、シーンが破棄された後もプール内に「もう存在しないGameObjectへのポインタ」が残り、クラッシュします。
+
+**ネットワークでも使えます**(§39): 弾などをホストが `Network::Spawn` で出し、`Network::SetDespawnHandler` に `pool.Return(obj)` を入れておくと、全員の画面で出す・消すが、プールを使い回したまま動きます(Demoの NetworkSpawn)。
 
 ---
 
@@ -3255,7 +3262,7 @@ Engineの機能を「見て・触って分かる」ようにした、機能ご�
   Esc: アプリを終了        Esc: カテゴリ一覧へ     Esc: 機能一覧へ
 ```
 
-- **カテゴリ一覧**(`DemoMenuScene`): `Core` `Render` `UI` `Render3D` `Physics` `Behavior` `Audio` `Data` の8個(Engineのフォルダに近い名前)。デモがまだ無いカテゴリがあれば、暗くて押せず「準備中」と出る(今は8個すべてにデモがある)。
+- **カテゴリ一覧**(`DemoMenuScene`): `Core` `Render` `UI` `Render3D` `Physics` `Behavior` `Audio` `Data` `Network` の9個(Engineのフォルダに近い名前)。デモがまだ無いカテゴリがあれば、暗くて押せず「準備中」と出る(今は9個すべてにデモがある)。
 - **機能一覧**(`DemoCategoryScene`): 選んだカテゴリの機能が並ぶ。説明の左に印(`[2D/3D]` 2Dと3Dの両方 / `[2D]` 2Dだけ / `[3D]` 3Dだけ / `[ALL]` 2Dと3Dの区別が無い)が付く。**今の側(2D/3D)の版が無い機能は、ボタンが暗くなって押せない**。
 - **各デモ**: 左上の板に「デモの名前(と今の側の印)」「何のデモか」「操作方法」「使っているEngineのAPI」の4行、左下に「Back」ボタン(Escと同じ。カテゴリ一覧では「Quit」)、右下に2D/3Dの切り替えボタンが出る。
 - シーンの切り替えは、すべて暗転(`FadeTransition`)。
@@ -3329,6 +3336,12 @@ Engineの機能を「見て・触って分かる」ようにした、機能ご�
 | Audio | **Sound3D**(2D/3D。`Sound3DDemo2DScene` / `Sound3DDemo3DScene`) | 位置で聞こえ方が変わる音。橙の玉(音源。`AudioSourceComponent`)が回りながら鳴り、青の玉(聞く側。`AudioListenerComponent`)を動かす。**近いほど大きく、左にあれば左から聞こえる**。緑の輪=ここまでは最大音量、黄の輪=ここで聞こえなくなる(`SetDistance`)。`SetSpatial(false)`にすると、どこにいても同じ音量で真ん中から聞こえる。SPACEは、その場所に`Audio::PlayOneShotAt`で1回だけ鳴らす(鳴らした後は動かない)。下の棒は、音源が聞く側の左右どちらにあるかの目安。**2D版も作れた**(`AudioListenerComponent`は2Dでも使え、向きは画面の上が正面で固定)。**3D版**は`SetUse3DCamera(true)`で3Dカメラの向きで聞く(右ドラッグで視点を回すと、左右が変わる)。**ヘッドホンで聞くと分かりやすい**。音源の音は、このデモのために自動で作った`Assets/Demo/DemoTone.wav`(下の「音とデータのデモの補足」) | WASD: 聞く側を動かす(3Dはカメラの向きが前) / 1: 鳴/止 / 2: 位置の効き(ON/OFF) / ↑↓: 聞こえなくなる距離 / ←→: 回る速さ / SPACE: その場所に1回 / (3D)右ドラッグ: 視点 | `AudioSourceComponent`(`SetSpatial` `SetDistance` `SetLoop`)、`AudioListenerComponent`(`SetUse3DCamera`)、`Audio::PlayOneShotAt`(§24) |
 | Data | **Csv**(共通。`CsvDemoScene`) | デモ専用の表(`Assets/Demo/DemoTable.csv`。Name・Hp・Speed・Memoの3行)を読んで、画面に表にする。列の名前で取り出す(`GetString` / `GetInt` / `GetFloat`。`Speed`の`85.5`は`GetFloat`だから小数で出る)。`FindRow`で名前から行を探し、`HasColumn`で列の有無を調べる(列が消えると、見出しが赤くなって「列なし」)。**ホットリロード**: 0.5秒ごとに`IsFileUpdated`で調べ、ファイルが保存し直されたら`Reload`する。読み直すと表の枠が1秒緑に光る。読めない時は赤い文字で知らせる。**ファイルには何も書かない**(読むだけ)。サンプルの`Enemies.csv` / `Waves.csv`は読まない。**編集のしかたは、下の「音とデータのデモの補足」** | メモ帳などで画面に出ているファイルを編集して保存(ゲームは止めない) / R: 今すぐ読み直す | `Csv`(`Load` `IsValid` `GetRowCount` `GetColumnCount` `HasColumn` `GetString` `GetInt` `GetFloat` `FindRow` `IsFileUpdated` `Reload`)、`Timer`(§19) |
 | Data | **Save**(共通。`SaveDemoScene`) | `SaveData`に、整数(`Demo_Count`)・小数(`Demo_Ratio`)・日本語の文字(`Demo_Name`)を書いて、ファイルに保存・読み込みする。**保存してアプリを閉じても、開き直してこの画面に来ると同じ値が出る**。「未保存の変更があります」の印、`DeleteKey`で3つを消す、スロット1〜3(別のファイル)の切り替えもある。保存先(`%LOCALAPPDATA%\3D_FreamWork\save1.txt` など)は画面に出る。**サンプルのセーブは壊さない**: スロット0(サンプルのハイスコアなど)は使わず、キーも`Demo_`で始まる物だけ(下の「音とデータのデモの補足」) | Z: 整数+1 / X: 小数+0.1 / C: 名前を変える / S: 保存 / L: 読込 / D: キーを消す / 1・2・3: スロット(右のボタンも同じ) | `SaveData`(`SetInt` `GetInt` `SetFloat` `GetFloat` `SetString` `GetString` `HasKey` `DeleteKey` `Save` `Load`)(§18) |
+| Network | **NetworkBasic**(共通。`NetworkBasicDemoScene`) | Host で部屋を作り、もう1台が Join(127.0.0.1 かIPアドレスの入力)で参加する。つながると、状態(ホスト中/参加中)・自分の番号・名簿・ping・通信量(1秒あたりの送受信)・このPCのIPが出る。Send で文字を全員に送れる(自分にも届く)。満員・ゲームID違い・ポート使用中は、画面にエラーが出る。デモを出ると接続は閉じる | Host / Join 127.0.0.1 / Edit IP(数字・ピリオド・Backspace・Enter)/ Join IP / Send / Disconnect(すべてマウス) | `Network::StartHost` / `Join` / `Disconnect` / `SendEvent` / `Subscribe` / `GetState` / `GetPing` / `GetStats` / `GetLocalAddresses`(§39) |
+| Network | **NetworkDiscovery**(共通。`NetworkDiscoveryDemoScene`) | Host で部屋を作ると、同じLANの別のPCの Find Hosts に、ホスト名・IP・人数(例 `2/4`)が出る。出たボタンを押すと、そのホストに参加する。ホストが閉じると数秒で消える。ゲームIDが違うホストは出ない | 1台で Host / もう1台で Find Hosts → 右に出るボタン / Disconnect(すべてマウス) | `Network::StartSearch` / `StopSearch` / `GetFoundHosts` / `IsSearching` / `SetGameId`(§39) |
+| Network | **NetworkTransform**(2D/3D。`NetworkTransformDemo2DScene` / `NetworkTransformDemo3DScene`) | ホストが円を描いて動かす箱(Kinematic。回転も付く)と、それに押される球・丸(Dynamic)。クライアントは受け取った位置・向きを0.1秒ほど遅れて補間して表示し、クライアントの球は物理では動かない(Kinematicのコピー)。Host/Join を押した時に、役割に合わせて物を作り直す。通信量が画面に出る | Host / Join(マウス)/ 3Dは右ドラッグ: 視点、Q・E: ズーム | `NetworkIdentityComponent` / `NetworkTransformComponent` / `NetworkTransformSettings`、`Network::IsHost`、`SetInterpolationDelay`(§39) |
+| Network | **NetworkInput**(2D/3D。`NetworkInputDemo2DScene` / `NetworkInputDemo3DScene`) | プレイヤー0〜3それぞれの箱。自分の番号の箱をキーで動かす。入力はホストへ送られ、ホストが `SetVelocity` で動かし、結果が全員に見える。いない人の箱は暗い。オフラインでも1人で動かせる | WASD または矢印: 移動 / 3Dは SPACE: ジャンプ | `Network::SetLocalInput` / `GetInput`、`NetworkInput`、`NetworkIdentityComponent`(`HasAuthority` / `IsOwner`)、`RigidbodyComponent::SetVelocity`(§39) |
+| Network | **NetworkEvent**(共通。`NetworkEventDemoScene`) | 協力パズルの最小形。スイッチA・Bを両方押すと扉が開く(誰が押してもよい)。クライアントが押すと「SwitchPressed」がホストへ届き、ホストが共有の値(SwitchA / SwitchB / Door)を変えて「DoorOpened」を全員へ送る。**扉を開けたまま、あとから Join すると、開いた扉が見える**(共有の値が途中参加の人にも渡る)。受け取った出来事の記録が出る | Press Switch A / B / Reset Door | `Network::SendEvent` / `Subscribe` / `SetSharedValue` / `GetSharedValue`、`EventBus`(DoorOpened)(§39) |
+| Network | **NetworkSpawn**(2D/3D。`NetworkSpawnDemo2DScene` / `NetworkSpawnDemo3DScene`) | 弾を撃つ頼み(FireRequest)は誰でも送れて、ホストだけが弾を作る。弾は撃った人の番号の色で、全員の画面に出て、1.8秒で消える。弾は `ObjectPool` で使い回し、画面に出ている数とプールの大きさが出る。撃った人が抜けても、その人の弾は消える | Fire ボタンか SPACE | `Network::RegisterPrefab` / `Spawn` / `Despawn` / `SetDespawnHandler`、`ObjectPool`(§8・§39) |
 
 (音のデモの`Voice`(再生口を直接使う`StartVoice`など)は作っていません。理由は下の「音とデータのデモの補足」。)
 
@@ -3361,12 +3374,12 @@ Engineの機能を「見て・触って分かる」ようにした、機能ご�
 ```
 Demo/main.cpp          ウィンドウの作成とEngineの初期化 → 最初のシーン(DemoMenuScene)
 Demo/Game/Scenes/      Common: DemoRegistry(デモの一覧と、今の状態), DemoMenuScene(カテゴリ一覧), DemoCategoryScene(機能一覧)
-                       Core / Render / UI / Render3D / Physics / Behavior / Audio / Data: 各デモのシーン
+                       Core / Render / UI / Render3D / Physics / Behavior / Audio / Data / Network: 各デモのシーン
 Demo/Game/Objects/     Common: 全デモで使う部品(DemoGuide, DemoButton, DemoModeButton, DemoMenu, DemoCategoryMenu,
                                DemoBackground, DemoSkybox, DemoGround, DemoCamera, DemoLights, DemoWalker,
                                DemoStage3D=3Dの舞台(空・地面・カメラ)をまとめて作る,
                                DemoBody=物理の剛体付きの物を作る(CreateDemoBody2D / CreateDemoBody3D), DemoWall=壁を作る)
-                       Core / Render / UI / Render3D / Physics / Behavior / Audio / Data: 各デモの部品
+                       Core / Render / UI / Render3D / Physics / Behavior / Audio / Data / Network: 各デモの部品
                        (Behavior の DemoAgent=動く物・目印・壁(タグ "Wall")・競技場・経路探索の格子を作る)
 Demo/Game/Components/  Common: DemoGuideController, DemoModeButtonController, DemoCategoryMenuController,
                                DemoCameraController, DemoWalkerController, BackgroundController, GroundController, SkyboxFollowComponent,
@@ -3374,7 +3387,7 @@ Demo/Game/Components/  Common: DemoGuideController, DemoModeButtonController, De
                                DemoMouseGround(マウスの下の地面を求める関数), DemoScreenFixController(2Dカメラが動いても、ボタンを画面の同じ場所に出す),
                                DemoStatus(説明の板の下に状態の板を出す関数), DemoBodyReset(動く剛体を元の位置へ戻す関数),
                                DemoPlane(動く平面の道具: 2D=XY・3D=XZ の座標の変換、マウスの下の位置、標準の競技場)
-                       Core / Render / UI / Render3D / Physics / Behavior / Audio / Data: 各デモの動き
+                       Core / Render / UI / Render3D / Physics / Behavior / Audio / Data / Network: 各デモの動き
 ```
 
 - **`DemoRegistry.cpp` の `GetDemoList()` が、機能の一覧を1か所に持っています**。1機能につき1行で、`DemoInfo` は `{ カテゴリ, ボタンの名前, 一言説明, 2D版を開く関数, 3D版を開く関数 }`。**`nullptr` かどうかが「2Dあり/3Dあり」の印**になるので、印を別に持ちません(書き間違えない)。2Dと3Dの区別が無い機能は、両方に同じ関数を入れます。
@@ -3416,6 +3429,7 @@ Demo/Game/Components/  Common: DemoGuideController, DemoModeButtonController, De
 | 画面エフェクト・カメラの揺れ | `ScreenEffect::Stop()` / `CameraShake::Stop()` |
 | 音量 | `Audio::SetGroupVolume(AudioGroup::BGM, 1)` / `(AudioGroup::SE, 1)` |
 | カーソルの固定 | `Input::SetCursorLocked(false)` |
+| ネットワークの接続 | `Network::Disconnect()`(ホスト探索も止める)と `Network::ClearHandlers()` |
 
 さらに、デモの`Uninit`でも、自分が変えた物は戻しています(`DemoCameraController`は3Dカメラの自動追従、`ShadowDemoController`は影の設定、`LodDemoController`はLODと影の設定、`VisibilityDemoController`は2Dカメラの位置、`TimeDemoController`は時間の倍率、`InputDemoController`はカーソルの固定、`ResourcesDemoController`は借りた音とモデル、`SoundDemoController`はBGMを止める(借りた音のデータは`AudioSourceComponent`が返す)。`EventBusDemoScene`は`EventBus`の登録。`ScreenEffectDemoController`は暗転の濃さ(`Fade`はシーンをまたいで残るため、すぐ0へ戻す)、`CameraDemoController`は2Dカメラの位置・3Dカメラの自動追従・揺れ、`CoordDemoController`は2Dカメラの位置、`ColliderDemoController`は当たり判定の枠線(`SetDebugDrawEnabled`)。`ForceDemoController`など他の物理デモは、全体の設定を変えない。Behavior では、`VisionDemoController` は視野の線(`VisionComponent::SetDebugDrawEnabled`)、`PathDemoController` / `MovingWallDemoController` / `TerrainPathDemoController` は格子と経路の線(`NavGridComponent` / `PathFollowComponent` の `SetDebugDrawEnabled`)を、デモに入った時に出して、出る時に消す)。`ParticleRenderer`や`LightComponent`のような、オブジェクトに付く物は、Componentが自分の`Uninit`で後片付けするので、ここには入れません。
 
@@ -3431,3 +3445,205 @@ Demo/Game/Components/  Common: DemoGuideController, DemoModeButtonController, De
 - コンパイルのオプションに `/utf-8` を付けています(ソースはBOM付きのUTF-8なので、付けなくても動きますが、念のため)。
 
 `Assets\` とシェーダーを共有の出力先へコピーするのは、今までどおりEngineの`CopyRuntimeFiles`だけです(Demo側には要りません)。
+
+---
+
+## 39. ネットワーク(Network。LAN通信)
+
+同じLAN(同じWi-Fiや有線)につないだ**2〜4台のPC**で、1つのゲームを一緒に遊ぶための機能です。通信ライブラリは **ENet**(`ThirdParty/enet/`。MITライセンス)で、ゲームのコードは ENet を直接さわらず、`Network`(窓口)と2つのComponentだけを使います。確かめるデモは、Demoの **Network** カテゴリ(§38)です。設計の経緯は [`docs/EngineRoadmap4.md`](docs/EngineRoadmap4.md) にあります。
+
+**Sample2D / Sample3D はネットワーク対応にしていません**(何も変わりません。`StartHost` / `Join` / `StartSearch` を呼ばない限り、`Network` は何もしません)。
+
+### 方式: ホスト式
+
+- 1台が**ホスト**になり、**ルールと物理(PhysX)の計算はホストだけ**が行います。ホスト自身もプレイヤーの1人(番号 0)です。
+- **クライアント**は「入力」だけをホストへ送り、ホストから届いた**結果(位置・向き)を表示**するだけです。
+- PhysXは別のPCで同じ結果になる保証が無いので、「みんなで同じ計算をして一致させる」のではなく、「ホストが結果を配る」方式にしています。
+- 最大人数は4人(`Engine/Network/NetworkConfig.h` の `Network::maxPlayers`。ここ1か所を直せば変わります)。
+
+| 言葉 | 意味 |
+|---|---|
+| ホスト / クライアント | 部屋を作る側 / 参加する側 |
+| プレイヤー番号 | 参加者に付く 0〜3 の番号。ホストが 0。抜けた人の番号は、次に参加した人が一番若い空き番号でもらう |
+| Authority(権限) | その物の本当の状態を決める側。このEngineでは**基本はホストが全部の物のAuthority**。クライアントにあるのは「見せるためのコピー」 |
+| NetworkId | ホストとクライアントで共通の、同期する物の番号。シーンに置く物は 1〜999(自分で付ける)、スポーンした物は 1000 以上(ホストが付ける) |
+| スナップショット | ホストが30回/秒で全員に送る、位置・向きの写真 |
+| 補間 | 届いた写真の間をなめらかにつないで表示すること。0.1秒ほど遅れて表示する代わりに、カクカクしない |
+
+### つなぐ(host / join / 探す)
+
+```cpp
+Network::SetGameId("MyGame");                     // 同じIDのゲームどうしだけつながる(ほかの人のゲームと混ざらない)
+Network::StartHost("Player1");                    // 部屋を作る(失敗したら false。理由は Network::GetLastError())
+Network::Join("192.168.0.12", Network::defaultPort, "Player2");   // ホストの画面に出るIPアドレスで参加する
+Network::StartSearch();                           // LANのホストを探す → Network::GetFoundHosts() に並ぶ
+Network::Disconnect();                            // 抜ける(ホストなら部屋を閉じる)
+
+Network::GetState();            // Offline / Hosting / Connecting / Connected
+Network::IsHost();              // ホスト中。オフラインの時も true(1人で遊ぶ時は自分がホスト扱い)
+Network::IsClient();            // 参加中(参加の途中も含む)
+Network::GetLocalPlayerIndex(); // 自分の番号(ホストとオフラインは 0)
+Network::GetPlayerCount();  Network::GetPlayerName(i);  Network::GetPing();  Network::GetStats();
+```
+
+- 参加の結果は、`Network::GetState()` を見るか、`EventBus` の `"NetworkConnected"` / `"NetworkDisconnected"` / `"NetworkPlayerJoined"` / `"NetworkPlayerLeft"`(引数なし)で分かります。断られた理由(満員・バージョン違い・ゲームID違い)は `Network::GetLastError()` に入ります。
+- 5人目(最大人数を超える人)は断られます。ポート(既定 47200)が使用中だと `StartHost` は `false` を返します。
+- ホスト探索は、ゲーム用とは別のUDPポート(47201)でLAN全体に呼びかけます。**同じPCの2つ目の `Demo.exe` は、ホストを探す側/参加する側として使ってください**(同じポートを2つのプロセスは待ち受けられません)。
+- ホストが落ちたら、クライアントは全員 `Offline` に戻り、`"NetworkDisconnected"` が届きます(ホストの引き継ぎはありません)。
+
+### 位置を同期する(NetworkIdentityComponent / NetworkTransformComponent)
+
+同期したい物に、2つのComponentを付けます(ホストの物にも、クライアントのコピーにも**同じ**ものを付けます)。
+
+```cpp
+GameObject* CreateNetworkBox(Scene& scene, int sceneId, XMFLOAT3 position) {
+    GameObject* box = scene.CreateObject("NetworkBox", "Box");
+    box->transform.position = position;
+    box->AddComponent<MeshRenderer>(Mesh::CreateCube());
+
+    // ホスト(とオフライン)はDynamic(PhysXが計算)、クライアントのコピーはKinematic(受け取った位置をTransformに書く)
+    BodyType body = Network::IsHost() ? BodyType::Dynamic : BodyType::Kinematic;
+    box->AddComponent<BoxRigidbodyComponent>(body, XMFLOAT3{ 100.f, 100.f, 100.f });
+
+    box->AddComponent<NetworkIdentityComponent>()->SetSceneId(sceneId);   // 1〜999。ホストとクライアントで同じ番号にする
+    box->AddComponent<NetworkTransformComponent>();                        // 位置・向きの同期
+    return box;
+}
+```
+
+- **クライアントのコピーをDynamicにしてはいけません**(クライアントのPhysXが勝手に動かし、ホストの位置とずれます。「Dynamicなオブジェクトは Transform を直接書き換えない」という決まりにも反します)。工場関数で `Network::IsHost()` を見て `BodyType` を選びます。
+- 2Dは `NetworkTransformSettings` の `is2D = true`(`position.xy` と `rotate.z` だけ送る)。大きさ(`scale`)を同期するなら `syncScale = true`。**親を持たない(ルートの)オブジェクトだけ**を同期します。
+- ホストが送るのは、シーンの `Update` の**後**(`Network::EndFrame`)の位置なので、PhysXの結果が入った最新の値です。クライアントは `Physics::Update` の**前**に位置を書きます(`GameEngine::Run` の中の順番。下の「仕組み」)。
+- 各シーンの `Init` の最後で **`Network::NotifySceneReady(*this, シーン番号)`** を呼びます(「準備ができた」の合図。クライアントはこの合図の後に届いた位置だけを使います)。
+- ゲームのルールを書くComponentは、**最初に `if (!identity->HasAuthority()) return;`** と書きます(`HasAuthority()` はホストとオフラインで true、クライアントで false)。見た目だけのComponentは、このチェックをしません。
+- 「Hostを押す/Joinを押す」を**同じシーンの中**で行うデモでは、役割が変わった時に同期する物を作り直す必要があります(`BodyType` は作る時に決まるため)。Demoの `NetworkWorldController` がその例です。ロビーのシーンで先につないでから、ゲームのシーンへ移る作りなら、この作り直しは要りません。
+
+### 入力を送る(NetworkInput)
+
+```cpp
+// 自分の入力を集める(ゲーム側のComponent。毎フレーム)
+NetworkInput input;
+if (Input::GetKeyPress(KEY_D)) input.moveX += 1.f;
+input.SetButton(0, Input::GetKeyPress(KEY_SPACE));      // ボタン番号(0〜15)はゲーム側で決める
+Network::SetLocalInput(input);                           // ホストなら自分の入力、クライアントならホストへ送られる
+
+// ホストが読んで動かす(ホスト自身もクライアントも同じ読み方)
+const NetworkInput& in = Network::GetInput(identity->GetOwnerPlayerIndex());
+rigidbody->SetVelocity({ in.moveX * speed, 0.f, in.moveY * speed });   // Transformは直接書かず SetVelocity で動かす
+if (in.WasButtonPressed(0)) { /* 押した瞬間(1フレームの間だけ true) */ }
+```
+
+- 入力は60回/秒でホストへ送られます(信頼しない通信。押した瞬間のボタンは、直近の3回分に重ねて入れるので、1つ落ちても取りこぼしません)。
+- 1秒間入力が届かなかったプレイヤーの入力は、ホストが0に戻します(ボタンを押しっぱなしのまま止まらない)。
+- 入力を集めるComponent(キーの割り当て)は、ゲームによって違うので、Engineではなくゲーム側に置きます(Demoの `NetworkPlayerInputController`)。
+
+### 出来事と共有の値(SendEvent / Subscribe / SetSharedValue)
+
+```cpp
+// スイッチを押した → ホストに知らせる
+Network::SendEvent("SwitchPressed", NetworkTarget::Host);
+// ホストの判断(ホストだけで動く)
+Network::Subscribe("SwitchPressed", [this](NetworkReader& payload, int sender) {
+    Network::SetSharedValue("Door1", 1);                     // 「今の状態」。途中参加の人にも届く
+    Network::SendEvent("DoorOpened", NetworkTarget::All);    // 「その瞬間」の演出用(全員へ)
+});
+// 全員(見た目): 中身の無い出来事は EventBus でも受けられる
+EventBus::Get().Subscribe("DoorOpened", [this]() { /* 音を鳴らす */ });
+// 扉の見た目は、毎フレーム Network::GetSharedValue("Door1") を見る
+```
+
+- 送り先は `NetworkTarget::Host`(ホストだけ)/ `All`(自分を含む全員)/ `Others`(自分以外)。クライアントが `All` を指定したら、ホストが受け取って全員へ配ります。出来事は必ず届きます(信頼する通信)。
+- 中身つきは `NetworkWriter` に `WriteString` / `WriteFloat` などで並べて送り、受け取る側は `NetworkReader` で同じ順に読みます。**範囲外を読もうとすると失敗の印が付くだけで落ちません**(`reader.IsOk()` で確かめる)。
+- **共有の値は、ホストだけが変えられます**(クライアントが `SetSharedValue` を呼ぶと、出力ウィンドウに知らせて何もしません)。出来事は「過去に起きたこと」なので、途中から参加した人は知りません。「今の状態」(扉が開いている、など)は共有の値に入れてください。
+- `this` を使うラムダを `Subscribe` したら、そのSceneの `Uninit()` で **`Network::ClearHandlers()`** を呼びます(`EventBus::Get().Clear()` と同じ決まり)。
+
+### スポーンと破棄、シーンの切り替え
+
+```cpp
+namespace Prefab { static constexpr int bullet = 1; }     // 番号に名前を付ける
+// ホストもクライアントも、シーンの Init で同じ登録をする
+Network::RegisterPrefab(Prefab::bullet, [this](Scene& scene, const NetworkSpawnInfo& info) {
+    return CreateBullet(scene, info);        // info.hasAuthority を見て Dynamic / Kinematic を選ぶ。NetworkIdentity と NetworkTransform を付ける
+});
+Network::SetDespawnHandler(Prefab::bullet, [this](GameObject* o) { pool.Return(o); });   // ObjectPool の物は Return する(既定は Destroy)
+
+GameObject* bullet = Network::Spawn(*this, Prefab::bullet, ownerPlayer, firePosition);   // ホストだけ。全員の画面に出る(オフラインでも使える)
+Network::Despawn(bullet);                                                                 // ホストだけ。全員の画面から消える
+```
+
+- クライアントは `Spawn` の知らせを受けると、同じ工場関数を `hasAuthority = false` で呼びます。途中参加の人には、`NotifySceneReady` の後に今ある物が全部届きます。
+- **プレイヤーが抜けると、そのプレイヤーが所有していたスポーンした物は自動で `Despawn` されます**。
+- `ObjectPool` で使い回す物は、借りた直後に位置・色などを毎回付け直してください(NetworkId と所有者は `Spawn` が付け直します)。
+- シーンの切り替えを全員で揃えるには、`Network::RegisterScene(番号, []{ SceneManager::Get().ChangeScene<GameScene>(); })` を登録し、ホストが `Network::ChangeSceneForAll(番号)` を呼びます。`SceneManager` は切り替え中の `ChangeScene` を無視するので、クライアントは切り替えが終わらなければ、2秒ごとに最大3回やり直します。切り替え後のシーンの `Init` の最後で `NotifySceneReady` を呼んでください。
+- 接続は**シーンをまたいで残ります**(`Network` はアプリ全体で1つ)。シーンを抜ける時に切りたいなら、`Uninit` で `Network::Disconnect()` を呼びます。
+
+### 仕組み(Engineを触る人向け)
+
+```
+Engine/Network/
+  NetworkConfig.h             定数(最大人数・ポート・送信の回数など)を1か所に
+  NetworkMessage.h/.cpp       パケットの種類、NetworkWriter(書く) / NetworkReader(読む。範囲外は失敗を返す)
+  NetworkTransport.h/.cpp     ENetを包むクラス(ENetを知っているのはここと LanDiscovery だけ)
+  NetworkSession.h/.cpp       参加者の名簿・プレイヤー番号・参加の受付(Join/Accept/Reject)・切断の検知・ping
+  LanDiscovery.h/.cpp         LANでホストを探す(ブロードキャスト)/ ホストが「ここにいます」と答える
+  NetworkObjects.h/.cpp       NetworkId → GameObject の登録簿、プレハブ、スポーンした物の記録
+  NetworkIdentityComponent / NetworkTransformComponent   同期する物に付ける印 / 位置・向きの同期と補間
+  NetworkInput.h              入力の構造体
+  Network.h/.cpp              窓口(ゲームが呼ぶのはここ)
+ThirdParty/enet/              ENet v1.3.18(ソースを Engine.vcxproj に直接登録して、Cとしてビルドしている。ufbx と同じ形)
+```
+
+1フレームの順番(`GameEngine::Run`): `Input::Update` → **`Network::Update`**(受信。クライアントは補間して位置を書く)→ `Physics::Update` → シーンの `Update` → `Audio::Update` → **`Network::EndFrame`**(送信。ホストはスナップショット、クライアントは入力)。`GameEngine.cpp` に足したのはこの3行(`Update` / `EndFrame` / `Shutdown`)だけです。
+
+| 送る物 | 頻度 | 信頼 | 理由 |
+|---|---|---|---|
+| 位置のスナップショット | 30回/秒(`SetSnapshotRate` で10〜60) | しない | 次々に新しいのが届くので、落ちた1枚は次で埋まる。連番で古い物は捨てる。1パケットが約1.1KBを超えたら分けて送る |
+| 入力 | 60回/秒 | しない | 同上 |
+| 出来事・共有の値・スポーン・名簿 | 起きた時だけ | する | 1回でも落ちると状態がずれて戻らない |
+| ping | 1秒に1回 | しない | 往復の時間(`Network::GetPing()`) |
+
+- 4人 + 物20個の場合、ホストの送信は合計で約50KB/秒(約0.4Mbps)の見込みです。LAN(特に有線)ではほとんど問題になりません。
+- 応答が無い相手を切るまでのタイムアウトは、10〜20秒です(ウィンドウをドラッグしている間や、デバッガで止めた間は、ゲームが止まって応答できないため、長めにしてあります)。
+- 補間の遅れは既定で0.1秒(`SetInterpolationDelay`)。クライアントの画面は、ホストの画面より0.1秒ほど遅れて見えます。Wi-Fiで揺れる時は長めにしてください。
+- 壊れたパケットでは落ちません(大きさ・種類・プレイヤー番号・数・文字の長さ・NaN を検査して捨てる。送り主のプレイヤー番号は、パケットの中身ではなく接続から決める)。ただし**同じLANの信頼できる相手が前提**で、暗号化・認証・ずる(入力や位置の偽装)対策はありません。**他人のいる公共のWi-Fiでは使わないでください**。
+- 自分の入力を先に動かす「クライアント予測」や、自分のキャラの位置を自分で決める「Owner権限」は、**まだ作っていません**(ロードマップのPart 4-6。LANで遊んで「操作が重い」と感じたら作る予定)。クライアントの操作は、往復の時間 + 補間の遅れの分(0.15〜0.3秒ほど)重く感じる可能性があります。インターネット越し(ルーター越し)の通信も、対象外です。
+
+### 試し方(Demoの Network カテゴリ)
+
+**1台で2つ起動して試す**(いちばん手軽な方法):
+
+1. ソリューションをビルドする(Debug でも Release でもよい)。
+2. 1つ目: Visual Studio で `Demo` をスタートアッププロジェクトにして F5(または Ctrl+F5)。
+3. 2つ目: エクスプローラーで `3D_FreamWork\x64\Debug\Demo.exe`(Releaseなら `x64\Release\Demo.exe`)をダブルクリックして起動する。**Visual Studio の2つ目のデバッグ起動は、同じ出力ファイル(exe・pdb)を使うので失敗することがあります**。また、**Debug の F5 は作業フォルダがソリューション直下で、`.exe` の直接起動は `.exe` の隣にコピーされた `Assets\` を読みます**(どちらも動きます。Assetsを編集した時は、ビルドで隣へコピーされるまで直接起動の側には反映されません)。
+4. 2つのウィンドウを横に並べる。どちらも **Network → NetworkBasic**(または NetworkTransform など)を開く。
+5. 1つ目で **Host** を押す。2つ目で **Join 127.0.0.1** を押す。画面の「状態」が `ホスト中` / `参加中` になり、名簿に2人出る。
+6. 操作(キー入力)は、**クリックして選んだ(一番手前の)ウィンドウだけ**に入ります。デバッガで止めると通信が止まって切断されるので、確認は Release の `Demo.exe` のほうが安定します。
+
+**LAN内の2台で試す**:
+
+1. 2台とも、同じWi-Fiか有線につなぐ。両方に同じバージョンの `Demo.exe` を入れる(`x64\Release\` のフォルダごとコピーする)。
+2. 1台目: Network → NetworkBasic を開いて **Host**。画面の「このPCのIP」(例: `192.168.0.12`)を確かめる。
+3. 2台目: 同じデモを開き、**Edit IP** を押してIPアドレスを入力(数字・ピリオド・Backspace、Enterで確定)→ **Join IP**。または **NetworkDiscovery** で **Find Hosts** を押し、右に出るホストのボタンを押す。
+4. 初回は **Windowsのファイアウォールの確認**が出ます。**「プライベート ネットワーク」を許可**してください(許可しないとUDPが届かず、つながりません)。許可を間違えた時は、Windowsの「ファイアウォールによるアプリの許可」で `Demo.exe` を許可し直します。
+
+| つながらない時 | 原因と対処 |
+|---|---|
+| Join してもずっと「接続中...」 | ファイアウォールが止めている(上の許可)/ IPアドレスの間違い / 別のネットワーク(2台が同じLANか確かめる) |
+| 「Room is full」 | もう4人いる(`Network::maxPlayers`) |
+| 「Different game」 | ゲームIDが違う(`Network::SetGameId`)。別のゲームのホスト |
+| Host を押すとエラー(Cannot open port) | 同じPCで別の `Demo.exe` がすでにホストをしている(ポート 47200 が使用中)。2つ目は Join する側にする |
+| Find Hosts で見つからない | 学校・公共のWi-Fiは、端末どうしの通信やブロードキャストを禁止していることがある。**IPアドレスの手入力(Edit IP → Join IP)ではつながることが多い**。それでもだめなら、スマートフォンのテザリングなど別のネットワークで試す。同じPCでは、ホストが2行(127.0.0.1 とLANのIP)出ることがある |
+| 画面のウィンドウをドラッグしたら切れた | ゲームが10〜20秒以上止まると切れる(タイトルバーのドラッグ中、デバッガの停止中) |
+
+### Demoの Network カテゴリ
+
+| デモ | 学べること |
+|---|---|
+| NetworkBasic | Host / Join(127.0.0.1・IP入力)/ Send / Disconnect。接続状態・人数・名簿・ping・通信量・受け取った文字 |
+| NetworkDiscovery | LANのホスト探索。見つかったホストを一覧から選んで参加 |
+| NetworkTransform(2D/3D) | ホストが円を描いて動かす箱と、それに押される球。クライアントは受け取った位置を補間して表示(クライアントの球は物理で動かない) |
+| NetworkInput(2D/3D) | 自分の番号の箱をキーで動かす(WASD/矢印。3DはSPACEでジャンプ)。入力はホストへ送られ、結果が全員に見える(スマブラ風の最小形) |
+| NetworkEvent | スイッチ2つを両方押すと扉が開く(協力パズルの最小形)。扉を開けたまま、あとから参加しても開いて見える |
+| NetworkSpawn(2D/3D) | 弾を撃つ頼みをホストが受けて作り、全員の画面に出る。一定時間で消え、ObjectPoolに返る |
+
+デモを出る時(Back/Esc)に、接続は自動で閉じます。

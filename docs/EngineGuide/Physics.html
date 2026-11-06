@@ -24,6 +24,7 @@
 <li><a href="Behavior.html">Behavior</a></li>
 <li><a href="Audio.html">Audio</a></li>
 <li><a href="Data.html">Data</a></li>
+<li><a href="Network.html">Network</a></li>
 <li><a href="ThirdParty.html">ThirdParty</a></li>
 <li><a href="files.html">ファイル索引</a></li>
 <li><a href="glossary.html">用語集</a></li>
@@ -81,7 +82,7 @@ rigidbody-&gt;SetUseGravity(false);      // 重力を適用するか
 rigidbody-&gt;SetFreezeRotation(true);   // trueでぶつかっても回転しない
 rigidbody-&gt;SetFreezePositionZ(true);  // trueでZ方向に動かない(X/Yにも同じ関数がある)</code></pre></div>
 <div class="ex"><div class="exhead">使い方の例 <span class="src">出典: <code>Sample2D/Game/Objects/Wall.cpp:22-23</code></span></div><pre><code>// 物理演算(PhysX): 動かない壁(奥行きは、Zを固定した2Dの物と重なる厚みを持たせる)
-wall-&gt;AddComponent&lt;BoxRigidbodyComponent&gt;(BodyType::Static, DirectX::XMFLOAT3{ size.x, size.y, 100.0f });</code></pre></div>
+wall-&gt;AddComponent&lt;SquareRigidbodyComponent&gt;(BodyType::Static);</code></pre></div>
 <div class="ex"><div class="exhead">使い方の例 <span class="src">出典: <code>Sample2D/Game/Components/PlayerController.cpp:91-96</code></span></div><pre><code>if (hp &gt; 0 &amp;&amp; rigidbody) {
     DirectX::XMFLOAT2 away = Math::DirectionTo(
         Math::ToXY(info.other-&gt;owner-&gt;transform.position), Math::ToXY(GetOwner()-&gt;transform.position));

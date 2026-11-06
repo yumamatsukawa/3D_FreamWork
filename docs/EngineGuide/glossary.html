@@ -24,6 +24,7 @@
 <li><a href="Behavior.html">Behavior</a></li>
 <li><a href="Audio.html">Audio</a></li>
 <li><a href="Data.html">Data</a></li>
+<li><a href="Network.html">Network</a></li>
 <li><a href="ThirdParty.html">ThirdParty</a></li>
 <li><a href="files.html">ファイル索引</a></li>
 <li><a href="glossary.html" class="current">用語集</a></li>
@@ -45,6 +46,7 @@
 <li><a href="#g-move">動きと AI</a></li>
 <li><a href="#g-anim">アニメーション</a></li>
 <li><a href="#g-ui">UI・音・データ</a></li>
+<li><a href="#g-net">ネットワーク</a></li>
 <li><a href="#g-cpp">C++ の言葉</a></li>
 </ul></div>
 <p><input type="search" id="gfilter" class="filter" placeholder="用語を絞り込み(例: Rigidbody, 深度)" autocomplete="off"></p>
@@ -78,7 +80,7 @@
 <dt id="t-resources">Resources(リソース)/ 参照カウント</dt>
 <dd>画像・音・モデルを何度も読み込まないための共有の仕組み。同じパスは 1 回だけ読み、何人が使っているか(参照カウント)を数える。<div class="unity">Unity では: アセットの共有(<code>Resources.Load</code> に近い名前だが、仕組みは別物)。 → <a href="Core.html#f-Resources"><code>Resources</code></a></div></dd>
 <dt id="t-singleton">シングルトン(Get())</dt>
-<dd>アプリ全体で 1 つだけのサービス。このプロジェクトでは <code>EventBus</code> と <code>SceneManager</code>(と <code>GameEngine</code>)が <code>Get()</code> で取り出す。<code>Input</code> / <code>Time</code> / <code>Audio</code> / <code>Physics</code> などは名前空間の関数。</dd>
+<dd>アプリ全体で 1 つだけのサービス。このプロジェクトでは <code>EventBus</code> と <code>SceneManager</code>(と <code>GameEngine</code>)が <code>Get()</code> で取り出す。<code>Input</code> / <code>Time</code> / <code>Audio</code> / <code>Network</code> / <code>Physics</code> などは名前空間の関数。</dd>
 <dt id="t-factory">工場関数(Create○○)</dt>
 <dd>GameObject を組み立てて返す関数(<code>CreatePlayer(Scene&)</code> など)。<code>Game/Objects/</code> に置く。Scene は工場関数を並べるだけにする。</dd>
 <dt id="t-timer">Timer(タイマー)</dt>
@@ -219,6 +221,23 @@
 <dd>このエンジンで読める音のファイル形式(WAV だけ)。音が鳴らない時は、WAV の中身を疑う。</dd>
 </dl>
 
+<h2 id="g-net">ネットワーク</h2>
+<dl class="glossary">
+<dt id="t-host">ホスト / クライアント</dt>
+<dd>ホストは部屋を作る側の PC で、<strong>ルールと物理(PhysX)の計算をホストだけ</strong>が行う。ホスト自身もプレイヤーの 1 人(番号 0)。クライアントは参加する側で、自分の入力をホストへ送り、ホストから届いた結果(位置・向き)を表示する。ホストが落ちたら全員終了(引き継ぎは無い)。<div class="unity">Unity では: Netcode for GameObjects の Host / Client。 → <a href="Network.html#f-Network"><code>Network</code></a></div></dd>
+<dt id="t-authority">Authority(権限)</dt>
+<dd>その物の本当の状態を決める側。このEngineでは基本はホストが全部の物の Authority で、クライアントにあるのは見せるためのコピー。ルールを書く Component は、最初に <code>if (!identity-&gt;HasAuthority()) return;</code> と書く。 → <a href="Network.html#f-NetworkIdentityComponent"><code>NetworkIdentityComponent</code></a></dd>
+<dt id="t-networkid">NetworkId</dt>
+<dd>ホストとクライアントで共通の、同期する物の番号。シーンに最初から置く物は 1〜999(ゲーム側が <code>SetSceneId</code> で付ける)、スポーンした物は 1000 以上(ホストが付ける)。 → <a href="Network.html#f-NetworkObjects"><code>NetworkObjects</code></a></dd>
+<dt id="t-snapshot">スナップショット / 補間</dt>
+<dd>スナップショットは、ホストが 30 回/秒で全員に送る位置・向きの「写真」。そのまま表示するとカクカクするので、クライアントは 0.1 秒ほど遅れて、届いた写真の間をなめらかにつないで(<strong>補間</strong>)表示する。角度は 360 度をまたぐ時に近い向きに回る。 → <a href="Network.html#f-NetworkTransformComponent"><code>NetworkTransformComponent</code></a></dd>
+<dt id="t-reliable">信頼できる通信 / 信頼しない通信</dt>
+<dd>信頼できる通信は、必ず届いて順番も守られる(落ちたら送り直す)。参加・出来事・スポーンに使う。信頼しない通信は、速いけれど落ちることもある。次々に新しいのが届く位置や入力に使い、落ちた 1 つは次で埋まる。ENet の「チャンネル」が違えば、お互いを待たない。 → <a href="Network.html#f-NetworkTransport"><code>NetworkTransport</code></a></dd>
+<dt id="t-ping">ping(往復の時間)</dt>
+<dd>こちらから送って、返事が戻ってくるまでの往復の時間。LAN なら数ミリ秒〜数十ミリ秒(Wi-Fi は揺れる)。 → <a href="Network.html#f-NetworkSession"><code>NetworkSession</code></a></dd>
+<dt id="t-broadcast">ブロードキャスト(ホスト探索)</dt>
+<dd>同じ LAN の全員に向けて送る通信。ホストを探す時に「ホストの人、いますか?」と呼びかけるのに使う。学校や公共の Wi-Fi では禁止されていることがあるので、IP アドレスの手入力も残してある。 → <a href="Network.html#f-LanDiscovery"><code>LanDiscovery</code></a></dd>
+</dl>
 <h2 id="g-cpp">C++ の言葉</h2>
 <dl class="glossary">
 <dt id="t-override">virtual / override(継承と上書き)</dt>

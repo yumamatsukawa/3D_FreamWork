@@ -43,7 +43,7 @@ Engine の「根っこの設計」を、図で説明するページです。図�
 <li><code>GameObject</code> は <code>Transform</code>(メンバ)と <code>Component</code> の一覧を持ちます。</li>
 <li><code>Component</code> は <code>GetOwner()</code> で持ち主の GameObject を、<code>GameObject</code> は <code>GetScene()</code> で自分の Scene を知っています(ポインタ)。</li>
 <li>別のオブジェクトを指すポインタ(例: 追いかける相手 <code>SetTarget</code>)は、相手が消えると危険です。相手を消す前に、<code>nullptr</code> に差し替えます。</li>
-<li>アプリ全体で 1 つのサービス: <code>EventBus</code> / <code>SceneManager</code> は <code>Get()</code> で、<code>Input</code> / <code>Time</code> / <code>Audio</code> / <code>Physics</code> / <code>Image</code> / <code>Resources</code> は名前空間の関数で使います。</li>
+<li>アプリ全体で 1 つのサービス: <code>EventBus</code> / <code>SceneManager</code> は <code>Get()</code> で、<code>Input</code> / <code>Time</code> / <code>Audio</code> / <code>Network</code> / <code>Physics</code> / <code>Image</code> / <code>Resources</code> は名前空間の関数で使います。</li>
 </ul>
 
 <h2 id="life">3. 生まれてから消えるまで</h2>
@@ -100,6 +100,7 @@ Engine の「根っこの設計」を、図で説明するページです。図�
 
 <h2 id="physics">6. 物理とコールバックの流れ</h2>
 <p>1 フレームの中で、物理(PhysX)は<strong>シーンの Update より先</strong>に進みます。ぶつかった時の <code>OnCollisionEnter</code> などは、<code>Physics::Update</code> の中で呼ばれます。</p>
+<p>ネットワーク(<a href="Network.html">Network</a>)を使う時は、<code>Input::Update</code> の直後に<strong>受信</strong>(<code>Network::Update</code>。クライアントは受け取った位置を Transform に書く。<code>Physics::Update</code> の前)、<code>Audio::Update</code> の後に<strong>送信</strong>(<code>Network::EndFrame</code>。ホストは物理の結果が入った最新の位置を送る)が入ります。つないでいない時は何もしません。</p>
 <div class="diagram">
 <!--include:physics-->
 <p class="cap"><code>Physics::Update</code> から、コールバック、そして <code>Scene::Update</code> での位置の同期まで。</p>

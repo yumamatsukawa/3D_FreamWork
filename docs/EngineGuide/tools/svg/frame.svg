@@ -8,15 +8,19 @@
 <line class="ln" x1="215" y1="138" x2="215" y2="152" marker-end="url(#ah-frame)"/>
 <g class="box g-core"><rect x="10" y="152" width="410" height="44" rx="6"/><text x="215" y="168" text-anchor="middle" font-size="13">Input::Update</text><text x="215" y="185" text-anchor="middle" font-size="13">キー・マウス・パッドの今の状態を読む</text></g>
 <line class="ln" x1="215" y1="196" x2="215" y2="210" marker-end="url(#ah-frame)"/>
-<g class="box g-render"><rect x="10" y="210" width="410" height="44" rx="6"/><text x="215" y="226" text-anchor="middle" font-size="13">CameraShake::Update</text><text x="215" y="243" text-anchor="middle" font-size="13">画面の揺れを進める（ポーズ中も進む）</text></g>
+<g class="box g-core"><rect x="10" y="210" width="410" height="44" rx="6"/><text x="215" y="226" text-anchor="middle" font-size="13">Network::Update</text><text x="215" y="243" text-anchor="middle" font-size="13">受信（つないだ時だけ）。クライアントは受け取った位置を Transform に書く</text></g>
 <line class="ln" x1="215" y1="254" x2="215" y2="268" marker-end="url(#ah-frame)"/>
-<g class="box g-render"><rect x="10" y="268" width="410" height="44" rx="6"/><text x="215" y="284" text-anchor="middle" font-size="13">ScreenEffect::Update</text><text x="215" y="301" text-anchor="middle" font-size="13">Flash / Vignette / Fade を進める（Fade の onComplete はここ）</text></g>
+<g class="box g-render"><rect x="10" y="268" width="410" height="44" rx="6"/><text x="215" y="284" text-anchor="middle" font-size="13">CameraShake::Update</text><text x="215" y="301" text-anchor="middle" font-size="13">画面の揺れを進める（ポーズ中も進む）</text></g>
 <line class="ln" x1="215" y1="312" x2="215" y2="326" marker-end="url(#ah-frame)"/>
-<g class="box g-physics"><rect x="10" y="326" width="410" height="44" rx="6"/><text x="215" y="342" text-anchor="middle" font-size="13">Physics::Update(dt)</text><text x="215" y="359" text-anchor="middle" font-size="13">物理を進め、OnCollision / OnTrigger を呼ぶ</text></g>
+<g class="box g-render"><rect x="10" y="326" width="410" height="44" rx="6"/><text x="215" y="342" text-anchor="middle" font-size="13">ScreenEffect::Update</text><text x="215" y="359" text-anchor="middle" font-size="13">Flash / Vignette / Fade を進める（Fade の onComplete はここ）</text></g>
 <line class="ln" x1="215" y1="370" x2="215" y2="384" marker-end="url(#ah-frame)"/>
-<g class="box g-core"><rect x="10" y="384" width="410" height="44" rx="6"/><text x="215" y="400" text-anchor="middle" font-size="13">SceneManager::Update(dt)</text><text x="215" y="417" text-anchor="middle" font-size="13">シーンの切り替え ＋ Scene::Update（全 Component の Update）</text></g>
+<g class="box g-physics"><rect x="10" y="384" width="410" height="44" rx="6"/><text x="215" y="400" text-anchor="middle" font-size="13">Physics::Update(dt)</text><text x="215" y="417" text-anchor="middle" font-size="13">物理を進め、OnCollision / OnTrigger を呼ぶ</text></g>
 <line class="ln" x1="215" y1="428" x2="215" y2="442" marker-end="url(#ah-frame)"/>
-<g class="box g-audio"><rect x="10" y="442" width="410" height="44" rx="6"/><text x="215" y="458" text-anchor="middle" font-size="13">Audio::Update</text><text x="215" y="475" text-anchor="middle" font-size="13">動いた後の位置で、音の聞こえ方を決める</text></g>
+<g class="box g-core"><rect x="10" y="442" width="410" height="44" rx="6"/><text x="215" y="458" text-anchor="middle" font-size="13">SceneManager::Update(dt)</text><text x="215" y="475" text-anchor="middle" font-size="13">シーンの切り替え ＋ Scene::Update（全 Component の Update）</text></g>
+<line class="ln" x1="215" y1="486" x2="215" y2="500" marker-end="url(#ah-frame)"/>
+<g class="box g-audio"><rect x="10" y="500" width="410" height="44" rx="6"/><text x="215" y="516" text-anchor="middle" font-size="13">Audio::Update</text><text x="215" y="533" text-anchor="middle" font-size="13">動いた後の位置で、音の聞こえ方を決める</text></g>
+<line class="ln" x1="215" y1="544" x2="215" y2="558" marker-end="url(#ah-frame)"/>
+<g class="box g-core"><rect x="10" y="558" width="410" height="44" rx="6"/><text x="215" y="574" text-anchor="middle" font-size="13">Network::EndFrame</text><text x="215" y="591" text-anchor="middle" font-size="13">送信（つないだ時だけ）。ホストは位置、クライアントは入力</text></g>
 <g class="box g-render"><rect x="450" y="36" width="420" height="44" rx="6"/><text x="660" y="52" text-anchor="middle" font-size="13">Image::BeginFrame</text><text x="660" y="69" text-anchor="middle" font-size="13">3D カメラを 2D カメラに合わせ、画面と深度を消す</text></g>
 <line class="ln" x1="660" y1="80" x2="660" y2="94" marker-end="url(#ah-frame)"/>
 <g class="box g-render"><rect x="450" y="94" width="420" height="44" rx="6"/><text x="660" y="110" text-anchor="middle" font-size="13">CameraShake::BeginDraw</text><text x="660" y="127" text-anchor="middle" font-size="13">揺れの分だけカメラをずらす（描き終わったら戻す）</text></g>

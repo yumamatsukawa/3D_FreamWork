@@ -1,0 +1,359 @@
+﻿<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Network(LAN 通信。ホストが計算して、結果を配る) - Engine解説</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="layout">
+<nav class="side">
+<div class="brand"><a href="index.html">Engine解説</a></div>
+<div class="search"><input type="search" id="q" placeholder="関数名・クラス名・ファイル名を検索" autocomplete="off"><ul id="results"></ul></div>
+<ul class="menu">
+<li><a href="index.html">トップ</a></li>
+<li><a href="architecture.html">設計図(図解)</a></li>
+<li><a href="Core.html">Core</a></li>
+<li><a href="Render.html">Render</a></li>
+<li><a href="Render3D.html">Render3D</a></li>
+<li><a href="Physics.html">Physics</a></li>
+<li><a href="UI.html">UI</a></li>
+<li><a href="Animation.html">Animation</a></li>
+<li><a href="Transition.html">Transition</a></li>
+<li><a href="Behavior.html">Behavior</a></li>
+<li><a href="Audio.html">Audio</a></li>
+<li><a href="Data.html">Data</a></li>
+<li><a href="Network.html" class="current">Network</a></li>
+<li><a href="ThirdParty.html">ThirdParty</a></li>
+<li><a href="files.html">ファイル索引</a></li>
+<li><a href="glossary.html">用語集</a></li>
+</ul>
+<p class="sidenote">3D_FreamWork の Engine を、初心者向けに解説したページです。</p>
+</nav>
+<main>
+<h1>Network(LAN 通信。ホストが計算して、結果を配る)</h1>
+<div class="lead"><code>Engine/Network/</code> は、同じ LAN につないだ <strong>2〜4 台の PC</strong> で 1 つのゲームを一緒に遊ぶための仕組みです。方式は<strong>ホスト式</strong>: 1 台が「ホスト」になって<strong>ルールと物理(PhysX)の計算をホストだけ</strong>で行い、「クライアント」は<strong>入力</strong>を送って、ホストから届いた<strong>結果(位置・向き)を表示</strong>します。PhysX は別の PC で同じ結果になる保証が無いので、みんなで同じ計算をするのではなく、「結果を配る」方式にしています。通信ライブラリは <strong>ENet</strong>(<code>ThirdParty/enet/</code>。MIT ライセンス)で、ゲームのコードは ENet を直接さわりません。</div>
+<div class="toc"><strong>このページのファイル</strong><ul>
+<li><a href="#f-Network">Network.h / Network.cpp</a></li>
+<li><a href="#f-NetworkConfig">NetworkConfig.h</a></li>
+<li><a href="#f-NetworkMessage">NetworkMessage.h / NetworkMessage.cpp</a></li>
+<li><a href="#f-NetworkTransport">NetworkTransport.h / NetworkTransport.cpp</a></li>
+<li><a href="#f-NetworkSession">NetworkSession.h / NetworkSession.cpp</a></li>
+<li><a href="#f-LanDiscovery">LanDiscovery.h / LanDiscovery.cpp</a></li>
+<li><a href="#f-NetworkObjects">NetworkObjects.h / NetworkObjects.cpp</a></li>
+<li><a href="#f-NetworkIdentityComponent">NetworkIdentityComponent.h / NetworkIdentityComponent.cpp</a></li>
+<li><a href="#f-NetworkTransformComponent">NetworkTransformComponent.h / NetworkTransformComponent.cpp</a></li>
+<li><a href="#f-NetworkInput">NetworkInput.h</a></li>
+</ul></div>
+<p><strong>ゲームが触るのは <code>Network</code>(窓口。名前空間)と、2 つの Component(<code>NetworkIdentityComponent</code> / <code>NetworkTransformComponent</code>)だけ</strong>です。<code>StartHost</code> / <code>Join</code> / <code>StartSearch</code> を呼ばない限り何もしないので、Sample2D / Sample3D は変わりません(オフラインでも <code>IsHost()</code> は <code>true</code>、<code>GetInput(0)</code> は自分の入力で、1 人用としてそのまま動きます)。</p>
+<p><strong>層は 4 つ</strong>: 通信(<code>NetworkTransport</code> + ENet)→ 部屋(<code>NetworkSession</code> / <code>LanDiscovery</code>)→ 同期(<code>NetworkObjects</code> / Identity / Transform)→ ゲーム側。<code>GameEngine::Run</code> の中の順番は、<code>Input::Update</code> → <strong><code>Network::Update</code></strong>(受信)→ <code>Physics::Update</code> → シーンの <code>Update</code> → <code>Audio::Update</code> → <strong><code>Network::EndFrame</code></strong>(送信)です(設計図のページの「1 フレームの流れ」の図にも出ています)。</p>
+<p><strong>Demo で見る</strong>: Demo プロジェクトの <strong>Network カテゴリ</strong>に、NetworkBasic(つなぐ・文字を送る)/ NetworkDiscovery(LAN のホストを探す)/ NetworkTransform(位置の同期。2D/3D)/ NetworkInput(入力の同期。2D/3D)/ NetworkEvent(スイッチと扉)/ NetworkSpawn(弾の出し入れ。2D/3D)の 6 つがあります。1 台で <code>Demo.exe</code> を 2 つ起動して試せます(README の &#167;39)。</p>
+<section class="file" id="f-Network">
+<h3><code>Engine/Network/Network.h</code> <code>Engine/Network/Network.cpp</code></h3>
+<p class="role">ゲームが呼ぶ<strong>窓口</strong>です(<code>Input</code> / <code>Audio</code> / <code>Time</code> と同じ「名前空間 + 関数」の形で、<code>Get()</code> は無い)。ホストになる・探す・参加する、状態の取得、入力、出来事、共有の値、スポーン、シーンの同期をここに集めています。接続は<strong>シーンをまたいで残ります</strong>(アプリ全体で 1 つ)。</p>
+<h4>準備・つなぐ</h4>
+<div class="tw"><table class="api"><thead><tr><th>名前</th><th>引数・戻り値</th><th>何をするか</th></tr></thead><tbody>
+<tr><td class="fn"><code>SetGameId(const std::string&amp; gameId)</code></td><td class="sig"><code>void</code></td><td>同じ ID のゲームどうしだけつながる(ほかの人のゲームと混ざらない)</td></tr>
+<tr><td class="fn"><code>StartHost(const std::string&amp; playerName, int port)</code></td><td class="sig"><code>bool</code></td><td>部屋を作る。自分はプレイヤー番号 0。失敗(ポート使用中など)は <code>false</code>(理由は <code>GetLastError</code>)</td></tr>
+<tr><td class="fn"><code>Join(const std::string&amp; address, int port, const std::string&amp; playerName)</code></td><td class="sig"><code>bool</code></td><td>参加を申し込む。結果は <code>GetState()</code> か <code>EventBus</code> の <code>&quot;NetworkConnected&quot;</code> で分かる</td></tr>
+<tr><td class="fn"><code>Disconnect()</code></td><td class="sig"><code>void</code></td><td>抜ける(ホストなら部屋を閉じる)。ホスト探索も止める</td></tr>
+<tr><td class="fn"><code>StartSearch()</code></td><td class="sig"><code>void</code></td><td>LAN のホストを探す(1 秒おきに呼びかける)</td></tr>
+<tr><td class="fn"><code>StopSearch()</code></td><td class="sig"><code>void</code></td><td>探すのをやめる</td></tr>
+<tr><td class="fn"><code>GetFoundHosts()</code></td><td class="sig"><code>const std::vector&lt;NetworkHostInfo&gt;&amp;</code></td><td>見つかったホストの一覧(返事が来なくなったホストは数秒で消える)</td></tr>
+<tr><td class="fn"><code>IsSearching()</code></td><td class="sig"><code>bool</code></td><td>探している最中か</td></tr>
+</tbody></table></div>
+<h4>状態を調べる</h4>
+<div class="tw"><table class="api"><thead><tr><th>名前</th><th>引数・戻り値</th><th>何をするか</th></tr></thead><tbody>
+<tr><td class="fn"><code>GetState()</code></td><td class="sig"><code>NetworkState</code></td><td><code>Offline</code> / <code>Hosting</code> / <code>Connecting</code> / <code>Connected</code></td></tr>
+<tr><td class="fn"><code>IsOnline()</code></td><td class="sig"><code>bool</code></td><td>ホスト中または参加中(参加の途中も含む)</td></tr>
+<tr><td class="fn"><code>IsHost()</code></td><td class="sig"><code>bool</code></td><td>ホスト中か。<strong>オフラインの時も <code>true</code></strong>(1 人で遊ぶ時は自分がホスト扱い)</td></tr>
+<tr><td class="fn"><code>IsClient()</code></td><td class="sig"><code>bool</code></td><td>参加中(途中も含む)か</td></tr>
+<tr><td class="fn"><code>GetLocalPlayerIndex()</code></td><td class="sig"><code>int</code></td><td>自分のプレイヤー番号(ホストとオフラインは 0)</td></tr>
+<tr><td class="fn"><code>GetPlayerCount()</code></td><td class="sig"><code>int</code></td><td>今の人数</td></tr>
+<tr><td class="fn"><code>IsPlayerConnected(int playerIndex)</code></td><td class="sig"><code>bool</code></td><td>その番号の人がいるか</td></tr>
+<tr><td class="fn"><code>GetPlayerName(int playerIndex)</code></td><td class="sig"><code>std::string</code></td><td>その番号の人の名前</td></tr>
+<tr><td class="fn"><code>GetPing()</code></td><td class="sig"><code>float</code></td><td>ホストとの往復の時間(秒)。ホストは 0</td></tr>
+<tr><td class="fn"><code>GetStats()</code></td><td class="sig"><code>NetworkStats</code></td><td>直近 1 秒の送受信のバイト数・パケット数</td></tr>
+<tr><td class="fn"><code>GetLastError()</code></td><td class="sig"><code>const std::string&amp;</code></td><td>直近の失敗の理由(断られた・つながらないなど)</td></tr>
+<tr><td class="fn"><code>GetLocalAddresses()</code></td><td class="sig"><code>std::vector&lt;std::string&gt;</code></td><td>このPCのIPアドレス(ホスト画面に出して、手入力で参加する人に教える)</td></tr>
+<tr><td class="fn"><code>GetSnapshotAge()</code></td><td class="sig"><code>float</code></td><td>クライアント: 最後に位置が届いてからの秒数</td></tr>
+</tbody></table></div>
+<h4>入力・出来事・共有の値</h4>
+<div class="tw"><table class="api"><thead><tr><th>名前</th><th>引数・戻り値</th><th>何をするか</th></tr></thead><tbody>
+<tr><td class="fn"><code>SetLocalInput(const NetworkInput&amp; input)</code></td><td class="sig"><code>void</code></td><td>自分の入力を渡す(毎フレーム)。「押した瞬間」は自動で求める</td></tr>
+<tr><td class="fn"><code>GetInput(int playerIndex)</code></td><td class="sig"><code>const NetworkInput&amp;</code></td><td>そのプレイヤーの最新の入力(ホストが読む)。範囲外は全部ゼロ</td></tr>
+<tr><td class="fn"><code>SendEvent(const std::string&amp; name, NetworkTarget target)</code></td><td class="sig"><code>void</code></td><td>中身の無い出来事を信頼して送る。受け取り側で <code>EventBus::Publish(name)</code> も呼ばれる</td></tr>
+<tr><td class="fn"><code>SendEvent(const std::string&amp; name, const NetworkWriter&amp; payload, NetworkTarget target)</code></td><td class="sig"><code>void</code></td><td>中身つきの出来事</td></tr>
+<tr><td class="fn"><code>Subscribe(const std::string&amp; name, EventHandler handler)</code></td><td class="sig"><code>void</code></td><td>出来事を受け取る。ラムダが <code>this</code> を使うなら、Scene の <code>Uninit</code> で <code>ClearHandlers</code></td></tr>
+<tr><td class="fn"><code>ClearHandlers()</code></td><td class="sig"><code>void</code></td><td>出来事の登録・プレハブの登録・シーンの記憶を消す</td></tr>
+<tr><td class="fn"><code>SetSharedValue(const std::string&amp; key, int value)</code></td><td class="sig"><code>void</code></td><td>共有の値を変える(<strong>ホストだけ</strong>)。全員に届き、途中参加の人にも渡る</td></tr>
+<tr><td class="fn"><code>GetSharedValue(const std::string&amp; key, int defaultValue)</code></td><td class="sig"><code>int</code></td><td>共有の値を読む</td></tr>
+</tbody></table></div>
+<h4>スポーン・シーン・調整</h4>
+<div class="tw"><table class="api"><thead><tr><th>名前</th><th>引数・戻り値</th><th>何をするか</th></tr></thead><tbody>
+<tr><td class="fn"><code>RegisterPrefab(int prefabId, PrefabFactory factory)</code></td><td class="sig"><code>void</code></td><td>「この番号はこの工場関数で作る」を登録(ホストもクライアントも同じ登録をする)</td></tr>
+<tr><td class="fn"><code>Spawn(Scene&amp; scene, int prefabId, int ownerPlayerIndex, XMFLOAT3 position)</code></td><td class="sig"><code>GameObject*</code></td><td><strong>ホストだけ</strong>。作って全員に知らせる(オフラインでも使える)</td></tr>
+<tr><td class="fn"><code>Despawn(GameObject* object)</code></td><td class="sig"><code>void</code></td><td><strong>ホストだけ</strong>。消して全員に知らせる</td></tr>
+<tr><td class="fn"><code>SetDespawnHandler(int prefabId, std::function&lt;void(GameObject*)&gt; handler)</code></td><td class="sig"><code>void</code></td><td>消す時の処理(既定は <code>Destroy</code>。<code>ObjectPool</code> の物は <code>Return</code> を入れる)</td></tr>
+<tr><td class="fn"><code>RegisterScene(int sceneId, std::function&lt;void()&gt; changeScene)</code></td><td class="sig"><code>void</code></td><td>「この番号のシーンへの切り替え方」を登録</td></tr>
+<tr><td class="fn"><code>ChangeSceneForAll(int sceneId)</code></td><td class="sig"><code>void</code></td><td><strong>ホストだけ</strong>。全員をそのシーンへ</td></tr>
+<tr><td class="fn"><code>NotifySceneReady(Scene&amp; scene, int sceneId)</code></td><td class="sig"><code>void</code></td><td>各シーンの <code>Init</code> の最後で呼ぶ(「準備できた」。ホストはこれを待って今の状態を送る)</td></tr>
+<tr><td class="fn"><code>SetPlayerJoinedHandler(std::function&lt;void(int playerIndex)&gt; handler)</code></td><td class="sig"><code>void</code></td><td>誰かが入った時の処理</td></tr>
+<tr><td class="fn"><code>SetPlayerLeftHandler(std::function&lt;void(int playerIndex)&gt; handler)</code></td><td class="sig"><code>void</code></td><td>誰かが出た時の処理</td></tr>
+<tr><td class="fn"><code>SetSnapshotRate(int hz)</code></td><td class="sig"><code>void</code></td><td>位置を送る回数(10〜60)</td></tr>
+<tr><td class="fn"><code>SetInterpolationDelay(float seconds)</code></td><td class="sig"><code>void</code></td><td>補間の遅れ(Wi-Fi で揺れる時は長めに)</td></tr>
+<tr><td class="fn"><code>SetDebugLogEnabled(bool enabled)</code></td><td class="sig"><code>void</code></td><td>送受信したパケットの種類を出力ウィンドウに出す</td></tr>
+<tr><td class="fn"><code>Update() / EndFrame() / Shutdown()</code></td><td class="sig"><code>void</code></td><td>内部用: GameEngine が呼ぶ(受信 / 送信 / 終了)</td></tr>
+</tbody></table></div>
+<div class="ex"><div class="exhead">使い方の例 <span class="src">出典: <code>Demo/Game/Objects/Network/NetworkBody.cpp:5-17</code></span></div><pre><code>GameObject* CreateNetworkBody(Scene&amp; scene, DemoMode mode, int sceneId, DemoBodyDesc desc) {
+    // 本当の状態を決めるのはホスト(とオフライン)だけ。クライアントのコピーはDynamicにしない
+    if (desc.type == BodyType::Dynamic &amp;&amp; !Network::IsHost()) desc.type = BodyType::Kinematic;
+
+    GameObject* body = (mode == DemoMode::Mode2D) ? CreateDemoBody2D(scene, desc) : CreateDemoBody3D(scene, desc);
+
+    // 同期の印と、位置・向きの同期(2Dは position.xy と rotate.z だけ送る)
+    body-&gt;AddComponent&lt;NetworkIdentityComponent&gt;()-&gt;SetSceneId(sceneId);
+    NetworkTransformSettings settings;
+    settings.is2D = (mode == DemoMode::Mode2D);
+    body-&gt;AddComponent&lt;NetworkTransformComponent&gt;(settings);
+    return body;
+}</code></pre></div>
+<div class="ex"><div class="exhead">使い方の例 <span class="src">出典: <code>Demo/Game/Components/Network/NetworkBoxController.cpp:20-35</code></span></div><pre><code>// ルールはホストだけ(クライアントの箱は、受け取った位置を表示するだけ)
+if (!identity-&gt;HasAuthority()) return;
+RigidbodyComponent* rigidbody = GetOwner()-&gt;GetComponent&lt;RigidbodyComponent&gt;();
+if (!rigidbody || rigidbody-&gt;GetBodyType() != BodyType::Dynamic) return;
+
+// 移動処理: そのプレイヤーの入力(ホスト自身もクライアントも同じ読み方)で、SetVelocityで動かす(Transformは直接書かない)
+const NetworkInput&amp; input = Network::GetInput(player);
+if (is3D) {
+    DirectX::XMFLOAT3 velocity = rigidbody-&gt;GetVelocity();
+    // ジャンプ: ほぼ地面にいる時にボタンを押した瞬間
+    if (input.WasButtonPressed(NetworkPlayerInputController::jumpButton) &amp;&amp; std::fabs(velocity.y) &lt; 5.f) velocity.y = jumpSpeed;
+    rigidbody-&gt;SetVelocity({ input.moveX * speed, velocity.y, input.moveY * speed });
+}
+else {
+    rigidbody-&gt;SetVelocity({ input.moveX * speed, input.moveY * speed, 0.f });
+}</code></pre></div>
+<div class="notes"><strong>気を付ける点</strong><ul>
+<li><strong>ルールを書く Component は、<code>Update</code> の最初に <code>if (!identity-&gt;HasAuthority()) return;</code></strong> と書きます。クライアントでは動かさず、ホストが計算した結果を表示するだけにするためです。</li>
+<li><strong>クライアントのコピーを Dynamic にしてはいけません</strong>(クライアントの PhysX が勝手に動かし、ホストの位置とずれる)。工場関数で <code>Network::IsHost()</code> を見て、ホストは Dynamic、クライアントは Kinematic にします。</li>
+<li>「Host / Join を同じシーンの中で押す」デモでは、役割が変わった時に同期する物を作り直す必要があります(Demo の <code>NetworkWorldController</code>)。ロビーのシーンで先につないでからゲームのシーンへ移る作りなら要りません。</li>
+<li><code>this</code> を使うラムダを <code>Subscribe</code> / <code>RegisterPrefab</code> したら、<strong>Scene の <code>Uninit</code> で <code>Network::ClearHandlers()</code></strong> を呼びます(<code>EventBus::Clear()</code> と同じ決まり)。</li>
+<li><strong><code>SceneManager</code> は切り替え中の <code>ChangeScene</code> を無視する</strong>ので、クライアントは切り替えが終わらなければ、2 秒ごとに最大 3 回やり直します。</li>
+<li>タイムアウトは 10〜20 秒です(ウィンドウをドラッグしている間やデバッガで止めた間は、ゲームが止まって応答できないため)。</li>
+<li><strong>同じ LAN の信頼できる相手が前提</strong>です(暗号化・認証・ずる対策は無い)。インターネット越し(ルーター越し)は対象外です。クライアント予測と Owner 権限は、まだ作っていません。</li>
+</ul></div>
+</section>
+<section class="file" id="f-NetworkConfig">
+<h3><code>Engine/Network/NetworkConfig.h</code></h3>
+<p class="role">ネットワークの<strong>定数を 1 か所に集めた</strong>ファイルです。最大人数(<code>maxPlayers</code>)・通信の版(<code>protocolVersion</code>)・ポート(<code>defaultPort</code> / <code>discoveryPort</code>)・送る回数(<code>defaultSnapshotRate</code> / <code>inputRate</code>)・タイムアウト・上限の数などがあります。</p>
+<div class="notes"><strong>気を付ける点</strong><ul>
+<li><strong>最大人数を変える時は、ここの <code>maxPlayers</code> だけ</strong>を直します(1〜16 くらいまで。名簿・入力・Accept の人数に使われます)。</li>
+<li><code>protocolVersion</code> は、通信の仕様を変えた時に上げます。版が違う相手とは、つながらずに「Protocol version mismatch」で断られます。</li>
+<li><code>static constexpr</code> の camelCase で、<code>Network::</code> の名前空間の中にあります(<code>Network::defaultPort</code> のように読む)。</li>
+</ul></div>
+</section>
+<section class="file" id="f-NetworkMessage">
+<h3><code>Engine/Network/NetworkMessage.h</code> <code>Engine/Network/NetworkMessage.cpp</code></h3>
+<p class="role">パケットの<strong>種類</strong>(<code>PacketType</code>)と、数値や文字を並べて書く <code>NetworkWriter</code>、読む <code>NetworkReader</code> です。<code>NetworkReader</code> は<strong>範囲外を読もうとすると 0 を返して「失敗」の印を付ける</strong>だけで、落ちません。浮動小数点が NaN / 無限大の時も失敗にします(壊れたパケット対策)。</p>
+<h4>NetworkWriter</h4>
+<div class="tw"><table class="api"><thead><tr><th>名前</th><th>引数・戻り値</th><th>何をするか</th></tr></thead><tbody>
+<tr><td class="fn"><code>WriteU8(uint8_t value)</code></td><td class="sig"><code>void</code></td><td>1 バイトの整数を書く</td></tr>
+<tr><td class="fn"><code>WriteU16(uint16_t value)</code></td><td class="sig"><code>void</code></td><td>2 バイトの整数を書く</td></tr>
+<tr><td class="fn"><code>WriteU32(uint32_t value)</code></td><td class="sig"><code>void</code></td><td>4 バイトの整数を書く</td></tr>
+<tr><td class="fn"><code>WriteI32(int32_t value)</code></td><td class="sig"><code>void</code></td><td>4 バイトの整数(負も可)を書く</td></tr>
+<tr><td class="fn"><code>WriteFloat(float value)</code></td><td class="sig"><code>void</code></td><td>小数を書く</td></tr>
+<tr><td class="fn"><code>WriteDouble(double value)</code></td><td class="sig"><code>void</code></td><td>倍精度の小数を書く(時刻など)</td></tr>
+<tr><td class="fn"><code>WriteString(const std::string&amp; value)</code></td><td class="sig"><code>void</code></td><td>長さ(1 バイト)+ 文字。255 文字を超える分は切り捨てる</td></tr>
+<tr><td class="fn"><code>WriteBytes(const void* bytes, size_t size)</code></td><td class="sig"><code>void</code></td><td>生のバイトを書く</td></tr>
+</tbody></table></div>
+<h4>NetworkReader</h4>
+<div class="tw"><table class="api"><thead><tr><th>名前</th><th>引数・戻り値</th><th>何をするか</th></tr></thead><tbody>
+<tr><td class="fn"><code>ReadU8()</code></td><td class="sig"><code>uint8_t</code></td><td>1 バイトの整数を読む(失敗したら 0)</td></tr>
+<tr><td class="fn"><code>ReadU16()</code></td><td class="sig"><code>uint16_t</code></td><td>2 バイトの整数を読む</td></tr>
+<tr><td class="fn"><code>ReadU32()</code></td><td class="sig"><code>uint32_t</code></td><td>4 バイトの整数を読む</td></tr>
+<tr><td class="fn"><code>ReadI32()</code></td><td class="sig"><code>int32_t</code></td><td>4 バイトの整数(負も可)を読む</td></tr>
+<tr><td class="fn"><code>ReadFloat()</code></td><td class="sig"><code>float</code></td><td>小数を読む(NaN・無限大は失敗)</td></tr>
+<tr><td class="fn"><code>ReadDouble()</code></td><td class="sig"><code>double</code></td><td>倍精度の小数を読む</td></tr>
+<tr><td class="fn"><code>ReadString(size_t maxLength)</code></td><td class="sig"><code>std::string</code></td><td>文字を読む(<code>maxLength</code> より長いと失敗)</td></tr>
+<tr><td class="fn"><code>IsOk()</code></td><td class="sig"><code>bool</code></td><td>ここまでの読み取りが全部成功したか。<strong>読み終わったら必ず確かめる</strong></td></tr>
+<tr><td class="fn"><code>GetRemaining()</code></td><td class="sig"><code>size_t</code></td><td>残りのバイト数</td></tr>
+</tbody></table></div>
+<div class="ex"><div class="exhead">使い方の例 <span class="src">出典: <code>Demo/Game/Components/Network/NetworkDoorController.cpp:25-34</code></span></div><pre><code>void NetworkDoorController::PressSwitch(int index) {
+    // 押したことをホストに知らせる(ホスト自身が押した時も、同じ道を通る)
+    NetworkWriter payload;
+    payload.WriteU8((uint8_t)index);
+    Network::SendEvent(&quot;SwitchPressed&quot;, payload, NetworkTarget::Host);
+}
+
+void NetworkDoorController::ResetDoor() {
+    Network::SendEvent(&quot;ResetDoor&quot;, NetworkTarget::Host);
+}</code></pre></div>
+<div class="ex"><div class="exhead">使い方の例 <span class="src">出典: <code>Demo/Game/Components/Network/NetworkDoorController.cpp:38-49</code></span></div><pre><code>Network::Subscribe(&quot;SwitchPressed&quot;, [this](NetworkReader&amp; payload, int sender) {
+    const int index = payload.ReadU8();
+    if (!payload.IsOk() || index &lt; 0 || index &gt; 1 || !Network::IsHost()) return;
+    AddLog(L&quot;スイッチ&quot; + std::wstring(index == 0 ? L&quot;A&quot; : L&quot;B&quot;) + L&quot;が押された(プレイヤー&quot; + std::to_wstring(sender) + L&quot;)&quot;);
+
+    // 今の状態は共有の値に入れる(途中参加の人にも渡る)
+    Network::SetSharedValue(index == 0 ? &quot;SwitchA&quot; : &quot;SwitchB&quot;, 1);
+    if (Network::GetSharedValue(&quot;SwitchA&quot;) == 1 &amp;&amp; Network::GetSharedValue(&quot;SwitchB&quot;) == 1 &amp;&amp; Network::GetSharedValue(&quot;Door&quot;) == 0) {
+        Network::SetSharedValue(&quot;Door&quot;, 1);
+        Network::SendEvent(&quot;DoorOpened&quot;, NetworkTarget::All);   // 開いた瞬間の演出用(全員へ)
+    }
+});</code></pre></div>
+<div class="notes"><strong>気を付ける点</strong><ul>
+<li>書く順番と読む順番を、送る側と受け取る側で<strong>同じにします</strong>(<code>WriteString</code> したら <code>ReadString</code>)。</li>
+<li>出来事の名前は 32 文字まで、中身は 512 バイトまでです。超えると送られず、出力ウィンドウに知らせます。</li>
+</ul></div>
+</section>
+<section class="file" id="f-NetworkTransport">
+<h3><code>Engine/Network/NetworkTransport.h</code> <code>Engine/Network/NetworkTransport.cpp</code></h3>
+<p class="role"><strong>ENet を包んだクラス</strong>です。接続・送信・受信だけを担当します。<strong>ENet を知っているのは、このファイルと <code>LanDiscovery.cpp</code> だけ</strong>で、公開ヘッダーに <code>enet/enet.h</code> は出ません(<code>enet.h</code> は <code>winsock2.h</code> を読み込み、<code>windows.h</code> と衝突するため、ENet を読む <code>.cpp</code> は <code>#include &quot;enet/enet.h&quot;</code> を最初の行に書きます)。接続相手は <code>peerId</code>(整数)で呼びます。<code>Network</code> の外でも <code>new</code> できるので、ウィンドウ無しのテストで使えます。</p>
+<div class="tw"><table class="api"><thead><tr><th>名前</th><th>引数・戻り値</th><th>何をするか</th></tr></thead><tbody>
+<tr><td class="fn"><code>StartServer(int port, int maxPeers)</code></td><td class="sig"><code>bool</code></td><td>待ち受けを始める(失敗なら <code>false</code>)</td></tr>
+<tr><td class="fn"><code>StartClient()</code></td><td class="sig"><code>bool</code></td><td>接続する側の準備</td></tr>
+<tr><td class="fn"><code>Connect(const std::string&amp; address, int port)</code></td><td class="sig"><code>int</code></td><td>接続を始める。相手の番号を返す(始められなければ -1)</td></tr>
+<tr><td class="fn"><code>Stop()</code></td><td class="sig"><code>void</code></td><td>全員に切断を知らせて(最大 0.2 秒待って)閉じる</td></tr>
+<tr><td class="fn"><code>Poll(Event&amp; out)</code></td><td class="sig"><code>bool</code></td><td>溜まっている出来事(接続・切断・受信)を 1 つ取り出す。<code>false</code> になるまで呼ぶ</td></tr>
+<tr><td class="fn"><code>Send(int peerId, int channel, const void* data, size_t size, bool reliable)</code></td><td class="sig"><code>bool</code></td><td>送る。<code>reliable</code> が <code>true</code> なら必ず届く(届くまで送り直す)</td></tr>
+<tr><td class="fn"><code>Flush()</code></td><td class="sig"><code>void</code></td><td>溜めた送信をすぐ流す</td></tr>
+<tr><td class="fn"><code>DisconnectPeer(int peerId)</code></td><td class="sig"><code>void</code></td><td>溜めた送信を流してから切る</td></tr>
+<tr><td class="fn"><code>SetTimeouts(int minMs, int maxMs)</code></td><td class="sig"><code>void</code></td><td>応答が無い時に切るまでの時間</td></tr>
+<tr><td class="fn"><code>GetPeerRoundTrip(int peerId)</code></td><td class="sig"><code>float</code></td><td>ENet が測った往復の時間(秒)</td></tr>
+<tr><td class="fn"><code>UpdateStats(float dt)</code></td><td class="sig"><code>void</code></td><td>1 秒ごとの送受信量を数え直す</td></tr>
+</tbody></table></div>
+<div class="notes"><strong>気を付ける点</strong><ul>
+<li>チャンネルは 3 つ: 0 = 信頼する通信(参加・出来事・スポーン)、1 = 入力・ping(信頼しない)、2 = 位置のスナップショット(信頼しない)。<strong>チャンネルが違えば、お互いを待ちません</strong>(信頼する通信の再送で、位置が遅れない)。</li>
+<li>信頼しない通信は、ENet が「古い物が新しい物の後に届いたら捨てる」順序付きで送ります。</li>
+</ul></div>
+</section>
+<section class="file" id="f-NetworkSession">
+<h3><code>Engine/Network/NetworkSession.h</code> <code>Engine/Network/NetworkSession.cpp</code></h3>
+<p class="role">「今つながっているみんな」のまとまり(<strong>セッション</strong>)です。参加者の名簿・プレイヤー番号の割り当て・参加の受付(Join / Accept / Reject)・切断の検知・ping を担当します。入力・出来事・同期など、ゲームの中身のパケットは <code>onPacket</code> で上の層(<code>Network</code>)に渡します。</p>
+<div class="tw"><table class="api"><thead><tr><th>名前</th><th>引数・戻り値</th><th>何をするか</th></tr></thead><tbody>
+<tr><td class="fn"><code>StartHost(const std::string&amp; playerName, int port)</code></td><td class="sig"><code>bool</code></td><td>部屋を作る(最大人数より少し多く接続を受け、満員の人には断りの返事を送れるようにする)</td></tr>
+<tr><td class="fn"><code>Join(const std::string&amp; address, int port, const std::string&amp; playerName)</code></td><td class="sig"><code>bool</code></td><td>参加を申し込む。つながったら <code>Join</code> パケットを送る</td></tr>
+<tr><td class="fn"><code>Disconnect()</code></td><td class="sig"><code>void</code></td><td>抜ける / 部屋を閉じる</td></tr>
+<tr><td class="fn"><code>Update(float dt)</code></td><td class="sig"><code>void</code></td><td>受信と、タイムアウト・ping の処理(毎フレーム)</td></tr>
+<tr><td class="fn"><code>SendTo(int playerIndex, const NetworkWriter&amp; packet, int channel, bool reliable)</code></td><td class="sig"><code>bool</code></td><td>そのプレイヤーへ送る</td></tr>
+<tr><td class="fn"><code>SendToAll(const NetworkWriter&amp; packet, int channel, bool reliable, int exceptPlayer)</code></td><td class="sig"><code>void</code></td><td>ホストだけ: 接続中のクライアント全員へ</td></tr>
+<tr><td class="fn"><code>SendToHost(const NetworkWriter&amp; packet, int channel, bool reliable)</code></td><td class="sig"><code>bool</code></td><td>クライアントだけ: ホストへ</td></tr>
+<tr><td class="fn"><code>GetPlayerCount()</code></td><td class="sig"><code>int</code></td><td>今の人数</td></tr>
+<tr><td class="fn"><code>GetPing()</code></td><td class="sig"><code>float</code></td><td>ホストとの往復の時間</td></tr>
+</tbody></table></div>
+<div class="notes"><strong>気を付ける点</strong><ul>
+<li><strong>断る理由</strong>: 満員(5 人目)/ 通信の版が違う / ゲーム ID が違う / 壊れた Join。断られたクライアントは <code>GetLastError()</code> に理由が入り、<code>Offline</code> に戻ります。</li>
+<li><strong>番号の付け方</strong>: 一番若い空き番号(1〜3)を渡します。抜けた人の番号は、次に参加した人が使います。</li>
+<li>送り主のプレイヤー番号は、<strong>パケットの中身ではなく接続(peer)から決めます</strong>(偽装されない)。参加していない相手が送れるのは <code>Join</code> だけです。</li>
+<li>接続してから <code>Join</code> が来ない相手は、5 秒で切ります。</li>
+</ul></div>
+</section>
+<section class="file" id="f-LanDiscovery">
+<h3><code>Engine/Network/LanDiscovery.h</code> <code>Engine/Network/LanDiscovery.cpp</code></h3>
+<p class="role"><strong>LAN でホストを探す</strong>仕組みです。ゲーム本体とは別の UDP ポート(<code>discoveryPort</code>)を使い、探す側が LAN 全体へ呼びかけ(ブロードキャスト)、ホストが呼びかけた相手だけに返事(ゲーム ID・ポート・ホスト名・人数)を返します。ゲーム ID が違う相手は無視します。</p>
+<div class="tw"><table class="api"><thead><tr><th>名前</th><th>引数・戻り値</th><th>何をするか</th></tr></thead><tbody>
+<tr><td class="fn"><code>StartResponder(const std::string&amp; name, int port, int portOfDiscovery)</code></td><td class="sig"><code>bool</code></td><td>ホスト側を始める(探索用ポートを使えなければ <code>false</code>。使えなくても IP 直接入力では参加できる)</td></tr>
+<tr><td class="fn"><code>StopResponder()</code></td><td class="sig"><code>void</code></td><td>ホスト側をやめる</td></tr>
+<tr><td class="fn"><code>StartSearch(int portOfDiscovery)</code></td><td class="sig"><code>bool</code></td><td>探す側を始める(1 秒おきに呼びかける)</td></tr>
+<tr><td class="fn"><code>StopSearch()</code></td><td class="sig"><code>void</code></td><td>探す側をやめる</td></tr>
+<tr><td class="fn"><code>Update(float dt)</code></td><td class="sig"><code>void</code></td><td>呼びかけ・返事の処理。数秒返事が無いホストは一覧から消す</td></tr>
+<tr><td class="fn"><code>GetFoundHosts()</code></td><td class="sig"><code>const std::vector&lt;NetworkHostInfo&gt;&amp;</code></td><td>見つかったホストの一覧</td></tr>
+<tr><td class="fn"><code>GetLocalAddresses()</code></td><td class="sig"><code>static std::vector&lt;std::string&gt;</code></td><td>このPCのIPv4アドレスの一覧</td></tr>
+</tbody></table></div>
+<div class="notes"><strong>気を付ける点</strong><ul>
+<li>呼びかけは、全体向け(<code>255.255.255.255</code>)・それぞれのネットワークの中向け(複数のアダプタがあっても届くように)・このPC自身(同じPCの別プロセス用)に送ります。</li>
+<li><strong>学校・公共の Wi-Fi は、ブロードキャストや端末どうしの通信を禁止している</strong>ことがあります。その時は探索が動かないので、<strong>IP アドレスの手入力(<code>Join</code>)を必ず残します</strong>。</li>
+<li>同じ探索用ポートを待ち受けられるのは 1 つのプロセスだけです。同じ PC の 2 つ目の <code>Demo.exe</code> は、探す側 / 参加する側として使います。</li>
+</ul></div>
+</section>
+<section class="file" id="f-NetworkObjects">
+<h3><code>Engine/Network/NetworkObjects.h</code> <code>Engine/Network/NetworkObjects.cpp</code></h3>
+<p class="role">同期する物の<strong>登録簿</strong>(<code>NetworkId → GameObject</code>)と、<strong>プレハブ</strong>(番号 → 工場関数)・スポーンした物の記録です。各 Component の <code>Init</code> / <code>Uninit</code> / <code>OnActiveChanged</code> が自動で登録・解除するので、<strong>シーンが変わっても前のシーンのポインタが残りません</strong>。ゲーム側が直接呼ぶことはほとんどありません(<code>NetworkSpawnInfo</code> は、工場関数が受け取る情報)。</p>
+<div class="tw"><table class="api"><thead><tr><th>名前</th><th>引数・戻り値</th><th>何をするか</th></tr></thead><tbody>
+<tr><td class="fn"><code>Register(int networkId, NetworkIdentityComponent* identity)</code></td><td class="sig"><code>void</code></td><td>登録する(同じ番号が既にあれば上書きして知らせる)</td></tr>
+<tr><td class="fn"><code>Unregister(NetworkIdentityComponent* identity)</code></td><td class="sig"><code>void</code></td><td>登録を外す</td></tr>
+<tr><td class="fn"><code>Find(int networkId)</code></td><td class="sig"><code>NetworkIdentityComponent*</code></td><td>番号から探す(無ければ <code>nullptr</code>)</td></tr>
+<tr><td class="fn"><code>GetTransformSyncs()</code></td><td class="sig"><code>const std::vector&lt;NetworkTransformComponent*&gt;&amp;</code></td><td>位置を同期する Component の一覧</td></tr>
+<tr><td class="fn"><code>RegisterPrefab(int prefabId, PrefabFactory factory)</code></td><td class="sig"><code>void</code></td><td>プレハブの登録</td></tr>
+<tr><td class="fn"><code>SetDespawnHandler(int prefabId, DespawnHandler handler)</code></td><td class="sig"><code>void</code></td><td>消す時の処理の登録</td></tr>
+<tr><td class="fn"><code>AllocateSpawnId(double now)</code></td><td class="sig"><code>int</code></td><td>スポーン用の NetworkId(1000〜65535)を 1 つ割り当てる。消したばかりの番号は 5 秒使わない</td></tr>
+</tbody></table></div>
+<div class="notes"><strong>気を付ける点</strong><ul>
+<li>NetworkId は、シーンに置く物が 1〜999(ゲーム側が番号を付ける)、スポーンした物が 1000 以上(ホストが付ける)です。</li>
+<li>消した番号をすぐ使い回すと、古いスナップショットが新しい物に当たってしまうので、5 秒は使いません。</li>
+</ul></div>
+</section>
+<section class="file" id="f-NetworkIdentityComponent">
+<h3><code>Engine/Network/NetworkIdentityComponent.h</code> <code>Engine/Network/NetworkIdentityComponent.cpp</code></h3>
+<p class="role"><strong>同期する物に付ける印</strong>です(NetworkId・所有者・Authority)。ホストの物にも、クライアントのコピーにも同じ Component を付けます。違いは <code>HasAuthority()</code> が決めます。</p>
+<div class="tw"><table class="api"><thead><tr><th>名前</th><th>引数・戻り値</th><th>何をするか</th></tr></thead><tbody>
+<tr><td class="fn"><code>SetSceneId(int id)</code></td><td class="sig"><code>void</code></td><td>シーンに最初から置く物の番号(1〜999)。ホストとクライアントで同じ番号にする</td></tr>
+<tr><td class="fn"><code>GetNetworkId()</code></td><td class="sig"><code>int</code></td><td>番号(0 = まだ無い)</td></tr>
+<tr><td class="fn"><code>GetOwnerPlayerIndex()</code></td><td class="sig"><code>int</code></td><td>所有者(この物を操作するプレイヤー)。-1 = 誰のでもない</td></tr>
+<tr><td class="fn"><code>SetOwnerPlayerIndex(int playerIndex)</code></td><td class="sig"><code>void</code></td><td>所有者を決める</td></tr>
+<tr><td class="fn"><code>IsOwner()</code></td><td class="sig"><code>bool</code></td><td>所有者が自分か</td></tr>
+<tr><td class="fn"><code>HasAuthority()</code></td><td class="sig"><code>bool</code></td><td>本当の状態を決める側か(ホストとオフライン = <code>true</code>、クライアント = <code>false</code>)</td></tr>
+<tr><td class="fn"><code>SetSpawnInfo(int id, int prefab, int owner)</code></td><td class="sig"><code>void</code></td><td>内部用: Network がスポーンの時に呼ぶ</td></tr>
+</tbody></table></div>
+<div class="notes"><strong>気を付ける点</strong><ul>
+<li>非アクティブ(<code>ObjectPool</code> に返した)になると登録簿から外れます。<strong>スポーンした物は番号を手放す</strong>ので、次の <code>Spawn</code> で新しい番号が付きます(古い番号で登録し直されて、別の物とぶつからない)。</li>
+<li>同じ番号を 2 つの物に付けると、出力ウィンドウに知らせて、後の物が勝ちます。</li>
+</ul></div>
+</section>
+<section class="file" id="f-NetworkTransformComponent">
+<h3><code>Engine/Network/NetworkTransformComponent.h</code> <code>Engine/Network/NetworkTransformComponent.cpp</code></h3>
+<p class="role"><strong>位置・向き(・大きさ)の同期</strong>です。ホストでは Transform を読んでスナップショットに入れ(30 回/秒)、クライアントでは届いた写真を 0.1 秒ほど遅れて<strong>なめらかにつないで</strong>、Transform に書きます。書く・読むタイミングは <code>Network</code> が決める(<code>Update</code> では何もしない。Rigidbody との順番の影響を受けないため)。</p>
+<div class="tw"><table class="api"><thead><tr><th>名前</th><th>引数・戻り値</th><th>何をするか</th></tr></thead><tbody>
+<tr><td class="fn"><code>WriteState(NetworkWriter&amp; writer)</code></td><td class="sig"><code>void</code></td><td>内部用(ホスト): 今の Transform をスナップショットの 1 件として書く</td></tr>
+<tr><td class="fn"><code>ReadState(NetworkReader&amp; reader, double hostTime)</code></td><td class="sig"><code>bool</code></td><td>内部用(クライアント): 1 件読んで写真を溜める(壊れていたら <code>false</code>)</td></tr>
+<tr><td class="fn"><code>Interpolate(double renderTime)</code></td><td class="sig"><code>void</code></td><td>内部用(クライアント): 表示の時刻に合わせて Transform に書く</td></tr>
+<tr><td class="fn"><code>ClearSamples()</code></td><td class="sig"><code>void</code></td><td>溜めた写真を捨てる</td></tr>
+<tr><td class="fn"><code>LerpAngle(float from, float to, float t)</code></td><td class="sig"><code>static float</code></td><td>角度(度)の補間。360 度をまたぐ時は近い向きに回る</td></tr>
+</tbody></table></div>
+<div class="notes"><strong>気を付ける点</strong><ul>
+<li>設定(<code>NetworkTransformSettings</code>): <code>syncPosition</code> / <code>syncRotation</code> / <code>syncScale</code>(変わった時だけ送る)/ <code>is2D</code>(<code>position.xy</code> と <code>rotate.z</code> だけ送る)/ <code>teleportDistance</code>(これ以上離れたら補間せずに飛ぶ。既定 500)。</li>
+<li><strong>同期するのは親を持たない(ルートの)オブジェクトだけ</strong>です。</li>
+<li>表示の時刻が最新より後(通信が遅れた)なら、最新の位置で止めます(予測では動かさない)。</li>
+<li>受け取った位置は &#177;1,000,000 に収め、NaN・知らない印・短すぎる写真は捨てます。</li>
+</ul></div>
+</section>
+<section class="file" id="f-NetworkInput">
+<h3><code>Engine/Network/NetworkInput.h</code></h3>
+<p class="role">入力の中身です(2D / 3D どちらにも使える汎用の形)。軸 2 組(移動・視点)と、ボタン 16 個(押している状態と、押した瞬間)です。クライアントがホストへ送り、ホストが <code>Network::GetInput</code> で読みます。</p>
+<div class="tw"><table class="api"><thead><tr><th>名前</th><th>引数・戻り値</th><th>何をするか</th></tr></thead><tbody>
+<tr><td class="fn"><code>SetButton(int bit, bool down)</code></td><td class="sig"><code>void</code></td><td>ボタン(0〜15)の押している状態を決める。番号の意味(0 = Jump など)はゲーム側で決める</td></tr>
+<tr><td class="fn"><code>IsButtonDown(int bit)</code></td><td class="sig"><code>bool</code></td><td>押している間 <code>true</code></td></tr>
+<tr><td class="fn"><code>WasButtonPressed(int bit)</code></td><td class="sig"><code>bool</code></td><td>押した瞬間だけ <code>true</code>(1 フレームの間)</td></tr>
+</tbody></table></div>
+<div class="ex"><div class="exhead">使い方の例 <span class="src">出典: <code>Demo/Game/Components/Network/NetworkPlayerInputController.cpp:7-23</code></span></div><pre><code>void NetworkPlayerInputController::Update(float dt) {
+    // 自分が操作する箱にだけ働く(ほかのプレイヤーの箱は、その人のPCが入力を送る)
+    NetworkIdentityComponent* identity = GetOwner()-&gt;GetComponent&lt;NetworkIdentityComponent&gt;();
+    if (!identity || !identity-&gt;IsOwner()) return;
+    if (Time::IsPaused()) return;   // シーン切り替え中は受け付けない
+
+    // 入力: 移動 = WASD または矢印キー(Q・E・Tab・Esc はデモの共通キーなので使わない)
+    NetworkInput input;
+    if (Input::GetKeyPress(KEY_D) || Input::GetKeyPress(KEY_RIGHT)) input.moveX += 1.f;
+    if (Input::GetKeyPress(KEY_A) || Input::GetKeyPress(KEY_LEFT))  input.moveX -= 1.f;
+    if (Input::GetKeyPress(KEY_W) || Input::GetKeyPress(KEY_UP))    input.moveY += 1.f;
+    if (Input::GetKeyPress(KEY_S) || Input::GetKeyPress(KEY_DOWN))  input.moveY -= 1.f;
+    input.SetButton(jumpButton, Input::GetKeyPress(KEY_SPACE));
+
+    // 自分の入力を渡す(押した瞬間は Network が自動で計算する)
+    Network::SetLocalInput(input);
+}</code></pre></div>
+<div class="notes"><strong>気を付ける点</strong><ul>
+<li>押した瞬間(<code>pressed</code>)は、<code>SetLocalInput</code> が前回との差から<strong>自動で計算</strong>します。クライアントは直近 3 回の送信に重ねて入れるので、パケットが 1 つ落ちても取りこぼしません。</li>
+<li>入力が 1 秒届かなかったら、ホストはその人の入力を 0 に戻します(押しっぱなしのまま止まらない)。</li>
+<li>キーの割り当ては、ゲームによって違うので、集める Component は Engine ではなくゲーム側に置きます。</li>
+</ul></div>
+</section>
+
+<footer class="foot">この解説は <code>docs/EngineGuide/tools/build.ps1</code> で作っています。表の内容は Engine のヘッダーから拾っています。コード例は Sample2D / Sample3D / Demo の実際のソースを読み込んで載せています。</footer>
+</main>
+</div>
+<script src="search-index.js"></script>
+<script src="search.js"></script>
+</body>
+</html>

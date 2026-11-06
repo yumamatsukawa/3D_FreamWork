@@ -91,6 +91,15 @@
     <Filter Include="Game\Objects\Data">
       <UniqueIdentifier>{f5df184e-4c06-4ffa-8fd2-ba4eab94126d}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Game\Components\Network">
+      <UniqueIdentifier>{5ae9fd88-2348-4081-a556-3c06e8bd7d46}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Game\Objects\Network">
+      <UniqueIdentifier>{a552b965-e3c9-4b93-bde3-afa09bc3d9d1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Game\Scenes\Network">
+      <UniqueIdentifier>{ec26d989-c738-4cd2-a062-11725bfbb5db}</UniqueIdentifier>
+    </Filter>
     <Filter Include="Game\Scenes\Data">
       <UniqueIdentifier>{aedcd069-17e3-48c4-9c35-46f3db456895}</UniqueIdentifier>
     </Filter>
@@ -222,6 +231,84 @@
     </ClCompile>
     <ClCompile Include="Game\Scenes\Common\DemoCategoryScene.cpp">
       <Filter>Game\Scenes\Common</Filter>
+    </ClCompile>
+    <ClCompile Include="Game\Components\Network\NetworkBoxController.cpp">
+      <Filter>Game\Components\Network</Filter>
+    </ClCompile>
+    <ClCompile Include="Game\Components\Network\NetworkBulletController.cpp">
+      <Filter>Game\Components\Network</Filter>
+    </ClCompile>
+    <ClCompile Include="Game\Components\Network\NetworkDoorController.cpp">
+      <Filter>Game\Components\Network</Filter>
+    </ClCompile>
+    <ClCompile Include="Game\Components\Network\NetworkLobbyController.cpp">
+      <Filter>Game\Components\Network</Filter>
+    </ClCompile>
+    <ClCompile Include="Game\Components\Network\NetworkMoverController.cpp">
+      <Filter>Game\Components\Network</Filter>
+    </ClCompile>
+    <ClCompile Include="Game\Components\Network\NetworkPlayerInputController.cpp">
+      <Filter>Game\Components\Network</Filter>
+    </ClCompile>
+    <ClCompile Include="Game\Components\Network\NetworkSpawnManager.cpp">
+      <Filter>Game\Components\Network</Filter>
+    </ClCompile>
+    <ClCompile Include="Game\Components\Network\NetworkWorldController.cpp">
+      <Filter>Game\Components\Network</Filter>
+    </ClCompile>
+    <ClCompile Include="Game\Objects\Network\NetworkArena.cpp">
+      <Filter>Game\Objects\Network</Filter>
+    </ClCompile>
+    <ClCompile Include="Game\Objects\Network\NetworkBody.cpp">
+      <Filter>Game\Objects\Network</Filter>
+    </ClCompile>
+    <ClCompile Include="Game\Objects\Network\NetworkBullet.cpp">
+      <Filter>Game\Objects\Network</Filter>
+    </ClCompile>
+    <ClCompile Include="Game\Objects\Network\NetworkEventDemo.cpp">
+      <Filter>Game\Objects\Network</Filter>
+    </ClCompile>
+    <ClCompile Include="Game\Objects\Network\NetworkInputDemo.cpp">
+      <Filter>Game\Objects\Network</Filter>
+    </ClCompile>
+    <ClCompile Include="Game\Objects\Network\NetworkLobby.cpp">
+      <Filter>Game\Objects\Network</Filter>
+    </ClCompile>
+    <ClCompile Include="Game\Objects\Network\NetworkSpawnDemo.cpp">
+      <Filter>Game\Objects\Network</Filter>
+    </ClCompile>
+    <ClCompile Include="Game\Objects\Network\NetworkTransformDemo.cpp">
+      <Filter>Game\Objects\Network</Filter>
+    </ClCompile>
+    <ClCompile Include="Game\Objects\Network\NetworkWorld.cpp">
+      <Filter>Game\Objects\Network</Filter>
+    </ClCompile>
+    <ClCompile Include="Game\Scenes\Network\NetworkBasicDemoScene.cpp">
+      <Filter>Game\Scenes\Network</Filter>
+    </ClCompile>
+    <ClCompile Include="Game\Scenes\Network\NetworkDiscoveryDemoScene.cpp">
+      <Filter>Game\Scenes\Network</Filter>
+    </ClCompile>
+    <ClCompile Include="Game\Scenes\Network\NetworkEventDemoScene.cpp">
+      <Filter>Game\Scenes\Network</Filter>
+    </ClCompile>
+    <ClCompile Include="Game\Scenes\Network\NetworkInputDemo2DScene.cpp">
+      <Filter>Game\Scenes\Network</Filter>
+    </ClCompile>
+    <ClCompile Include="Game\Scenes\Network\NetworkInputDemo3DScene.cpp">
+      <Filter>Game\Scenes\Network</Filter>
+    </ClCompile>
+    <ClCompile Include="Game\Scenes\Network\NetworkSpawnDemo2DScene.cpp">
+      <Filter>Game\Scenes\Network</Filter>
+    </ClCompile>
+    <ClCompile Include="Game\Scenes\Network\NetworkSpawnDemo3DScene.cpp">
+      <Filter>Game\Scenes\Network</Filter>
+    </ClCompile>
+    <ClCompile Include="Game\Scenes\Network\NetworkTransformDemo2DScene.cpp">
+      <Filter>Game\Scenes\Network</Filter>
+    </ClCompile>
+    <ClCompile Include="Game\Scenes\Network\NetworkTransformDemo3DScene.cpp">
+      <Filter>Game\Scenes\Network</Filter>
     </ClCompile>
     <ClCompile Include="Game\Scenes\Common\DemoMenuScene.cpp">
       <Filter>Game\Scenes\Common</Filter>
@@ -860,6 +947,84 @@
     </ClInclude>
     <ClInclude Include="Game\Scenes\Common\DemoCategoryScene.h">
       <Filter>Game\Scenes\Common</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\Components\Network\NetworkBoxController.h">
+      <Filter>Game\Components\Network</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\Components\Network\NetworkBulletController.h">
+      <Filter>Game\Components\Network</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\Components\Network\NetworkDoorController.h">
+      <Filter>Game\Components\Network</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\Components\Network\NetworkLobbyController.h">
+      <Filter>Game\Components\Network</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\Components\Network\NetworkMoverController.h">
+      <Filter>Game\Components\Network</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\Components\Network\NetworkPlayerInputController.h">
+      <Filter>Game\Components\Network</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\Components\Network\NetworkSpawnManager.h">
+      <Filter>Game\Components\Network</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\Components\Network\NetworkWorldController.h">
+      <Filter>Game\Components\Network</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\Objects\Network\NetworkArena.h">
+      <Filter>Game\Objects\Network</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\Objects\Network\NetworkBody.h">
+      <Filter>Game\Objects\Network</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\Objects\Network\NetworkBullet.h">
+      <Filter>Game\Objects\Network</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\Objects\Network\NetworkEventDemo.h">
+      <Filter>Game\Objects\Network</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\Objects\Network\NetworkInputDemo.h">
+      <Filter>Game\Objects\Network</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\Objects\Network\NetworkLobby.h">
+      <Filter>Game\Objects\Network</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\Objects\Network\NetworkSpawnDemo.h">
+      <Filter>Game\Objects\Network</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\Objects\Network\NetworkTransformDemo.h">
+      <Filter>Game\Objects\Network</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\Objects\Network\NetworkWorld.h">
+      <Filter>Game\Objects\Network</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\Scenes\Network\NetworkBasicDemoScene.h">
+      <Filter>Game\Scenes\Network</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\Scenes\Network\NetworkDiscoveryDemoScene.h">
+      <Filter>Game\Scenes\Network</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\Scenes\Network\NetworkEventDemoScene.h">
+      <Filter>Game\Scenes\Network</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\Scenes\Network\NetworkInputDemo2DScene.h">
+      <Filter>Game\Scenes\Network</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\Scenes\Network\NetworkInputDemo3DScene.h">
+      <Filter>Game\Scenes\Network</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\Scenes\Network\NetworkSpawnDemo2DScene.h">
+      <Filter>Game\Scenes\Network</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\Scenes\Network\NetworkSpawnDemo3DScene.h">
+      <Filter>Game\Scenes\Network</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\Scenes\Network\NetworkTransformDemo2DScene.h">
+      <Filter>Game\Scenes\Network</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\Scenes\Network\NetworkTransformDemo3DScene.h">
+      <Filter>Game\Scenes\Network</Filter>
     </ClInclude>
     <ClInclude Include="Game\Scenes\Common\DemoMenuScene.h">
       <Filter>Game\Scenes\Common</Filter>

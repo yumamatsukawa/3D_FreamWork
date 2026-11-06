@@ -12,6 +12,7 @@
 #include "../../../../Engine/Behavior/VisionComponent.h"
 #include "../../../../Engine/Behavior/NavGridComponent.h"
 #include "../../../../Engine/Behavior/PathFollowComponent.h"
+#include "../../../../Engine/Network/Network.h"
 #include "../../../../Engine/UI/Text.h"
 #include "../../../../Engine/UI/Anchor.h"
 
@@ -57,6 +58,10 @@ void DemoGuideController::ResetSettings() {
 
     // カーソルの固定を解く
     Input::SetCursorLocked(false);
+
+    // ネットワークの接続とホスト探索を閉じる(デモを出る時・入る時に、前の画面の接続を持ち越さない。接続していなければ何もしない)
+    Network::Disconnect();
+    Network::ClearHandlers();
 }
 
 void DemoGuideController::Init() {

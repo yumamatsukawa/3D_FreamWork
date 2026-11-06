@@ -282,6 +282,7 @@ struct DemoInfo {
 | Behavior(動きとAI) | 6 | 両方 5 / 3D 1 |
 | Audio(音) | 2 | 共通 1 / 両方 1(A2 Voice は作らない) |
 | Data(データ) | 2 | 共通 2 |
+| Network(LAN通信。ロードマップ4で追加。6.10b) | 6 | 両方 3 / 共通 3 |
 | **合計** | **46機能** | 両方 22 / 3D 11 / 共通 13。シーンの数は 22x2 + 11 + 13 = **68** |
 
 (既存の6デモ=Tween・Particle・UI・Light・Shadow・Terrain は、この47機能に含まれます。Terrain は「地形の見た目」「地形の当たり判定」「水面」の3つに分けます。件数の詳しい確認は6.11。)
@@ -389,6 +390,20 @@ struct DemoInfo {
 
 (Data の件数: 共通 = T1, T2 の 2。計 2。)
 
+### 6.10b Network(LAN通信。`docs/EngineRoadmap4.md` で追加)
+
+2台(または1台で2つ起動)でつないで確かめるデモです。接続はボタン(マウス)で行い、キーは Tab / Esc / Q / E 以外を使います。デモを出る時に接続は自動で閉じます(`ResetSettings`)。
+
+| No | デモ名 | 印 | 見せる内容 | 使う Engine の API | 操作 |
+|---|---|---|---|---|---|
+| N1 | **NetworkBasic** | 共通 | Host / Join(127.0.0.1・IP入力)/ Send / Disconnect。状態・人数・名簿・ping・通信量・受け取った文字・このPCのIP・エラー | `Network::StartHost` `Join` `Disconnect` `SendEvent` `Subscribe` `GetState` `GetPing` `GetStats` | ボタン(マウス) |
+| N2 | **NetworkDiscovery** | 共通 | LANのホスト探索。見つかったホストを一覧(ボタン)から選んで参加 | `Network::StartSearch` `StopSearch` `GetFoundHosts` | ボタン(マウス) |
+| N3 | **NetworkTransform** | 両方 | ホストが動かす箱(Kinematic)と、押される球・丸(Dynamic)。クライアントは補間して表示(Kinematicのコピー) | `NetworkIdentityComponent` `NetworkTransformComponent` | ボタン(マウス) |
+| N4 | **NetworkInput** | 両方 | クライアントの入力でホストの箱が動く(スマブラ風の最小形)。4人まで | `Network::SetLocalInput` `GetInput` `NetworkInput` | WASD/矢印・SPACE(3D) |
+| N5 | **NetworkEvent** | 共通 | スイッチを押すと扉が開く(協力パズルの最小形)。途中参加でも開いたまま | `Network::SendEvent` `Subscribe` `SetSharedValue` `GetSharedValue` `EventBus` | ボタン(マウス) |
+| N6 | **NetworkSpawn** | 両方 | 弾を撃つ頼みをホストが受けて作り、全員の画面に出して消す(`ObjectPool`) | `Network::RegisterPrefab` `Spawn` `Despawn` `SetDespawnHandler` | Fire ボタン・SPACE |
+
+(Network の件数: 両方 = N3, N4, N6 の3 / 共通 = N1, N2, N5 の3。計 6。)
 ### 6.11 件数の確認
 各表の印を数え直した結果です(6.2の表と同じ)。
 
@@ -576,6 +591,12 @@ Demo で動くことを確かめた**後**に、次を消します(Batch 0 の�
 | A3 Sound3D(2D/3D) | 実装済み(Batch 6。2D版も作れた) | `Scenes/Audio/Sound3DDemo2DScene` `Sound3DDemo3DScene` |
 | T1 Csv(共通) | 実装済み(Batch 6) | `Scenes/Data/CsvDemoScene` |
 | T2 Save(共通) | 実装済み(Batch 6) | `Scenes/Data/SaveDemoScene` |
+| N1 NetworkBasic(共通) | 実装済み(ロードマップ4 Part 4-7。ユーザーの2台での確認はこれから) | `Scenes/Network/NetworkBasicDemoScene` |
+| N2 NetworkDiscovery(共通) | 実装済み(同上) | `Scenes/Network/NetworkDiscoveryDemoScene` |
+| N3 NetworkTransform(2D/3D) | 実装済み(同上) | `Scenes/Network/NetworkTransformDemo2DScene` `NetworkTransformDemo3DScene` |
+| N4 NetworkInput(2D/3D) | 実装済み(同上) | `Scenes/Network/NetworkInputDemo2DScene` `NetworkInputDemo3DScene` |
+| N5 NetworkEvent(共通) | 実装済み(同上) | `Scenes/Network/NetworkEventDemoScene` |
+| N6 NetworkSpawn(2D/3D) | 実装済み(同上) | `Scenes/Network/NetworkSpawnDemo2DScene` `NetworkSpawnDemo3DScene` |
 
 ### Batch 0 で決めたこと・作った物
 

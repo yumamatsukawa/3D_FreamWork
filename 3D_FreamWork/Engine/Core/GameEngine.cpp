@@ -17,6 +17,7 @@
 #include "../Render/ScreenEffect.h"
 #include "../Transition/SpriteTransition.h"
 #include "../Data/SaveData.h"
+#include "../Network/Network.h"
 
 bool GameEngine::Init(HWND hwnd, int w, int h)
 {
@@ -44,12 +45,14 @@ void GameEngine::Run()
         Time::Update();
 
         Input::Update();
+        Network::Update();   // 受信(オフラインなら何もしない)。入力・出来事を取り込み、クライアントは受け取った位置をTransformへ書く。物理(Physics::Update)より前
         CameraShake::Update(Time::GetUnscaledDeltaTime());   // 画面の揺れはポーズ中も進める
         ScreenEffect::Update(Time::GetUnscaledDeltaTime());  // 画面エフェクトもポーズ中も進める(Fadeの完了の関数はここで呼ばれる。中でChangeSceneすると、すぐ下のSceneManager::Updateで切り替わる)
 
         Physics::Update(Time::GetDeltaTime());
         SceneManager::Get().Update(Time::GetDeltaTime());
         Audio::Update();   // シーンのUpdateの後に(動いた後の位置で聞こえ方を決める。ポーズ中も止めずに続ける)
+        Network::EndFrame();   // 送信(オフラインなら何もしない)。シーンのUpdateの後なので、物理の結果が入った最新の位置を送れる
 
         // 画面の揺れは描画の間だけカメラをずらす(Image::BeginFrameで3Dカメラを2Dカメラに合わせた後にずらし、
         // 描き終わったら元に戻す。Updateの中のカメラの値には揺れが入らない)
@@ -73,6 +76,7 @@ void GameEngine::Run()
 void GameEngine::Uninit()
 {
     SceneManager::Get().Uninit();   // 切り替えの演出の途中なら、演出(ブラシ)もここで片付く
+    Network::Shutdown();            // 接続を閉じる(各Componentが登録簿から外し終わった後なので、SceneManagerの後)
     SaveData::Uninit();             // 書き換えていれば保存する(シーンのUninitで書いた値も残るように、SceneManagerの後)
     Lighting::Shutdown();           // 光の定数バッファの解放(Image::Uninitより先に)
     Shadow::Shutdown();             // 影のテクスチャ・ステートの解放(同じくImage::Uninitより先に)

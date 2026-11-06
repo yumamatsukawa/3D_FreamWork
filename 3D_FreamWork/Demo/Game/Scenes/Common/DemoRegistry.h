@@ -6,7 +6,7 @@
 enum class DemoMode { Mode2D, Mode3D };
 
 // デモの分け方(Engineのフォルダに近い名前。DemoCategoryScene が、この単位で機能の一覧を出す)
-enum class DemoCategory { Core, Render, UI, Render3D, Physics, Behavior, Audio, Data };
+enum class DemoCategory { Core, Render, UI, Render3D, Physics, Behavior, Audio, Data, Network };
 
 // デモ(機能)1つ分の情報(機能一覧のボタンと説明になる)
 // open2D / open3D が nullptr かどうかが、その機能の「2Dあり/3Dあり」の印になる。

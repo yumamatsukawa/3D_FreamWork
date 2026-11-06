@@ -70,6 +70,15 @@
 #include "../Audio/Sound3DDemo3DScene.h"
 #include "../Data/CsvDemoScene.h"
 #include "../Data/SaveDemoScene.h"
+#include "../Network/NetworkBasicDemoScene.h"
+#include "../Network/NetworkDiscoveryDemoScene.h"
+#include "../Network/NetworkTransformDemo2DScene.h"
+#include "../Network/NetworkTransformDemo3DScene.h"
+#include "../Network/NetworkInputDemo2DScene.h"
+#include "../Network/NetworkInputDemo3DScene.h"
+#include "../Network/NetworkEventDemoScene.h"
+#include "../Network/NetworkSpawnDemo2DScene.h"
+#include "../Network/NetworkSpawnDemo3DScene.h"
 #include "../../../../Engine/Core/SceneManager.h"
 #include "../../../../Engine/Core/Time.h"
 #include <windows.h>
@@ -138,6 +147,12 @@ const std::vector<DemoInfo>& GetDemoList() {
         { DemoCategory::Audio,    L"Sound3D",           L"位置で聞こえ方が変わる音(遠い・左右)",         &OpenScene<Sound3DDemo2DScene>,           &OpenScene<Sound3DDemo3DScene> },
         { DemoCategory::Data,     L"Csv",               L"表(CSV)を読む。保存し直すと実行中に反映",      &OpenScene<CsvDemoScene>,                 &OpenScene<CsvDemoScene> },
         { DemoCategory::Data,     L"Save",              L"整数・小数・文字を保存して、開き直しても残す", &OpenScene<SaveDemoScene>,                &OpenScene<SaveDemoScene> },
+        { DemoCategory::Network,  L"NetworkBasic",      L"Host / Join で2台をつなぎ、文字を送り合う",    &OpenScene<NetworkBasicDemoScene>,        &OpenScene<NetworkBasicDemoScene> },
+        { DemoCategory::Network,  L"NetworkDiscovery",  L"同じLANのホストを探して、一覧から参加する",    &OpenScene<NetworkDiscoveryDemoScene>,    &OpenScene<NetworkDiscoveryDemoScene> },
+        { DemoCategory::Network,  L"NetworkTransform",  L"ホストが動かす物を、クライアントが滑らかに表示", &OpenScene<NetworkTransformDemo2DScene>,    &OpenScene<NetworkTransformDemo3DScene> },
+        { DemoCategory::Network,  L"NetworkInput",      L"クライアントの入力で、ホストの箱が動く",        &OpenScene<NetworkInputDemo2DScene>,      &OpenScene<NetworkInputDemo3DScene> },
+        { DemoCategory::Network,  L"NetworkEvent",      L"スイッチを押すと扉が開く(途中参加でも開いたまま)", &OpenScene<NetworkEventDemoScene>,        &OpenScene<NetworkEventDemoScene> },
+        { DemoCategory::Network,  L"NetworkSpawn",      L"弾を出す・消す操作が、全員の画面に出る",        &OpenScene<NetworkSpawnDemo2DScene>,      &OpenScene<NetworkSpawnDemo3DScene> },
     };
     return demos;
 }
@@ -160,6 +175,7 @@ const std::vector<DemoCategoryInfo>& GetCategoryList() {
         { DemoCategory::Behavior, L"Behavior", L"動きとAI(追跡・視野・経路探索)" },
         { DemoCategory::Audio,    L"Audio",    L"音(BGM・SE・3Dの音)" },
         { DemoCategory::Data,     L"Data",     L"データ(CSV・セーブ)" },
+        { DemoCategory::Network,  L"Network",  L"LAN通信(ホスト・参加・位置の同期・出来事)" },
     };
     return categories;
 }

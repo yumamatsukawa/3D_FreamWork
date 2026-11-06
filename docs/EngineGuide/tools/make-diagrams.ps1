@@ -415,11 +415,13 @@ $left = @(
     @('ウィンドウのメッセージ処理', 'PeekMessage ... 閉じられたら終了', 'n'),
     @('Time::Update', 'このフレームの時間（dt）を計算する', 'g-core'),
     @('Input::Update', 'キー・マウス・パッドの今の状態を読む', 'g-core'),
+    @('Network::Update', '受信（つないだ時だけ）。クライアントは受け取った位置を Transform に書く', 'g-core'),
     @('CameraShake::Update', '画面の揺れを進める（ポーズ中も進む）', 'g-render'),
     @('ScreenEffect::Update', 'Flash / Vignette / Fade を進める（Fade の onComplete はここ）', 'g-render'),
     @('Physics::Update(dt)', '物理を進め、OnCollision / OnTrigger を呼ぶ', 'g-physics'),
     @('SceneManager::Update(dt)', 'シーンの切り替え ＋ Scene::Update（全 Component の Update）', 'g-core'),
-    @('Audio::Update', '動いた後の位置で、音の聞こえ方を決める', 'g-audio')
+    @('Audio::Update', '動いた後の位置で、音の聞こえ方を決める', 'g-audio'),
+    @('Network::EndFrame', '送信（つないだ時だけ）。ホストは位置、クライアントは入力', 'g-core')
 )
 $right = @(
     @('Image::BeginFrame', '3D カメラを 2D カメラに合わせ、画面と深度を消す', 'g-render'),
