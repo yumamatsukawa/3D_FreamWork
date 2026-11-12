@@ -244,6 +244,11 @@
     <ClCompile Include="Game\Scenes\Render3D\LodDemoScene.cpp" />
     <ClCompile Include="Game\Objects\Render3D\LodDemo.cpp" />
     <ClCompile Include="Game\Components\Render3D\LodDemoController.cpp" />
+    <ClCompile Include="Game\Scenes\Stress\RobotCrowdScene.cpp" />
+    <ClCompile Include="Game\Objects\Stress\RobotCrowd.cpp" />
+    <ClCompile Include="Game\Objects\Stress\CrowdRobot.cpp" />
+    <ClCompile Include="Game\Components\Stress\RobotCrowdManager.cpp" />
+    <ClCompile Include="Game\Components\Stress\CrowdRobotController.cpp" />
     <ClCompile Include="Game\Scenes\Render3D\VisibilityDemo2DScene.cpp" />
     <ClCompile Include="Game\Scenes\Render3D\VisibilityDemo3DScene.cpp" />
     <ClCompile Include="Game\Objects\Render3D\VisibilityDemo.cpp" />
@@ -484,6 +489,11 @@
     <ClInclude Include="Game\Scenes\Render3D\LodDemoScene.h" />
     <ClInclude Include="Game\Objects\Render3D\LodDemo.h" />
     <ClInclude Include="Game\Components\Render3D\LodDemoController.h" />
+    <ClInclude Include="Game\Scenes\Stress\RobotCrowdScene.h" />
+    <ClInclude Include="Game\Objects\Stress\RobotCrowd.h" />
+    <ClInclude Include="Game\Objects\Stress\CrowdRobot.h" />
+    <ClInclude Include="Game\Components\Stress\RobotCrowdManager.h" />
+    <ClInclude Include="Game\Components\Stress\CrowdRobotController.h" />
     <ClInclude Include="Game\Scenes\Render3D\VisibilityDemo2DScene.h" />
     <ClInclude Include="Game\Scenes\Render3D\VisibilityDemo3DScene.h" />
     <ClInclude Include="Game\Objects\Render3D\VisibilityDemo.h" />

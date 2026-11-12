@@ -79,6 +79,7 @@
 #include "../Network/NetworkEventDemoScene.h"
 #include "../Network/NetworkSpawnDemo2DScene.h"
 #include "../Network/NetworkSpawnDemo3DScene.h"
+#include "../Stress/RobotCrowdScene.h"
 #include "../../../../Engine/Core/SceneManager.h"
 #include "../../../../Engine/Core/Time.h"
 #include <windows.h>
@@ -153,6 +154,7 @@ const std::vector<DemoInfo>& GetDemoList() {
         { DemoCategory::Network,  L"NetworkInput",      L"クライアントの入力で、ホストの箱が動く",        &OpenScene<NetworkInputDemo2DScene>,      &OpenScene<NetworkInputDemo3DScene> },
         { DemoCategory::Network,  L"NetworkEvent",      L"スイッチを押すと扉が開く(途中参加でも開いたまま)", &OpenScene<NetworkEventDemoScene>,        &OpenScene<NetworkEventDemoScene> },
         { DemoCategory::Network,  L"NetworkSpawn",      L"弾を出す・消す操作が、全員の画面に出る",        &OpenScene<NetworkSpawnDemo2DScene>,      &OpenScene<NetworkSpawnDemo3DScene> },
+        { DemoCategory::Stress,   L"RobotCrowd",        L"ロボットを大量に歩かせて、FPSと描画の数を測る", nullptr,                                  &OpenScene<RobotCrowdScene> },
     };
     return demos;
 }
@@ -176,6 +178,7 @@ const std::vector<DemoCategoryInfo>& GetCategoryList() {
         { DemoCategory::Audio,    L"Audio",    L"音(BGM・SE・3Dの音)" },
         { DemoCategory::Data,     L"Data",     L"データ(CSV・セーブ)" },
         { DemoCategory::Network,  L"Network",  L"LAN通信(ホスト・参加・位置の同期・出来事)" },
+        { DemoCategory::Stress,   L"Stress",   L"負荷テスト(ロボットの大群で、どれくらい重くなるかを測る)" },
     };
     return categories;
 }

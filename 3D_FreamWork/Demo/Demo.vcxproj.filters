@@ -103,6 +103,15 @@
     <Filter Include="Game\Scenes\Data">
       <UniqueIdentifier>{aedcd069-17e3-48c4-9c35-46f3db456895}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Game\Components\Stress">
+      <UniqueIdentifier>{3b7f1c52-8a4e-4d19-9c60-1e2f5a8d7b43}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Game\Objects\Stress">
+      <UniqueIdentifier>{c94d2e07-5b16-4f83-a1d9-6e0b3c7f2a85}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Game\Scenes\Stress">
+      <UniqueIdentifier>{7e1a8b36-d2c4-4095-8f7e-b53a9d604c12}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp" />
@@ -612,6 +621,21 @@
     </ClCompile>
     <ClCompile Include="Game\Components\Render3D\LodDemoController.cpp">
       <Filter>Game\Components\Render3D</Filter>
+    </ClCompile>
+    <ClCompile Include="Game\Scenes\Stress\RobotCrowdScene.cpp">
+      <Filter>Game\Scenes\Stress</Filter>
+    </ClCompile>
+    <ClCompile Include="Game\Objects\Stress\RobotCrowd.cpp">
+      <Filter>Game\Objects\Stress</Filter>
+    </ClCompile>
+    <ClCompile Include="Game\Objects\Stress\CrowdRobot.cpp">
+      <Filter>Game\Objects\Stress</Filter>
+    </ClCompile>
+    <ClCompile Include="Game\Components\Stress\RobotCrowdManager.cpp">
+      <Filter>Game\Components\Stress</Filter>
+    </ClCompile>
+    <ClCompile Include="Game\Components\Stress\CrowdRobotController.cpp">
+      <Filter>Game\Components\Stress</Filter>
     </ClCompile>
     <ClCompile Include="Game\Scenes\Render3D\VisibilityDemo2DScene.cpp">
       <Filter>Game\Scenes\Render3D</Filter>
@@ -1328,6 +1352,21 @@
     </ClInclude>
     <ClInclude Include="Game\Components\Render3D\LodDemoController.h">
       <Filter>Game\Components\Render3D</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\Scenes\Stress\RobotCrowdScene.h">
+      <Filter>Game\Scenes\Stress</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\Objects\Stress\RobotCrowd.h">
+      <Filter>Game\Objects\Stress</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\Objects\Stress\CrowdRobot.h">
+      <Filter>Game\Objects\Stress</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\Components\Stress\RobotCrowdManager.h">
+      <Filter>Game\Components\Stress</Filter>
+    </ClInclude>
+    <ClInclude Include="Game\Components\Stress\CrowdRobotController.h">
+      <Filter>Game\Components\Stress</Filter>
     </ClInclude>
     <ClInclude Include="Game\Scenes\Render3D\VisibilityDemo2DScene.h">
       <Filter>Game\Scenes\Render3D</Filter>

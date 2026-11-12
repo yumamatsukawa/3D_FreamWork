@@ -283,7 +283,8 @@ struct DemoInfo {
 | Audio(音) | 2 | 共通 1 / 両方 1(A2 Voice は作らない) |
 | Data(データ) | 2 | 共通 2 |
 | Network(LAN通信。ロードマップ4で追加。6.10b) | 6 | 両方 3 / 共通 3 |
-| **合計** | **46機能** | 両方 22 / 3D 11 / 共通 13。シーンの数は 22x2 + 11 + 13 = **68** |
+| Stress(負荷テスト。6.10c) | 1 | 3D 1 |
+| **合計** | **47機能** | 両方 22 / 3D 12 / 共通 13。シーンの数は 22x2 + 12 + 13 = **69** |
 
 (既存の6デモ=Tween・Particle・UI・Light・Shadow・Terrain は、この47機能に含まれます。Terrain は「地形の見た目」「地形の当たり判定」「水面」の3つに分けます。件数の詳しい確認は6.11。)
 
@@ -404,6 +405,17 @@ struct DemoInfo {
 | N6 | **NetworkSpawn** | 両方 | 弾を撃つ頼みをホストが受けて作り、全員の画面に出して消す(`ObjectPool`) | `Network::RegisterPrefab` `Spawn` `Despawn` `SetDespawnHandler` | Fire ボタン・SPACE |
 
 (Network の件数: 両方 = N3, N4, N6 の3 / 共通 = N1, N2, N5 の3。計 6。)
+
+### 6.10c Stress(負荷テスト。後から追加)
+
+Engine の機能を見せるのではなく、「たくさん出すとどれくらい重くなるか」を測るためのデモです。
+
+| No | デモ名 | 印 | 見せる内容 | 使う Engine の API | 操作 |
+|---|---|---|---|---|---|
+| S1 | **RobotCrowd** | 3D | `robot.fbx`(32パーツ)のロボットがランダムに歩き回る。体数を50体ずつ 0〜1000 で増減(最初は100)。FPS・1フレームの時間・1体あたりの時間・描画命令/三角形・省いた数を表示。物理あり/なし(カプセルの剛体を `SetVelocity` で動かす。剛体は後から付け外しできないので全員を作り直す)と、影・枠線・LOD・画面外を省く設定を切り替えて、重さを比べる | `ModelRenderer` `CapsuleRigidbodyComponent` `RigidbodyComponent::SetVelocity` `RenderStats` `Visibility::GetCulledCount` `Lod::SetEnabled` `Shadow::GetSettings` `Time::GetUnscaledDeltaTime` | 上下 か + -: 体数 / P: 物理 / 1: 影 / 2: 枠線 / 3: LOD / 4: 画面外を省く |
+
+(Stress の件数: 3D = S1 の 1。計 1。)
+
 ### 6.11 件数の確認
 各表の印を数え直した結果です(6.2の表と同じ)。
 
@@ -597,6 +609,7 @@ Demo で動くことを確かめた**後**に、次を消します(Batch 0 の�
 | N4 NetworkInput(2D/3D) | 実装済み(同上) | `Scenes/Network/NetworkInputDemo2DScene` `NetworkInputDemo3DScene` |
 | N5 NetworkEvent(共通) | 実装済み(同上) | `Scenes/Network/NetworkEventDemoScene` |
 | N6 NetworkSpawn(2D/3D) | 実装済み(同上) | `Scenes/Network/NetworkSpawnDemo2DScene` `NetworkSpawnDemo3DScene` |
+| S1 RobotCrowd(3D。負荷テスト) | 実装済み(後から追加。ユーザーの操作確認はこれから) | `Scenes/Stress/RobotCrowdScene` |
 
 ### Batch 0 で決めたこと・作った物
 

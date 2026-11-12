@@ -1395,7 +1395,7 @@ Sample3D/Game/Components/  TitleController, GroundController, PlayerController,
                             ModelDisplayController, HighlightController, GuardController, LanternController, ShadowManager, SpinComponent(未使用)
 Sample3D/Game/Scenes/      TitleScene, GameScene
 
-Demo/Game/Scenes|Objects|Components/   デモ(§38)。カテゴリ別のフォルダ(Common / Core / Render / UI / Render3D / Physics / Behavior / Audio / Data)に分かれている
+Demo/Game/Scenes|Objects|Components/   デモ(§38)。カテゴリ別のフォルダ(Common / Core / Render / UI / Render3D / Physics / Behavior / Audio / Data / Network / Stress)に分かれている
 ```
 
 - **Sample2D**: トップダウン視点のアリーナシューター。タイトル画面のSTARTボタン(出る時に`TweenComponent`でぴょこっと大きくなる)をクリックすると、画面が暗転してからゲーム開始(ゲーム画面に入ると明転する。`FadeTransition`。§16)(ボタンは`CreateButton(scene, 文字, 位置, クリックされた時の処理)`で作れる汎用部品で、動きはEngineの`ButtonComponent`。他の画面のボタンにも使い回せる。§20)。WASDで移動、Playerは常にマウスの方を向き、左クリックでその方向へ弾を発射。背景はタイル状に敷き詰めた床(`BackgroundController`)で、移動するとスクロールする(カメラはPlayerに付けた`CameraFollowComponent`が追いかける。§14)。敵(`EnemyManager`が一定間隔でPlayerの周囲にランダムスポーンさせる)が壁を避けながらゆっくり追いかけてきて(`PathFollowComponent`。§36)、弾を当てると倒せる(`EventBus`で`"EnemyDefeated"`イベントを発行しスコア加算。倒した位置に「+10」が出て、上に動きながら消える=`CreateScorePopup`。§19。爆発のパーティクルも出る=`CreateExplosion`。§26)。敵に触れるとHPが減り(1秒間の無敵時間つき)、敵から離れる向きに弾かれる(ノックバック。`AddForce`で衝撃を加え、0.2秒間は移動キーが効かない。§23)、画面が少し揺れて(`CameraShake`。§14)、画面の端が赤く点滅する(`ScreenEffect::Vignette`。§15)。HPが0になるとゲームオーバー画面が出てSPACEでタイトルに戻る(黒い丸が閉じて開く`SpriteTransition`。§16)。スコアがハイスコアを超えていたら、ゲームオーバーの時に保存され(`SaveData`。キーは`"Sample2DHighScore"`で、Sample3Dの記録とは別。§18)、画面左上のスコアの下に出る(次に起動しても残る)。タイトル画面の下にはBGMの音量スライダー(`CreateVolumeSlider`。つまみをドラッグして0〜1で変えられ、離すと保存されて次に起動した時も残る。§20)がある。画面左上のHPの文字の下にはHPゲージ(減った分が少し遅れて縮む)、Playerの頭上にも小さなHPバーが出る(`GaugeRenderer`。§20)。当たり判定・物理はPhysXを使い(Player=`CircleRigidbodyComponent`、敵=`SquareRigidbodyComponent`、弾=`CircleRigidbodyComponent`)、Player・敵はDynamic(`SetVelocity()`で速度を渡して動かす。重力なし・回転なし・`SetFreezePositionZ(true)`で奥行き方向に固定)、弾はKinematicのトリガー。3Dカメラは使わない(`CameraController`なし)。画面の左上のHPゲージの下には、画面の外なので描かずに省いた数「Culled」が出る(敵の `SpriteRenderer` は `SetFrustumCulling(true)`。§28)。マップには見張り役の `Guard`(青い `Player` 画像がゆっくり回り、扇形の視野に `Player` が入って壁にさえぎられていなければ赤くなる。視野は線で表示)と、視線をさえぎる壁 `Wall` が2枚置いてある(`VisionComponent`。§28)。敵が壁を避けるための地図として、原点の周りの6000四方の格子 `Navigation`(`CreateNavigation`。`NavGridComponent`。壁は自動で読まれる)が置いてある(§36)。
@@ -3262,7 +3262,7 @@ Engineの機能を「見て・触って分かる」ようにした、機能ご�
   Esc: アプリを終了        Esc: カテゴリ一覧へ     Esc: 機能一覧へ
 ```
 
-- **カテゴリ一覧**(`DemoMenuScene`): `Core` `Render` `UI` `Render3D` `Physics` `Behavior` `Audio` `Data` `Network` の9個(Engineのフォルダに近い名前)。デモがまだ無いカテゴリがあれば、暗くて押せず「準備中」と出る(今は9個すべてにデモがある)。
+- **カテゴリ一覧**(`DemoMenuScene`): `Core` `Render` `UI` `Render3D` `Physics` `Behavior` `Audio` `Data` `Network` `Stress` の10個(`Stress` 以外はEngineのフォルダに近い名前。`Stress` は負荷テスト用)。デモがまだ無いカテゴリがあれば、暗くて押せず「準備中」と出る(今は10個すべてにデモがある)。
 - **機能一覧**(`DemoCategoryScene`): 選んだカテゴリの機能が並ぶ。説明の左に印(`[2D/3D]` 2Dと3Dの両方 / `[2D]` 2Dだけ / `[3D]` 3Dだけ / `[ALL]` 2Dと3Dの区別が無い)が付く。**今の側(2D/3D)の版が無い機能は、ボタンが暗くなって押せない**。
 - **各デモ**: 左上の板に「デモの名前(と今の側の印)」「何のデモか」「操作方法」「使っているEngineのAPI」の4行、左下に「Back」ボタン(Escと同じ。カテゴリ一覧では「Quit」)、右下に2D/3Dの切り替えボタンが出る。
 - シーンの切り替えは、すべて暗転(`FadeTransition`)。
@@ -3342,6 +3342,14 @@ Engineの機能を「見て・触って分かる」ようにした、機能ご�
 | Network | **NetworkInput**(2D/3D。`NetworkInputDemo2DScene` / `NetworkInputDemo3DScene`) | プレイヤー0〜3それぞれの箱。自分の番号の箱をキーで動かす。入力はホストへ送られ、ホストが `SetVelocity` で動かし、結果が全員に見える。いない人の箱は暗い。オフラインでも1人で動かせる | WASD または矢印: 移動 / 3Dは SPACE: ジャンプ | `Network::SetLocalInput` / `GetInput`、`NetworkInput`、`NetworkIdentityComponent`(`HasAuthority` / `IsOwner`)、`RigidbodyComponent::SetVelocity`(§39) |
 | Network | **NetworkEvent**(共通。`NetworkEventDemoScene`) | 協力パズルの最小形。スイッチA・Bを両方押すと扉が開く(誰が押してもよい)。クライアントが押すと「SwitchPressed」がホストへ届き、ホストが共有の値(SwitchA / SwitchB / Door)を変えて「DoorOpened」を全員へ送る。**扉を開けたまま、あとから Join すると、開いた扉が見える**(共有の値が途中参加の人にも渡る)。受け取った出来事の記録が出る | Press Switch A / B / Reset Door | `Network::SendEvent` / `Subscribe` / `SetSharedValue` / `GetSharedValue`、`EventBus`(DoorOpened)(§39) |
 | Network | **NetworkSpawn**(2D/3D。`NetworkSpawnDemo2DScene` / `NetworkSpawnDemo3DScene`) | 弾を撃つ頼み(FireRequest)は誰でも送れて、ホストだけが弾を作る。弾は撃った人の番号の色で、全員の画面に出て、1.8秒で消える。弾は `ObjectPool` で使い回し、画面に出ている数とプールの大きさが出る。撃った人が抜けても、その人の弾は消える | Fire ボタンか SPACE | `Network::RegisterPrefab` / `Spawn` / `Despawn` / `SetDespawnHandler`、`ObjectPool`(§8・§39) |
+| Stress | **RobotCrowd**(3Dだけ。`RobotCrowdScene`) | **負荷テスト**。`robot.fbx`(32パーツ)のロボットがランダムに歩き回り(1〜3秒ごとに向きと速さを決め直し、床の端で中心へ向き直る)、体数を50体ずつ 0〜1000 で増減できる(最初は100体)。画面に、体数・**FPS と1フレームの時間(0.5秒ごとの平均と、その間の最長)**・1体あたりの時間・描画命令/三角形(`RenderStats`)・距離/画面外で省いた数が出る。**物理のあり/なし**を切り替えられる(なし=Transformだけで動かす / あり=カプセルの剛体(Dynamic・回転ロック)を `SetVelocity` で動かし、ロボット同士がぶつかる)。**剛体は後から付け外しできない**ので、切り替えは全員を消して同じ体数で作り直す。影・枠線・LOD・画面外を省く設定も切り替えられ、重さの違いを見比べられる。出る時に影とLODの設定は既定へ戻す | 上下キー か + -: 50体ずつ増減 / P: 物理あり・なし / 1: 影 / 2: 枠線 / 3: LOD(遠いロボットを省く) / 4: 画面外のロボットを描かない / 右ドラッグ: 視点 / Q・E: ズーム | `ModelRenderer`(`SetLod` / `SetFrustumCulling` / `SetOutline`)、`CapsuleRigidbodyComponent`(`SetFreezeRotation`)、`RigidbodyComponent::SetVelocity` / `GetVelocity`、`RenderStats`、`Visibility::GetCulledCount`、`Lod::SetEnabled`、`Shadow::GetSettings`、`Time::GetUnscaledDeltaTime`(§10・§28・§29・§32・§33・§37) |
+
+**Stress: 数字の読み方**
+
+- **FPS の上限は、画面の更新回数(VSync)です**(Engineは `Present(1, 0)` で描画を画面の更新に合わせる)。60Hzの画面なら、軽くても60で止まります。重さは、FPS が60から下がり始める体数や、1フレームの時間(ms)で見ます。
+- **1フレームの時間は、Engineが最長100msで打ち切ります**(`Time` の仕様。ウィンドウのドラッグ中などに大きな値にならないため)。100msより遅いフレームは「100ms(FPS 10)」と表示されます。
+- 体数を変えても、描画命令(`RenderStats`)は「ロボット数 x 32パーツ」で増えます。重くなる主な場所は、**描画命令の数(CPU側)**と、物理ありの時の**剛体の数**(Dynamic の剛体は連続衝突判定つき)です。
+- 物理ありでロボットが増えすぎると、ぶつかり合って床の端からはみ出すことがあります(はみ出したロボットは、中心へ向き直って戻ります)。
 
 (音のデモの`Voice`(再生口を直接使う`StartVoice`など)は作っていません。理由は下の「音とデータのデモの補足」。)
 
@@ -3374,12 +3382,12 @@ Engineの機能を「見て・触って分かる」ようにした、機能ご�
 ```
 Demo/main.cpp          ウィンドウの作成とEngineの初期化 → 最初のシーン(DemoMenuScene)
 Demo/Game/Scenes/      Common: DemoRegistry(デモの一覧と、今の状態), DemoMenuScene(カテゴリ一覧), DemoCategoryScene(機能一覧)
-                       Core / Render / UI / Render3D / Physics / Behavior / Audio / Data / Network: 各デモのシーン
+                       Core / Render / UI / Render3D / Physics / Behavior / Audio / Data / Network / Stress: 各デモのシーン
 Demo/Game/Objects/     Common: 全デモで使う部品(DemoGuide, DemoButton, DemoModeButton, DemoMenu, DemoCategoryMenu,
                                DemoBackground, DemoSkybox, DemoGround, DemoCamera, DemoLights, DemoWalker,
                                DemoStage3D=3Dの舞台(空・地面・カメラ)をまとめて作る,
                                DemoBody=物理の剛体付きの物を作る(CreateDemoBody2D / CreateDemoBody3D), DemoWall=壁を作る)
-                       Core / Render / UI / Render3D / Physics / Behavior / Audio / Data / Network: 各デモの部品
+                       Core / Render / UI / Render3D / Physics / Behavior / Audio / Data / Network / Stress: 各デモの部品
                        (Behavior の DemoAgent=動く物・目印・壁(タグ "Wall")・競技場・経路探索の格子を作る)
 Demo/Game/Components/  Common: DemoGuideController, DemoModeButtonController, DemoCategoryMenuController,
                                DemoCameraController, DemoWalkerController, BackgroundController, GroundController, SkyboxFollowComponent,
@@ -3387,7 +3395,7 @@ Demo/Game/Components/  Common: DemoGuideController, DemoModeButtonController, De
                                DemoMouseGround(マウスの下の地面を求める関数), DemoScreenFixController(2Dカメラが動いても、ボタンを画面の同じ場所に出す),
                                DemoStatus(説明の板の下に状態の板を出す関数), DemoBodyReset(動く剛体を元の位置へ戻す関数),
                                DemoPlane(動く平面の道具: 2D=XY・3D=XZ の座標の変換、マウスの下の位置、標準の競技場)
-                       Core / Render / UI / Render3D / Physics / Behavior / Audio / Data / Network: 各デモの動き
+                       Core / Render / UI / Render3D / Physics / Behavior / Audio / Data / Network / Stress: 各デモの動き
 ```
 
 - **`DemoRegistry.cpp` の `GetDemoList()` が、機能の一覧を1か所に持っています**。1機能につき1行で、`DemoInfo` は `{ カテゴリ, ボタンの名前, 一言説明, 2D版を開く関数, 3D版を開く関数 }`。**`nullptr` かどうかが「2Dあり/3Dあり」の印**になるので、印を別に持ちません(書き間違えない)。2Dと3Dの区別が無い機能は、両方に同じ関数を入れます。

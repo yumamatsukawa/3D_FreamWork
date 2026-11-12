@@ -56,7 +56,7 @@
 <tr><td><code>Engine</code></td><td>静的ライブラリ</td><td>全員が共通で使う機能(この解説の対象)。基本的にはみんなで触る場所ではありません。</td></tr>
 <tr><td><code>Sample2D</code></td><td>実行ファイル</td><td>トップダウンの 2D アリーナシューター。2D ゲームの作り方の見本。</td></tr>
 <tr><td><code>Sample3D</code></td><td>実行ファイル</td><td>3D 空間のショーケース(影・ライト・地形・水・モデルなど)。3D の作り方の見本。</td></tr>
-<tr><td><code>Demo</code></td><td>実行ファイル</td><td>Engine の機能を機能ごとに小さなシーンで見せるデモ集(52 個)。見て・触って分かる。</td></tr>
+<tr><td><code>Demo</code></td><td>実行ファイル</td><td>Engine の機能を機能ごとに小さなシーンで見せるデモ集(54 個)。見て・触って分かる。</td></tr>
 </table></div>
 <p>Sample2D / Sample3D / Demo の中身は、どれも <code>Game/Objects/</code>(工場関数)・<code>Game/Components/</code>(動き・ルール)・<code>Game/Scenes/</code>(配置)に分かれています。この解説のコード例は、これらの実際のソースから引用しています(出典のファイル名と行番号つき)。</p>
 
@@ -238,10 +238,10 @@ engine.Uninit();</code></pre></div>
 <ol class="flow">
 <li>Visual Studio でソリューション(<code>3D_FreamWork.sln</code>)を開き、<code>Demo</code> を右クリック →「スタートアッププロジェクトに設定」して、F5 で実行する。</li>
 <li>または、ビルド済みの <code>x64\Debug\Demo.exe</code>(<code>Release\</code> も)をダブルクリックする。</li>
-<li>起動すると<strong>カテゴリ一覧</strong>(Core / Render / UI / Render3D / Physics / Behavior / Audio / Data / Network の 9 個)が出る → 機能を選ぶ → デモが始まる。</li>
+<li>起動すると<strong>カテゴリ一覧</strong>(Core / Render / UI / Render3D / Physics / Behavior / Audio / Data / Network / Stress の 10 個)が出る → 機能を選ぶ → デモが始まる。</li>
 <li><strong>Tab</strong> キー(または右下のボタン)で、2D 版と 3D 版を切り替えられる(起動した時は 3D)。<strong>Esc</strong> で一つ前の画面へ戻る。</li>
 </ol>
-<p>各ページの「<strong>Demo で見られる所</strong>」は、このカテゴリと機能名の案内です(例: 「Render カテゴリの Sprite」)。全 52 個のデモは、Demo の <code>Game/Scenes/Common/DemoRegistry.cpp</code> の一覧に並んでいます。</p>
+<p>各ページの「<strong>Demo で見られる所</strong>」は、このカテゴリと機能名の案内です(例: 「Render カテゴリの Sprite」)。全 54 個のデモは、Demo の <code>Game/Scenes/Common/DemoRegistry.cpp</code> の一覧に並んでいます。</p>
 <div class="tw"><table class="plain">
 <tr><th>カテゴリ</th><th>デモ(機能名)</th></tr>
 <tr><td>Core</td><td>Object / Transform / Time / Input / Math / Pool / EventBus / Resources</td></tr>
@@ -253,6 +253,7 @@ engine.Uninit();</code></pre></div>
 <tr><td>Audio</td><td>Sound / Sound3D</td></tr>
 <tr><td>Data</td><td>Csv / Save</td></tr>
 <tr><td>Network</td><td>NetworkBasic / NetworkDiscovery / NetworkTransform / NetworkInput / NetworkEvent / NetworkSpawn</td></tr>
+<tr><td>Stress</td><td>RobotCrowd(ロボットの大群で、FPS と描画の数を測る負荷テスト)</td></tr>
 </table></div>
 <p>2D 版と 3D 版の両方がある機能と、片方だけの機能があります(例: Shapes・Light・Terrain などの Render3D の多くは 3D だけ)。</p>
 
